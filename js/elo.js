@@ -65,9 +65,28 @@
     return meta ? "Listas de " + meta.fada_periodo + " · " + meta.jugadores.toLocaleString("es-ES") + " jugadores. Escribe al menos dos letras del apellido." : "";
   }
 
+  var COLUMNAS = {
+    "RondaSwissFIDE.db": "nombre, federacion, titulo, anio_nacimiento, elo_standard, elo_blitz, elo_rapid, fide_id, sexo",
+    "RondaSwissFADA.db": "nombre, club, federado, titulo, anio_nacimiento, elo_fada, fide_id, sexo, provincia"
+  };
+  var TITULOS = { "RondaSwissFIDE.db": "Base de datos FIDE", "RondaSwissFADA.db": "Base de datos FADA" };
+
+  function showBases(m) {
+    var dbs = m.bases_de_datos || {};
+    var html = Object.keys(dbs).map(function (file) {
+      var d = dbs[file];
+      return '<div class="card"><div class="body"><h4>' + esc(TITULOS[file] || file) + "</h4>" +
+        '<p class="meta">' + esc(file) + " · " + (d.bytes / 1048576).toFixed(1).replace(".", ",") + " MB · " + d.filas.toLocaleString("es-ES") + " jugadores</p>" +
+        "<p>Tabla <code>" + esc(d.tabla) + "</code>: " + esc(COLUMNAS[file] || "") + ".</p>" +
+        '<p class="meta">Lista de ' + esc(m.fada_periodo) + " · construida el " + esc(m.construido) + "</p>" +
+        '<a class="more" download href="data/elo/' + esc(file) + "?v=" + esc(m.construido) + '">Descargar ' + esc(file) + " →</a></div></div>";
+    }).join("");
+    $("bases-list").innerHTML = html || '<p class="muted">Las bases de datos no están disponibles ahora mismo.</p>';
+  }
+
   fetch("data/elo/meta.json", { cache: "no-cache" })
     .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
-    .then(function (m) { meta = m; info.textContent = periodInfo(); })
+    .then(function (m) { meta = m; info.textContent = periodInfo(); showBases(m); })
     .catch(function () {
       info.textContent = "El buscador no está disponible ahora mismo. Usa la pestaña «FIDE oficial».";
       q.disabled = true;
