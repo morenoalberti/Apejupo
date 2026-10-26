@@ -101,9 +101,21 @@
   var tabs = $("stream-tabs"), sframe = $("stream-frame");
   function pickStream(i) {
     var s = D.streams[i];
-    var parents = ["parent=" + encodeURIComponent(location.hostname || "localhost")];
-    sframe.src = "https://player.twitch.tv/?channel=" + encodeURIComponent(s.channel) + "&muted=true&autoplay=false&" + parents.join("&");
-    $("stream-link").href = "https://www.twitch.tv/" + encodeURIComponent(s.channel);
+    if (s.type === "youtube") {
+      var yt = s.videoId
+        ? "https://www.youtube.com/embed/" + encodeURIComponent(s.videoId)
+        : "https://www.youtube.com/embed/live_stream?channel=" + encodeURIComponent(s.channelId);
+      sframe.src = yt;
+      $("stream-link").href = s.videoId
+        ? "https://www.youtube.com/watch?v=" + encodeURIComponent(s.videoId)
+        : "https://www.youtube.com/channel/" + encodeURIComponent(s.channelId) + "/live";
+      $("stream-link").textContent = "Abrir en YouTube";
+    } else {
+      sframe.src = "https://player.twitch.tv/?channel=" + encodeURIComponent(s.channel) +
+        "&muted=true&autoplay=false&parent=" + encodeURIComponent(location.hostname || "localhost");
+      $("stream-link").href = "https://www.twitch.tv/" + encodeURIComponent(s.channel);
+      $("stream-link").textContent = "Abrir en Twitch";
+    }
     Array.prototype.forEach.call(tabs.children, function (b, k) { b.setAttribute("aria-selected", k === i ? "true" : "false"); });
   }
   if (D.streams && D.streams.length) {

@@ -10,10 +10,15 @@ window.APEJUPO = {
     { date: "2026-11-07", title: "Liga por equipos · Ronda 1", place: "Por confirmar" },
     { date: "2026-11-21", title: "Torneo interno Apejupo", place: "Online (Lichess)" }
   ],
-  // Canales de Twitch. "channel" es el nombre que aparece en twitch.tv/NOMBRE.
+  // Streams en directo. Tipos:
+  //  - twitch:  { type: "twitch", label, channel }      (twitch.tv/CANAL)
+  //  - youtube: { type: "youtube", label, channelId }   (directo actual del canal; el ID empieza por UC...)
+  //  - youtube: { type: "youtube", label, videoId }     (un vídeo o directo concreto)
   streams: [
-    { label: "Chess.com", channel: "chess" },
-    { label: "Lichess", channel: "lichess" }
+    { type: "twitch", label: "Chess.com · Twitch", channel: "chess" },
+    { type: "twitch", label: "Lichess · Twitch", channel: "lichess" },
+    { type: "youtube", label: "Chess.com · YouTube", channelId: "UCXuU9AyEyTVQbckeEJox-6A" },
+    { type: "youtube", label: "FIDE · YouTube", channelId: "UC9B47GnzCRFHTT1BIBWvStQ" }
   ]
 };
 // Las fuentes de noticias se configuran en scripts/update_news.py
