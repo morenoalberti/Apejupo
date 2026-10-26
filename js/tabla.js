@@ -23,11 +23,12 @@
   };
 
   // Iconos de las cabeceras de ritmo de juego
-  var SVG = '<svg class="ico-th" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">';
+  // Dibujos propios (no copias de los de ninguna web): tablero 2×2, reloj y rayo.
+  var SVG = '<svg class="ico-th" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">';
   var ICONOS_TH = {
-    "Estándar": SVG + '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',                                       // reloj
-    "Rápidas": SVG + '<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M9.5 2.5h5M12 2.5V5"/></svg>',                    // cronómetro
-    "Blitz": SVG + '<path d="M13 2.5L5 13.5h6l-1 8 8-11h-6l1-8z"/></svg>'                                                  // rayo
+    "Estándar": SVG + '<path fill="currentColor" stroke="none" fill-rule="evenodd" d="M6 3h12a3 3 0 0 1 3 3v12a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3zM12 6v6h6V6zM6 12v6h6v-6z"/></svg>', // tablero 2×2
+    "Rápidas": SVG + '<circle cx="12" cy="12" r="9"/><path d="M12 7v5.5l3.5 2"/></svg>',                                                                                                   // reloj
+    "Blitz": SVG + '<path d="M13.5 2.5L5 13.5h6l-1 8 8.5-11h-6l1-8z"/></svg>'                                                                                                              // rayo
   };
 
   function lit(s) { return "'" + String(s).replace(/'/g, "''") + "'"; }
