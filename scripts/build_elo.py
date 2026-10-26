@@ -29,6 +29,7 @@ import re
 import sqlite3
 import sys
 import tempfile
+import time
 import unicodedata
 import urllib.request
 import xml.etree.ElementTree as ET
@@ -41,7 +42,12 @@ from urllib.parse import urljoin
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "data" / "elo"
 UA = {"User-Agent": "ApejupoBot/1.0 (+https://morenoalberti.github.io/Apejupo/)"}
-FIDE_ZIP = "https://ratings.fide.com/download/players_list_xml.zip"
+FIDE_ZIP = "https://ratings.fide.com/download/players_list_xml.zip"  # lista completa (uso privado, --full)
+FIDE_ZIPS = {  # listas por ritmo, más ligeras y fiables desde GitHub (modo público)
+    "std": "https://ratings.fide.com/download/standard_rating_list_xml.zip",
+    "rpd": "https://ratings.fide.com/download/rapid_rating_list_xml.zip",
+    "blz": "https://ratings.fide.com/download/blitz_rating_list_xml.zip",
+}
 FIDE_COUNTRY = "ESP"
 FADA_CATEGORY = "https://fadajedrez.com/wp/category/elo/"
 FIDE_DB = "RondaSwissFIDE.db"
@@ -138,7 +144,7 @@ def fada_latest():
 
 
 def fide_stamp():
-    with urllib.request.urlopen(request(FIDE_ZIP, "HEAD"), timeout=60) as r:
+    with urllib.request.urlopen(request(FIDE_ZIPS["std"], "HEAD"), timeout=60) as r:
         return r.headers.get("Last-Modified", "") + "|" + r.headers.get("Content-Length", "")
 
 
@@ -178,6 +184,53 @@ def read_fide(countries):
                                      to_int(el.findtext("rating")), to_int(el.findtext("rapid_rating")),
                                      to_int(el.findtext("blitz_rating")), (el.findtext("sex") or "").strip()))
                 el.clear()
+    return rows
+
+
+def _read_list(url, countries):
+    """{fide_id: (nombre, federacion, titulo, rating)} de una lista FIDE por ritmo."""
+    out = {}
+    with tempfile.TemporaryFile() as tmp:
+        with urllib.request.urlopen(request(url), timeout=120) as r:
+            while chunk := r.read(1 << 20):
+                tmp.write(chunk)
+        tmp.seek(0)
+        z = zipfile.ZipFile(tmp)
+        with z.open(z.namelist()[0]) as xml:
+            for _, el in ET.iterparse(xml, events=("end",)):
+                if el.tag != "player":
+                    continue
+                fed = (el.findtext("country") or "").strip()
+                if countries is None or fed in countries:
+                    title = (el.findtext("title") or el.findtext("foa_title") or "").strip()
+                    out[to_int(el.findtext("fideid"))] = (
+                        (el.findtext("name") or "").strip(), fed,
+                        "" if title.lower() in ("none", "ninguno", "-") else title, to_int(el.findtext("rating")))
+                el.clear()
+    return out
+
+
+def read_fide_lists(countries):
+    """Como read_fide, pero con las tres listas por ritmo. No trae año de nacimiento ni sexo
+    (la versión pública no los publica)."""
+    lists = {}
+    for kind, url in FIDE_ZIPS.items():
+        for attempt in range(3):
+            try:
+                lists[kind] = _read_list(url, countries)
+                break
+            except Exception as e:  # reintenta si la conexión falla
+                print(f"  reintento de la lista {kind}: {e}")
+                if attempt == 2:
+                    raise
+                time.sleep(10 * (attempt + 1))
+    rows = []
+    for pid in set(lists["std"]) | set(lists["rpd"]) | set(lists["blz"]):
+        base = lists["std"].get(pid) or lists["rpd"].get(pid) or lists["blz"].get(pid)
+        if pid and base[0]:
+            rows.append((pid, base[0], base[1], base[2], 0,
+                         lists["std"].get(pid, ("", "", "", 0))[3], lists["rpd"].get(pid, ("", "", "", 0))[3],
+                         lists["blz"].get(pid, ("", "", "", 0))[3], ""))
     return rows
 
 
@@ -305,8 +358,8 @@ def build_full(db_dir, all_countries):
 def build_public():
     article = fada_latest()
     stamp = fide_stamp()
-    print("FIDE: descargando lista completa…")
-    fide_all = read_fide({FIDE_COUNTRY})
+    print("FIDE: descargando listas…")
+    fide_all = read_fide_lists({FIDE_COUNTRY})
     fide = [r for r in fide_all if r[5] or r[6] or r[7]]  # solo con algún rating
     print(f"  jugadores {FIDE_COUNTRY}: {len(fide_all)} ({len(fide)} con rating)")
     print("FADA: descargando", article)
