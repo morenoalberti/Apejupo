@@ -6,6 +6,9 @@
   var PAGE = 50;
   var LIB_VERSION = "2"; // súbela si cambias los ficheros de assets/sqljs, para que los navegadores no usen la copia antigua
   var meta = null, workers = {}, tops = {}, seq = 0, timer = 0;
+
+  // La biblioteca para leer las bases pesa ~1,3 MB: se empieza a descargar ya, en paralelo, para que la primera búsqueda no la espere.
+  ["assets/sqljs/sqlite.worker.js?v=" + LIB_VERSION, "assets/sqljs/sql-wasm.wasm?v=" + LIB_VERSION].forEach(function (u) { fetch(u).catch(function () {}); });
   var state = { modo: "fide", page: 0 };
 
   var BASES = {
@@ -66,7 +69,7 @@
     var url = new URL("data/elo/" + file, location.href).href + "?v=" + (meta ? meta.construido : "");
     var info = meta && meta.bases_de_datos && meta.bases_de_datos[file];
     // GitHub Pages responde comprimido (gzip) a la consulta del tamaño, así que se lo damos nosotros (meta.json).
-    var config = { serverMode: "full", url: url, requestChunkSize: 4096 };
+    var config = { serverMode: "full", url: url, requestChunkSize: 16384 }; // múltiplo del tamaño de página (4096): menos peticiones
     if (info && info.bytes) config.databaseLengthBytes = info.bytes;
     workers[modo] = createDbWorker(
       [{ from: "inline", config: config }],
