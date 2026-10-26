@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Apejupo · Equipo de ajedrez</title>
+<meta name="description" content="Apejupo: noticias de ajedrez, retransmisiones en directo, calendario y equipo.">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<header class="site-header">
+  <div class="wrap bar">
+    <a class="brand" href="#inicio">&#9822; Apejupo</a>
+    <nav aria-label="Principal">
+      <a href="#directo">Directo</a>
+      <a href="#noticias">Noticias</a>
+      <a href="#calendario">Calendario</a>
+      <a href="#equipo">Equipo</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <section id="inicio" class="hero">
+    <div class="wrap">
+      <h1>Apejupo</h1>
+      <p>Ajedrez en directo, noticias al día y el equipo en un solo sitio.</p>
+      <a class="btn" href="#directo">Ver retransmisiones</a>
+    </div>
+  </section>
+
+  <section id="directo" class="wrap section">
+    <h2>En directo</h2>
+    <div id="live" class="cards" aria-live="polite"><p class="muted">Cargando retransmisiones…</p></div>
+    <h3>Próximas</h3>
+    <div id="upcoming" class="cards"></div>
+  </section>
+
+  <section id="noticias" class="wrap section">
+    <h2>Últimas noticias</h2>
+    <div id="news" class="cards" aria-live="polite"><p class="muted">Cargando noticias…</p></div>
+  </section>
+
+  <section id="calendario" class="wrap section">
+    <h2>Calendario del equipo</h2>
+    <ul id="events" class="events"></ul>
+  </section>
+
+  <section id="equipo" class="wrap section">
+    <h2>El equipo</h2>
+    <div id="players" class="cards"></div>
+  </section>
+</main>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <p>&copy; <span id="year"></span> Apejupo. Noticias de sus respectivas fuentes; retransmisiones vía Lichess.</p>
+  </div>
+</footer>
+
+<script src="js/data.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
