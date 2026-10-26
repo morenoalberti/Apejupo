@@ -30,10 +30,15 @@
   // ---------- Equipo ----------
   $("players").innerHTML = D.players.map(function (p) {
     var ini = p.name.split(" ").map(function (w) { return w[0]; }).join("").slice(0, 2).toUpperCase();
-    return '<div class="card player"><div class="avatar">' + esc(ini) + '</div>' +
+    var av = p.foto
+      ? '<div class="avatar con-foto"><img alt="" src="' + esc(p.foto) + '"></div>'   // foto propia (assets/equipo/…)
+      : '<div class="avatar"' + (p.fide ? ' data-fid="' + esc(p.fide) + '"' : "") + ">" + esc(ini) + "</div>"; // foto de FIDE si hay número
+    return '<div class="card player">' + av +
       '<h4>' + esc(p.name) + '</h4><p>' + esc(p.title) + '</p>' +
       '<p class="elo">Elo ' + esc(p.elo) + '</p></div>';
   }).join("");
+
+  U.fotos($("players"));
 
   // ---------- Calendario ----------
   var now = Date.now();

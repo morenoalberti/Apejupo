@@ -11,13 +11,13 @@
   var BASES = {
     fide: {
       file: "RondaSwissFIDE.db",
-      cols: ["N.º", "FIDE ID", "Nombre", "Fed.", "Título", "Estándar", "Rápidas", "Blitz"],
+      cols: ["N.º", "FIDE ID", "Jugador", "Fed.", "Título", "Estándar", "Rápidas", "Blitz"],
       num: [0, 1, 5, 6, 7],
       orden: [["std", "Elo estándar (mayor a menor)"], ["nombre", "Nombre (A–Z)"], ["id", "FIDE ID"]]
     },
     fada: {
       file: "RondaSwissFADA.db",
-      cols: ["N.º", "Nombre", "Club", "Licencia", "Título", "Elo FADA", "FIDE ID", "Provincia"],
+      cols: ["N.º", "Jugador", "Club", "Licencia", "Título", "Elo FADA", "FIDE ID", "Provincia"],
       num: [0, 5, 6],
       orden: [["elo", "Elo FADA (mayor a menor)"], ["nombre", "Nombre (A–Z)"]]
     }
@@ -86,14 +86,16 @@
       if (fide) {
         return "<tr><td class=\"pos\">" + (base + i + 1) + "</td>" +
           '<td class="num"><a target="_blank" rel="noopener" href="https://ratings.fide.com/profile/' + esc(r.fide_id) + '">' + esc(r.fide_id) + "</a></td>" +
-          "<td><strong>" + esc(r.nombre) + "</strong></td><td>" + esc(r.federacion) + "</td><td>" + esc(r.titulo || "") + "</td>" +
+          '<td><span class="jug">' + U.avatar(r.nombre, r.fide_id) + "<strong>" + esc(r.nombre) + "</strong></span></td>" +
+          "<td>" + U.flag(r.federacion) + esc(r.federacion) + "</td><td>" + esc(r.titulo || "") + "</td>" +
           '<td class="num elo">' + n(r.elo_standard) + '</td><td class="num">' + n(r.elo_rapid) + '</td><td class="num">' + n(r.elo_blitz) + "</td></tr>";
       }
-      return "<tr><td class=\"pos\">" + (base + i + 1) + "</td><td><strong>" + esc(r.nombre) + "</strong></td><td>" + esc(r.club || "") + "</td>" +
+      return "<tr><td class=\"pos\">" + (base + i + 1) + '</td><td><span class="jug">' + U.avatar(r.nombre, r.fide_id) + "<strong>" + esc(r.nombre) + "</strong></span></td><td>" + esc(r.club || "") + "</td>" +
         "<td>" + esc(r.federado || "") + "</td><td>" + esc(r.titulo || "") + '</td><td class="num elo">' + n(r.elo_fada) + "</td>" +
         '<td class="num">' + (r.fide_id ? '<a target="_blank" rel="noopener" href="https://ratings.fide.com/profile/' + esc(r.fide_id) + '">' + esc(r.fide_id) + "</a>" : "–") + "</td>" +
         "<td>" + esc(r.provincia || "") + "</td></tr>";
     }).join("");
+    U.fotos($("tbl-body"));
     $("tbl-prev").disabled = state.page === 0;
     $("tbl-next").disabled = !more;
     $("tbl-page").textContent = list.length ? "Filas " + (base + 1) + " a " + (base + list.length) : "";
@@ -148,6 +150,12 @@
     if (!b || b.getAttribute("data-db") === state.db) return;
     setDb(b.getAttribute("data-db"));
     run();
+  });
+  $("f-fotos").checked = U.fotosActivas();
+  $("f-fotos").addEventListener("change", function () {
+    U.setFotos(this.checked);
+    if (this.checked) U.fotos($("tbl-body"));
+    else location.reload(); // quita las fotos ya cargadas
   });
   $("tbl-filters").addEventListener("submit", function (e) { e.preventDefault(); state.page = 0; run(); });
   $("tbl-prev").addEventListener("click", function () { if (state.page > 0) { state.page--; run(); } });

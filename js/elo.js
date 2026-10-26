@@ -38,12 +38,13 @@
     var more = list.length > 50;
     info.textContent = more ? "Mostrando 50 de " + list.length + ". Añade el nombre para afinar la búsqueda." : list.length + (list.length === 1 ? " resultado" : " resultados");
     res.innerHTML = list.slice(0, 50).map(function (p) {
-      return "<tr><td><strong>" + esc(p[0]) + "</strong></td><td>" + esc(p[2]) + '</td>' +
+      return '<tr><td><span class="jug">' + U.avatar(p[0], p[1]) + "<strong>" + esc(p[0]) + "</strong></span></td><td>" + esc(p[2]) + '</td>' +
         '<td class="num">' + show(p[3]) + '</td><td class="num">' + show(p[4]) + '</td><td class="num">' + show(p[5]) + "</td>" +
         '<td class="num elo">' + show(p[6]) + "</td><td>" + esc(p[7]) + "</td>" +
         "<td>" + (p[1] ? '<a class="small" target="_blank" rel="noopener" href="https://ratings.fide.com/profile/' + esc(p[1]) + '">Ficha FIDE</a>' : "") + "</td></tr>";
     }).join("");
     wrap.hidden = false;
+    U.fotos(res);
   }
 
   function search() {
@@ -116,11 +117,14 @@
 
   body.innerHTML = players.map(function (p, i) {
     return '<tr data-i="' + i + '"><td class="pos">' + (i + 1) + '</td>' +
-      '<td><strong>' + esc(p.name) + '</strong><div class="muted small">' + esc(p.title) + '</div></td>' +
+      '<td><span class="jug">' + (p.foto ? '<span class="av con-foto"><img alt="" src="' + esc(p.foto) + '"></span>' : U.avatar(p.name, p.fide)) +
+      '<span><strong>' + esc(p.name) + '</strong><div class="muted small">' + esc(p.title) + '</div></span></span></td>' +
       '<td class="num elo">' + esc(p.elo) + '</td>' +
       cell("lb", p.lichess ? "…" : null) + cell("lr", p.lichess ? "…" : null) +
       cell("cb", p.chesscom ? "…" : null) + cell("cr", p.chesscom ? "…" : null) + "</tr>";
   }).join("");
+
+  U.fotos(body);
 
   function set(i, id, v) {
     var td = body.querySelector('tr[data-i="' + i + '"] td[data-c="' + id + '"]');

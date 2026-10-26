@@ -92,6 +92,7 @@
         </label>
         <button type="submit" class="btn">Buscar</button>
       </form>
+      <label class="chk"><input type="checkbox" id="f-fotos" checked> Mostrar fotos de los jugadores</label>
       <p class="muted small" id="tbl-info">Pulsa «Buscar» para ver los jugadores.</p>
       <div class="table-wrap">
         <table class="elo-table" id="tbl">
@@ -105,6 +106,7 @@
         <button type="button" class="btn-ghost" id="tbl-next" disabled>Siguiente →</button>
       </div>
       <p class="muted small">La base de datos se consulta directamente desde tu navegador: solo se descargan los trozos necesarios, no los 200 MB. Las columnas <code>anio_nacimiento</code> y <code>sexo</code> no se muestran porque en la versión pública van vacías.</p>
+      <p class="muted small">Las fotos son las de los perfiles públicos de FIDE (o, si no hay, de Lichess o Wikimedia Commons), y se cargan al verlas desde la API de ChessRival; no se guardan en esta web. Muchos jugadores no tienen foto y se muestran con sus iniciales. Banderas de <a target="_blank" rel="noopener" href="https://flagcdn.com">flagcdn.com</a>. Si quieres que no aparezca tu foto, <a href="mailto:contacto@apejupo.example">escríbenos</a>.</p>
     </div>
 
     <div id="panel-bases" class="panel" hidden>
