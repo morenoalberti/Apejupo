@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Táctica · Apejupo Chess Club</title>
+<meta name="description" content="Entrena táctica de ajedrez: el puzzle del día, problemas por temas (mates, horquillas, clavadas…) y modos de entrenamiento.">
+<link rel="icon" type="image/svg+xml" href="assets/icon.svg">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<header class="site-header">
+  <div class="wrap bar">
+    <a class="brand" href="index.html" aria-label="Apejupo Chess Club, inicio"><img src="assets/logo.svg" alt="Apejupo Chess Club" width="172" height="46"></a>
+    <nav aria-label="Principal">
+      <a href="torneos-live.html">Torneos Live</a>
+      <a href="torneos-proximos.html">Próximos Torneos</a>
+      <a href="elo.html">ELO</a>
+      <a href="tactica.html" aria-current="page">Táctica</a>
+      <a href="index.html#noticias">Noticias</a>
+      <a href="index.html#equipo">Equipo</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <section class="hero hero-small">
+    <div class="wrap">
+      <h1>Táctica</h1>
+      <p>Entrena tu visión del tablero: el puzzle del día, problemas por temas y modos de entrenamiento.</p>
+    </div>
+  </section>
+
+  <section class="wrap section two-col">
+    <div>
+      <div class="section-head"><h2>Puzzle del día</h2></div>
+      <div class="puzzle"><iframe id="puzzle" title="Puzzle del día de Lichess" loading="lazy" src="https://lichess.org/training/frame?theme=auto&amp;bg=auto" allowfullscreen></iframe></div>
+    </div>
+    <div>
+      <div class="section-head"><h2>Cómo se entrena</h2></div>
+      <div class="card"><div class="body">
+        <h4>Busca primero, mueve después</h4>
+        <p>Antes de tocar una pieza, mira jaques, capturas y amenazas de los dos bandos. Calcula la línea entera y solo entonces juega.</p>
+      </div></div>
+      <div class="card" style="margin-top:12px"><div class="body">
+        <h4>Un poco cada día</h4>
+        <p>Diez minutos diarios de problemas valen más que un domingo entero. Los temas de abajo te permiten entrenar un solo patrón hasta verlo a la primera.</p>
+        <a class="more" target="_blank" rel="noopener" href="https://lichess.org/training">Abrir el entrenador de Lichess →</a>
+      </div></div>
+    </div>
+  </section>
+
+  <section class="wrap section">
+    <div class="section-head"><h2>Entrena por temas</h2></div>
+    <p class="muted small">Cada tema abre en Lichess una tanda de problemas de ese patrón, adaptados a tu nivel.</p>
+    <div class="theme-grid" id="temas"></div>
+  </section>
+
+  <section class="wrap section">
+    <div class="section-head"><h2>Modos de entrenamiento</h2></div>
+    <div class="cards">
+      <article class="card"><div class="body"><h4>Puzzle Storm</h4><p>Resuelve el máximo de problemas en tres minutos. Ideal para ganar velocidad.</p><a class="more" target="_blank" rel="noopener" href="https://lichess.org/storm">Jugar Storm →</a></div></article>
+      <article class="card"><div class="body"><h4>Puzzle Racer</h4><p>Carrera de problemas contra otros jugadores o contra tus amigos.</p><a class="more" target="_blank" rel="noopener" href="https://lichess.org/racer">Jugar Racer →</a></div></article>
+      <article class="card"><div class="body"><h4>Puzzle Streak</h4><p>Encadena aciertos: un fallo y termina la racha.</p><a class="more" target="_blank" rel="noopener" href="https://lichess.org/streak">Jugar Streak →</a></div></article>
+      <article class="card"><div class="body"><h4>Tu panel de puzzles</h4><p>Con una cuenta de Lichess ves en qué temas aciertas más y en cuáles fallas.</p><a class="more" target="_blank" rel="noopener" href="https://lichess.org/training/dashboard/30">Ver mi panel →</a></div></article>
+    </div>
+  </section>
+</main>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <p>&copy; <span id="year"></span> Apejupo Chess Club. Los problemas son de <a href="https://lichess.org" target="_blank" rel="noopener" style="color:inherit">Lichess</a>, gratuito y de código abierto.</p>
+  </div>
+</footer>
+
+<script src="js/util.js"></script>
+<script src="js/tactica.js"></script>
+</body>
+</html>

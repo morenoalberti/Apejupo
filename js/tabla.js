@@ -22,6 +22,14 @@
     }
   };
 
+  // Iconos de las cabeceras de ritmo de juego
+  var SVG = '<svg class="ico-th" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">';
+  var ICONOS_TH = {
+    "Estándar": SVG + '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',                                       // reloj
+    "Rápidas": SVG + '<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M9.5 2.5h5M12 2.5V5"/></svg>',                    // cronómetro
+    "Blitz": SVG + '<path d="M13 2.5L5 13.5h6l-1 8 8-11h-6l1-8z"/></svg>'                                                  // rayo
+  };
+
   function lit(s) { return "'" + String(s).replace(/'/g, "''") + "'"; }
   function cleanName(s) { return s.trim().replace(/[^\p{L}\p{N} ,.'\-]/gu, ""); }
 
@@ -179,7 +187,7 @@
     $("f-nombre").placeholder = modo === "apejupo" ? "Busca un jugador del equipo por su nombre" : "Busca por nombre (por ejemplo, Moreno Alberti)" + (modo === "fada" ? " o por ID FADA" : "");
     if (bd) {
       var cols = BASES[modo].cols, num = BASES[modo].num;
-      $("tbl-head").innerHTML = "<tr>" + cols.map(function (c, i) { return "<th" + (num.indexOf(i) >= 0 ? ' class="num"' : "") + ">" + esc(c) + "</th>"; }).join("") + "</tr>";
+      $("tbl-head").innerHTML = "<tr>" + cols.map(function (c, i) { return "<th" + (num.indexOf(i) >= 0 ? ' class="num"' : "") + ">" + (ICONOS_TH[c] || "") + esc(c) + "</th>"; }).join("") + "</tr>";
       $("tbl-body").innerHTML = "";
       $("tbl-page").textContent = "";
       $("tbl-prev").disabled = $("tbl-next").disabled = true;

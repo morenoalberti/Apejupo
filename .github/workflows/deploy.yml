@@ -70,7 +70,7 @@ jobs:
       - name: Preparar sitio
         run: |
           mkdir _site
-          cp -r index.html torneos-live.html torneos-proximos.html elo.html assets css js data _site/
+          cp -r index.html torneos-live.html torneos-proximos.html elo.html tactica.html assets css js data _site/
           # versión en cada despliegue: el navegador no usa CSS/JS antiguos
           sed -i -E "s#(href|src)=\"((css|js)/[^\"?]+)\"#\1=\"\2?v=${GITHUB_SHA::8}\"#g" _site/*.html
       - uses: actions/configure-pages@v5

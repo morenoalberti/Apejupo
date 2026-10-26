@@ -77,6 +77,11 @@ a { color: var(--blue); }
 .pager { display: flex; justify-content: center; align-items: center; gap: 14px; margin: 14px 0; }
 .btn-ghost:disabled { opacity: .45; cursor: default; }
 .elo-table td a { text-decoration: none; }
+.theme-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 10px; margin-top: 10px; }
+.theme { display: flex; align-items: center; gap: 12px; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; color: var(--text); text-decoration: none; font-weight: 500; }
+.theme:hover { border-color: var(--blue); }
+.theme .pc { width: 44px; height: 44px; border-radius: 8px; background: #769656; display: flex; align-items: center; justify-content: center; flex: none; }
+.theme .pc img { display: block; }
 .sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 .search { display: flex; gap: 10px; margin: 16px 0 8px; flex-wrap: wrap; }
 .search input { flex: 1 1 280px; padding: 10px 14px; border-radius: 8px; border: 1px solid var(--line); background: var(--card); color: var(--text); font-size: 1rem; }
@@ -90,6 +95,7 @@ a { color: var(--blue); }
 .elo-table tbody tr:last-child td { border-bottom: 0; }
 .elo-table th { white-space: nowrap; font-size: .8rem; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
 .elo-table th small { display: block; text-transform: none; letter-spacing: 0; font-weight: 400; }
+.ico-th { width: 14px; height: 14px; vertical-align: -2px; margin-right: 5px; }
 .elo-table .num { text-align: right; font-variant-numeric: tabular-nums; }
 .elo-table .pos { width: 40px; color: var(--muted); font-weight: 600; }
 .elo-table td.elo { color: var(--amber); font-weight: 700; font-size: 1.05rem; }
