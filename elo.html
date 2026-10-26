@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>ELO · Apejupo Chess Club</title>
-<meta name="description" content="Clasificación Elo de los jugadores del equipo Apejupo, con sus puntuaciones en Lichess y Chess.com.">
+<meta name="description" content="Consulta el Elo FIDE y el Elo FADA (Federación Andaluza de Ajedrez) de cualquier jugador.">
 <link rel="icon" type="image/svg+xml" href="assets/icon.svg">
 <link rel="stylesheet" href="css/style.css">
 </head>
@@ -26,7 +26,48 @@
   <section class="hero hero-small">
     <div class="wrap">
       <h1>ELO</h1>
-      <p>La clasificación del equipo: puntuación de club y ratings online en Lichess y Chess.com.</p>
+      <p>Consulta el Elo FIDE y el Elo FADA de cualquier jugador.</p>
+    </div>
+  </section>
+
+  <section class="wrap section">
+    <div class="tabs" role="tablist" id="elo-tabs">
+      <button type="button" role="tab" data-p="fide" aria-selected="true">Elo FIDE</button>
+      <button type="button" role="tab" data-p="fada" aria-selected="false">Elo FADA</button>
+    </div>
+
+    <div id="panel-fide" class="panel">
+      <form id="fide-form" class="search" role="search">
+        <label class="sr-only" for="fide-q">Número FIDE</label>
+        <input id="fide-q" type="text" inputmode="numeric" autocomplete="off" placeholder="Ir a una ficha por número FIDE (por ejemplo, 1503014)">
+        <button type="submit" class="btn">Ver ficha</button>
+      </form>
+      <p class="muted small" id="fide-hint">Para buscar por nombre, escribe en el buscador de FIDE de aquí abajo. Datos oficiales de <a target="_blank" rel="noopener" href="https://ratings.fide.com">ratings.fide.com</a>: rating estándar, rápido y blitz.</p>
+      <div class="embed" id="fide-embed">
+        <iframe id="fide-frame" title="Consulta Elo FIDE" loading="lazy" src="https://ratings.fide.com/search.phtml"></iframe>
+      </div>
+      <p><a id="fide-open" class="small" target="_blank" rel="noopener" href="https://ratings.fide.com/search.phtml">Abrir en FIDE →</a></p>
+    </div>
+
+    <div id="panel-fada" class="panel" hidden>
+      <p class="muted">Elo de la <strong>Federación Andaluza de Ajedrez (FADA)</strong>. La FADA publica sus ratings como listas mensuales descargables, que se abren en la web oficial.</p>
+      <div class="cards">
+        <div class="card"><div class="body">
+          <h4>Lista Elo FADA vigente</h4>
+          <p>Descarga el listado completo de jugadores y su Elo, en varios formatos (Excel, Swiss Manager y otros).</p>
+          <a class="more" target="_blank" rel="noopener" href="https://www.gefe.net/mygefe2/ZPEligeDescargaElo.asp">Ir a las descargas →</a>
+        </div></div>
+        <div class="card"><div class="body">
+          <h4>Elo en la web de la FADA</h4>
+          <p>Información sobre el sistema de rating andaluz, histórico de listas y novedades.</p>
+          <a class="more" target="_blank" rel="noopener" href="https://fadajedrez.com/wp/elo/">Abrir fadajedrez.com →</a>
+        </div></div>
+        <div class="card"><div class="body">
+          <h4>Torneos registrados para Elo</h4>
+          <p>Consulta mensual de los torneos registrados, árbitros y provincias.</p>
+          <a class="more" target="_blank" rel="noopener" href="https://fadajedrez.com/wp/consulta-registros-elo/">Ver torneos →</a>
+        </div></div>
+      </div>
     </div>
   </section>
 
@@ -46,22 +87,13 @@
         <tbody id="elo-body"></tbody>
       </table>
     </div>
-    <p class="muted small" id="elo-note">Los ratings online se consultan en directo a Lichess y Chess.com. Un guion (–) indica que el jugador no ha indicado su usuario.</p>
-  </section>
-
-  <section class="wrap section">
-    <div class="section-head"><h2>¿Qué es el Elo?</h2></div>
-    <div class="cards">
-      <div class="card"><div class="body"><h4>Un número que mide el nivel</h4><p>El sistema Elo asigna a cada jugador una puntuación: si ganas a alguien más fuerte que tú, subes más; si pierdes con alguien más débil, bajas más.</p></div></div>
-      <div class="card"><div class="body"><h4>Ritmos distintos, ratings distintos</h4><p>En las plataformas online hay un Elo por ritmo de juego: bala, blitz, rápidas y clásicas. Aquí mostramos blitz y rápidas.</p></div></div>
-      <div class="card"><div class="body"><h4>Elo de club y Elo oficial</h4><p>El Elo de club lo lleva Apejupo en sus torneos internos. El Elo FIDE o federativo es el oficial de los torneos homologados.</p></div></div>
-    </div>
+    <p class="muted small">Los ratings online se consultan en directo a Lichess y Chess.com. Un guion (–) indica que el jugador no ha indicado su usuario.</p>
   </section>
 </main>
 
 <footer class="site-footer">
   <div class="wrap">
-    <p>&copy; <span id="year"></span> Apejupo Chess Club. Ratings online vía Lichess y Chess.com.</p>
+    <p>&copy; <span id="year"></span> Apejupo Chess Club. Datos de FIDE, FADA, Lichess y Chess.com.</p>
   </div>
 </footer>
 
