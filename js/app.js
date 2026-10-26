@@ -43,9 +43,41 @@
       '<span class="badge ' + cls + '">' + badge + '</span>' +
       '<h4>' + esc(t.name) + '</h4>' +
       '<p class="meta">' + esc(r.name) + (when ? " · " + esc(when) : "") + '</p>' +
+      (cls === "live" && r.id
+        ? '<button type="button" class="more" data-round="' + esc(r.url) + '" data-title="' + esc(t.name) + '">Ver aquí</button>'
+        : "") +
       '<a class="more" target="_blank" rel="noopener" href="' + esc(safeUrl(r.url || t.url)) + '">Ver en Lichess →</a>' +
       '</div></article>';
   }
+
+  // Visor incrustado: Lichess permite incrustar cada partida de una ronda (study/embed).
+  var viewer = $("viewer"), frame = $("viewer-frame"), sel = $("viewer-games");
+  var roundId = "";
+  function showGame() {
+    frame.src = "https://lichess.org/study/embed/" + roundId + "/" + sel.value + "?theme=auto&bg=auto";
+  }
+  sel.addEventListener("change", showGame);
+  $("viewer-close").addEventListener("click", function () { viewer.hidden = true; frame.src = "about:blank"; });
+  $("live").addEventListener("click", function (e) {
+    var b = e.target.closest("button[data-round]");
+    if (!b) return;
+    var m = /^https:\/\/lichess\.org\/broadcast\/(.+)\/([A-Za-z0-9]{8})$/.exec(b.getAttribute("data-round"));
+    if (!m) return;
+    roundId = m[2];
+    $("viewer-title").textContent = b.getAttribute("data-title");
+    sel.innerHTML = "<option>Cargando partidas…</option>";
+    viewer.hidden = false;
+    viewer.scrollIntoView({ behavior: "smooth", block: "start" });
+    fetch("https://lichess.org/api/broadcast/" + m[1] + "/" + roundId, { headers: { Accept: "application/json" } })
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        var g = j.games || [];
+        if (!g.length) { sel.innerHTML = "<option>Sin partidas todavía</option>"; return; }
+        sel.innerHTML = g.map(function (x) { return '<option value="' + esc(x.id) + '">' + esc(x.name) + "</option>"; }).join("");
+        showGame();
+      })
+      .catch(function () { sel.innerHTML = "<option>No se pudieron cargar las partidas</option>"; });
+  });
   fetch("https://lichess.org/api/broadcast/top")
     .then(function (r) { return r.json(); })
     .then(function (j) {

@@ -31,6 +31,14 @@
 
   <section id="directo" class="wrap section">
     <h2>En directo</h2>
+    <div id="viewer" class="viewer" hidden>
+      <div class="viewer-bar">
+        <strong id="viewer-title"></strong>
+        <select id="viewer-games" aria-label="Elegir partida"></select>
+        <button type="button" id="viewer-close" class="btn-ghost">Cerrar</button>
+      </div>
+      <iframe id="viewer-frame" title="Partida en directo" allowfullscreen></iframe>
+    </div>
     <div id="live" class="cards" aria-live="polite"><p class="muted">Cargando retransmisiones…</p></div>
     <h3>Próximas</h3>
     <div id="upcoming" class="cards"></div>
