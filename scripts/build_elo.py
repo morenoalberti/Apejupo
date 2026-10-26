@@ -144,8 +144,18 @@ def fada_latest():
 
 
 def fide_stamp():
-    with urllib.request.urlopen(request(FIDE_ZIPS["std"], "HEAD"), timeout=60) as r:
-        return r.headers.get("Last-Modified", "") + "|" + r.headers.get("Content-Length", "")
+    """Huella de la lista de FIDE (fecha y tamaño). Devuelve "" si FIDE no responde: la comprobación no falla."""
+    for method, extra in (("HEAD", {}), ("GET", {"Range": "bytes=0-0"})):
+        try:
+            req = request(FIDE_ZIPS["std"], method)
+            for k, v in extra.items():
+                req.add_header(k, v)
+            with urllib.request.urlopen(req, timeout=30) as r:
+                size = r.headers.get("Content-Range", "").split("/")[-1] or r.headers.get("Content-Length", "")
+                return r.headers.get("Last-Modified", "") + "|" + size
+        except Exception as e:
+            print(f"  aviso: no se pudo consultar FIDE ({method}): {e}")
+    return ""
 
 
 def needs_rebuild(meta_path):
@@ -154,7 +164,8 @@ def needs_rebuild(meta_path):
     old = json.loads(meta_path.read_text(encoding="utf-8"))
     if old.get("fada_article") != fada_latest():
         return True, "la FADA ha publicado una lista nueva"
-    if old.get("fide_stamp") != fide_stamp() and datetime.now(timezone.utc).day <= 7:
+    stamp = fide_stamp()
+    if stamp and old.get("fide_stamp") != stamp and datetime.now(timezone.utc).day <= 7:
         return True, "FIDE ha actualizado su lista"
     return False, "sin novedades"
 
