@@ -3,17 +3,18 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Apejupo · Equipo de ajedrez</title>
-<meta name="description" content="Apejupo: noticias de ajedrez, retransmisiones en directo, calendario y equipo.">
+<title>Apejupo Chess Club</title>
+<link rel="icon" type="image/svg+xml" href="assets/icon.svg">
+<meta name="description" content="Apejupo: noticias de ajedrez, torneos en directo, calendario y equipo.">
 <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
 <header class="site-header">
   <div class="wrap bar">
-    <a class="brand" href="#inicio">&#9822; Apejupo</a>
+    <a class="brand" href="index.html" aria-label="Apejupo Chess Club, inicio"><img src="assets/logo.svg" alt="Apejupo Chess Club" width="140" height="38"></a>
     <nav aria-label="Principal">
-      <a href="#directo">Directo</a>
-      <a href="#streams">Streams</a>
+      <a href="torneos-live.html">Torneos Live</a>
+      <a href="torneos-proximos.html">Próximos Torneos</a>
       <a href="#noticias">Noticias</a>
       <a href="#calendario">Calendario</a>
       <a href="#equipo">Equipo</a>
@@ -22,60 +23,76 @@
 </header>
 
 <main>
-  <section id="inicio" class="hero">
-    <div class="wrap">
-      <h1>Apejupo</h1>
-      <p>Ajedrez en directo, noticias al día y el equipo en un solo sitio.</p>
-      <a class="btn" href="#directo">Ver retransmisiones</a>
-    </div>
-  </section>
-
-  <section id="directo" class="wrap section">
-    <h2>En directo</h2>
-    <div id="viewer" class="viewer" hidden>
-      <div class="viewer-bar">
-        <strong id="viewer-title"></strong>
-        <select id="viewer-games" aria-label="Elegir partida"></select>
-        <button type="button" id="viewer-close" class="btn-ghost">Cerrar</button>
+  <section id="inicio" class="hero hero-home">
+    <div class="wrap hero-grid">
+      <div>
+        <span class="eyebrow">Equipo de ajedrez</span>
+        <h1>Juega, sigue y vive el ajedrez con <em>Apejupo</em></h1>
+        <p>Torneos en directo, las últimas noticias del mundo del ajedrez y todo lo que hace el equipo, en un solo sitio.</p>
+        <div class="hero-actions">
+          <a class="btn" href="torneos-live.html">Ver Torneos Live</a>
+          <a class="btn btn-outline" href="#equipo">Conoce al equipo</a>
+        </div>
       </div>
-      <iframe id="viewer-frame" title="Partida en directo" allowfullscreen></iframe>
+      <div class="board" id="board" role="img" aria-label="Tablero de ajedrez decorativo"></div>
     </div>
-    <div id="live" class="cards" aria-live="polite"><p class="muted">Cargando retransmisiones…</p></div>
-    <h3>Próximas</h3>
-    <div id="upcoming" class="cards"></div>
   </section>
 
-  <section id="streams" class="wrap section">
-    <h2>Streams con comentaristas</h2>
-    <p class="muted">Eventos de Chess.com, la FIDE y otros canales, en Twitch y YouTube.</p>
-    <div id="stream-tabs" class="tabs" role="tablist"></div>
-    <div class="stream"><iframe id="stream-frame" title="Stream de ajedrez" allowfullscreen></iframe></div>
-    <p class="muted small">Si el canal no está emitiendo, verás la pantalla de "sin conexión" o un aviso de vídeo no disponible. <a id="stream-link" target="_blank" rel="noopener" href="#">Abrir en Twitch</a></p>
+  <section class="wrap stats" aria-label="Resumen">
+    <div class="stat"><strong id="stat-live">–</strong><span>torneos en directo ahora</span></div>
+    <div class="stat"><strong id="stat-players">–</strong><span>jugadores en el equipo</span></div>
+    <div class="stat"><strong id="stat-events">–</strong><span>eventos próximos</span></div>
+  </section>
+
+  <section id="ahora" class="wrap section" hidden>
+    <div class="section-head">
+      <h2><span class="dot"></span> Ahora en directo</h2>
+      <a href="torneos-live.html">Ver todos →</a>
+    </div>
+    <div id="now" class="cards"></div>
   </section>
 
   <section id="noticias" class="wrap section">
-    <h2>Últimas noticias</h2>
-    <div id="news" class="cards" aria-live="polite"><p class="muted">Cargando noticias…</p></div>
+    <div class="section-head"><h2>Noticias del mundo del ajedrez</h2></div>
+    <div id="news-filter" class="tabs" aria-label="Filtrar por fuente"></div>
+    <div id="news" class="cards news-grid" aria-live="polite"><p class="muted">Cargando noticias…</p></div>
   </section>
 
-  <section id="calendario" class="wrap section">
-    <h2>Calendario del equipo</h2>
-    <ul id="events" class="events"></ul>
+  <section class="wrap section two-col">
+    <div>
+      <div class="section-head"><h2>Puzzle del día</h2></div>
+      <div class="puzzle"><iframe id="puzzle" title="Puzzle del día de Lichess" loading="lazy" src="https://lichess.org/training/frame?theme=auto&bg=auto" allowfullscreen></iframe></div>
+    </div>
+    <div id="calendario">
+      <div class="section-head"><h2>Calendario</h2></div>
+      <ul id="events" class="events"></ul>
+    </div>
   </section>
 
   <section id="equipo" class="wrap section">
-    <h2>El equipo</h2>
+    <div class="section-head"><h2>El equipo</h2></div>
     <div id="players" class="cards"></div>
+  </section>
+
+  <section class="wrap section">
+    <div class="join">
+      <div>
+        <h2>¿Quieres jugar con nosotros?</h2>
+        <p>Si te gusta el ajedrez, tengas el nivel que tengas, hay un sitio para ti en Apejupo.</p>
+      </div>
+      <a class="btn" id="join-link" href="mailto:contacto@apejupo.example">Escríbenos</a>
+    </div>
   </section>
 </main>
 
 <footer class="site-footer">
   <div class="wrap">
-    <p>&copy; <span id="year"></span> Apejupo. Noticias de sus respectivas fuentes; retransmisiones vía Lichess.</p>
+    <p>&copy; <span id="year"></span> Apejupo. Noticias de sus respectivas fuentes; puzzle y torneos vía Lichess.</p>
   </div>
 </footer>
 
+<script src="js/util.js"></script>
 <script src="js/data.js"></script>
-<script src="js/app.js"></script>
+<script src="js/home.js"></script>
 </body>
 </html>

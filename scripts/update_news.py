@@ -7,6 +7,7 @@ import json
 import re
 import urllib.request
 import xml.etree.ElementTree as ET
+from concurrent.futures import ThreadPoolExecutor
 from email.utils import parsedate_to_datetime
 from datetime import datetime, timezone
 from html import unescape
@@ -16,7 +17,12 @@ FEEDS = [
     ("Chess.com", "https://www.chess.com/rss/news"),
     ("Lichess", "https://lichess.org/blog.atom"),
     ("ChessBase", "https://en.chessbase.com/feed"),
+    ("ChessBase ES", "https://es.chessbase.com/feed"),
+    ("Chessdom", "https://www.chessdom.com/feed/"),
+    ("FIDE", "https://www.fide.com/feed/"),
 ]
+MAX_PER_FEED = 6
+TOTAL = 30
 OUT = Path(__file__).resolve().parent.parent / "data" / "news.json"
 ATOM = "{http://www.w3.org/2005/Atom}"
 
@@ -71,7 +77,25 @@ def read(name, url):
             "img": image_from(it, raw),
             "text": clean(raw)[:140],
         })
-    return items[:8]
+    return items[:MAX_PER_FEED]
+
+
+OG = re.compile(r'<meta[^>]+property=["\']og:image["\'][^>]+content=["\']([^"\']+)["\']', re.I)
+OG_REV = re.compile(r'<meta[^>]+content=["\']([^"\']+)["\'][^>]+property=["\']og:image["\']', re.I)
+
+
+def og_image(item):
+    """Lee la imagen principal (og:image) del artículo; si falla, deja la del feed."""
+    try:
+        req = urllib.request.Request(item["link"], headers={"User-Agent": "ApejupoBot/1.0"})
+        with urllib.request.urlopen(req, timeout=10) as r:
+            html = r.read(150_000).decode("utf-8", "ignore")
+        m = OG.search(html) or OG_REV.search(html)
+        if m and m.group(1).startswith("http"):
+            item["img"] = unescape(m.group(1))
+    except Exception:
+        pass
+    return item
 
 
 def main():
@@ -83,9 +107,13 @@ def main():
             print(f"[aviso] {name}: {e}")
     all_items = [i for i in all_items if i["title"] and i["link"].startswith("http")]
     all_items.sort(key=lambda i: i["date"], reverse=True)
+    top = all_items[:TOTAL]
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        top = list(pool.map(og_image, top))
     OUT.parent.mkdir(exist_ok=True)
-    OUT.write_text(json.dumps(all_items[:24], ensure_ascii=False, indent=1), encoding="utf-8")
-    print(f"{len(all_items[:24])} noticias guardadas en {OUT}")
+    OUT.write_text(json.dumps(top, ensure_ascii=False, indent=1), encoding="utf-8")
+    con_img = sum(1 for i in top if i["img"])
+    print(f"{len(top)} noticias guardadas ({con_img} con imagen) en {OUT}")
 
 
 if __name__ == "__main__":

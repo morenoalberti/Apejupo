@@ -1,40 +1,7 @@
 (function () {
-  var D = window.APEJUPO;
-  var $ = function (id) { return document.getElementById(id); };
+  var D = window.APEJUPO, $ = U.$, esc = U.esc, safeUrl = U.safeUrl, fmt = U.fmt;
 
-  function esc(s) {
-    var d = document.createElement("div");
-    d.textContent = s == null ? "" : String(s);
-    return d.innerHTML;
-  }
-  function safeUrl(u) {
-    return /^https?:\/\//i.test(u || "") ? u : "#";
-  }
-  function fmt(d, opts) {
-    return new Date(d).toLocaleString("es-ES", opts);
-  }
-
-  $("year").textContent = new Date().getFullYear();
-
-  // ---------- Equipo ----------
-  $("players").innerHTML = D.players.map(function (p) {
-    var ini = p.name.split(" ").map(function (w) { return w[0]; }).join("").slice(0, 2).toUpperCase();
-    return '<div class="card player"><div class="avatar">' + esc(ini) + '</div>' +
-      '<h4>' + esc(p.name) + '</h4><p>' + esc(p.title) + '</p>' +
-      '<p class="elo">Elo ' + esc(p.elo) + '</p></div>';
-  }).join("");
-
-  // ---------- Calendario ----------
-  var now = Date.now();
-  var evs = D.events.filter(function (e) { return new Date(e.date).getTime() >= now - 864e5; })
-    .sort(function (a, b) { return new Date(a.date) - new Date(b.date); });
-  $("events").innerHTML = evs.length ? evs.map(function (e) {
-    return '<li><div class="date">' + fmt(e.date, { day: "numeric" }) +
-      '<small>' + fmt(e.date, { month: "short" }) + '</small></div>' +
-      '<div><strong>' + esc(e.title) + '</strong><div class="muted">' + esc(e.place) + '</div></div></li>';
-  }).join("") : '<li class="muted">No hay eventos próximos.</li>';
-
-  // ---------- Directo (Lichess Broadcasts) ----------
+  // ---------- Torneos en directo (Lichess Broadcasts) ----------
   function bcCard(it, badge, cls) {
     var t = it.tour || {}, r = it.round || {};
     var img = t.image ? '<img loading="lazy" src="' + esc(safeUrl(t.image)) + '" alt="">' : "";
@@ -78,6 +45,7 @@
       })
       .catch(function () { sel.innerHTML = "<option>No se pudieron cargar las partidas</option>"; });
   });
+
   fetch("https://lichess.org/api/broadcast/top")
     .then(function (r) { return r.json(); })
     .then(function (j) {
@@ -96,16 +64,14 @@
       $("live").innerHTML = '<p class="muted">No se pudieron cargar las retransmisiones. <a target="_blank" rel="noopener" href="https://lichess.org/broadcast">Verlas en Lichess</a>.</p>';
     });
 
-  // ---------- Noticias (RSS vía rss2json) ----------
-  // ---------- Streams (Twitch) ----------
+  // ---------- Streams (Twitch y YouTube) ----------
   var tabs = $("stream-tabs"), sframe = $("stream-frame");
   function pickStream(i) {
     var s = D.streams[i];
     if (s.type === "youtube") {
-      var yt = s.videoId
+      sframe.src = s.videoId
         ? "https://www.youtube.com/embed/" + encodeURIComponent(s.videoId)
         : "https://www.youtube.com/embed/live_stream?channel=" + encodeURIComponent(s.channelId);
-      sframe.src = yt;
       $("stream-link").href = s.videoId
         ? "https://www.youtube.com/watch?v=" + encodeURIComponent(s.videoId)
         : "https://www.youtube.com/channel/" + encodeURIComponent(s.channelId) + "/live";
@@ -130,30 +96,4 @@
   } else {
     $("streams").hidden = true;
   }
-
-  // data/news.json lo genera scripts/update_news.py
-  fetch("data/news.json?t=" + Math.floor(Date.now() / 600000))
-    .then(function (r) { return r.json(); })
-    .then(function (list) {
-    var all = list.slice(0, 12).map(function (n) {
-      n.date = n.date ? new Date(n.date).getTime() : 0;
-      return n;
-    });
-    if (!all.length) {
-      $("news").innerHTML = '<p class="muted">No se pudieron cargar las noticias ahora mismo.</p>';
-      return;
-    }
-    $("news").innerHTML = all.map(function (n) {
-      var img = /^https?:\/\//i.test(n.img) ? '<img loading="lazy" src="' + esc(n.img) + '" alt="">' : "";
-      return '<article class="card">' + img + '<div class="body">' +
-        '<span class="meta">' + esc(n.source) + (n.date ? " · " + esc(fmt(n.date, { day: "numeric", month: "short" })) : "") + '</span>' +
-        '<h4>' + esc(n.title) + '</h4>' +
-        (n.text ? '<p>' + esc(n.text) + '…</p>' : "") +
-        '<a class="more" target="_blank" rel="noopener" href="' + esc(safeUrl(n.link)) + '">Leer en ' + esc(n.source) + ' →</a>' +
-        '</div></article>';
-    }).join("");
-    })
-    .catch(function () {
-      $("news").innerHTML = '<p class="muted">No se pudieron cargar las noticias ahora mismo.</p>';
-    });
 })();

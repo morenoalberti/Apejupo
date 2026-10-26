@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Torneos Live · Apejupo Chess Club</title>
+<link rel="icon" type="image/svg+xml" href="assets/icon.svg">
+<meta name="description" content="Torneos de ajedrez en directo: tableros en vivo de Lichess y streams de Twitch y YouTube.">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<header class="site-header">
+  <div class="wrap bar">
+    <a class="brand" href="index.html" aria-label="Apejupo Chess Club, inicio"><img src="assets/logo.svg" alt="Apejupo Chess Club" width="140" height="38"></a>
+    <nav aria-label="Principal">
+      <a href="torneos-live.html" aria-current="page">Torneos Live</a>
+      <a href="torneos-proximos.html">Próximos Torneos</a>
+      <a href="index.html#noticias">Noticias</a>
+      <a href="index.html#equipo">Equipo</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <section class="hero hero-small">
+    <div class="wrap">
+      <h1>Torneos Live</h1>
+      <p>Partidas en directo con tablero en vivo y streams con comentaristas.</p>
+    </div>
+  </section>
+
+  <section id="directo" class="wrap section">
+    <h2>En directo</h2>
+    <div id="viewer" class="viewer" hidden>
+      <div class="viewer-bar">
+        <strong id="viewer-title"></strong>
+        <select id="viewer-games" aria-label="Elegir partida"></select>
+        <button type="button" id="viewer-close" class="btn-ghost">Cerrar</button>
+      </div>
+      <iframe id="viewer-frame" title="Partida en directo" allowfullscreen></iframe>
+    </div>
+    <div id="live" class="cards" aria-live="polite"><p class="muted">Cargando retransmisiones…</p></div>
+    <h3>Próximas</h3>
+    <div id="upcoming" class="cards"></div>
+  </section>
+
+  <section id="streams" class="wrap section">
+    <h2>Streams con comentaristas</h2>
+    <p class="muted">Eventos de Chess.com, la FIDE y otros canales, en Twitch y YouTube.</p>
+    <div id="stream-tabs" class="tabs" role="tablist"></div>
+    <div class="stream"><iframe id="stream-frame" title="Stream de ajedrez" allowfullscreen></iframe></div>
+    <p class="muted small">Si el canal no está emitiendo, verás la pantalla de "sin conexión" o un aviso de vídeo no disponible. <a id="stream-link" target="_blank" rel="noopener" href="#">Abrir</a></p>
+  </section>
+</main>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <p>&copy; <span id="year"></span> Apejupo. Retransmisiones vía Lichess, Twitch y YouTube.</p>
+  </div>
+</footer>
+
+<script src="js/util.js"></script>
+<script src="js/data.js"></script>
+<script src="js/live.js"></script>
+</body>
+</html>
