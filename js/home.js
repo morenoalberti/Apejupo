@@ -3,7 +3,10 @@
 
   // ---------- Tablero decorativo (posición por FEN) ----------
   var FEN = "r1bqkb1r/pppp1ppp/2n2n2/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR";
-  var GLYPH = { K: "♔", Q: "♕", R: "♖", B: "♗", N: "♘", P: "♙", k: "♚", q: "♛", r: "♜", b: "♝", n: "♞", p: "♟" };
+  function pieceImg(ch) {
+    var name = (ch === ch.toUpperCase() ? "w" : "b") + ch.toUpperCase();
+    return '<img src="assets/pieces/' + name + '.png" alt="" draggable="false">';
+  }
   var cells = "";
   FEN.split("/").forEach(function (row, y) {
     var x = 0;
@@ -11,7 +14,7 @@
       if (/\d/.test(ch)) {
         for (var k = 0; k < +ch; k++, x++) cells += '<i class="' + ((x + y) % 2 ? "d" : "l") + '"></i>';
       } else {
-        cells += '<i class="' + ((x + y) % 2 ? "d" : "l") + (ch === ch.toUpperCase() ? " w" : " b") + '">' + GLYPH[ch] + "</i>";
+        cells += '<i class="' + ((x + y) % 2 ? "d" : "l") + '">' + pieceImg(ch) + "</i>";
         x++;
       }
     });
