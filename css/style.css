@@ -88,7 +88,7 @@ a { color: var(--blue); }
 .elo-table { width: 100%; border-collapse: collapse; min-width: 560px; }
 .elo-table th, .elo-table td { padding: 12px 14px; text-align: left; border-bottom: 1px solid var(--line); }
 .elo-table tbody tr:last-child td { border-bottom: 0; }
-.elo-table th { font-size: .8rem; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+.elo-table th { white-space: nowrap; font-size: .8rem; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
 .elo-table th small { display: block; text-transform: none; letter-spacing: 0; font-weight: 400; }
 .elo-table .num { text-align: right; font-variant-numeric: tabular-nums; }
 .elo-table .pos { width: 40px; color: var(--muted); font-weight: 600; }
