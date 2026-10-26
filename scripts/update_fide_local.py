@@ -33,11 +33,13 @@ def log(msg):
 
 
 def git(*args, input_text=None):
-    r = subprocess.run(["git", *args], cwd=ROOT, input=input_text, capture_output=True, text=True,
-                       encoding="utf-8", errors="replace")
+    # La entrada va en bytes: en modo texto Windows convertiría "\n" en "\r\n" y git lo guardaría en el nombre del fichero.
+    r = subprocess.run(["git", *args], cwd=ROOT, capture_output=True,
+                       input=None if input_text is None else input_text.encode("utf-8"))
+    out, err = r.stdout.decode("utf-8", "replace").strip(), r.stderr.decode("utf-8", "replace").strip()
     if r.returncode != 0:
-        raise RuntimeError(f"git {' '.join(args)} falló: {(r.stderr or r.stdout).strip()}")
-    return r.stdout.strip()
+        raise RuntimeError(f"git {' '.join(args)} falló: {err or out}")
+    return out
 
 
 def publish_snapshot(snap):
@@ -49,6 +51,13 @@ def publish_snapshot(snap):
 
 
 def main():
+    if "--republicar" in sys.argv:  # vuelve a subir la instantánea que ya hay en este equipo
+        snap = build_elo.load_fide_snapshot()
+        if snap is None:
+            raise RuntimeError("No hay instantánea local que publicar")
+        publish_snapshot(snap)
+        log(f"Instantánea republicada en la rama {BRANCH}: {len(snap['filas'])} jugadores.")
+        return
     log("Comprobando la lista de FIDE…")
     changed = build_elo.export_fide_snapshot(force="--forzar" in sys.argv)
     if not changed:
