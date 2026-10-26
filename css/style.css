@@ -95,6 +95,21 @@ a { color: var(--blue); }
 .elo-table tbody tr:last-child td { border-bottom: 0; }
 .elo-table th { white-space: nowrap; font-size: .8rem; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
 .elo-table th small { display: block; text-transform: none; letter-spacing: 0; font-weight: 400; }
+.elo-table .ac { text-align: center; width: 52px; }
+.ojo { background: none; border: 0; color: var(--blue); cursor: pointer; padding: 5px 7px; border-radius: 8px; line-height: 0; }
+.ojo:hover { background: rgba(59, 130, 246, .16); }
+.ico-ojo { width: 20px; height: 20px; }
+#stats-dlg { width: min(980px, 95vw); height: min(90vh, 920px); padding: 0; border: 1px solid var(--line); border-radius: 14px; background: var(--card); color: var(--text); overflow: hidden; }
+#stats-dlg[open] { display: flex; flex-direction: column; }
+#stats-dlg::backdrop { background: rgba(0, 0, 0, .62); }
+.dlg-head { display: flex; align-items: center; gap: 14px; padding: 14px 16px; border-bottom: 1px solid var(--line); flex: none; }
+.dlg-info { flex: 1; min-width: 0; }
+.dlg-info h3 { margin: 0; font-size: 1.15rem; }
+.dlg-head .av-lg, .av-lg { width: 60px; height: 60px; font-size: 1.05rem; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+.chips span { background: var(--bg); border: 1px solid var(--line); border-radius: 999px; padding: 2px 10px; font-size: .82rem; }
+#stats-cargando { margin: 8px 16px 0; flex: none; }
+#stats-frame { flex: 1; width: 100%; border: 0; background: #fff; margin-top: 8px; }
 .ico-th { width: 17px; height: 17px; vertical-align: -4px; margin-right: 6px; }
 .elo-table .num { text-align: right; font-variant-numeric: tabular-nums; }
 .elo-table .pos { width: 40px; color: var(--muted); font-weight: 600; }

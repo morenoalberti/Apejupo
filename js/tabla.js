@@ -14,11 +14,11 @@
   var BASES = {
     fide: {
       file: "RondaSwissFIDE.db", titulo: "FIDE",
-      cols: ["N.º", "FIDE ID", "Jugador", "Fed.", "Título", "Estándar", "Rápidas", "Blitz"], num: [0, 1, 5, 6, 7]
+      cols: ["N.º", "FIDE ID", "Jugador", "Fed.", "Título", "Estándar", "Rápidas", "Blitz", "Estadísticas"], num: [0, 1, 5, 6, 7]
     },
     fada: {
       file: "RondaSwissFADA.db", titulo: "FADA",
-      cols: ["N.º", "ID FADA", "Jugador", "Club", "Licencia", "Título", "Elo FADA", "Provincia"], num: [0, 1, 6]
+      cols: ["N.º", "ID FADA", "Jugador", "Club", "Licencia", "Título", "Elo FADA", "Provincia", "Estadísticas"], num: [0, 1, 6]
     }
   };
 
@@ -30,6 +30,17 @@
     "Rápidas": SVG + '<circle cx="12" cy="12" r="9"/><path d="M12 7v5.5l3.5 2"/></svg>',                                                                                                   // reloj
     "Blitz": SVG + '<path d="M13.5 2.5L5 13.5h6l-1 8 8.5-11h-6l1-8z"/></svg>'                                                                                                              // rayo
   };
+
+  var ICONO_STATS = SVG + '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>';   // gráfico de barras
+  var ICONO_OJO = '<svg class="ico-ojo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>';
+  var filas = {};   // número FIDE -> fila mostrada, para la ventana de estadísticas
+
+  /** Última columna: el ojo que abre las estadísticas de FIDE del jugador (solo si tiene número FIDE). */
+  function celdaOjo(r) {
+    if (!r.fide_id) return '<td class="ac"></td>';
+    filas[r.fide_id] = r;
+    return '<td class="ac"><button type="button" class="ojo" data-fid-ver="' + esc(r.fide_id) + '" title="Ver estadísticas" aria-label="Ver estadísticas de ' + esc(r.nombre) + '">' + ICONO_OJO + "</button></td>";
+  }
 
   function lit(s) { return "'" + String(s).replace(/'/g, "''") + "'"; }
   function cleanName(s) { return s.trim().replace(/[^\p{L}\p{N} ,.'\-]/gu, ""); }
@@ -101,10 +112,10 @@
       if (fide) {
         return '<tr><td class="pos">' + (base + i + 1) + '</td><td class="num">' + fideLink(r.fide_id) + "</td>" + jugador +
           "<td>" + U.flag(r.federacion) + esc(r.federacion) + "</td><td>" + esc(r.titulo || "") + "</td>" +
-          '<td class="num elo">' + n(r.elo_standard) + '</td><td class="num">' + n(r.elo_rapid) + '</td><td class="num">' + n(r.elo_blitz) + "</td></tr>";
+          '<td class="num elo">' + n(r.elo_standard) + '</td><td class="num">' + n(r.elo_rapid) + '</td><td class="num">' + n(r.elo_blitz) + "</td>" + celdaOjo(r) + "</tr>";
       }
       return '<tr><td class="pos">' + (base + i + 1) + '</td><td class="num">' + esc(r.id) + "</td>" + jugador + "<td>" + esc(r.club || "") + "</td><td>" + esc(r.federado || "") + "</td>" +
-        "<td>" + esc(r.titulo || "") + '</td><td class="num elo">' + n(r.elo_fada) + "</td><td>" + esc(r.provincia || "") + "</td></tr>";
+        "<td>" + esc(r.titulo || "") + '</td><td class="num elo">' + n(r.elo_fada) + "</td><td>" + esc(r.provincia || "") + "</td>" + celdaOjo(r) + "</tr>";
     }).join("");
     U.fotos($("tbl-body"));
     $("tbl-prev").disabled = state.page === 0;
@@ -188,7 +199,10 @@
     $("f-nombre").placeholder = modo === "apejupo" ? "Busca un jugador del equipo por su nombre" : "Busca por nombre (por ejemplo, Moreno Alberti)" + (modo === "fada" ? " o por ID FADA" : "");
     if (bd) {
       var cols = BASES[modo].cols, num = BASES[modo].num;
-      $("tbl-head").innerHTML = "<tr>" + cols.map(function (c, i) { return "<th" + (num.indexOf(i) >= 0 ? ' class="num"' : "") + ">" + (ICONOS_TH[c] || "") + esc(c) + "</th>"; }).join("") + "</tr>";
+      $("tbl-head").innerHTML = "<tr>" + cols.map(function (c, i) {
+        if (c === "Estadísticas") return '<th class="ac" title="Estadísticas">' + ICONO_STATS + '<span class="sr-only">Estadísticas</span></th>';  // solo icono
+        return "<th" + (num.indexOf(i) >= 0 ? ' class="num"' : "") + ">" + (ICONOS_TH[c] || "") + esc(c) + "</th>";
+      }).join("") + "</tr>";
       $("tbl-body").innerHTML = "";
       $("tbl-page").textContent = "";
       $("tbl-prev").disabled = $("tbl-next").disabled = true;
@@ -214,6 +228,34 @@
   });
   $("tbl-prev").addEventListener("click", function () { if (state.page > 0) { state.page--; run(); } });
   $("tbl-next").addEventListener("click", function () { state.page++; run(); });
+
+  // ---------- Ventana de estadísticas: foto y ficha oficial de FIDE (estadísticas y evolución del Elo) ----------
+  var dlg = $("stats-dlg");
+  function chip(etiqueta, valor) { return valor ? "<span><b>" + esc(etiqueta) + "</b> " + esc(valor) + "</span>" : ""; }
+  function abrirStats(r) {
+    if (!r || !r.fide_id) return;
+    var id = r.fide_id;
+    $("stats-nombre").textContent = r.nombre;
+    $("stats-av").innerHTML = U.avatar(r.nombre, id).replace('class="av"', 'class="av av-lg"');
+    $("stats-datos").innerHTML = (r.federacion ? U.flag(r.federacion) + esc(r.federacion) + " · " : "") + (r.titulo ? esc(r.titulo) + " · " : "") + "FIDE ID " + esc(id);
+    $("stats-elos").innerHTML = r.elo_standard !== undefined
+      ? chip("Estándar", r.elo_standard) + chip("Rápidas", r.elo_rapid) + chip("Blitz", r.elo_blitz)
+      : chip("Elo FADA", r.elo_fada) + chip("Club", r.club);
+    var url = "https://ratings.fide.com/profile/" + encodeURIComponent(id);
+    $("stats-fide").href = url;
+    $("stats-cargando").hidden = false;
+    $("stats-frame").src = url;
+    dlg.showModal();
+    U.fotos($("stats-av"));
+  }
+  $("stats-frame").addEventListener("load", function () { if (this.getAttribute("src") !== "about:blank") $("stats-cargando").hidden = true; });
+  $("stats-cerrar").addEventListener("click", function () { dlg.close(); });
+  dlg.addEventListener("click", function (e) { if (e.target === dlg) dlg.close(); });  // clic fuera de la ventana
+  dlg.addEventListener("close", function () { $("stats-frame").src = "about:blank"; });
+  $("tbl-body").addEventListener("click", function (e) {
+    var b = e.target.closest("button[data-fid-ver]");
+    if (b) abrirStats(filas[b.getAttribute("data-fid-ver")]);
+  });
 
   $("f-fotos").checked = U.fotosActivas();
   $("f-fotos").addEventListener("change", function () {
