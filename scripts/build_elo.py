@@ -150,7 +150,7 @@ def fide_stamp():
             req = request(FIDE_ZIPS["std"], method)
             for k, v in extra.items():
                 req.add_header(k, v)
-            with urllib.request.urlopen(req, timeout=30) as r:
+            with urllib.request.urlopen(req, timeout=15) as r:
                 size = r.headers.get("Content-Range", "").split("/")[-1] or r.headers.get("Content-Length", "")
                 return r.headers.get("Last-Modified", "") + "|" + size
         except Exception as e:
@@ -202,7 +202,7 @@ def _read_list(url, countries):
     """{fide_id: (nombre, federacion, titulo, rating)} de una lista FIDE por ritmo."""
     out = {}
     with tempfile.TemporaryFile() as tmp:
-        with urllib.request.urlopen(request(url), timeout=120) as r:
+        with urllib.request.urlopen(request(url), timeout=30) as r:
             while chunk := r.read(1 << 20):
                 tmp.write(chunk)
         tmp.seek(0)
@@ -226,15 +226,15 @@ def read_fide_lists(countries):
     (la versión pública no los publica)."""
     lists = {}
     for kind, url in FIDE_ZIPS.items():
-        for attempt in range(3):
+        for attempt in range(2):
             try:
                 lists[kind] = _read_list(url, countries)
                 break
-            except Exception as e:  # reintenta si la conexión falla
+            except Exception as e:  # reintenta una vez si la conexión falla
                 print(f"  reintento de la lista {kind}: {e}")
-                if attempt == 2:
+                if attempt == 1:
                     raise
-                time.sleep(10 * (attempt + 1))
+                time.sleep(5)
     rows = []
     for pid in set(lists["std"]) | set(lists["rpd"]) | set(lists["blz"]):
         base = lists["std"].get(pid) or lists["rpd"].get(pid) or lists["blz"].get(pid)
@@ -369,16 +369,31 @@ def build_full(db_dir, all_countries):
 def build_public():
     article = fada_latest()
     stamp = fide_stamp()
-    print("FIDE: descargando listas…")
-    fide_all = read_fide_lists({FIDE_COUNTRY})
-    fide = [r for r in fide_all if r[5] or r[6] or r[7]]  # solo con algún rating
-    print(f"  jugadores {FIDE_COUNTRY}: {len(fide_all)} ({len(fide)} con rating)")
     print("FADA: descargando", article)
     fada_all = fada_rows(read_fada_raw(article))
     fada = [r for r in fada_all if r[5]]  # solo con Elo FADA
     print(f"  jugadores FADA: {len(fada_all)} ({len(fada)} con Elo)")
-
     OUT.mkdir(parents=True, exist_ok=True)
+
+    print("FIDE: descargando listas…")
+    try:
+        fide_all = read_fide_lists({FIDE_COUNTRY})
+    except Exception as e:  # FIDE no responde (a veces bloquea las conexiones desde GitHub): se reintenta en la próxima pasada
+        print(f"AVISO: no se pudo descargar FIDE desde aquí ({e}). Se publica solo la FADA y se reintentará.")
+        write_fada_db(OUT / FADA_DB, fada, full=False)
+        meta_path = OUT / "meta.json"
+        meta = json.loads(meta_path.read_text(encoding="utf-8")) if meta_path.exists() else {}
+        periodo = re.search(r"elo-fada-([a-z]+-\d{4})", article)
+        meta.update({"fada_article": article, "fada_periodo": periodo.group(1).replace("-", " ") if periodo else "",
+                     "construido": datetime.now(timezone.utc).strftime("%Y-%m-%d")})
+        meta.setdefault("bases_de_datos", {})[FADA_DB] = {
+            "tabla": "jugadores_fada", "filas": len(fada), "bytes": (OUT / FADA_DB).stat().st_size}
+        meta_path.write_text(json.dumps(meta, ensure_ascii=False), encoding="utf-8")
+        print("Listo (parcial): base de datos de la FADA publicada; falta la de FIDE.")
+        return
+    fide = [r for r in fide_all if r[5] or r[6] or r[7]]  # solo con algún rating
+    print(f"  jugadores {FIDE_COUNTRY}: {len(fide_all)} ({len(fide)} con rating)")
+
     write_fide_db(OUT / FIDE_DB, fide, full=False)
     write_fada_db(OUT / FADA_DB, fada, full=False)
 

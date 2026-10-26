@@ -45,7 +45,7 @@ jobs:
           mkdir -p data/elo
           {
             date -u +"%Y-%m-%d %H:%M UTC"
-            curl -sS -m 40 -o /dev/null -r 0-0 -w "Diagnóstico FIDE: HTTP %{http_code} en %{time_total}s\n" https://ratings.fide.com/download/standard_rating_list_xml.zip || echo "Diagnóstico FIDE: sin respuesta desde GitHub"
+            curl -sS -m 15 -o /dev/null -r 0-0 -w "Diagnóstico FIDE: HTTP %{http_code} en %{time_total}s\n" https://ratings.fide.com/download/standard_rating_list_xml.zip || echo "Diagnóstico FIDE: sin respuesta desde GitHub"
             python -u scripts/build_elo.py 2>&1
           } | tee data/elo/build.log
       - name: Descargar noticias
