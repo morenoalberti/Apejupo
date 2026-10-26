@@ -32,15 +32,15 @@
 
   <section class="wrap section">
     <div class="tabs" id="elo-tabs" role="tablist">
-      <button type="button" role="tab" data-t="fide" aria-selected="true">FIDE</button>
-      <button type="button" role="tab" data-t="fada" aria-selected="false">FADA</button>
-      <button type="button" role="tab" data-t="apejupo" aria-selected="false">Apejupo</button>
+      <button type="button" role="tab" data-t="fide" aria-selected="true"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3c2.5 2.7 3.8 5.7 3.8 9s-1.3 6.3-3.8 9c-2.5-2.7-3.8-5.7-3.8-9s1.3-6.3 3.8-9z"/></svg>FIDE</button>
+      <button type="button" role="tab" data-t="fada" aria-selected="false"><svg class="ico ico-flag" viewBox="0 0 24 16" aria-hidden="true"><rect width="24" height="16" rx="2" fill="#fff"/><rect width="24" height="5.4" fill="#0a8a3a"/><rect y="10.6" width="24" height="5.4" fill="#0a8a3a"/><rect x=".5" y=".5" width="23" height="15" rx="1.6" fill="none" stroke="rgba(128,128,128,.55)"/></svg>FADA</button>
+      <button type="button" role="tab" data-t="apejupo" aria-selected="false"><img class="ico" src="assets/icon.svg" alt="" width="18" height="18">Apejupo</button>
     </div>
 
     <form id="elo-form" class="search" role="search" autocomplete="off">
       <label class="sr-only" for="f-nombre">Buscar por nombre</label>
       <input id="f-nombre" type="search" placeholder="Busca por nombre (por ejemplo, Moreno Alberti)">
-      <button type="submit" class="btn">Buscar</button>
+      <button type="submit" class="btn"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.6-3.6"/></svg>Buscar</button>
     </form>
     <label class="chk" id="chk-fotos"><input type="checkbox" id="f-fotos" checked> Mostrar fotos de los jugadores</label>
     <p class="muted small" id="tbl-info"></p>

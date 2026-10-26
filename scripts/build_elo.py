@@ -54,7 +54,7 @@ FIDE_COUNTRY = "ESP"
 FADA_CATEGORY = "https://fadajedrez.com/wp/category/elo/"
 SNAPSHOT = ROOT / "scripts" / ".cache" / "fide_all.json.gz"  # la genera este equipo (update_fide_local.py)
 SNAPSHOT_CI = ROOT / "fide-data" / "fide_all.json.gz"          # copia que GitHub recupera de la rama fide-data
-FORMATO = 2   # súbelo si cambia la forma de las bases o de los ficheros de data/elo: fuerza a reconstruirlos
+FORMATO = 3   # súbelo si cambia la forma de las bases o de los ficheros de data/elo: fuerza a reconstruirlos
 TOP_N = 1000  # jugadores de las listas iniciales ya calculadas (top_fide.json y top_fada.json)
 FIDE_DB = "RondaSwissFIDE.db"
 FADA_DB = "RondaSwissFADA.db"
@@ -358,7 +358,7 @@ def fada_rows(raw):
         fed = {"FED": "FED", "FEDERADO": "FED", "HAB": "HAB", "HABILITADO": "HAB", "HABILITANTE": "HAB"}.get(r.get("Federado", "").upper(), "NO")
         out.append((r["Apellidos_Nombre"].strip(), club, fed, r.get("Titl", ""), to_int(first(r, "AnoNacimiento", "FNac")),
                     to_int(first(r, "E_FADA", "EloFADA")), to_int(first(r, "CodigoFIDE", "ID_Fide")),
-                    first(r, "Sexo", "Se"), prov))
+                    first(r, "Sexo", "Se"), prov, to_int(r.get("ID_Fada"))))
     return out
 
 
@@ -392,9 +392,10 @@ def write_fada_db(path, rows, full):
     db = sqlite3.connect(path)
     db.executescript(FADA_TABLE)
     db.executemany(
-        "INSERT INTO jugadores_fada (nombre, club, federado, titulo, anio_nacimiento, elo_fada, fide_id, sexo, provincia)"
-        " VALUES (?,?,?,?,?,?,?,?,?)",
-        [(r[0], r[1] or None, r[2], r[3] or None, opt(r[4]) if full else None, opt(r[5]), opt(r[6]), (r[7] or None) if full else None, r[8] or None)
+        # El ID de la FADA (ID_Fada) se guarda como `id` de la fila: la estructura de la tabla es la de RondaSwiss.
+        "INSERT INTO jugadores_fada (id, nombre, club, federado, titulo, anio_nacimiento, elo_fada, fide_id, sexo, provincia)"
+        " VALUES (?,?,?,?,?,?,?,?,?,?)",
+        [(r[9] or None, r[0], r[1] or None, r[2], r[3] or None, opt(r[4]) if full else None, opt(r[5]), opt(r[6]), (r[7] or None) if full else None, r[8] or None)
          for r in rows])
     db.execute("INSERT OR REPLACE INTO app_settings (clave, valor) VALUES ('jugadores_fada_actualizado', ?)", (now_iso(),))
     db.executescript(FADA_INDEXES)
@@ -472,7 +473,7 @@ def build_public():
         [[r[0], r[1], r[2], r[3], r[5], r[6], r[7]] for r in fide_top], ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     fada_top = sorted((r for r in fada_all if r[5]), key=lambda r: (-r[5], r[0]))[:TOP_N]
     (OUT / "top_fada.json").write_text(json.dumps(
-        [[r[0], r[1], r[2], r[3], r[5], r[6], r[8]] for r in fada_top], ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+        [[r[0], r[1], r[2], r[3], r[5], r[6], r[8], r[9]] for r in fada_top], ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
 
     periodo = re.search(r"elo-fada-([a-z]+-\d{4})", article)
     meta = {

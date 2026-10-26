@@ -18,7 +18,7 @@
     },
     fada: {
       file: "RondaSwissFADA.db", titulo: "FADA",
-      cols: ["N.º", "Jugador", "Club", "Licencia", "Título", "Elo FADA", "FIDE ID", "Provincia"], num: [0, 5, 6]
+      cols: ["N.º", "ID FADA", "Jugador", "Club", "Licencia", "Título", "Elo FADA", "Provincia"], num: [0, 1, 6]
     }
   };
 
@@ -47,7 +47,7 @@
     var text = cleanName($("f-nombre").value);
     var esId = /^\d{3,}$/.test(text);
     var w = [], order, sql;
-    if (esId) w.push("fide_id = " + parseInt(text, 10));
+    if (esId) w.push((state.modo === "fada" ? "id" : "fide_id") + " = " + parseInt(text, 10)); // en la FADA, `id` es el ID FADA
     else if (v.pref) {
       w.push(prefix(v.pref));
       if (v.dado) w.push("nombre LIKE " + lit("%, " + v.dado + "%"));
@@ -57,7 +57,7 @@
       sql = "SELECT fide_id, nombre, federacion, titulo, elo_standard, elo_rapid, elo_blitz FROM jugadores_fide";
     } else {
       order = text && !esId ? "nombre COLLATE NOCASE" : "elo_fada DESC, id ASC";
-      sql = "SELECT nombre, club, federado, titulo, elo_fada, fide_id, provincia FROM jugadores_fada";
+      sql = "SELECT id, nombre, club, federado, titulo, elo_fada, fide_id, provincia FROM jugadores_fada";
     }
     return sql + (w.length ? " WHERE " + w.join(" AND ") : "") + " ORDER BY " + order +
       " LIMIT " + (PAGE + 1) + " OFFSET " + (state.page * PAGE);
@@ -94,8 +94,8 @@
           "<td>" + U.flag(r.federacion) + esc(r.federacion) + "</td><td>" + esc(r.titulo || "") + "</td>" +
           '<td class="num elo">' + n(r.elo_standard) + '</td><td class="num">' + n(r.elo_rapid) + '</td><td class="num">' + n(r.elo_blitz) + "</td></tr>";
       }
-      return '<tr><td class="pos">' + (base + i + 1) + "</td>" + jugador + "<td>" + esc(r.club || "") + "</td><td>" + esc(r.federado || "") + "</td>" +
-        "<td>" + esc(r.titulo || "") + '</td><td class="num elo">' + n(r.elo_fada) + '</td><td class="num">' + fideLink(r.fide_id) + "</td><td>" + esc(r.provincia || "") + "</td></tr>";
+      return '<tr><td class="pos">' + (base + i + 1) + '</td><td class="num">' + esc(r.id) + "</td>" + jugador + "<td>" + esc(r.club || "") + "</td><td>" + esc(r.federado || "") + "</td>" +
+        "<td>" + esc(r.titulo || "") + '</td><td class="num elo">' + n(r.elo_fada) + "</td><td>" + esc(r.provincia || "") + "</td></tr>";
     }).join("");
     U.fotos($("tbl-body"));
     $("tbl-prev").disabled = state.page === 0;
@@ -119,7 +119,7 @@
         return a.map(function (r) {
           return modo === "fide"
             ? { fide_id: r[0], nombre: r[1], federacion: r[2], titulo: r[3], elo_standard: r[4], elo_rapid: r[5], elo_blitz: r[6] }
-            : { nombre: r[0], club: r[1], federado: r[2], titulo: r[3], elo_fada: r[4], fide_id: r[5], provincia: r[6] };
+            : { id: r[7], nombre: r[0], club: r[1], federado: r[2], titulo: r[3], elo_fada: r[4], fide_id: r[5], provincia: r[6] };
         });
       })
       .catch(function (e) { delete tops[modo]; throw e; });
@@ -176,7 +176,7 @@
     $("panel-apejupo").hidden = bd;
     $("nota-fide").hidden = !bd;
     $("chk-fotos").hidden = false;
-    $("f-nombre").placeholder = modo === "apejupo" ? "Busca un jugador del equipo por su nombre" : "Busca por nombre (por ejemplo, Moreno Alberti)";
+    $("f-nombre").placeholder = modo === "apejupo" ? "Busca un jugador del equipo por su nombre" : "Busca por nombre (por ejemplo, Moreno Alberti)" + (modo === "fada" ? " o por ID FADA" : "");
     if (bd) {
       var cols = BASES[modo].cols, num = BASES[modo].num;
       $("tbl-head").innerHTML = "<tr>" + cols.map(function (c, i) { return "<th" + (num.indexOf(i) >= 0 ? ' class="num"' : "") + ">" + esc(c) + "</th>"; }).join("") + "</tr>";

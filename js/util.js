@@ -43,8 +43,13 @@
   // ---------- Fotos de jugadores ----------
   // Se piden a la API gratuita de ChessRival, que busca la foto del perfil público de FIDE (y, si no hay, Lichess o
   // Wikimedia Commons). No se guardan copias: cada foto se carga cuando la fila es visible.
-  var FOTO_API = "https://chessrival-api.chessrival-worker.workers.dev/api/fide/foto?id=";
-  var SIN_FOTO_DIAS = 1, MAX_A_LA_VEZ = 4, activas = 0, cola = [];
+  // Igual que ChessRival: primero su servidor intermedio de Cloudflare y, si no devuelve foto, su servidor principal,
+  // que además guarda copias verificadas de algunos jugadores para cuando FIDE no responde.
+  var FOTO_FUENTES = [
+    "https://chessrival-api.chessrival-worker.workers.dev/api/fide/foto?id=",
+    "https://chessrival.net/api/fide/foto?id="
+  ];
+  var SIN_FOTO_MIN = 30, MAX_A_LA_VEZ = 4, activas = 0, cola = [];
 
   function fotosActivas() {
     try { return localStorage.getItem("fotosOff") !== "1"; } catch (e) { return true; }
@@ -53,19 +58,24 @@
   U.setFotos = function (on) { try { localStorage.setItem("fotosOff", on ? "0" : "1"); } catch (e) {} };
 
   function sinFoto(id) {
-    try { var t = +localStorage.getItem("fotoNo:" + id); return !!t && Date.now() - t < SIN_FOTO_DIAS * 864e5; } catch (e) { return false; }
+    try { var t = +localStorage.getItem("fotoNo:" + id); return !!t && Date.now() - t < SIN_FOTO_MIN * 60000; } catch (e) { return false; }
   }
   function marcarSinFoto(id) { try { localStorage.setItem("fotoNo:" + id, String(Date.now())); } catch (e) {} }
   function siguiente() { while (activas < MAX_A_LA_VEZ && cola.length) cargar(cola.shift()); }
   function cargar(el) {
-    var id = el.getAttribute("data-fid");
+    var id = el.getAttribute("data-fid"), i = 0;
     activas++;
-    var img = new Image();
-    img.alt = "";
-    img.decoding = "async";
-    img.onload = function () { el.textContent = ""; el.appendChild(img); el.classList.add("con-foto"); fin(); };
-    img.onerror = function () { marcarSinFoto(id); fin(); };
-    img.src = FOTO_API + encodeURIComponent(id);
+    (function probar() {
+      var img = new Image();
+      img.alt = "";
+      img.decoding = "async";
+      img.onload = function () { el.textContent = ""; el.appendChild(img); el.classList.add("con-foto"); fin(); };
+      img.onerror = function () {
+        if (++i < FOTO_FUENTES.length) probar();  // esa fuente no tiene la foto o falló: se prueba la siguiente
+        else { marcarSinFoto(id); fin(); }
+      };
+      img.src = FOTO_FUENTES[i] + encodeURIComponent(id);
+    })();
   }
   function fin() { activas--; siguiente(); }
 

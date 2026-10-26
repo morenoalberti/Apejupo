@@ -125,6 +125,9 @@ a { color: var(--blue); }
 .card button.more { margin-top: auto; align-self: flex-start; background: var(--blue); color: #fff; border: 0; padding: 7px 14px; border-radius: 8px; font-weight: 500; cursor: pointer; }
 .card button.more:hover { background: #2563eb; }
 .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin: 12px 0; }
+.ico { width: 18px; height: 18px; flex: none; display: block; }
+.ico-flag { width: 22px; height: 15px; }
+.tabs button, .search .btn { display: inline-flex; align-items: center; gap: 8px; }
 .tabs button { background: var(--card); color: var(--text); border: 1px solid var(--line); padding: 6px 14px; border-radius: 999px; cursor: pointer; }
 .tabs button[aria-selected="true"] { background: var(--blue); border-color: var(--blue); color: #fff; }
 .stream { position: relative; padding-top: 56.25%; background: #000; border-radius: 12px; overflow: hidden; }
