@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ELO · Apejupo Chess Club</title>
+<meta name="description" content="Clasificación Elo de los jugadores del equipo Apejupo, con sus puntuaciones en Lichess y Chess.com.">
+<link rel="icon" type="image/svg+xml" href="assets/icon.svg">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<header class="site-header">
+  <div class="wrap bar">
+    <a class="brand" href="index.html" aria-label="Apejupo Chess Club, inicio"><img src="assets/logo.svg" alt="Apejupo Chess Club" width="172" height="46"></a>
+    <nav aria-label="Principal">
+      <a href="torneos-live.html">Torneos Live</a>
+      <a href="torneos-proximos.html">Próximos Torneos</a>
+      <a href="elo.html" aria-current="page">ELO</a>
+      <a href="index.html#noticias">Noticias</a>
+      <a href="index.html#equipo">Equipo</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <section class="hero hero-small">
+    <div class="wrap">
+      <h1>ELO</h1>
+      <p>La clasificación del equipo: puntuación de club y ratings online en Lichess y Chess.com.</p>
+    </div>
+  </section>
+
+  <section class="wrap section">
+    <div class="section-head"><h2>Clasificación Apejupo</h2></div>
+    <div class="table-wrap">
+      <table class="elo-table">
+        <thead>
+          <tr>
+            <th>#</th><th>Jugador</th><th class="num">Elo club</th>
+            <th class="num">Lichess<small>blitz</small></th>
+            <th class="num">Lichess<small>rápidas</small></th>
+            <th class="num">Chess.com<small>blitz</small></th>
+            <th class="num">Chess.com<small>rápidas</small></th>
+          </tr>
+        </thead>
+        <tbody id="elo-body"></tbody>
+      </table>
+    </div>
+    <p class="muted small" id="elo-note">Los ratings online se consultan en directo a Lichess y Chess.com. Un guion (–) indica que el jugador no ha indicado su usuario.</p>
+  </section>
+
+  <section class="wrap section">
+    <div class="section-head"><h2>¿Qué es el Elo?</h2></div>
+    <div class="cards">
+      <div class="card"><div class="body"><h4>Un número que mide el nivel</h4><p>El sistema Elo asigna a cada jugador una puntuación: si ganas a alguien más fuerte que tú, subes más; si pierdes con alguien más débil, bajas más.</p></div></div>
+      <div class="card"><div class="body"><h4>Ritmos distintos, ratings distintos</h4><p>En las plataformas online hay un Elo por ritmo de juego: bala, blitz, rápidas y clásicas. Aquí mostramos blitz y rápidas.</p></div></div>
+      <div class="card"><div class="body"><h4>Elo de club y Elo oficial</h4><p>El Elo de club lo lleva Apejupo en sus torneos internos. El Elo FIDE o federativo es el oficial de los torneos homologados.</p></div></div>
+    </div>
+  </section>
+</main>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <p>&copy; <span id="year"></span> Apejupo Chess Club. Ratings online vía Lichess y Chess.com.</p>
+  </div>
+</footer>
+
+<script src="js/util.js"></script>
+<script src="js/data.js"></script>
+<script src="js/elo.js"></script>
+</body>
+</html>

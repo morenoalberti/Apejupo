@@ -1,7 +1,8 @@
 // Datos editables del equipo. Cambia estos valores a mano.
 window.APEJUPO = {
   players: [
-    { name: "Jugador 1", title: "Capitán", elo: 2000 },
+    // Opcional: "lichess" y "chesscom" con el usuario de cada plataforma para ver su rating en vivo en la página ELO.
+    { name: "Jugador 1", title: "Capitán", elo: 2000, lichess: "", chesscom: "" },
     { name: "Jugador 2", title: "Tablero 2", elo: 1900 },
     { name: "Jugador 3", title: "Tablero 3", elo: 1800 },
     { name: "Jugador 4", title: "Tablero 4", elo: 1700 }
