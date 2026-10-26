@@ -1,4 +1,5 @@
 _site/
 __pycache__/
 scripts/.cache/
+data/elo/
 .claude/

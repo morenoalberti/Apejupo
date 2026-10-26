@@ -33,6 +33,15 @@ jobs:
           path: scripts/.cache
           key: traducciones-${{ github.run_id }}
           restore-keys: traducciones-
+      - name: Recuperar datos de Elo guardados
+        uses: actions/cache@v4
+        with:
+          path: data/elo
+          key: elo-${{ github.run_id }}
+          restore-keys: elo-
+      - name: Actualizar Elo FIDE y FADA (solo si hay listas nuevas)
+        continue-on-error: true
+        run: python scripts/build_elo.py
       - name: Descargar noticias
         run: python scripts/update_news.py
       - name: Preparar sitio

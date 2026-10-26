@@ -32,11 +32,35 @@
 
   <section class="wrap section">
     <div class="tabs" role="tablist" id="elo-tabs">
-      <button type="button" role="tab" data-p="fide" aria-selected="true">Elo FIDE</button>
-      <button type="button" role="tab" data-p="fada" aria-selected="false">Elo FADA</button>
+      <button type="button" role="tab" data-p="buscar" aria-selected="true">Buscador</button>
+      <button type="button" role="tab" data-p="fide" aria-selected="false">FIDE oficial</button>
+      <button type="button" role="tab" data-p="fada" aria-selected="false">FADA</button>
     </div>
 
-    <div id="panel-fide" class="panel">
+    <div id="panel-buscar" class="panel">
+      <form id="elo-search" class="search" role="search" autocomplete="off">
+        <label class="sr-only" for="elo-q">Apellidos y nombre</label>
+        <input id="elo-q" type="search" placeholder="Escribe un apellido o «apellido, nombre» (por ejemplo, García, Juan)">
+      </form>
+      <p class="muted small" id="elo-info">Cargando listas…</p>
+      <div class="table-wrap" id="elo-results-wrap" hidden>
+        <table class="elo-table">
+          <thead>
+            <tr>
+              <th>Jugador</th><th>Título</th>
+              <th class="num">FIDE<small>estándar</small></th>
+              <th class="num">FIDE<small>rápidas</small></th>
+              <th class="num">FIDE<small>blitz</small></th>
+              <th class="num">FADA</th><th>Prov.</th><th></th>
+            </tr>
+          </thead>
+          <tbody id="elo-results"></tbody>
+        </table>
+      </div>
+      <p class="muted small">Datos públicos de las listas oficiales de FIDE (jugadores de España) y de la FADA (Andalucía). Solo se muestran nombre, título, ratings y provincia. Si quieres que se retire un dato, <a href="mailto:contacto@apejupo.example">escríbenos</a>.</p>
+    </div>
+
+    <div id="panel-fide" class="panel" hidden>
       <form id="fide-form" class="search" role="search">
         <label class="sr-only" for="fide-q">Número FIDE</label>
         <input id="fide-q" type="text" inputmode="numeric" autocomplete="off" placeholder="Ir a una ficha por número FIDE (por ejemplo, 1503014)">
