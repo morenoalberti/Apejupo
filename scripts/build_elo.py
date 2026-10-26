@@ -24,6 +24,7 @@ Modos:
 La web ejecuta esto a menudo: la comprobación son 2 peticiones ligeras y solo reconstruye si la FADA ha
 publicado un mes nuevo, o si FIDE ha cambiado su lista durante los primeros 7 días del mes.
 """
+import gzip
 import json
 import re
 import sqlite3
@@ -50,6 +51,7 @@ FIDE_ZIPS = {  # listas por ritmo, más ligeras y fiables desde GitHub (modo pú
 }
 FIDE_COUNTRY = "ESP"
 FADA_CATEGORY = "https://fadajedrez.com/wp/category/elo/"
+SNAPSHOT = ROOT / "scripts" / "snapshots" / "fide_esp.json.gz"
 FIDE_DB = "RondaSwissFIDE.db"
 FADA_DB = "RondaSwissFADA.db"
 MAIN = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
@@ -158,6 +160,46 @@ def fide_stamp():
     return ""
 
 
+# ---------- Instantánea de FIDE (se genera en el equipo del usuario y se sube a GitHub) ----------
+# GitHub no siempre consigue conectar con ratings.fide.com. Desde un equipo normal sí, así que una tarea
+# programada allí guarda una instantánea de los ratings (solo nombre, federación, título y ratings) y la sube.
+def load_fide_snapshot():
+    """Devuelve {"stamp", "generado", "filas"} o None si no hay instantánea."""
+    if not SNAPSHOT.exists():
+        return None
+    try:
+        with gzip.open(SNAPSHOT, "rt", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception as e:
+        print(f"  aviso: instantánea de FIDE ilegible: {e}")
+        return None
+
+
+def export_fide_snapshot(force=False):
+    """Descarga las listas de FIDE (desde un equipo que sí llegue) y guarda la instantánea. True si hay cambios."""
+    stamp = fide_stamp()
+    if not stamp:
+        raise RuntimeError("No se pudo consultar FIDE desde este equipo")
+    snap = load_fide_snapshot()
+    if snap and snap.get("stamp") == stamp and not force:
+        print("Instantánea de FIDE al día:", stamp)
+        return False
+    print("FIDE: descargando listas…")
+    rows = read_fide_lists({FIDE_COUNTRY})
+    filas = [[r[0], r[1], r[2], r[3], r[5], r[6], r[7]] for r in rows if r[5] or r[6] or r[7]]
+    SNAPSHOT.parent.mkdir(parents=True, exist_ok=True)
+    with gzip.open(SNAPSHOT, "wt", encoding="utf-8") as f:
+        json.dump({"stamp": stamp, "generado": datetime.now(timezone.utc).strftime("%Y-%m-%d"), "filas": filas},
+                  f, ensure_ascii=False, separators=(",", ":"))
+    print(f"Instantánea guardada: {len(filas)} jugadores ({SNAPSHOT.stat().st_size // 1024} KB), huella {stamp}")
+    return True
+
+
+def snapshot_rows(snap):
+    """Convierte la instantánea al formato de read_fide_lists."""
+    return [(p, n, fed, t, 0, s, r, b, "") for p, n, fed, t, s, r, b in snap["filas"]]
+
+
 def needs_rebuild(meta_path):
     if not meta_path.exists() or not (OUT / FIDE_DB).exists() or not (OUT / FADA_DB).exists():
         return True, "no hay datos previos"
@@ -165,8 +207,13 @@ def needs_rebuild(meta_path):
     if old.get("fada_article") != fada_latest():
         return True, "la FADA ha publicado una lista nueva"
     stamp = fide_stamp()
-    if stamp and old.get("fide_stamp") != stamp and datetime.now(timezone.utc).day <= 7:
-        return True, "FIDE ha actualizado su lista"
+    if stamp:
+        if old.get("fide_stamp") != stamp and datetime.now(timezone.utc).day <= 7:
+            return True, "FIDE ha actualizado su lista"
+    else:  # FIDE no responde desde aquí: se vigila la instantánea subida desde el equipo del usuario
+        snap = load_fide_snapshot()
+        if snap and old.get("fide_stamp") != "instantánea|" + snap["stamp"]:
+            return True, "hay una instantánea de FIDE nueva"
     return False, "sin novedades"
 
 
@@ -376,21 +423,29 @@ def build_public():
     OUT.mkdir(parents=True, exist_ok=True)
 
     print("FIDE: descargando listas…")
+    fide_origen = "descarga directa"
     try:
         fide_all = read_fide_lists({FIDE_COUNTRY})
-    except Exception as e:  # FIDE no responde (a veces bloquea las conexiones desde GitHub): se reintenta en la próxima pasada
-        print(f"AVISO: no se pudo descargar FIDE desde aquí ({e}). Se publica solo la FADA y se reintentará.")
-        write_fada_db(OUT / FADA_DB, fada, full=False)
-        meta_path = OUT / "meta.json"
-        meta = json.loads(meta_path.read_text(encoding="utf-8")) if meta_path.exists() else {}
-        periodo = re.search(r"elo-fada-([a-z]+-\d{4})", article)
-        meta.update({"fada_article": article, "fada_periodo": periodo.group(1).replace("-", " ") if periodo else "",
-                     "construido": datetime.now(timezone.utc).strftime("%Y-%m-%d")})
-        meta.setdefault("bases_de_datos", {})[FADA_DB] = {
-            "tabla": "jugadores_fada", "filas": len(fada), "bytes": (OUT / FADA_DB).stat().st_size}
-        meta_path.write_text(json.dumps(meta, ensure_ascii=False), encoding="utf-8")
-        print("Listo (parcial): base de datos de la FADA publicada; falta la de FIDE.")
-        return
+    except Exception as e:  # FIDE no responde (a veces bloquea las conexiones desde GitHub)
+        snap = load_fide_snapshot()
+        if snap is not None:
+            print(f"AVISO: FIDE no responde desde aquí ({e}). Se usa la instantánea del {snap['generado']} subida desde el equipo.")
+            fide_all = snapshot_rows(snap)
+            stamp = "instantánea|" + snap["stamp"]
+            fide_origen = "instantánea del " + snap["generado"]
+        else:
+            print(f"AVISO: no se pudo descargar FIDE desde aquí ({e}) y no hay instantánea. Se publica solo la FADA y se reintentará.")
+            write_fada_db(OUT / FADA_DB, fada, full=False)
+            meta_path = OUT / "meta.json"
+            meta = json.loads(meta_path.read_text(encoding="utf-8")) if meta_path.exists() else {}
+            periodo = re.search(r"elo-fada-([a-z]+-\d{4})", article)
+            meta.update({"fada_article": article, "fada_periodo": periodo.group(1).replace("-", " ") if periodo else "",
+                         "construido": datetime.now(timezone.utc).strftime("%Y-%m-%d")})
+            meta.setdefault("bases_de_datos", {})[FADA_DB] = {
+                "tabla": "jugadores_fada", "filas": len(fada), "bytes": (OUT / FADA_DB).stat().st_size}
+            meta_path.write_text(json.dumps(meta, ensure_ascii=False), encoding="utf-8")
+            print("Listo (parcial): base de datos de la FADA publicada; falta la de FIDE.")
+            return
     fide = [r for r in fide_all if r[5] or r[6] or r[7]]  # solo con algún rating
     print(f"  jugadores {FIDE_COUNTRY}: {len(fide_all)} ({len(fide)} con rating)")
 
@@ -420,6 +475,7 @@ def build_public():
         "fada_article": article,
         "fada_periodo": periodo.group(1).replace("-", " ") if periodo else "",
         "fide_stamp": stamp,
+        "fide_origen": fide_origen,
         "construido": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
         "jugadores": len(people),
         "letras": sorted(shards),
@@ -434,6 +490,10 @@ def build_public():
 
 def main():
     args = sys.argv[1:]
+    if "--export-fide" in args:
+        # Se ejecuta en el equipo del usuario: guarda scripts/snapshots/fide_esp.json.gz si FIDE tiene lista nueva.
+        export_fide_snapshot(force="--force" in args)
+        return
     if "--full" in args:
         db_dir = Path(args[args.index("--db-dir") + 1]) if "--db-dir" in args else ROOT / "build" / "full"
         build_full(db_dir, "--all-countries" in args)
