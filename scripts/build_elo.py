@@ -54,6 +54,8 @@ FIDE_COUNTRY = "ESP"
 FADA_CATEGORY = "https://fadajedrez.com/wp/category/elo/"
 SNAPSHOT = ROOT / "scripts" / ".cache" / "fide_all.json.gz"  # la genera este equipo (update_fide_local.py)
 SNAPSHOT_CI = ROOT / "fide-data" / "fide_all.json.gz"          # copia que GitHub recupera de la rama fide-data
+FORMATO = 2   # súbelo si cambia la forma de las bases o de los ficheros de data/elo: fuerza a reconstruirlos
+TOP_N = 1000  # jugadores de las listas iniciales ya calculadas (top_fide.json y top_fada.json)
 FIDE_DB = "RondaSwissFIDE.db"
 FADA_DB = "RondaSwissFADA.db"
 MAIN = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
@@ -83,12 +85,6 @@ CREATE INDEX IF NOT EXISTS idx_jugadores_fide_nombre_nocase ON jugadores_fide(no
 CREATE INDEX IF NOT EXISTS idx_jugadores_fide_standard_desc ON jugadores_fide(elo_standard DESC, id ASC);
 CREATE INDEX IF NOT EXISTS idx_jugadores_fide_fide_id ON jugadores_fide(fide_id);
 PRAGMA user_version = 1;
-"""
-# Índices extra solo para la base que se consulta desde el navegador (la estructura de tablas no cambia)
-FIDE_WEB_INDEXES = """
-CREATE INDEX IF NOT EXISTS idx_jugadores_fide_fed_standard ON jugadores_fide(federacion, elo_standard DESC);
-CREATE INDEX IF NOT EXISTS idx_jugadores_fide_titulo_standard ON jugadores_fide(titulo, elo_standard DESC) WHERE titulo IS NOT NULL;
-CREATE INDEX IF NOT EXISTS idx_jugadores_fide_fed_nombre ON jugadores_fide(federacion, nombre COLLATE NOCASE);
 """
 FADA_TABLE = """
 CREATE TABLE IF NOT EXISTS jugadores_fada (
@@ -212,8 +208,8 @@ def needs_rebuild(meta_path):
     if not meta_path.exists() or not (OUT / FIDE_DB).exists() or not (OUT / FADA_DB).exists():
         return True, "no hay datos previos"
     old = json.loads(meta_path.read_text(encoding="utf-8"))
-    if old.get("fide_alcance") != "mundial":
-        return True, "la base de FIDE debe incluir todos los países"
+    if old.get("fide_alcance") != "mundial" or old.get("formato") != FORMATO:
+        return True, "cambió el formato de las bases de datos"
     if old.get("fada_article") != fada_latest():
         return True, "la FADA ha publicado una lista nueva"
     snap = load_fide_snapshot()
@@ -373,9 +369,9 @@ def write_fide_db(path, rows, full, web=False):
     db = sqlite3.connect(path)
     db.executescript(FIDE_TABLE)
     if web:
-        # Se guardan ordenados por Elo estándar: cada página de la tabla de la web queda en un trozo contiguo
-        # del fichero y se lee con muy pocas peticiones (los id cambian respecto a RondaSwiss, la estructura no).
-        rows = sorted(rows, key=lambda r: (-(r[5] or 0), r[0]))
+        # Se guardan ordenados por nombre: la búsqueda por nombre de la web lee un único trozo contiguo del fichero
+        # (los id cambian respecto a RondaSwiss, la estructura no). La lista inicial (más Elo) va aparte, ya calculada.
+        rows = sorted(rows, key=lambda r: (r[1].lower(), r[0]))
     # pid, nombre, fed, titulo, nacimiento, std, rapid, blitz, sexo
     db.executemany(
         "INSERT INTO jugadores_fide (nombre, federacion, titulo, anio_nacimiento, elo_standard, elo_blitz, elo_rapid, fide_id, sexo)"
@@ -385,8 +381,6 @@ def write_fide_db(path, rows, full, web=False):
     db.execute("INSERT OR REPLACE INTO app_settings (clave, valor) VALUES ('jugadores_fide_tipo', 'Completo')")
     db.execute("INSERT OR REPLACE INTO app_settings (clave, valor) VALUES ('jugadores_fide_actualizado', ?)", (now_iso(),))
     db.executescript(FIDE_INDEXES)
-    if web:
-        db.executescript(FIDE_WEB_INDEXES)
     db.commit()
     db.execute("VACUUM")
     db.close()
@@ -472,6 +466,14 @@ def build_public():
     for old in OUT.glob("?.json"):  # restos del buscador rápido anterior (a.json … z.json), que ya no se usa
         old.unlink()
 
+    # Listas iniciales ya calculadas (las TOP_N con más Elo): se muestran al instante, sin consultar la base de datos
+    fide_top = sorted((r for r in fide_all if r[5]), key=lambda r: (-r[5], r[0]))[:TOP_N]
+    (OUT / "top_fide.json").write_text(json.dumps(
+        [[r[0], r[1], r[2], r[3], r[5], r[6], r[7]] for r in fide_top], ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    fada_top = sorted((r for r in fada_all if r[5]), key=lambda r: (-r[5], r[0]))[:TOP_N]
+    (OUT / "top_fada.json").write_text(json.dumps(
+        [[r[0], r[1], r[2], r[3], r[5], r[6], r[8]] for r in fada_top], ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+
     periodo = re.search(r"elo-fada-([a-z]+-\d{4})", article)
     meta = {
         "fada_article": article,
@@ -479,6 +481,8 @@ def build_public():
         "fide_stamp": stamp,
         "fide_origen": fide_origen,
         "fide_alcance": "mundial",
+        "formato": FORMATO,
+        "top": TOP_N,
         "construido": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
         "bases_de_datos": {
             FIDE_DB: {"tabla": "jugadores_fide", "filas": len(fide_all), "bytes": (OUT / FIDE_DB).stat().st_size},

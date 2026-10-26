@@ -5,7 +5,7 @@
   var $ = U.$, esc = U.esc;
   var PAGE = 50;
   var LIB_VERSION = "2"; // súbela si cambias los ficheros de assets/sqljs, para que los navegadores no usen la copia antigua
-  var meta = null, workers = {}, seq = 0, timer = 0;
+  var meta = null, workers = {}, tops = {}, seq = 0, timer = 0;
   var state = { modo: "fide", page: 0 };
 
   var BASES = {
@@ -81,7 +81,7 @@
     return id ? '<a target="_blank" rel="noopener" href="https://ratings.fide.com/profile/' + esc(id) + '">' + esc(id) + "</a>" : "–";
   }
 
-  function renderRows(rows) {
+  function renderRows(rows, esTop) {
     var more = rows.length > PAGE, list = rows.slice(0, PAGE), base = state.page * PAGE;
     var fide = state.modo === "fide";
     $("tbl-body").innerHTML = list.map(function (r, i) {
@@ -99,17 +99,45 @@
     $("tbl-next").disabled = !more;
     $("tbl-page").textContent = list.length ? "Filas " + (base + 1) + " a " + (base + list.length) : "";
     var d = meta && meta.bases_de_datos && meta.bases_de_datos[BASES[state.modo].file];
-    var buscando = $("f-nombre").value.trim() !== "";
+    var lista = d ? " · lista de " + BASES[state.modo].titulo + (state.modo === "fada" && meta.fada_periodo ? " (" + meta.fada_periodo + ")" : "") +
+      ": " + d.filas.toLocaleString("es-ES") + " jugadores." : ".";
     $("tbl-info").textContent = !list.length
       ? "Sin resultados. Prueba con el apellido o con «apellido, nombre», tal como aparece en las listas oficiales."
-      : (buscando ? "Resultados por nombre" : "Los jugadores con más Elo") + (d ? " · lista de " + BASES[state.modo].titulo +
-        (state.modo === "fada" && meta.fada_periodo ? " (" + meta.fada_periodo + ")" : "") + ": " + d.filas.toLocaleString("es-ES") + " jugadores." : ".");
+      : esTop ? "Los " + (meta && meta.top ? meta.top.toLocaleString("es-ES") + " " : "") + "jugadores con más Elo. Escribe un nombre para buscar entre todos" + lista
+        : "Resultados por nombre" + lista;
+  }
+
+  // Lista inicial (los jugadores con más Elo): fichero pequeño ya calculado, se muestra al instante sin tocar la base.
+  function cargarTop(modo) {
+    if (tops[modo]) return tops[modo];
+    tops[modo] = fetch("data/elo/top_" + modo + ".json?v=" + (meta ? meta.construido : ""))
+      .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+      .then(function (a) {
+        return a.map(function (r) {
+          return modo === "fide"
+            ? { fide_id: r[0], nombre: r[1], federacion: r[2], titulo: r[3], elo_standard: r[4], elo_rapid: r[5], elo_blitz: r[6] }
+            : { nombre: r[0], club: r[1], federado: r[2], titulo: r[3], elo_fada: r[4], fide_id: r[5], provincia: r[6] };
+        });
+      })
+      .catch(function (e) { delete tops[modo]; throw e; });
+    return tops[modo];
   }
 
   function run() {
     var mine = ++seq;
-    $("tbl-info").textContent = "Consultando la lista… (la primera consulta tarda unos segundos)";
     var text = cleanName($("f-nombre").value);
+    if (!text) {  // sin búsqueda: lista inicial precalculada
+      cargarTop(state.modo)
+        .then(function (todo) { if (mine === seq) renderRows(todo.slice(state.page * PAGE, state.page * PAGE + PAGE + 1), true); })
+        .catch(function () { if (mine === seq) { $("f-nombre").value = ""; consultar(mine, text); } });
+      getDb(state.modo).catch(function () {}); // mientras se ve la lista, ya se prepara la base de datos para buscar
+      return;
+    }
+    consultar(mine, text);
+  }
+
+  function consultar(mine, text) {
+    $("tbl-info").textContent = "Buscando… (la primera búsqueda tarda unos segundos)";
     var vars = /^\d{3,}$/.test(text) || !text ? [{ pref: "", dado: "" }] : variantes(text);
     getDb(state.modo)
       .then(function (db) {
@@ -170,7 +198,7 @@
   $("elo-form").addEventListener("submit", function (e) { e.preventDefault(); clearTimeout(timer); buscar(); });
   $("f-nombre").addEventListener("input", function () {
     clearTimeout(timer);
-    timer = setTimeout(buscar, state.modo === "apejupo" ? 100 : 600);
+    timer = setTimeout(buscar, state.modo === "apejupo" ? 100 : 350);
   });
   $("tbl-prev").addEventListener("click", function () { if (state.page > 0) { state.page--; run(); } });
   $("tbl-next").addEventListener("click", function () { state.page++; run(); });
