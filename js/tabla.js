@@ -29,12 +29,26 @@
     return "nombre COLLATE NOCASE >= " + lit(lo) + " AND nombre COLLATE NOCASE < " + lit(hi);
   }
 
-  function buildSql() {
+  // En las listas el apellido va primero («Moreno Alberti, Manuel»). Si se escribe «Manuel Moreno Alberti» se prueban
+  // también los cortes posibles: lo último como apellido y lo primero como nombre.
+  function variantes(text) {
+    var v = [{ pref: text, dado: "" }];
+    var p = text.replace(/,/g, " ").split(/\s+/).filter(Boolean);
+    if (text.indexOf(",") < 0 && p.length >= 2) {
+      for (var k = 1; k < p.length; k++) v.push({ pref: p.slice(k).join(" "), dado: p.slice(0, k).join(" ") });
+    }
+    return v;
+  }
+
+  function buildSql(v) {
     var text = cleanName($("f-nombre").value);
     var esId = /^\d{3,}$/.test(text);
     var w = [], order, sql;
     if (esId) w.push("fide_id = " + parseInt(text, 10));
-    else if (text) w.push(prefix(text));
+    else if (v.pref) {
+      w.push(prefix(v.pref));
+      if (v.dado) w.push("nombre LIKE " + lit("%, " + v.dado + "%"));
+    }
     if (state.modo === "fide") {
       order = text && !esId ? "nombre COLLATE NOCASE" : "elo_standard DESC, id ASC";
       sql = "SELECT fide_id, nombre, federacion, titulo, elo_standard, elo_rapid, elo_blitz FROM jugadores_fide";
@@ -87,7 +101,7 @@
     var d = meta && meta.bases_de_datos && meta.bases_de_datos[BASES[state.modo].file];
     var buscando = $("f-nombre").value.trim() !== "";
     $("tbl-info").textContent = !list.length
-      ? "Sin resultados. Prueba solo con el apellido, tal como aparece en las listas oficiales."
+      ? "Sin resultados. Prueba con el apellido o con «apellido, nombre», tal como aparece en las listas oficiales."
       : (buscando ? "Resultados por nombre" : "Los jugadores con más Elo") + (d ? " · lista de " + BASES[state.modo].titulo +
         (state.modo === "fada" && meta.fada_periodo ? " (" + meta.fada_periodo + ")" : "") + ": " + d.filas.toLocaleString("es-ES") + " jugadores." : ".");
   }
@@ -95,9 +109,19 @@
   function run() {
     var mine = ++seq;
     $("tbl-info").textContent = "Consultando la lista… (la primera consulta tarda unos segundos)";
-    var sql = buildSql();
+    var text = cleanName($("f-nombre").value);
+    var vars = /^\d{3,}$/.test(text) || !text ? [{ pref: "", dado: "" }] : variantes(text);
     getDb(state.modo)
-      .then(function (db) { return db.query(sql); })
+      .then(function (db) {
+        var i = 0;
+        function probar() {
+          return db.query(buildSql(vars[i])).then(function (rows) {
+            if (!rows.length && i < vars.length - 1 && state.page === 0 && mine === seq) { i++; return probar(); }
+            return rows;
+          });
+        }
+        return probar();
+      })
       .then(function (rows) { if (mine === seq) renderRows(rows); })
       .catch(function (e) {
         if (mine !== seq) return;
@@ -121,7 +145,7 @@
     $("panel-apejupo").hidden = bd;
     $("nota-fide").hidden = !bd;
     $("chk-fotos").hidden = false;
-    $("f-nombre").placeholder = modo === "apejupo" ? "Busca un jugador del equipo por su nombre" : "Busca por nombre: escribe el apellido (por ejemplo, García)";
+    $("f-nombre").placeholder = modo === "apejupo" ? "Busca un jugador del equipo por su nombre" : "Busca por nombre (por ejemplo, Moreno Alberti)";
     if (bd) {
       var cols = BASES[modo].cols, num = BASES[modo].num;
       $("tbl-head").innerHTML = "<tr>" + cols.map(function (c, i) { return "<th" + (num.indexOf(i) >= 0 ? ' class="num"' : "") + ">" + esc(c) + "</th>"; }).join("") + "</tr>";
