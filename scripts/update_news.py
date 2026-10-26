@@ -21,9 +21,12 @@ FEEDS = [
     ("Lichess", "https://lichess.org/blog.atom", "en"),
     ("Chessdom", "https://www.chessdom.com/feed/", "en"),
     ("FIDE", "https://www.fide.com/feed/", "en"),
+    ("Unión Europea de Ajedrez", "https://www.europechess.org/feed/", "en"),
+    ("Saint Louis Chess Club", "https://saintlouischessclub.org/feed/", "en"),
+    ("Federación Inglesa", "https://www.englishchess.org.uk/feed/", "en"),
 ]
 MAX_PER_FEED = {"es": 12, "en": 5}
-TOTAL = 30
+TOTAL = 36
 ROOT = Path(__file__).resolve().parent
 OUT = ROOT.parent / "data" / "news.json"
 CACHE = ROOT / ".cache" / "translations.json"
@@ -94,19 +97,28 @@ def load_cache():
         return {}
 
 
+QUOTA_AGOTADA = False
+
+
 def translate(text_en, cache):
     """Devuelve el texto en español o None si no se pudo traducir (se reintenta en la siguiente ejecución)."""
+    global QUOTA_AGOTADA
     if not text_en:
         return ""
     if text_en in cache:
         return cache[text_en]
+    if QUOTA_AGOTADA:
+        return None
     url = "https://api.mymemory.translated.net/get?" + urllib.parse.urlencode({"q": text_en[:480], "langpair": "en|es"})
     try:
         req = urllib.request.Request(url, headers={"User-Agent": "ApejupoBot/1.0"})
         with urllib.request.urlopen(req, timeout=15) as r:
             data = json.loads(r.read())
         out = (data.get("responseData") or {}).get("translatedText", "")
-        if data.get("responseStatus") != 200 or not out or "MYMEMORY WARNING" in out.upper():
+        if "MYMEMORY WARNING" in out.upper() or data.get("responseStatus") == 429:
+            QUOTA_AGOTADA = True  # límite diario del servicio gratuito: no insistir en esta ejecución
+            return None
+        if data.get("responseStatus") != 200 or not out:
             return None
         out = unescape(out).strip()
     except Exception:
