@@ -33,12 +33,18 @@ jobs:
           path: scripts/.cache
           key: traducciones-${{ github.run_id }}
           restore-keys: traducciones-
+      - name: Recuperar la instantánea de FIDE subida desde el equipo
+        continue-on-error: true
+        uses: actions/checkout@v4
+        with:
+          ref: fide-data
+          path: fide-data
       - name: Recuperar datos de Elo guardados
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v4
         with:
           path: data/elo
-          key: elo-${{ github.run_id }}
-          restore-keys: elo-
+          key: elo-v2-ninguna
+          restore-keys: elo-v2-
       - name: Actualizar Elo FIDE y FADA (solo si hay listas nuevas)
         continue-on-error: true
         run: |
@@ -48,6 +54,17 @@ jobs:
             curl -sS -m 15 -o /dev/null -r 0-0 -w "Diagnóstico FIDE: HTTP %{http_code} en %{time_total}s\n" https://ratings.fide.com/download/standard_rating_list_xml.zip || echo "Diagnóstico FIDE: sin respuesta desde GitHub"
             python -u scripts/build_elo.py 2>&1
           } | tee data/elo/build.log
+      - name: Calcular huella de los datos de Elo
+        id: elohash
+        continue-on-error: true
+        run: echo "valor=$(sha256sum data/elo/meta.json | cut -c1-16)" >> "$GITHUB_OUTPUT"
+      - name: Guardar datos de Elo (solo si han cambiado)
+        if: steps.elohash.outputs.valor != ''
+        continue-on-error: true
+        uses: actions/cache/save@v4
+        with:
+          path: data/elo
+          key: elo-v2-${{ steps.elohash.outputs.valor }}
       - name: Descargar noticias
         run: python scripts/update_news.py
       - name: Preparar sitio

@@ -26,6 +26,7 @@ publicado un mes nuevo, o si FIDE ha cambiado su lista durante los primeros 7 d�
 """
 import gzip
 import json
+import os
 import re
 import sqlite3
 import sys
@@ -51,7 +52,8 @@ FIDE_ZIPS = {  # listas por ritmo, más ligeras y fiables desde GitHub (modo pú
 }
 FIDE_COUNTRY = "ESP"
 FADA_CATEGORY = "https://fadajedrez.com/wp/category/elo/"
-SNAPSHOT = ROOT / "scripts" / "snapshots" / "fide_esp.json.gz"
+SNAPSHOT = ROOT / "scripts" / ".cache" / "fide_all.json.gz"  # la genera este equipo (update_fide_local.py)
+SNAPSHOT_CI = ROOT / "fide-data" / "fide_all.json.gz"          # copia que GitHub recupera de la rama fide-data
 FIDE_DB = "RondaSwissFIDE.db"
 FADA_DB = "RondaSwissFADA.db"
 MAIN = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
@@ -81,6 +83,12 @@ CREATE INDEX IF NOT EXISTS idx_jugadores_fide_nombre_nocase ON jugadores_fide(no
 CREATE INDEX IF NOT EXISTS idx_jugadores_fide_standard_desc ON jugadores_fide(elo_standard DESC, id ASC);
 CREATE INDEX IF NOT EXISTS idx_jugadores_fide_fide_id ON jugadores_fide(fide_id);
 PRAGMA user_version = 1;
+"""
+# Índices extra solo para la base que se consulta desde el navegador (la estructura de tablas no cambia)
+FIDE_WEB_INDEXES = """
+CREATE INDEX IF NOT EXISTS idx_jugadores_fide_fed_standard ON jugadores_fide(federacion, elo_standard DESC);
+CREATE INDEX IF NOT EXISTS idx_jugadores_fide_titulo_standard ON jugadores_fide(titulo, elo_standard DESC) WHERE titulo IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_jugadores_fide_fed_nombre ON jugadores_fide(federacion, nombre COLLATE NOCASE);
 """
 FADA_TABLE = """
 CREATE TABLE IF NOT EXISTS jugadores_fada (
@@ -165,14 +173,14 @@ def fide_stamp():
 # programada allí guarda una instantánea de los ratings (solo nombre, federación, título y ratings) y la sube.
 def load_fide_snapshot():
     """Devuelve {"stamp", "generado", "filas"} o None si no hay instantánea."""
-    if not SNAPSHOT.exists():
-        return None
-    try:
-        with gzip.open(SNAPSHOT, "rt", encoding="utf-8") as f:
-            return json.load(f)
-    except Exception as e:
-        print(f"  aviso: instantánea de FIDE ilegible: {e}")
-        return None
+    for path in (os.environ.get("FIDE_SNAPSHOT"), SNAPSHOT_CI, SNAPSHOT):
+        if path and Path(path).exists():
+            try:
+                with gzip.open(path, "rt", encoding="utf-8") as f:
+                    return json.load(f)
+            except Exception as e:
+                print(f"  aviso: instantánea de FIDE ilegible ({path}): {e}")
+    return None
 
 
 def export_fide_snapshot(force=False):
@@ -184,9 +192,9 @@ def export_fide_snapshot(force=False):
     if snap and snap.get("stamp") == stamp and not force:
         print("Instantánea de FIDE al día:", stamp)
         return False
-    print("FIDE: descargando listas…")
-    rows = read_fide_lists({FIDE_COUNTRY})
-    filas = [[r[0], r[1], r[2], r[3], r[5], r[6], r[7]] for r in rows if r[5] or r[6] or r[7]]
+    print("FIDE: descargando la lista completa (todos los países)…")
+    rows = read_fide(None)
+    filas = [[r[0], r[1], r[2], r[3], r[5], r[6], r[7]] for r in rows]  # sin año de nacimiento ni sexo
     SNAPSHOT.parent.mkdir(parents=True, exist_ok=True)
     with gzip.open(SNAPSHOT, "wt", encoding="utf-8") as f:
         json.dump({"stamp": stamp, "generado": datetime.now(timezone.utc).strftime("%Y-%m-%d"), "filas": filas},
@@ -204,16 +212,16 @@ def needs_rebuild(meta_path):
     if not meta_path.exists() or not (OUT / FIDE_DB).exists() or not (OUT / FADA_DB).exists():
         return True, "no hay datos previos"
     old = json.loads(meta_path.read_text(encoding="utf-8"))
+    if old.get("fide_alcance") != "mundial":
+        return True, "la base de FIDE debe incluir todos los países"
     if old.get("fada_article") != fada_latest():
         return True, "la FADA ha publicado una lista nueva"
+    snap = load_fide_snapshot()
     stamp = fide_stamp()
-    if stamp:
-        if old.get("fide_stamp") != stamp and datetime.now(timezone.utc).day <= 7:
-            return True, "FIDE ha actualizado su lista"
-    else:  # FIDE no responde desde aquí: se vigila la instantánea subida desde el equipo del usuario
-        snap = load_fide_snapshot()
-        if snap and old.get("fide_stamp") != "instantánea|" + snap["stamp"]:
-            return True, "hay una instantánea de FIDE nueva"
+    if snap and old.get("fide_stamp") != snap["stamp"] and (not stamp or stamp == snap["stamp"]):
+        return True, "hay una instantánea de FIDE nueva"
+    if stamp and old.get("fide_stamp") != stamp and not snap and datetime.now(timezone.utc).day <= 7:
+        return True, "FIDE ha actualizado su lista"
     return False, "sin novedades"
 
 
@@ -222,7 +230,7 @@ def read_fide(countries):
     """Filas (fide_id, nombre, federacion, titulo, anio_nacimiento, std, rapid, blitz, sexo)."""
     rows = []
     with tempfile.TemporaryFile() as tmp:
-        with urllib.request.urlopen(request(FIDE_ZIP), timeout=300) as r:
+        with urllib.request.urlopen(request(FIDE_ZIP), timeout=60) as r:
             while chunk := r.read(1 << 20):
                 tmp.write(chunk)
         tmp.seek(0)
@@ -359,11 +367,15 @@ def fada_rows(raw):
 
 
 # ---------- Bases de datos SQLite (misma estructura que RondaSwiss) ----------
-def write_fide_db(path, rows, full):
+def write_fide_db(path, rows, full, web=False):
     path.parent.mkdir(parents=True, exist_ok=True)
     path.unlink(missing_ok=True)
     db = sqlite3.connect(path)
     db.executescript(FIDE_TABLE)
+    if web:
+        # Se guardan ordenados por Elo estándar: cada página de la tabla de la web queda en un trozo contiguo
+        # del fichero y se lee con muy pocas peticiones (los id cambian respecto a RondaSwiss, la estructura no).
+        rows = sorted(rows, key=lambda r: (-(r[5] or 0), r[0]))
     # pid, nombre, fed, titulo, nacimiento, std, rapid, blitz, sexo
     db.executemany(
         "INSERT INTO jugadores_fide (nombre, federacion, titulo, anio_nacimiento, elo_standard, elo_blitz, elo_rapid, fide_id, sexo)"
@@ -373,6 +385,8 @@ def write_fide_db(path, rows, full):
     db.execute("INSERT OR REPLACE INTO app_settings (clave, valor) VALUES ('jugadores_fide_tipo', 'Completo')")
     db.execute("INSERT OR REPLACE INTO app_settings (clave, valor) VALUES ('jugadores_fide_actualizado', ?)", (now_iso(),))
     db.executescript(FIDE_INDEXES)
+    if web:
+        db.executescript(FIDE_WEB_INDEXES)
     db.commit()
     db.execute("VACUUM")
     db.close()
@@ -418,41 +432,45 @@ def build_public():
     stamp = fide_stamp()
     print("FADA: descargando", article)
     fada_all = fada_rows(read_fada_raw(article))
-    fada = [r for r in fada_all if r[5]]  # solo con Elo FADA
+    fada = [r for r in fada_all if r[5]]  # con Elo FADA (para el buscador rápido)
     print(f"  jugadores FADA: {len(fada_all)} ({len(fada)} con Elo)")
     OUT.mkdir(parents=True, exist_ok=True)
 
-    print("FIDE: descargando listas…")
-    fide_origen = "descarga directa"
-    try:
-        fide_all = read_fide_lists({FIDE_COUNTRY})
-    except Exception as e:  # FIDE no responde (a veces bloquea las conexiones desde GitHub)
-        snap = load_fide_snapshot()
-        if snap is not None:
-            print(f"AVISO: FIDE no responde desde aquí ({e}). Se usa la instantánea del {snap['generado']} subida desde el equipo.")
-            fide_all = snapshot_rows(snap)
-            stamp = "instantánea|" + snap["stamp"]
-            fide_origen = "instantánea del " + snap["generado"]
-        else:
-            print(f"AVISO: no se pudo descargar FIDE desde aquí ({e}) y no hay instantánea. Se publica solo la FADA y se reintentará.")
-            write_fada_db(OUT / FADA_DB, fada, full=False)
-            meta_path = OUT / "meta.json"
-            meta = json.loads(meta_path.read_text(encoding="utf-8")) if meta_path.exists() else {}
-            periodo = re.search(r"elo-fada-([a-z]+-\d{4})", article)
-            meta.update({"fada_article": article, "fada_periodo": periodo.group(1).replace("-", " ") if periodo else "",
-                         "construido": datetime.now(timezone.utc).strftime("%Y-%m-%d")})
-            meta.setdefault("bases_de_datos", {})[FADA_DB] = {
-                "tabla": "jugadores_fada", "filas": len(fada), "bytes": (OUT / FADA_DB).stat().st_size}
-            meta_path.write_text(json.dumps(meta, ensure_ascii=False), encoding="utf-8")
-            print("Listo (parcial): base de datos de la FADA publicada; falta la de FIDE.")
-            return
-    fide = [r for r in fide_all if r[5] or r[6] or r[7]]  # solo con algún rating
-    print(f"  jugadores {FIDE_COUNTRY}: {len(fide_all)} ({len(fide)} con rating)")
+    # FIDE (todos los países, como RondaSwiss). Prioridad: 1) la instantánea subida desde el equipo del usuario,
+    # si está al día con FIDE o FIDE no responde; 2) descarga directa de la lista completa.
+    snap = load_fide_snapshot()
+    fide_all, fide_origen = None, ""
+    if snap and (not stamp or snap.get("stamp") == stamp):
+        fide_all, stamp, fide_origen = snapshot_rows(snap), snap["stamp"], "instantánea del " + snap["generado"]
+    if fide_all is None:
+        print("FIDE: descargando la lista completa…")
+        try:
+            fide_all, fide_origen = read_fide(None), "descarga directa"
+        except Exception as e:  # FIDE no responde (a veces bloquea las conexiones desde GitHub)
+            if snap:
+                print(f"AVISO: FIDE no responde desde aquí ({e}). Se usa la instantánea del {snap['generado']}.")
+                fide_all, stamp, fide_origen = snapshot_rows(snap), snap["stamp"], "instantánea del " + snap["generado"]
+            else:
+                print(f"AVISO: no se pudo descargar FIDE desde aquí ({e}) y no hay instantánea. Se publica solo la FADA y se reintentará.")
+                write_fada_db(OUT / FADA_DB, fada_all, full=False)
+                meta_path = OUT / "meta.json"
+                meta = json.loads(meta_path.read_text(encoding="utf-8")) if meta_path.exists() else {}
+                periodo = re.search(r"elo-fada-([a-z]+-\d{4})", article)
+                meta.update({"fada_article": article, "fada_periodo": periodo.group(1).replace("-", " ") if periodo else "",
+                             "construido": datetime.now(timezone.utc).strftime("%Y-%m-%d")})
+                meta.setdefault("bases_de_datos", {})[FADA_DB] = {
+                    "tabla": "jugadores_fada", "filas": len(fada_all), "bytes": (OUT / FADA_DB).stat().st_size}
+                meta_path.write_text(json.dumps(meta, ensure_ascii=False), encoding="utf-8")
+                print("Listo (parcial): base de datos de la FADA publicada; falta la de FIDE.")
+                return
+    print(f"  jugadores FIDE: {len(fide_all)} ({fide_origen})")
 
-    write_fide_db(OUT / FIDE_DB, fide, full=False)
-    write_fada_db(OUT / FADA_DB, fada, full=False)
+    # Bases de datos con la estructura de RondaSwiss: todos los jugadores (también los que no tienen rating)
+    write_fide_db(OUT / FIDE_DB, fide_all, full=False, web=True)
+    write_fada_db(OUT / FADA_DB, fada_all, full=False)
 
-    # Buscador de la web: una sola entrada por persona (se unen por número FIDE)
+    # Buscador rápido de la web: jugadores de España con rating + andaluces con Elo FADA (una entrada por persona)
+    fide = [r for r in fide_all if r[2] == FIDE_COUNTRY and (r[5] or r[6] or r[7])]
     people = {}
     for pid, name, _, title, _, s, rapid, blitz, _ in fide:
         people[pid] = {"n": name, "id": pid, "t": title, "s": s, "r": rapid, "b": blitz, "f": 0, "p": ""}
@@ -476,16 +494,17 @@ def build_public():
         "fada_periodo": periodo.group(1).replace("-", " ") if periodo else "",
         "fide_stamp": stamp,
         "fide_origen": fide_origen,
+        "fide_alcance": "mundial",
         "construido": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
         "jugadores": len(people),
         "letras": sorted(shards),
         "bases_de_datos": {
-            FIDE_DB: {"tabla": "jugadores_fide", "filas": len(fide), "bytes": (OUT / FIDE_DB).stat().st_size},
-            FADA_DB: {"tabla": "jugadores_fada", "filas": len(fada), "bytes": (OUT / FADA_DB).stat().st_size},
+            FIDE_DB: {"tabla": "jugadores_fide", "filas": len(fide_all), "bytes": (OUT / FIDE_DB).stat().st_size},
+            FADA_DB: {"tabla": "jugadores_fada", "filas": len(fada_all), "bytes": (OUT / FADA_DB).stat().st_size},
         },
     }
     (OUT / "meta.json").write_text(json.dumps(meta, ensure_ascii=False), encoding="utf-8")
-    print(f"Listo: {len(people)} jugadores en {len(shards)} ficheros + 2 bases SQLite -> {OUT}")
+    print(f"Listo: {len(fide_all)} jugadores FIDE y {len(fada_all)} FADA en las bases; {len(people)} en el buscador rápido -> {OUT}")
 
 
 def main():

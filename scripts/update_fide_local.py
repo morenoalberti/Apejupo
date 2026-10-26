@@ -2,8 +2,11 @@
 
 GitHub no siempre consigue conectar con ratings.fide.com, pero este equipo sí. Esta tarea (programada en
 Windows, ver scripts/instalar_tarea_fide.ps1) comprueba cada día si FIDE ha publicado una lista nueva y,
-solo entonces, guarda una instantánea (nombre, federación, título y ratings de los jugadores de España) en
-scripts/snapshots/fide_esp.json.gz y la sube. GitHub la usa para reconstruir la base de datos de FIDE.
+solo entonces, descarga la lista completa (todos los países), guarda una instantánea (nombre, federación,
+título y ratings; sin año de nacimiento ni sexo) y la sube a la rama `fide-data` de GitHub.
+
+La rama `fide-data` se sobrescribe cada vez con un único commit, así el historial del repositorio no crece.
+GitHub la usa para reconstruir las bases de datos de FIDE y FADA.
 
 Uso manual:  python scripts/update_fide_local.py
 El registro queda en scripts/.cache/update_fide_local.log
@@ -16,6 +19,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 LOG = ROOT / "scripts" / ".cache" / "update_fide_local.log"
+BRANCH = "fide-data"
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import build_elo  # noqa: E402
 
@@ -28,27 +32,34 @@ def log(msg):
         f.write(line + "\n")
 
 
-def git(*args):
-    r = subprocess.run(["git", *args], cwd=ROOT, capture_output=True, text=True, encoding="utf-8", errors="replace")
+def git(*args, input_text=None):
+    r = subprocess.run(["git", *args], cwd=ROOT, input=input_text, capture_output=True, text=True,
+                       encoding="utf-8", errors="replace")
     if r.returncode != 0:
         raise RuntimeError(f"git {' '.join(args)} falló: {(r.stderr or r.stdout).strip()}")
     return r.stdout.strip()
 
 
+def publish_snapshot(snap):
+    """Sube la instantánea a la rama huérfana `fide-data` (un único commit, sobrescrito) sin tocar el árbol de trabajo."""
+    blob = git("hash-object", "-w", str(build_elo.SNAPSHOT))
+    tree = git("mktree", input_text=f"100644 blob {blob}\tfide_all.json.gz\n")
+    commit = git("commit-tree", tree, "-m", f"Instantánea de FIDE (lista del {snap['generado']})")
+    git("push", "--force", "origin", f"{commit}:refs/heads/{BRANCH}")
+
+
 def main():
     log("Comprobando la lista de FIDE…")
-    git("pull", "--rebase", "--autostash")
-    if not build_elo.export_fide_snapshot():
-        log("Sin novedades: la instantánea ya está al día.")
-        return
-    git("add", str(build_elo.SNAPSHOT.relative_to(ROOT)))
-    if not git("status", "--porcelain", "--", str(build_elo.SNAPSHOT.relative_to(ROOT))):
-        log("La instantánea no cambió.")
-        return
+    changed = build_elo.export_fide_snapshot(force="--forzar" in sys.argv)
+    if not changed:
+        if git("ls-remote", "--heads", "origin", BRANCH):
+            log("Sin novedades: la instantánea ya está al día.")
+            return
+        # La rama de GitHub aún no existe (o se borró): se publica la instantánea que ya tenemos.
+        log(f"La rama {BRANCH} no existe en GitHub: se publica la instantánea actual.")
     snap = build_elo.load_fide_snapshot()
-    git("commit", "-m", f"Actualiza el Elo de FIDE (lista del {snap['generado']})")
-    git("push", "origin", "HEAD")
-    log(f"Subida a GitHub: {len(snap['filas'])} jugadores. GitHub reconstruirá la base de FIDE en unos minutos.")
+    publish_snapshot(snap)
+    log(f"Subida a la rama {BRANCH}: {len(snap['filas'])} jugadores. GitHub reconstruirá las bases en unos minutos.")
 
 
 if __name__ == "__main__":

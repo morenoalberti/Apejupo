@@ -69,14 +69,14 @@
     "RondaSwissFIDE.db": "nombre, federacion, titulo, anio_nacimiento, elo_standard, elo_blitz, elo_rapid, fide_id, sexo",
     "RondaSwissFADA.db": "nombre, club, federado, titulo, anio_nacimiento, elo_fada, fide_id, sexo, provincia"
   };
-  var TITULOS = { "RondaSwissFIDE.db": "Base de datos FIDE", "RondaSwissFADA.db": "Base de datos FADA" };
+  var TITULOS = { "RondaSwissFIDE.db": "Base de datos FIDE (todos los países)", "RondaSwissFADA.db": "Base de datos FADA (Andalucía)" };
 
   function showBases(m) {
     var dbs = m.bases_de_datos || {};
     var html = Object.keys(dbs).map(function (file) {
       var d = dbs[file];
       return '<div class="card"><div class="body"><h4>' + esc(TITULOS[file] || file) + "</h4>" +
-        '<p class="meta">' + esc(file) + " · " + (d.bytes / 1048576).toFixed(1).replace(".", ",") + " MB · " + d.filas.toLocaleString("es-ES") + " jugadores</p>" +
+        '<p class="meta">' + esc(file) + " · " + Math.round(d.bytes / 1048576).toLocaleString("es-ES") + " MB · " + d.filas.toLocaleString("es-ES") + " jugadores</p>" +
         "<p>Tabla <code>" + esc(d.tabla) + "</code>: " + esc(COLUMNAS[file] || "") + ".</p>" +
         '<p class="meta">Lista de ' + esc(m.fada_periodo) + " · construida el " + esc(m.construido) + "</p>" +
         '<a class="more" download href="data/elo/' + esc(file) + "?v=" + esc(m.construido) + '">Descargar ' + esc(file) + " →</a></div></div>";
