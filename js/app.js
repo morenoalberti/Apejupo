@@ -97,6 +97,28 @@
     });
 
   // ---------- Noticias (RSS vía rss2json) ----------
+  // ---------- Streams (Twitch) ----------
+  var tabs = $("stream-tabs"), sframe = $("stream-frame");
+  function pickStream(i) {
+    var s = D.streams[i];
+    var parents = ["parent=" + encodeURIComponent(location.hostname || "localhost")];
+    sframe.src = "https://player.twitch.tv/?channel=" + encodeURIComponent(s.channel) + "&muted=true&autoplay=false&" + parents.join("&");
+    $("stream-link").href = "https://www.twitch.tv/" + encodeURIComponent(s.channel);
+    Array.prototype.forEach.call(tabs.children, function (b, k) { b.setAttribute("aria-selected", k === i ? "true" : "false"); });
+  }
+  if (D.streams && D.streams.length) {
+    tabs.innerHTML = D.streams.map(function (s, i) {
+      return '<button type="button" role="tab" data-i="' + i + '">' + esc(s.label) + "</button>";
+    }).join("");
+    tabs.addEventListener("click", function (e) {
+      var b = e.target.closest("button[data-i]");
+      if (b) pickStream(+b.getAttribute("data-i"));
+    });
+    pickStream(0);
+  } else {
+    $("streams").hidden = true;
+  }
+
   // data/news.json lo genera scripts/update_news.py
   fetch("data/news.json?t=" + Math.floor(Date.now() / 600000))
     .then(function (r) { return r.json(); })

@@ -13,6 +13,7 @@
     <a class="brand" href="#inicio">&#9822; Apejupo</a>
     <nav aria-label="Principal">
       <a href="#directo">Directo</a>
+      <a href="#streams">Streams</a>
       <a href="#noticias">Noticias</a>
       <a href="#calendario">Calendario</a>
       <a href="#equipo">Equipo</a>
@@ -42,6 +43,14 @@
     <div id="live" class="cards" aria-live="polite"><p class="muted">Cargando retransmisiones…</p></div>
     <h3>Próximas</h3>
     <div id="upcoming" class="cards"></div>
+  </section>
+
+  <section id="streams" class="wrap section">
+    <h2>Streams con comentaristas</h2>
+    <p class="muted">Eventos de Chess.com y otros canales, en Twitch.</p>
+    <div id="stream-tabs" class="tabs" role="tablist"></div>
+    <div class="stream"><iframe id="stream-frame" title="Stream de ajedrez" allowfullscreen></iframe></div>
+    <p class="muted small">Si el canal no está emitiendo, verás la pantalla de "sin conexión". <a id="stream-link" target="_blank" rel="noopener" href="#">Abrir en Twitch</a></p>
   </section>
 
   <section id="noticias" class="wrap section">

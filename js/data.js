@@ -9,6 +9,11 @@ window.APEJUPO = {
   events: [
     { date: "2026-11-07", title: "Liga por equipos · Ronda 1", place: "Por confirmar" },
     { date: "2026-11-21", title: "Torneo interno Apejupo", place: "Online (Lichess)" }
+  ],
+  // Canales de Twitch. "channel" es el nombre que aparece en twitch.tv/NOMBRE.
+  streams: [
+    { label: "Chess.com", channel: "chess" },
+    { label: "Lichess", channel: "lichess" }
   ]
 };
 // Las fuentes de noticias se configuran en scripts/update_news.py

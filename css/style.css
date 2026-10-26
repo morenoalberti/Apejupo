@@ -61,6 +61,12 @@ a { color: var(--blue); }
 .btn-ghost:hover { border-color: var(--blue); }
 .card button.more { margin-top: auto; align-self: flex-start; background: var(--blue); color: #fff; border: 0; padding: 7px 14px; border-radius: 8px; font-weight: 500; cursor: pointer; }
 .card button.more:hover { background: #2563eb; }
+.tabs { display: flex; gap: 8px; flex-wrap: wrap; margin: 12px 0; }
+.tabs button { background: var(--card); color: var(--text); border: 1px solid var(--line); padding: 6px 14px; border-radius: 999px; cursor: pointer; }
+.tabs button[aria-selected="true"] { background: var(--blue); border-color: var(--blue); color: #fff; }
+.stream { position: relative; padding-top: 56.25%; background: #000; border-radius: 12px; overflow: hidden; }
+.stream iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+.small { font-size: .85rem; }
 .badge { align-self: flex-start; font-size: .7rem; font-weight: 600; letter-spacing: .04em; padding: 2px 8px; border-radius: 4px; background: var(--blue); color: #fff; }
 .badge.live { background: #dc2626; }
 .badge.soon { background: var(--amber); color: #0F1B2D; }
