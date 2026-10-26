@@ -2,19 +2,22 @@
   var D = window.APEJUPO, $ = U.$, esc = U.esc, safeUrl = U.safeUrl, fmt = U.fmt;
 
   // ---------- Tablero decorativo (posición por FEN) ----------
-  var FEN = "r1bqkb1r/pppp1ppp/2n2n2/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR";
+  var FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR";
   function pieceImg(ch) {
     var name = (ch === ch.toUpperCase() ? "w" : "b") + ch.toUpperCase();
     return '<img src="assets/pieces/' + name + '.png" alt="" draggable="false">';
   }
   var cells = "";
+  function cell(x, y, ch) {
+    return '<i class="' + ((x + y) % 2 ? "d" : "l") + '">' + (ch ? pieceImg(ch) : "") + "</i>";
+  }
   FEN.split("/").forEach(function (row, y) {
     var x = 0;
     row.split("").forEach(function (ch) {
       if (/\d/.test(ch)) {
-        for (var k = 0; k < +ch; k++, x++) cells += '<i class="' + ((x + y) % 2 ? "d" : "l") + '"></i>';
+        for (var k = 0; k < +ch; k++, x++) cells += cell(x, y, "");
       } else {
-        cells += '<i class="' + ((x + y) % 2 ? "d" : "l") + '">' + pieceImg(ch) + "</i>";
+        cells += cell(x, y, ch);
         x++;
       }
     });
