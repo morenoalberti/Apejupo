@@ -469,24 +469,8 @@ def build_public():
     write_fide_db(OUT / FIDE_DB, fide_all, full=False, web=True)
     write_fada_db(OUT / FADA_DB, fada_all, full=False)
 
-    # Buscador rápido de la web: jugadores de España con rating + andaluces con Elo FADA (una entrada por persona)
-    fide = [r for r in fide_all if r[2] == FIDE_COUNTRY and (r[5] or r[6] or r[7])]
-    people = {}
-    for pid, name, _, title, _, s, rapid, blitz, _ in fide:
-        people[pid] = {"n": name, "id": pid, "t": title, "s": s, "r": rapid, "b": blitz, "f": 0, "p": ""}
-    for i, (name, club, fed, title, _, elo, pid, _, prov) in enumerate(fada):
-        rec = people.setdefault(pid or "f%d" % i, {"n": name, "id": pid, "t": title, "s": 0, "r": 0, "b": 0, "f": 0, "p": ""})
-        rec["f"], rec["p"] = elo, prov
-
-    shards = {}
-    for rec in people.values():
-        shards.setdefault(surname_letter(rec["n"]), []).append(
-            [rec["n"], rec["id"], rec["t"], rec["s"], rec["r"], rec["b"], rec["f"], rec["p"]])
-    for old in OUT.glob("*.json"):
+    for old in OUT.glob("?.json"):  # restos del buscador rápido anterior (a.json … z.json), que ya no se usa
         old.unlink()
-    for letter, items in shards.items():
-        items.sort(key=lambda x: norm(x[0]))
-        (OUT / f"{letter}.json").write_text(json.dumps(items, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
 
     periodo = re.search(r"elo-fada-([a-z]+-\d{4})", article)
     meta = {
@@ -496,15 +480,13 @@ def build_public():
         "fide_origen": fide_origen,
         "fide_alcance": "mundial",
         "construido": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
-        "jugadores": len(people),
-        "letras": sorted(shards),
         "bases_de_datos": {
             FIDE_DB: {"tabla": "jugadores_fide", "filas": len(fide_all), "bytes": (OUT / FIDE_DB).stat().st_size},
             FADA_DB: {"tabla": "jugadores_fada", "filas": len(fada_all), "bytes": (OUT / FADA_DB).stat().st_size},
         },
     }
     (OUT / "meta.json").write_text(json.dumps(meta, ensure_ascii=False), encoding="utf-8")
-    print(f"Listo: {len(fide_all)} jugadores FIDE y {len(fada_all)} FADA en las bases; {len(people)} en el buscador rápido -> {OUT}")
+    print(f"Listo: {len(fide_all)} jugadores FIDE y {len(fada_all)} FADA en las bases -> {OUT}")
 
 
 def main():
