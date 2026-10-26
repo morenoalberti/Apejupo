@@ -3,6 +3,7 @@
 (function () {
   var $ = U.$, esc = U.esc;
   var PAGE = 50;
+  var LIB_VERSION = "2"; // súbela si cambias los ficheros de assets/sqljs, para que los navegadores no usen la copia antigua
   var meta = null, started = false;
   var workers = {};
   var state = { db: "fide", page: 0 };
@@ -68,8 +69,8 @@
     if (info && info.bytes) config.databaseLengthBytes = info.bytes;
     workers[kind] = createDbWorker(
       [{ from: "inline", config: config }],
-      new URL("assets/sqljs/sqlite.worker.js", location.href).href,
-      new URL("assets/sqljs/sql-wasm.wasm", location.href).href
+      new URL("assets/sqljs/sqlite.worker.js?v=" + LIB_VERSION, location.href).href,
+      new URL("assets/sqljs/sql-wasm.wasm?v=" + LIB_VERSION, location.href).href
     ).then(function (w) { return w.db; }).catch(function (e) { delete workers[kind]; throw e; });
     return workers[kind];
   }
