@@ -62,8 +62,12 @@
   function getDb(kind) {
     if (workers[kind]) return workers[kind];
     var url = new URL("data/elo/" + BASES[kind].file, location.href).href + "?v=" + (meta ? meta.construido : "");
+    var info = meta && meta.bases_de_datos && meta.bases_de_datos[BASES[kind].file];
+    // GitHub Pages responde comprimido (gzip) a la consulta del tamaño, así que se lo damos nosotros (meta.json).
+    var config = { serverMode: "full", url: url, requestChunkSize: 4096 };
+    if (info && info.bytes) config.fileLength = info.bytes;
     workers[kind] = createDbWorker(
-      [{ from: "inline", config: { serverMode: "full", url: url, requestChunkSize: 4096 } }],
+      [{ from: "inline", config: config }],
       new URL("assets/sqljs/sqlite.worker.js", location.href).href,
       new URL("assets/sqljs/sql-wasm.wasm", location.href).href
     ).then(function (w) { return w.db; }).catch(function (e) { delete workers[kind]; throw e; });
