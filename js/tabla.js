@@ -229,25 +229,31 @@
   $("tbl-prev").addEventListener("click", function () { if (state.page > 0) { state.page--; run(); } });
   $("tbl-next").addEventListener("click", function () { state.page++; run(); });
 
-  // ---------- Ventana de estadísticas: foto y ficha oficial de FIDE (estadísticas y evolución del Elo) ----------
-  var dlg = $("stats-dlg");
-  function chip(etiqueta, valor) { return valor ? "<span><b>" + esc(etiqueta) + "</b> " + esc(valor) + "</span>" : ""; }
-  function abrirStats(r) {
-    if (!r || !r.fide_id) return;
-    var id = r.fide_id;
-    $("stats-nombre").textContent = r.nombre;
-    $("stats-av").innerHTML = U.avatar(r.nombre, id).replace('class="av"', 'class="av av-lg"');
-    $("stats-datos").innerHTML = (r.federacion ? U.flag(r.federacion) + esc(r.federacion) + " · " : "") + (r.titulo ? esc(r.titulo) + " · " : "") + "FIDE ID " + esc(id);
-    $("stats-elos").innerHTML = r.elo_standard !== undefined
-      ? chip("Estándar", r.elo_standard) + chip("Rápidas", r.elo_rapid) + chip("Blitz", r.elo_blitz)
-      : chip("Elo FADA", r.elo_fada) + chip("Club", r.club);
-    var url = "https://ratings.fide.com/profile/" + encodeURIComponent(id);
+  // ---------- Ventana de estadísticas: la ficha oficial de FIDE abierta directamente en sus estadísticas ----------
+  // statistics = partidas, victorias, tablas y derrotas con blancas y negras por ritmo; chart = evolución del Elo.
+  // La ancla #tabs hace que la ficha de FIDE se abra ya situada en ese bloque, sin la cabecera ni los datos básicos.
+  var dlg = $("stats-dlg"), jugadorStats = null;
+  function cargarVista(vista) {
+    var url = "https://ratings.fide.com/profile/" + encodeURIComponent(jugadorStats.fide_id);
     $("stats-fide").href = url;
     $("stats-cargando").hidden = false;
-    $("stats-frame").src = url;
+    $("stats-frame").src = url + "/" + vista + "#tabs";
+    Array.prototype.forEach.call($("stats-tabs").children, function (b) { b.setAttribute("aria-selected", b.getAttribute("data-vista") === vista ? "true" : "false"); });
+  }
+  function abrirStats(r) {
+    if (!r || !r.fide_id) return;
+    jugadorStats = r;
+    $("stats-nombre").textContent = r.nombre;
+    $("stats-av").innerHTML = U.avatar(r.nombre, r.fide_id).replace('class="av"', 'class="av av-lg"');
+    $("stats-datos").innerHTML = (r.federacion ? U.flag(r.federacion) + esc(r.federacion) + " · " : "") + (r.titulo ? esc(r.titulo) + " · " : "") + "FIDE ID " + esc(r.fide_id);
+    cargarVista("statistics");
     dlg.showModal();
     U.fotos($("stats-av"));
   }
+  $("stats-tabs").addEventListener("click", function (e) {
+    var b = e.target.closest("button[data-vista]");
+    if (b && jugadorStats) cargarVista(b.getAttribute("data-vista"));
+  });
   $("stats-frame").addEventListener("load", function () { if (this.getAttribute("src") !== "about:blank") $("stats-cargando").hidden = true; });
   $("stats-cerrar").addEventListener("click", function () { dlg.close(); });
   dlg.addEventListener("click", function (e) { if (e.target === dlg) dlg.close(); });  // clic fuera de la ventana

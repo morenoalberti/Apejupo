@@ -106,6 +106,7 @@ a { color: var(--blue); }
 .dlg-info { flex: 1; min-width: 0; }
 .dlg-info h3 { margin: 0; font-size: 1.15rem; }
 .dlg-head .av-lg, .av-lg { width: 60px; height: 60px; font-size: 1.05rem; }
+.dlg-tabs { margin: 10px 16px 0; flex: none; }
 .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
 .chips span { background: var(--bg); border: 1px solid var(--line); border-radius: 999px; padding: 2px 10px; font-size: .82rem; }
 #stats-cargando { margin: 8px 16px 0; flex: none; }
