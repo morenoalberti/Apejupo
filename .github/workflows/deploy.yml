@@ -41,7 +41,9 @@ jobs:
           restore-keys: elo-
       - name: Actualizar Elo FIDE y FADA (solo si hay listas nuevas)
         continue-on-error: true
-        run: python scripts/build_elo.py
+        run: |
+          mkdir -p data/elo
+          python -u scripts/build_elo.py 2>&1 | tee data/elo/build.log
       - name: Descargar noticias
         run: python scripts/update_news.py
       - name: Preparar sitio
