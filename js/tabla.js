@@ -65,7 +65,7 @@
     var info = meta && meta.bases_de_datos && meta.bases_de_datos[BASES[kind].file];
     // GitHub Pages responde comprimido (gzip) a la consulta del tamaño, así que se lo damos nosotros (meta.json).
     var config = { serverMode: "full", url: url, requestChunkSize: 4096 };
-    if (info && info.bytes) config.fileLength = info.bytes;
+    if (info && info.bytes) config.databaseLengthBytes = info.bytes;
     workers[kind] = createDbWorker(
       [{ from: "inline", config: config }],
       new URL("assets/sqljs/sqlite.worker.js", location.href).href,

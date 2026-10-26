@@ -1,0 +1,7 @@
+﻿sqlite.worker.js, index.js y sql-wasm.wasm proceden de sql.js-httpvfs 0.8.12 (https://github.com/phiresky/sql.js-httpvfs),
+licencia Apache 2.0 (ver LICENSE-sql.js-httpvfs.txt), que incluye sql.js (MIT).
+
+Modificación en sqlite.worker.js: el tamaño del fichero (databaseLengthBytes) también se aplica en serverMode "full".
+Original:  fileLength:"chunked"===e.serverMode?e.databaseLengthBytes:void 0
+Modificado: fileLength:e.databaseLengthBytes
+Motivo: GitHub Pages responde comprimido (gzip) a la consulta HEAD del tamaño y la biblioteca no puede fiarse de él.
