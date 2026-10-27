@@ -308,53 +308,55 @@
 
   // ---------- Copiar posición: dibuja el tablero actual en una imagen PNG y la pone en el portapapeles ----------
   var toastT = null;
-  function aviso(texto) {
+  function aviso(texto, e) {
     var t = U.$("toast");
     t.textContent = texto; t.hidden = false;
+    // Debajo del puntero (o del botón, si se ha activado con el teclado), sin salirse de la ventana
+    var x = e && e.clientX, y = e && e.clientY;
+    if (!x && !y) { var r = el.copiar.getBoundingClientRect(); x = r.left + r.width / 2; y = r.top + r.height / 2; }
+    var ancho = t.offsetWidth;
+    t.style.left = Math.max(8 + ancho / 2, Math.min(innerWidth - 8 - ancho / 2, x)) + "px";
+    t.style.top = Math.min(innerHeight - t.offsetHeight - 8, y + 22) + "px";
     requestAnimationFrame(function () { t.classList.add("on"); });
     clearTimeout(toastT);
-    toastT = setTimeout(function () { t.classList.remove("on"); setTimeout(function () { t.hidden = true; }, 250); }, 2200);
+    toastT = setTimeout(function () { t.classList.remove("on"); setTimeout(function () { t.hidden = true; }, 250); }, 1800);
   }
   function cargaImg(src) {
     return new Promise(function (ok, ko) { var i = new Image(); i.onload = function () { ok(i); }; i.onerror = ko; i.src = src; });
   }
   function diagrama() {
-    var C = 60, M = 28, tam = C * 8 + M, cv = document.createElement("canvas");
-    cv.width = tam; cv.height = tam;
+    var C = 60, H = 44, ancho = C * 8, cv = document.createElement("canvas");
+    cv.width = ancho; cv.height = H + ancho;
     var g = cv.getContext("2d"), tab = chess.board(), pedir = {};
     tab.forEach(function (fila) { fila.forEach(function (pz) { if (pz) pedir[pz.color + pz.type.toUpperCase()] = 1; }); });
     return Promise.all(Object.keys(pedir).map(function (k) {
       return cargaImg("assets/pieces/" + k + ".png").then(function (img) { return [k, img]; });
     })).then(function (lista) {
       var imgs = {}; lista.forEach(function (x) { imgs[x[0]] = x[1]; });
-      g.fillStyle = "#ffffff"; g.fillRect(0, 0, tam, tam);
-      g.font = "bold 15px sans-serif"; g.fillStyle = "#444"; g.textAlign = "center"; g.textBaseline = "middle";
+      g.fillStyle = "#ffffff"; g.fillRect(0, 0, ancho, H + ancho);
+      g.fillStyle = "#0F1B2D"; g.font = "bold 22px sans-serif"; g.textAlign = "left"; g.textBaseline = "middle";
+      g.fillText(cat ? cat.titulo : "", 10, H / 2);
       for (var f = 0; f < 8; f++) for (var c = 0; c < 8; c++) {
         var r = orient === "w" ? f : 7 - f, k = orient === "w" ? c : 7 - c;
-        g.fillStyle = (r + k) % 2 ? "#b58863" : "#f0d9b5"; g.fillRect(M + c * C, f * C, C, C);
+        g.fillStyle = (r + k) % 2 ? "#b58863" : "#f0d9b5"; g.fillRect(c * C, H + f * C, C, C);
         var pz = tab[r][k];
-        if (pz) g.drawImage(imgs[pz.color + pz.type.toUpperCase()], M + c * C + 3, f * C + 3, C - 6, C - 6);
-      }
-      g.fillStyle = "#444";
-      for (var i = 0; i < 8; i++) {
-        g.fillText(String(orient === "w" ? 8 - i : i + 1), M / 2, i * C + C / 2);
-        g.fillText("abcdefgh"[orient === "w" ? i : 7 - i], M + i * C + C / 2, 8 * C + M / 2);
+        if (pz) g.drawImage(imgs[pz.color + pz.type.toUpperCase()], c * C + 3, H + f * C + 3, C - 6, C - 6);
       }
       return new Promise(function (ok) { cv.toBlob(ok, "image/png"); });
     });
   }
-  el.copiar.addEventListener("click", function () {
+  el.copiar.addEventListener("click", function (ev) {
     if (el.copiar.disabled || !chess) return;
     var fen = chess.fen();
     if (!window.ClipboardItem || !navigator.clipboard || !navigator.clipboard.write) {
-      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(fen).then(function () { aviso("Posición copiada (FEN)"); });
-      else aviso("Tu navegador no permite copiar");
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(fen).then(function () { aviso("Posición copiada (FEN)", ev); });
+      else aviso("Tu navegador no permite copiar", ev);
       return;
     }
     // La promesa va dentro del ClipboardItem para que el permiso del clic siga valiendo mientras se dibuja
     navigator.clipboard.write([new ClipboardItem({ "image/png": diagrama() })])
-      .then(function () { aviso("Diagrama copiado"); })
-      .catch(function (e) { console.warn("Copiar posición:", e); aviso("No se ha podido copiar el diagrama"); });
+      .then(function () { aviso("Diagrama copiado", ev); })
+      .catch(function (e) { console.warn("Copiar posición:", e); aviso("No se ha podido copiar el diagrama", ev); });
   });
 
   reposo();
