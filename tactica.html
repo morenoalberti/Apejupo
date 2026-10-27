@@ -31,6 +31,26 @@
     </div>
   </section>
 
+  <section class="wrap section" id="entrenador-sec">
+    <div class="section-head"><h2>Entrenador Apejupo</h2></div>
+    <p class="muted small">Problemas propios del club por categorías, de menor a mayor dificultad. Tu progreso se guarda en este navegador.</p>
+    <div class="ent-cats" id="ent-cats" role="group" aria-label="Categoría"></div>
+    <div class="ent" id="entrenador">
+      <div class="ent-board" id="ent-tablero" aria-label="Tablero"></div>
+      <div class="ent-side">
+        <div class="filters"><label>Nivel<select id="ent-nivel"></select></label></div>
+        <p class="ent-info muted small" id="ent-info"></p>
+        <p class="ent-msg" id="ent-msg" role="status" aria-live="polite"></p>
+        <div class="ent-btns">
+          <button type="button" class="btn-ghost" id="ent-pista">Pista</button>
+          <button type="button" class="btn-ghost" id="ent-sol">Ver solución</button>
+          <button type="button" class="btn" id="ent-sig" hidden>Siguiente →</button>
+        </div>
+        <p class="muted small" id="ent-prog"></p>
+      </div>
+    </div>
+  </section>
+
   <section class="wrap section two-col">
     <div>
       <div class="section-head"><h2>Puzzle del día</h2></div>
@@ -69,11 +89,13 @@
 
 <footer class="site-footer">
   <div class="wrap">
-    <p>&copy; <span id="year"></span> Apejupo Chess Club. Los problemas son de <a href="https://lichess.org" target="_blank" rel="noopener" style="color:inherit">Lichess</a>, gratuito y de código abierto.</p>
+    <p>&copy; <span id="year"></span> Apejupo Chess Club. Los problemas son de la base abierta de <a href="https://database.lichess.org/#puzzles" target="_blank" rel="noopener" style="color:inherit">Lichess</a> (CC0), gratuita y de código abierto.</p>
   </div>
 </footer>
 
 <script src="js/util.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
 <script src="js/tactica.js"></script>
+<script src="js/entrenador.js"></script>
 </body>
 </html>

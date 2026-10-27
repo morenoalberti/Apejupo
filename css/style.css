@@ -180,3 +180,27 @@ a { color: var(--blue); }
 }
 .site-footer { margin-top: 64px; background: var(--navy); color: #E8EEF7; padding: 24px 0; font-size: .85rem; opacity: .9; }
 .site-footer p { margin: 0; }
+
+/* Entrenador de problemas (tactica.html) */
+.ent-cats { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+.ent-cats .cat { cursor: pointer; border: 1px solid var(--line); background: var(--card); color: var(--text); border-radius: 999px; padding: 6px 14px; font-size: .95rem; }
+.ent-cats .cat small { color: var(--muted); margin-left: 4px; font-size: .8rem; }
+.ent-cats .cat[aria-pressed="true"] { background: var(--blue); border-color: var(--blue); color: #fff; }
+.ent-cats .cat[aria-pressed="true"] small { color: #dbeafe; }
+.ent { display: grid; grid-template-columns: minmax(280px, 520px) 1fr; gap: 24px; align-items: start; }
+.ent-board { display: grid; border-radius: 0; grid-template-columns: repeat(8, 1fr); width: 100%; aspect-ratio: 1; overflow: hidden; user-select: none; touch-action: manipulation; }
+.ent-board .sq { position: relative; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+.ent-board .lt { background: #f0d9b5; }
+.ent-board .dk { background: #b58863; }
+.ent-board .sq img { width: 90%; height: 90%; pointer-events: none; }
+.ent-board .last { box-shadow: inset 0 0 0 100px rgba(155, 199, 0, .41); }
+.ent-board .sel { box-shadow: inset 0 0 0 100px rgba(20, 85, 30, .5); }
+.ent-board .chk { box-shadow: inset 0 0 0 100px rgba(220, 38, 38, .5); }
+.ent-board .dest::after { content: ""; position: absolute; width: 28%; height: 28%; border-radius: 50%; background: rgba(15, 27, 45, .35); }
+.ent-msg { font-size: 1.1rem; font-weight: 600; margin: 10px 0; min-height: 1.5em; }
+.ent-msg.bien { color: #16a34a; }
+.ent-msg.mal { color: #dc2626; }
+.ent-btns { display: flex; flex-wrap: wrap; gap: 10px; margin: 12px 0; }
+.ent-btns .btn-ghost, .ent-btns .btn { cursor: pointer; border: 1px solid var(--line); }
+.ent-btns .btn[hidden] { display: none; }
+@media (max-width: 760px) { .ent { grid-template-columns: 1fr; } }
