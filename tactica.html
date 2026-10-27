@@ -33,13 +33,15 @@
 
   <section class="wrap section" id="entrenador-sec">
     <div class="section-head"><h2>Entrenador Apejupo</h2></div>
-    <p class="muted small">Problemas propios del club por categorías, de menor a mayor dificultad. Tu progreso se guarda en este navegador.</p>
-    <div class="ent-cats" id="ent-cats" role="group" aria-label="Categoría"></div>
+    <p class="muted small">Elige un ejercicio abajo, en «Entrena por temas». Los problemas van de menor a mayor dificultad y tu progreso se guarda en este navegador.</p>
     <div class="ent" id="entrenador">
-      <div class="ent-board" id="ent-tablero" aria-label="Tablero"></div>
+      <div class="ent-col">
+        <div class="ent-head"><h3 id="ent-titulo"></h3><span class="ent-reloj" id="ent-reloj" title="Tiempo">0:00</span></div>
+        <div class="ent-board" id="ent-tablero" aria-label="Tablero"></div>
+      </div>
       <div class="ent-side">
         <div class="filters"><label>Nivel<select id="ent-nivel"></select></label></div>
-        <p class="ent-info muted small"><span id="ent-info"></span> · <span id="ent-reloj">0:00</span></p>
+        <p class="ent-info muted small" id="ent-info"></p>
         <p class="ent-msg" id="ent-msg" role="status" aria-live="polite"></p>
         <div class="ent-btns">
           <button type="button" class="btn-ghost" id="ent-pista">Pista</button>

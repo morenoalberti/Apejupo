@@ -1,7 +1,7 @@
 (function () {
   // Temas de Lichess: [nombre, identificador en lichess.org/training/<tema>, pieza que lo representa]
   var TEMAS = [
-    ["Mate en 1", "mateIn1", "wK"], ["Mate en 2", "mateIn2", "wK"], ["Mate en 3", "mateIn3", "wK"],
+    ["Combinaciones", "combinations", "wN"], ["Mate en 1", "mateIn1", "wK"], ["Mate en 2", "mateIn2", "wK"], ["Mate en 3", "mateIn3", "wK"],
     ["Mate del pasillo", "backRankMate", "wR"], ["Mate ahogado", "smotheredMate", "wN"],
     ["Horquilla", "fork", "wN"], ["Clavada", "pin", "wB"], ["Enfilada", "skewer", "wR"],
     ["Ataque descubierto", "discoveredAttack", "wB"], ["Pieza colgada", "hangingPiece", "bP"],
@@ -11,7 +11,7 @@
     ["Apertura", "opening", "wN"], ["Medio juego", "middlegame", "wQ"], ["Finales", "endgame", "wK"]
   ];
   // Temas que coinciden con una categoria del entrenador; el resto se abre como t-<tema>
-  var CATEGORIA = { mateIn1: "mate1", mateIn2: "mate2", mateIn3: "mate3", endgame: "finales" };
+  var CATEGORIA = { mateIn1: "mate1", mateIn2: "mate2", mateIn3: "mate3", endgame: "finales", combinations: "combinaciones" };
   var cont = document.getElementById("temas");
   cont.innerHTML = TEMAS.map(function (t) {
     return '<a class="theme" href="#entrenador-sec" data-id="' + (CATEGORIA[t[1]] || "t-" + t[1]) + '">' +

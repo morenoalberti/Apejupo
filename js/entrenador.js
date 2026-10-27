@@ -10,11 +10,15 @@
   try { hechos = JSON.parse(localStorage.getItem("apejupo_tactica") || "{}"); } catch (e) {}
 
   var el = {
-    cats: U.$("ent-cats"), nivel: U.$("ent-nivel"), tablero: U.$("ent-tablero"), msg: U.$("ent-msg"),
+    titulo: U.$("ent-titulo"), nivel: U.$("ent-nivel"), tablero: U.$("ent-tablero"), msg: U.$("ent-msg"),
     info: U.$("ent-info"), reloj: U.$("ent-reloj"), pista: U.$("ent-pista"), sig: U.$("ent-sig"), prog: U.$("ent-prog")
   };
   el.nivel.innerHTML = NIVELES.map(function (n, i) { return '<option value="' + i + '">' + U.esc(n[0]) + "</option>"; }).join("");
 
+  try {
+    var nv = localStorage.getItem("apejupo_nivel");
+    if (nv !== null && NIVELES[+nv]) el.nivel.value = nv;
+  } catch (e) {}
   function guardar() { try { localStorage.setItem("apejupo_tactica", JSON.stringify(hechos)); } catch (e) {} }
   function sq(i) { return "abcdefgh"[i % 8] + (8 - Math.floor(i / 8)); }
   function mensaje(t, clase) { el.msg.textContent = t; el.msg.className = "ent-msg " + (clase || ""); }
@@ -114,7 +118,7 @@
   function termina() {
     bloqueado = true; clearInterval(temporizador); el.pista.disabled = true;
     if (!hechos[p.i]) { hechos[p.i] = fallos || pistaVista ? 1 : 2; guardar(); }
-    mensaje("Variante correcta" + (fallos || pistaVista ? "." : " a la primera."), "bien");
+    mensaje("¡Correcto!", "bien");
     el.sig.hidden = false;
     progreso();
     avance = setTimeout(siguiente, 2500);
@@ -178,12 +182,18 @@
     clearTimeout(avance);
     siguiente();
   });
-  el.nivel.addEventListener("change", siguiente);
+  el.nivel.addEventListener("change", function () {
+    try { localStorage.setItem("apejupo_nivel", el.nivel.value); } catch (e) {}
+    siguiente();
+  });
 
   function elige(id) {
     cat = indice.categorias.concat(indice.temas || []).filter(function (c) { return c.id === id; })[0];
     if (!cat) return;
-    Array.prototype.forEach.call(el.cats.children, function (b) { b.setAttribute("aria-pressed", b.dataset.id === id ? "true" : "false"); });
+    el.titulo.textContent = cat.titulo;
+    Array.prototype.forEach.call(document.querySelectorAll("a.theme[data-id]"), function (a) {
+      if (a.getAttribute("data-id") === id) a.setAttribute("aria-current", "true"); else a.removeAttribute("aria-current");
+    });
     cargaCategoria(id, function (d) { lista = d; siguiente(); });
   }
 
@@ -197,13 +207,6 @@
 
   fetch(BASE + "indice.json").then(function (r) { return r.json(); }).then(function (d) {
     indice = d;
-    el.cats.innerHTML = d.categorias.map(function (c) {
-      return '<button type="button" class="btn-ghost cat" data-id="' + c.id + '" aria-pressed="false" title="' + U.esc(c.desc) + '">' +
-        U.esc(c.titulo) + ' <small>' + c.n.toLocaleString("es-ES") + " problemas</small></button>";
-    }).join("");
-    el.cats.addEventListener("click", function (e) {
-      var b = e.target.closest("button"); if (b) elige(b.dataset.id);
-    });
-    elige(pendiente || d.categorias[0].id);
+    elige(pendiente || "mate1");
   }).catch(function () { mensaje("No se han podido cargar los problemas.", "mal"); });
 })();

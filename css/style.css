@@ -219,3 +219,9 @@ a { color: var(--blue); }
 .ent-board .mate { box-shadow: inset 0 0 0 100px rgba(220, 38, 38, .5); }
 .theme .tn { display: flex; flex-direction: column; gap: 2px; }
 .theme .cnt { color: var(--muted); font-weight: 400; font-size: .8rem; }
+.ent-col { min-width: 0; }
+.ent-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 8px; }
+.ent-head h3 { margin: 0; font-size: 1.15rem; }
+.ent-reloj { font-variant-numeric: tabular-nums; font-weight: 600; color: var(--muted); }
+.theme[aria-current="true"] { border-color: var(--blue); box-shadow: 0 0 0 1px var(--blue); }
+.ent-msg.bien { font-size: 1.5rem; }
