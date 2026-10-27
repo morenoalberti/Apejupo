@@ -226,3 +226,7 @@ a { color: var(--blue); }
 .theme[aria-current="true"] { border-color: var(--blue); box-shadow: 0 0 0 1px var(--blue); }
 .ent-msg.bien { font-size: 1.5rem; }
 .ent-pct { font-size: .95rem; line-height: 1.6; margin: 6px 0; }
+.ent-titulo { display: inline-flex; border: 0; padding: 0; background: none; cursor: default; }
+.ent-titulo:hover { border: 0; }
+.ent-titulo .tn { font-size: 1.05rem; font-weight: 600; }
+.ent-pct { font-variant-numeric: tabular-nums; font-size: 1.1rem; font-weight: 600; margin: 8px 0; }

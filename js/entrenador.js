@@ -15,15 +15,10 @@
     res[p.i] = ok ? 1 : 0;
     try { localStorage.setItem("apejupo_tactica_res", JSON.stringify(res)); } catch (e) {}
   }
-  function porcentaje(ids) {
-    var n = 0, ok = 0;
-    ids.forEach(function (i) { if (res[i] !== undefined) { n++; ok += res[i]; } });
-    return n ? Math.round(ok * 100 / n) + " % de acierto (" + n + (n === 1 ? " ejercicio" : " ejercicios") + ")" : "";
-  }
 
   var el = {
     titulo: U.$("ent-titulo"), nivel: U.$("ent-nivel"), tablero: U.$("ent-tablero"), msg: U.$("ent-msg"),
-    info: U.$("ent-info"), reloj: U.$("ent-reloj"), pista: U.$("ent-pista"), sig: U.$("ent-sig"), prog: U.$("ent-prog"), pct: U.$("ent-pct")
+    info: U.$("ent-info"), reloj: U.$("ent-reloj"), pista: U.$("ent-pista"), sig: U.$("ent-sig"), pct: U.$("ent-pct"), sol: U.$("ent-sol")
   };
   el.nivel.innerHTML = NIVELES.map(function (n, i) { return '<option value="' + i + '">' + U.esc(n[0]) + "</option>"; }).join("");
 
@@ -35,13 +30,12 @@
   function sq(i) { return "abcdefgh"[i % 8] + (8 - Math.floor(i / 8)); }
   function mensaje(t, clase) { el.msg.textContent = t; el.msg.className = "ent-msg " + (clase || ""); }
 
+  // Estadística minimalista del tema: aciertos a la primera / ejercicios intentados - porcentaje
   function progreso() {
     if (!cat) return;
-    var n = 0;
-    lista.forEach(function (x) { if (hechos[x.i]) n++; });
-    el.prog.textContent = n + " de " + lista.length + " resueltos en " + cat.titulo;
-    var t = porcentaje(lista.map(function (x) { return x.i; })), g = porcentaje(Object.keys(res));
-    el.pct.innerHTML = (t ? "<b>" + U.esc(cat.titulo) + ":</b> " + t : "Aún no tienes aciertos en este ejercicio.") + (g ? "<br><b>Total:</b> " + g : "");
+    var n = 0, ok = 0;
+    lista.forEach(function (x) { if (res[x.i] !== undefined) { n++; ok += res[x.i]; } });
+    el.pct.textContent = n ? ok + "/" + n + " · " + Math.round(ok * 100 / n) + " % acierto" : "";
   }
 
   function dibuja(ultima, resalta) {
@@ -88,7 +82,7 @@
     }, 1000);
     chess = new Chess(p.f);
     orient = chess.turn();
-    el.pista.disabled = false;
+    el.pista.disabled = false; el.sol.disabled = false;
     el.info.textContent = "Dificultad " + p.r + " · Juegan " + (orient === "w" ? "blancas" : "negras");
     mensaje("Encuentra la mejor jugada.");
     el.sig.hidden = true;
@@ -193,6 +187,26 @@
     mensaje(pistaNivel > 1 ? "Pista: la pieza marcada va a la casilla señalada." : "Pista: mueve la pieza marcada.");
   });
 
+  el.sol.addEventListener("click", function () {
+    if (!p || bloqueado) return;
+    anota(false); progreso();
+    if (!hechos[p.i]) { hechos[p.i] = 1; guardar(); }
+    bloqueado = true; clearInterval(temporizador); el.pista.disabled = true; el.sol.disabled = true; sel = null;
+    var resto = p.s.slice(paso), san = [], k = 0;
+    mensaje("Solución…");
+    (function siguientePaso() {
+      if (k >= resto.length) {
+        mensaje("Solución: " + san.join("  "), "bien");
+        el.sig.hidden = false;
+        return;
+      }
+      var u = resto[k++], m = chess.move({ from: u.slice(0, 2), to: u.slice(2, 4), promotion: u[4] || undefined });
+      if (m) san.push(m.san);
+      dibuja([u.slice(0, 2), u.slice(2, 4)]);
+      avance = setTimeout(siguientePaso, 800);
+    })();
+  });
+
   el.sig.addEventListener("click", function () {
     clearTimeout(avance);
     siguiente();
@@ -205,7 +219,9 @@
   function elige(id) {
     cat = indice.categorias.concat(indice.temas || []).filter(function (c) { return c.id === id; })[0];
     if (!cat) return;
-    el.titulo.textContent = cat.titulo;
+    var tarjeta = document.querySelector('a.theme[data-id="' + id + '"] .pc');
+    el.titulo.innerHTML = (tarjeta ? tarjeta.outerHTML : "") + '<span class="tn">' + U.esc(cat.titulo) +
+      '<small class="cnt">' + cat.n.toLocaleString("es-ES") + " ejercicios</small></span>";
     Array.prototype.forEach.call(document.querySelectorAll("a.theme[data-id]"), function (a) {
       if (a.getAttribute("data-id") === id) a.setAttribute("aria-current", "true"); else a.removeAttribute("aria-current");
     });
