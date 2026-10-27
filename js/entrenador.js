@@ -78,13 +78,17 @@
       .catch(function () { mensaje("No se han podido cargar los problemas.", "mal"); });
   }
 
-  function siguiente() {
-    var n = NIVELES[+el.nivel.value];
-    var cand = lista.filter(function (x) { return x.r >= n[1] && x.r < n[2]; });
-    var pend = cand.filter(function (x) { return !hechos[x.i]; });
-    if (!cand.length) { mensaje("No hay problemas en este nivel.", "mal"); el.tablero.innerHTML = ""; return; }
-    if (!pend.length) { mensaje("¡Has resuelto todos los de este nivel! Prueba otro.", "bien"); pend = cand; }
-    empieza(pend[0]);
+  // Sin batería (al abrir, al cancelar o al cerrar los resultados) el tablero muestra la posición inicial
+  function reposo(texto) {
+    clearTimeout(avance); clearInterval(temporizador);
+    if (arrastre) { arrastre.clon.remove(); arrastre = null; }
+    p = null; sel = null; bloqueado = true; paso = 0; orient = "w";
+    chess = new Chess();
+    el.reloj.textContent = "0:00";
+    el.pista.disabled = true; el.sol.disabled = true; el.sig.hidden = true; el.cancelar.hidden = true;
+    mensaje(texto || "Elige una batería de problemas para empezar.");
+    dibuja(null);
+    progreso();
   }
 
   function empieza(prob) {
@@ -232,7 +236,7 @@
   el.nivel.addEventListener("change", function () {
     try { localStorage.setItem("apejupo_nivel", el.nivel.value); } catch (e) {}
     cierraBateria();
-    siguiente();
+    reposo();
   });
 
   // ---------- Batería de problemas: N problemas seguidos del tema y nivel elegidos, con estadísticas al final ----------
@@ -241,7 +245,7 @@
     if (!bat) return;
     bat.res.push(ok); bat.tiempos.push(Date.now() - inicio);
   }
-  function avanza() { if (bat) avanzaBateria(); else siguiente(); }
+  function avanza() { if (bat) avanzaBateria(); else reposo(); }
   function cierraBateria() {
     bat = null; el.bat.value = ""; el.result.hidden = true; el.result.innerHTML = "";
     clearInterval(temporizador); el.reloj.textContent = "0:00";
@@ -272,26 +276,19 @@
       '<button type="button" class="btn-ghost" id="bat-cerrar">' + ICO.x + 'Cerrar</button></div>';
     el.result.hidden = false;
     el.sig.hidden = true; el.pct.textContent = "";
+    bloqueado = true; el.pista.disabled = true; el.sol.disabled = true; el.cancelar.hidden = true;
     mensaje("Batería terminada", "bien");
     U.$("bat-rep").onclick = function () { cierraBateria(); el.bat.value = String(n); iniciaBateria(n); };
-    U.$("bat-cerrar").onclick = function () {
-      cierraBateria();
-      bloqueado = true; el.pista.disabled = true; el.sol.disabled = true; el.sig.hidden = false; el.cancelar.hidden = true;
-      mensaje("Elige un tema, un nivel o una batería para seguir.");
-    };
+    U.$("bat-cerrar").onclick = function () { cierraBateria(); reposo(); };
     bat = null;
   }
   // Cancelar: para el entrenamiento (y la batería, si la hay) y deja el tablero quieto
   el.cancelar.addEventListener("click", function () {
-    clearTimeout(avance); clearInterval(temporizador);
-    if (arrastre) { arrastre.clon.remove(); arrastre = null; }
-    cierraBateria(); el.reloj.textContent = "0:00";
-    bloqueado = true; el.pista.disabled = true; el.sol.disabled = true; el.sig.hidden = false; el.cancelar.hidden = true;
-    mensaje("Entrenamiento parado. Elige un tema, un nivel o una batería para seguir.");
-    progreso();
+    cierraBateria();
+    reposo("Batería cancelada. Elige otra batería para empezar.");
   });
   el.bat.addEventListener("change", function () {
-    if (el.bat.value) iniciaBateria(+el.bat.value); else cierraBateria();
+    if (el.bat.value) iniciaBateria(+el.bat.value); else reposo();
   });
 
   function elige(id) {
@@ -304,8 +301,10 @@
       if (a.getAttribute("data-id") === id) a.setAttribute("aria-current", "true"); else a.removeAttribute("aria-current");
     });
     cierraBateria();
-    cargaCategoria(id, function (d) { lista = d; siguiente(); });
+    cargaCategoria(id, function (d) { lista = d; reposo(); });
   }
+
+  reposo();
 
   window.Entrenador = {
     abre: function (id) {
