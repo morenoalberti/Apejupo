@@ -264,3 +264,14 @@ a { color: var(--blue); }
 .ent-titulo .pc { width: 44px; height: 44px; }
 .ent-titulo .pc img { width: 32px; height: 32px; }
 #temas .tg[hidden] { display: none; }
+.ico { width: 1.1em; height: 1.1em; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; vertical-align: -.2em; margin-right: 6px; flex: none; }
+.ico.der { margin: 0 0 0 6px; }
+.ent-btns button, .ent-cancel button, .ent-result .ent-btns button { display: inline-flex; align-items: center; cursor: pointer; }
+.grupo .gi { width: 20px; height: 20px; }
+/* Columna de la derecha: llega hasta el borde inferior del tablero y Cancelar queda abajo */
+.ent { align-items: stretch; }
+.ent-side { display: flex; flex-direction: column; margin-bottom: 18px; }
+.ent-cancel { margin-top: auto; padding-top: 12px; }
+.ent-cancel button { border: 1px solid var(--line); }
+.ent-cancel button[hidden] { display: none; }
+@media (max-width: 760px) { .ent-side { margin-bottom: 0; } }

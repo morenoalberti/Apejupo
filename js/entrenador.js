@@ -18,7 +18,7 @@
 
   var el = {
     titulo: U.$("ent-titulo"), nivel: U.$("ent-nivel"), tablero: U.$("ent-tablero"), msg: U.$("ent-msg"),
-    reloj: U.$("ent-reloj"), pista: U.$("ent-pista"), sig: U.$("ent-sig"), pct: U.$("ent-pct"), sol: U.$("ent-sol"), bat: U.$("ent-bateria"), result: U.$("ent-result")
+    reloj: U.$("ent-reloj"), pista: U.$("ent-pista"), sig: U.$("ent-sig"), pct: U.$("ent-pct"), sol: U.$("ent-sol"), bat: U.$("ent-bateria"), cancelar: U.$("ent-cancelar"), result: U.$("ent-result")
   };
   el.nivel.innerHTML = NIVELES.map(function (n, i) { return '<option value="' + i + '">' + U.esc(n[0]) + "</option>"; }).join("");
 
@@ -28,6 +28,10 @@
   } catch (e) {}
   function guardar() { try { localStorage.setItem("apejupo_tactica", JSON.stringify(hechos)); } catch (e) {} }
   function sq(i) { return "abcdefgh"[i % 8] + (8 - Math.floor(i / 8)); }
+  var ICO = {
+    x: '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>',
+    repetir: '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"/></svg>'
+  };
   function mensaje(t, clase) { el.msg.textContent = t; el.msg.className = "ent-msg " + (clase || ""); }
   // Jugada en notación con figuritas: la inicial de la pieza (K, Q, R, B, N) se cambia por su dibujo
   function figurita(san, color) {
@@ -95,7 +99,7 @@
     }, 1000);
     chess = new Chess(p.f);
     orient = chess.turn();
-    el.pista.disabled = false; el.sol.disabled = false;
+    el.pista.disabled = false; el.sol.disabled = false; el.cancelar.hidden = false;
     mensaje("Juegas " + (orient === "w" ? "blancas" : "negras") + ".");
     el.sig.hidden = true;
     dibuja([p.l.slice(0, 2), p.l.slice(2, 4)]);
@@ -264,19 +268,28 @@
       '<p class="big">' + ok + "/" + tot + " · " + Math.round(ok * 100 / tot) + " % acierto</p>" +
       '<p class="muted">Tiempo total ' + mm(ms) + " · media " + Math.round(ms / tot / 1000) + " s por problema</p>" +
       '<div class="dots">' + puntos + "</div>" +
-      '<div class="ent-btns"><button type="button" class="btn" id="bat-rep">Repetir</button>' +
-      '<button type="button" class="btn-ghost" id="bat-cerrar">Cerrar</button></div>';
+      '<div class="ent-btns"><button type="button" class="btn" id="bat-rep">' + ICO.repetir + 'Repetir</button>' +
+      '<button type="button" class="btn-ghost" id="bat-cerrar">' + ICO.x + 'Cerrar</button></div>';
     el.result.hidden = false;
     el.sig.hidden = true; el.pct.textContent = "";
     mensaje("Batería terminada", "bien");
     U.$("bat-rep").onclick = function () { cierraBateria(); el.bat.value = String(n); iniciaBateria(n); };
     U.$("bat-cerrar").onclick = function () {
       cierraBateria();
-      bloqueado = true; el.pista.disabled = true; el.sol.disabled = true; el.sig.hidden = false;
+      bloqueado = true; el.pista.disabled = true; el.sol.disabled = true; el.sig.hidden = false; el.cancelar.hidden = true;
       mensaje("Elige un tema, un nivel o una batería para seguir.");
     };
     bat = null;
   }
+  // Cancelar: para el entrenamiento (y la batería, si la hay) y deja el tablero quieto
+  el.cancelar.addEventListener("click", function () {
+    clearTimeout(avance); clearInterval(temporizador);
+    if (arrastre) { arrastre.clon.remove(); arrastre = null; }
+    cierraBateria(); el.reloj.textContent = "0:00";
+    bloqueado = true; el.pista.disabled = true; el.sol.disabled = true; el.sig.hidden = false; el.cancelar.hidden = true;
+    mensaje("Entrenamiento parado. Elige un tema, un nivel o una batería para seguir.");
+    progreso();
+  });
   el.bat.addEventListener("change", function () {
     if (el.bat.value) iniciaBateria(+el.bat.value); else cierraBateria();
   });

@@ -13,10 +13,11 @@
   ];
   // Temas que coinciden con una categoria del entrenador; el resto se abre como t-<tema>
   var CATEGORIA = { mateIn1: "mate1", mateIn2: "mate2", mateIn3: "mate3", endgame: "finales", combinations: "combinaciones" };
+  var ICONO = ["wK", "wN", "wP"];
   var botones = document.getElementById("grupos"), cont = document.getElementById("temas");
 
   botones.innerHTML = GRUPOS.map(function (g, i) {
-    return '<button type="button" class="grupo" data-g="' + i + '" aria-expanded="false">' + U.esc(g[0]) +
+    return '<button type="button" class="grupo" data-g="' + i + '" aria-expanded="false"><img class="gi" src="assets/pieces/' + ICONO[i] + '.png" alt="" width="20" height="20">' + U.esc(g[0]) +
       ' <small>' + g[1].length + ' temas</small><span class="chev" aria-hidden="true"></span></button>';
   }).join("");
   cont.innerHTML = GRUPOS.map(function (g, i) {
