@@ -29,6 +29,11 @@
   function guardar() { try { localStorage.setItem("apejupo_tactica", JSON.stringify(hechos)); } catch (e) {} }
   function sq(i) { return "abcdefgh"[i % 8] + (8 - Math.floor(i / 8)); }
   function mensaje(t, clase) { el.msg.textContent = t; el.msg.className = "ent-msg " + (clase || ""); }
+  // Jugada en notación con figuritas: la inicial de la pieza (K, Q, R, B, N) se cambia por su dibujo
+  function figurita(san, color) {
+    var img = function (l) { return '<img class="fig" src="assets/pieces/' + color + l + '.png" alt="' + l + '">'; };
+    return san.replace(/^([KQRBN])/, function (m, l) { return img(l); }).replace(/=([QRBN])/, function (m, l) { return "=" + img(l); });
+  }
 
   // Estadística minimalista del tema: aciertos a la primera / ejercicios intentados - porcentaje
   function progreso() {
@@ -202,12 +207,13 @@
     mensaje("Solución…");
     (function siguientePaso() {
       if (k >= resto.length) {
-        mensaje("Solución: " + san.join("  "), "bien");
+        mensaje("", "bien");
+        el.msg.innerHTML = "Solución: " + san.join("&nbsp; ");
         el.sig.hidden = false;
         return;
       }
-      var u = resto[k++], m = chess.move({ from: u.slice(0, 2), to: u.slice(2, 4), promotion: u[4] || undefined });
-      if (m) san.push(m.san);
+      var u = resto[k++], quien = chess.turn(), m = chess.move({ from: u.slice(0, 2), to: u.slice(2, 4), promotion: u[4] || undefined });
+      if (m) san.push(figurita(m.san, quien));
       dibuja([u.slice(0, 2), u.slice(2, 4)]);
       avance = setTimeout(siguientePaso, 800);
     })();
@@ -261,11 +267,15 @@
     el.sig.hidden = true; el.pct.textContent = "";
     mensaje("Batería terminada", "bien");
     U.$("bat-rep").onclick = function () { cierraBateria(); el.bat.value = String(n); iniciaBateria(n); };
-    U.$("bat-cerrar").onclick = function () { cierraBateria(); siguiente(); };
+    U.$("bat-cerrar").onclick = function () {
+      cierraBateria();
+      bloqueado = true; el.pista.disabled = true; el.sol.disabled = true; el.sig.hidden = false;
+      mensaje("Elige un tema, un nivel o una batería para seguir.");
+    };
     bat = null;
   }
   el.bat.addEventListener("change", function () {
-    if (el.bat.value) iniciaBateria(+el.bat.value); else { cierraBateria(); siguiente(); }
+    if (el.bat.value) iniciaBateria(+el.bat.value); else cierraBateria();
   });
 
   function elige(id) {
