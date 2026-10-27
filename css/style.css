@@ -250,3 +250,17 @@ a { color: var(--blue); }
 .ent-board .co { display: none; }
 .ent-msg .fig { height: 1.15em; width: auto; vertical-align: -.22em; background: #f0d9b5; border-radius: 4px; margin-right: 2px; }
 .ent-reloj[hidden] { display: none; }
+.grupos { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+.grupo { cursor: pointer; display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--line); background: var(--card); color: var(--text); border-radius: 999px; padding: 7px 14px; font-size: .95rem; font-weight: 600; }
+.grupo small { color: var(--muted); font-weight: 400; font-size: .8rem; }
+.grupo[aria-expanded="true"] { border-color: var(--blue); }
+.grupo .chev { width: 7px; height: 7px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(45deg) translateY(-2px); transition: transform .15s; }
+.grupo[aria-expanded="true"] .chev { transform: rotate(-135deg) translateY(-2px); }
+#temas .tg { grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 8px; margin: 0 0 14px; }
+#temas .theme { padding: 6px 10px; gap: 10px; }
+#temas .theme .pc { width: 34px; height: 34px; }
+#temas .theme .pc img { width: 24px; height: 24px; }
+#temas .theme .tn { font-size: .95rem; }
+.ent-titulo .pc { width: 44px; height: 44px; }
+.ent-titulo .pc img { width: 32px; height: 32px; }
+#temas .tg[hidden] { display: none; }
