@@ -212,3 +212,8 @@ a { color: var(--blue); }
 .ent-board .lt .co { color: #b58863; }
 .ent-board .dk .co { color: #f0d9b5; }
 .ent-btns .btn-ghost:disabled { opacity: .45; cursor: default; }
+.ent-board { touch-action: none; }
+.ent-board .sq img { cursor: grab; }
+.ent-drag { position: fixed; z-index: 50; pointer-events: none; transform: translate(-50%, -50%); filter: drop-shadow(0 4px 6px rgba(0, 0, 0, .4)); }
+.ent-board .mate img { transform: rotate(90deg); }
+.ent-board .mate { box-shadow: inset 0 0 0 100px rgba(220, 38, 38, .5); }

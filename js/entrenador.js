@@ -36,6 +36,7 @@
       if (sel === s) cl += " sel";
       if (resalta && resalta.indexOf(s) >= 0) cl += " dest";
       if (chess.in_check() && pz && pz.type === "k" && pz.color === chess.turn()) cl += " chk";
+      if (chess.in_checkmate() && pz && pz.type === "k" && pz.color === chess.turn()) cl += " mate";
       html += '<div class="' + cl + '" data-s="' + s + '">' +
         (c === 0 ? '<i class="co r">' + (8 - r) + "</i>" : "") + (f === 7 ? '<i class="co f">' + "abcdefgh"[k] + "</i>" : "") +
         (pz ? '<img src="assets/pieces/' + pz.color + pz.type.toUpperCase() + '.png" alt="" draggable="false">' : "") + "</div>";
@@ -116,19 +117,53 @@
     mensaje("Variante correcta" + (fallos || pistaVista ? "." : " a la primera."), "bien");
     el.sig.hidden = false;
     progreso();
-    avance = setTimeout(siguiente, 1800);
+    avance = setTimeout(siguiente, 2500);
   }
 
-  el.tablero.addEventListener("click", function (e) {
-    if (!chess || bloqueado) return;
+  // Mover piezas: arrastrando con el ratón (o el dedo) o pulsando origen y destino
+  var arrastre = null;
+  function ultima() { return [p.l.slice(0, 2), p.l.slice(2, 4)]; }
+  function destinos(s) { return chess.moves({ square: s, verbose: true }).map(function (m) { return m.to; }); }
+  function casilla(x, y) {
+    var e = document.elementFromPoint(x, y);
+    e = e && e.closest(".sq");
+    return e && el.tablero.contains(e) ? e.getAttribute("data-s") : null;
+  }
+  function mueveClon(e) {
+    arrastre.clon.style.left = e.clientX + "px";
+    arrastre.clon.style.top = e.clientY + "px";
+  }
+
+  el.tablero.addEventListener("pointerdown", function (e) {
+    if (!chess || bloqueado || e.button > 0) return;
     var d = e.target.closest(".sq"); if (!d) return;
     var s = d.getAttribute("data-s"), pz = chess.get(s);
     if (sel && sel !== s && intento(sel, s)) return;
     if (pz && pz.color === chess.turn()) {
       sel = s;
-      dibuja([p.l.slice(0, 2), p.l.slice(2, 4)], chess.moves({ square: s, verbose: true }).map(function (m) { return m.to; }));
-    } else { sel = null; dibuja([p.l.slice(0, 2), p.l.slice(2, 4)]); }
+      dibuja(ultima(), destinos(s));
+      var img = el.tablero.querySelector('.sq[data-s="' + s + '"] img');
+      if (!img) return;
+      var clon = img.cloneNode(true);
+      clon.className = "ent-drag";
+      clon.style.width = img.getBoundingClientRect().width + "px";
+      document.body.appendChild(clon);
+      img.style.opacity = ".3";
+      arrastre = { from: s, clon: clon };
+      mueveClon(e);
+      e.preventDefault();
+    } else { sel = null; dibuja(ultima()); }
   });
+  document.addEventListener("pointermove", function (e) { if (arrastre) mueveClon(e); });
+  function suelta(e) {
+    if (!arrastre) return;
+    var from = arrastre.from, to = casilla(e.clientX, e.clientY);
+    arrastre.clon.remove(); arrastre = null;
+    if (e.type === "pointercancel" || !to || to === from) { dibuja(ultima(), sel ? destinos(sel) : null); return; }
+    if (!intento(from, to)) dibuja(ultima(), sel ? destinos(sel) : null);
+  }
+  document.addEventListener("pointerup", suelta);
+  document.addEventListener("pointercancel", suelta);
 
   el.pista.addEventListener("click", function () {
     if (!p || bloqueado) return;
