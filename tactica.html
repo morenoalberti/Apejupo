@@ -36,10 +36,20 @@
     <div class="ent" id="entrenador">
       <div class="ent-col">
         <div class="ent-head"><div class="theme ent-titulo" id="ent-titulo"></div><span class="ent-reloj" id="ent-reloj" title="Tiempo">0:00</span></div>
-        <div class="ent-board" id="ent-tablero" aria-label="Tablero"></div>
+        <div class="ent-bwrap">
+          <div class="ent-ranks" id="ent-ranks" aria-hidden="true"></div>
+          <div class="ent-board" id="ent-tablero" aria-label="Tablero"></div>
+          <div class="ent-files" id="ent-files" aria-hidden="true"></div>
+        </div>
       </div>
       <div class="ent-side">
         <select id="ent-nivel" class="ent-nivel" aria-label="Nivel de dificultad"></select>
+        <select id="ent-bateria" class="ent-nivel" aria-label="Batería de problemas">
+          <option value="">Batería de problemas</option>
+          <option value="10">10 problemas</option><option value="20">20 problemas</option><option value="30">30 problemas</option>
+          <option value="50">50 problemas</option><option value="100">100 problemas</option>
+        </select>
+        <div class="ent-result" id="ent-result" hidden></div>
         <p class="ent-msg" id="ent-msg" role="status" aria-live="polite"></p>
         <div class="ent-btns">
           <button type="button" class="btn-ghost" id="ent-pista">Pista</button>

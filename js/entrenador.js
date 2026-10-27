@@ -6,7 +6,7 @@
   var NIVELES = [["Todos", 0, 9999], ["Iniciación (hasta 1200)", 0, 1200], ["Intermedio (1200-1800)", 1200, 1800], ["Avanzado (1800-2200)", 1800, 2200], ["Experto (más de 2200)", 2200, 9999]];
   var cat = null, indice = null, lista = [], cache = {};
   var temporizador = null, avance = null, inicio = 0, chess = null, p = null, paso = 0, orient = "w", sel = null, bloqueado = false, fallos = 0, pistaVista = false;
-  var hechos = {}, res = {}, pistaNivel = 0;
+  var hechos = {}, res = {}, pistaNivel = 0, bat = null;
   try { hechos = JSON.parse(localStorage.getItem("apejupo_tactica") || "{}"); } catch (e) {}
   // Resultado del primer intento de cada problema: 1 = acertado a la primera, 0 = con fallo o pista
   try { res = JSON.parse(localStorage.getItem("apejupo_tactica_res") || "{}"); } catch (e) {}
@@ -18,7 +18,7 @@
 
   var el = {
     titulo: U.$("ent-titulo"), nivel: U.$("ent-nivel"), tablero: U.$("ent-tablero"), msg: U.$("ent-msg"),
-    reloj: U.$("ent-reloj"), pista: U.$("ent-pista"), sig: U.$("ent-sig"), pct: U.$("ent-pct"), sol: U.$("ent-sol")
+    reloj: U.$("ent-reloj"), pista: U.$("ent-pista"), sig: U.$("ent-sig"), pct: U.$("ent-pct"), sol: U.$("ent-sol"), bat: U.$("ent-bateria"), result: U.$("ent-result")
   };
   el.nivel.innerHTML = NIVELES.map(function (n, i) { return '<option value="' + i + '">' + U.esc(n[0]) + "</option>"; }).join("");
 
@@ -33,6 +33,7 @@
   // Estadística minimalista del tema: aciertos a la primera / ejercicios intentados - porcentaje
   function progreso() {
     if (!cat) return;
+    if (bat) { el.pct.textContent = "Batería " + Math.min(bat.res.length + 1, bat.cola.length) + "/" + bat.cola.length + " · " + (bat.res.filter(Boolean).length === 1 ? "1 acierto" : bat.res.filter(Boolean).length + " aciertos"); return; }
     var n = 0, ok = 0;
     lista.forEach(function (x) { if (res[x.i] !== undefined) { n++; ok += res[x.i]; } });
     el.pct.textContent = n ? ok + "/" + n + " · " + Math.round(ok * 100 / n) + " % acierto" : "";
@@ -50,10 +51,15 @@
       if (chess.in_check() && !chess.in_checkmate() && pz && pz.type === "k" && pz.color === chess.turn()) cl += " chk";
       if (chess.in_checkmate() && pz && pz.type === "k" && pz.color === chess.turn()) cl += " mate";
       html += '<div class="' + cl + '" data-s="' + s + '">' +
-        (c === 0 ? '<i class="co r">' + (8 - r) + "</i>" : "") + (f === 7 ? '<i class="co f">' + "abcdefgh"[k] + "</i>" : "") +
         (pz ? '<img src="assets/pieces/' + pz.color + pz.type.toUpperCase() + '.png" alt="" draggable="false">' : "") + "</div>";
     }
     el.tablero.innerHTML = html;
+    var nums = "", letras = "";
+    for (var i = 0; i < 8; i++) {
+      nums += "<span>" + (orient === "w" ? 8 - i : i + 1) + "</span>";
+      letras += "<span>" + "abcdefgh"[orient === "w" ? i : 7 - i] + "</span>";
+    }
+    U.$("ent-ranks").innerHTML = nums; U.$("ent-files").innerHTML = letras;
   }
 
   function cargaCategoria(id, cb) {
@@ -126,10 +132,11 @@
     bloqueado = true; clearInterval(temporizador); el.pista.disabled = true;
     if (!hechos[p.i]) { hechos[p.i] = fallos || pistaVista ? 1 : 2; guardar(); }
     anota(true);
+    registra(!(fallos || pistaVista));
     mensaje("¡Correcto!", "bien");
     el.sig.hidden = false;
     progreso();
-    avance = setTimeout(siguiente, 2500);
+    avance = setTimeout(avanza, 2500);
   }
 
   // Mover piezas: arrastrando con el ratón (o el dedo) o pulsando origen y destino
@@ -188,7 +195,7 @@
 
   el.sol.addEventListener("click", function () {
     if (!p || bloqueado) return;
-    anota(false); progreso();
+    anota(false); registra(false); progreso();
     if (!hechos[p.i]) { hechos[p.i] = 1; guardar(); }
     bloqueado = true; clearInterval(temporizador); el.pista.disabled = true; el.sol.disabled = true; sel = null;
     var resto = p.s.slice(paso), san = [], k = 0;
@@ -208,11 +215,57 @@
 
   el.sig.addEventListener("click", function () {
     clearTimeout(avance);
-    siguiente();
+    avanza();
   });
   el.nivel.addEventListener("change", function () {
     try { localStorage.setItem("apejupo_nivel", el.nivel.value); } catch (e) {}
+    cierraBateria();
     siguiente();
+  });
+
+  // ---------- Batería de problemas: N problemas seguidos del tema y nivel elegidos, con estadísticas al final ----------
+  function mm(ms) { var s = Math.round(ms / 1000); return Math.floor(s / 60) + ":" + ("0" + (s % 60)).slice(-2); }
+  function registra(ok) {
+    if (!bat) return;
+    bat.res.push(ok); bat.tiempos.push(Date.now() - inicio);
+  }
+  function avanza() { if (bat) avanzaBateria(); else siguiente(); }
+  function cierraBateria() {
+    bat = null; el.bat.value = ""; el.result.hidden = true; el.result.innerHTML = "";
+  }
+  function iniciaBateria(n) {
+    var nv = NIVELES[+el.nivel.value];
+    var cand = lista.filter(function (x) { return x.r >= nv[1] && x.r < nv[2]; });
+    if (!cand.length) { mensaje("No hay problemas en este nivel.", "mal"); el.bat.value = ""; return; }
+    cand = cand.map(function (x) { return { x: x, k: Math.random() + (hechos[x.i] ? 1 : 0) }; })
+      .sort(function (a, b) { return a.k - b.k; }).map(function (o) { return o.x; });
+    bat = { n: n, cola: cand.slice(0, n), res: [], tiempos: [], inicio: Date.now() };
+    el.result.hidden = true;
+    empieza(bat.cola[0]);
+  }
+  function avanzaBateria() {
+    if (bat.res.length >= bat.cola.length) { terminaBateria(); return; }
+    empieza(bat.cola[bat.res.length]);
+  }
+  function terminaBateria() {
+    clearInterval(temporizador); clearTimeout(avance);
+    var tot = bat.res.length, ok = bat.res.filter(Boolean).length, ms = Date.now() - bat.inicio, n = bat.n;
+    var puntos = bat.res.map(function (r) { return '<i class="' + (r ? "ok" : "ko") + '"></i>'; }).join("");
+    el.result.innerHTML = "<h4>Batería completada</h4>" +
+      '<p class="big">' + ok + "/" + tot + " · " + Math.round(ok * 100 / tot) + " % acierto</p>" +
+      '<p class="muted">Tiempo total ' + mm(ms) + " · media " + Math.round(ms / tot / 1000) + " s por problema</p>" +
+      '<div class="dots">' + puntos + "</div>" +
+      '<div class="ent-btns"><button type="button" class="btn" id="bat-rep">Repetir</button>' +
+      '<button type="button" class="btn-ghost" id="bat-cerrar">Cerrar</button></div>';
+    el.result.hidden = false;
+    el.sig.hidden = true; el.pct.textContent = "";
+    mensaje("Batería terminada", "bien");
+    U.$("bat-rep").onclick = function () { cierraBateria(); el.bat.value = String(n); iniciaBateria(n); };
+    U.$("bat-cerrar").onclick = function () { cierraBateria(); siguiente(); };
+    bat = null;
+  }
+  el.bat.addEventListener("change", function () {
+    if (el.bat.value) iniciaBateria(+el.bat.value); else { cierraBateria(); siguiente(); }
   });
 
   function elige(id) {
@@ -224,6 +277,7 @@
     Array.prototype.forEach.call(document.querySelectorAll("a.theme[data-id]"), function (a) {
       if (a.getAttribute("data-id") === id) a.setAttribute("aria-current", "true"); else a.removeAttribute("aria-current");
     });
+    cierraBateria();
     cargaCategoria(id, function (d) { lista = d; siguiente(); });
   }
 
