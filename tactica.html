@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Táctica · Apejupo Chess Club</title>
-<meta name="description" content="Entrena táctica de ajedrez: el puzzle del día, problemas por temas (mates, horquillas, clavadas…) y modos de entrenamiento.">
+<meta name="description" content="Entrena táctica de ajedrez: problemas por categorías y temas (mates, horquillas, clavadas…) y modos de entrenamiento.">
 <link rel="icon" type="image/svg+xml" href="assets/icon.svg">
 <link rel="stylesheet" href="css/style.css">
 </head>
@@ -27,7 +27,7 @@
   <section class="hero hero-small">
     <div class="wrap">
       <h1>Táctica</h1>
-      <p>Entrena tu visión del tablero: el puzzle del día, problemas por temas y modos de entrenamiento.</p>
+      <p>Entrena tu visión del tablero: problemas por categorías y por temas, de menor a mayor dificultad.</p>
     </div>
   </section>
 
@@ -39,11 +39,10 @@
       <div class="ent-board" id="ent-tablero" aria-label="Tablero"></div>
       <div class="ent-side">
         <div class="filters"><label>Nivel<select id="ent-nivel"></select></label></div>
-        <p class="ent-info muted small" id="ent-info"></p>
+        <p class="ent-info muted small"><span id="ent-info"></span> · <span id="ent-reloj">0:00</span></p>
         <p class="ent-msg" id="ent-msg" role="status" aria-live="polite"></p>
         <div class="ent-btns">
           <button type="button" class="btn-ghost" id="ent-pista">Pista</button>
-          <button type="button" class="btn-ghost" id="ent-sol">Ver solución</button>
           <button type="button" class="btn" id="ent-sig" hidden>Siguiente →</button>
         </div>
         <p class="muted small" id="ent-prog"></p>
@@ -52,22 +51,14 @@
   </section>
 
   <section class="wrap section two-col">
-    <div>
-      <div class="section-head"><h2>Puzzle del día</h2></div>
-      <div class="puzzle"><iframe id="puzzle" title="Puzzle del día de Lichess" loading="lazy" src="https://lichess.org/training/frame?theme=auto&amp;bg=auto" allowfullscreen></iframe></div>
-    </div>
-    <div>
-      <div class="section-head"><h2>Cómo se entrena</h2></div>
-      <div class="card"><div class="body">
-        <h4>Busca primero, mueve después</h4>
-        <p>Antes de tocar una pieza, mira jaques, capturas y amenazas de los dos bandos. Calcula la línea entera y solo entonces juega.</p>
-      </div></div>
-      <div class="card" style="margin-top:12px"><div class="body">
-        <h4>Un poco cada día</h4>
-        <p>Diez minutos diarios de problemas valen más que un domingo entero. Los temas de abajo te permiten entrenar un solo patrón hasta verlo a la primera.</p>
-        <a class="more" target="_blank" rel="noopener" href="https://lichess.org/training">Abrir el entrenador de Lichess →</a>
-      </div></div>
-    </div>
+    <div class="card"><div class="body">
+      <h4>Busca primero, mueve después</h4>
+      <p>Antes de tocar una pieza, mira jaques, capturas y amenazas de los dos bandos. Calcula la línea entera y solo entonces juega.</p>
+    </div></div>
+    <div class="card"><div class="body">
+      <h4>Un poco cada día</h4>
+      <p>Diez minutos diarios de problemas valen más que un domingo entero. Los temas de abajo te permiten entrenar un solo patrón hasta verlo a la primera.</p>
+    </div></div>
   </section>
 
   <section class="wrap section">

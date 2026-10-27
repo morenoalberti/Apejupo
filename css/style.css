@@ -204,3 +204,11 @@ a { color: var(--blue); }
 .ent-btns .btn-ghost, .ent-btns .btn { cursor: pointer; border: 1px solid var(--line); }
 .ent-btns .btn[hidden] { display: none; }
 @media (max-width: 760px) { .ent { grid-template-columns: 1fr; } }
+.ent-board { grid-template-rows: repeat(8, 1fr); }
+.ent-board .sq { min-width: 0; min-height: 0; }
+.ent-board .co { position: absolute; font-style: normal; font-size: .7rem; font-weight: 600; line-height: 1; pointer-events: none; }
+.ent-board .co.r { top: 3px; left: 4px; }
+.ent-board .co.f { bottom: 3px; right: 4px; }
+.ent-board .lt .co { color: #b58863; }
+.ent-board .dk .co { color: #f0d9b5; }
+.ent-btns .btn-ghost:disabled { opacity: .45; cursor: default; }

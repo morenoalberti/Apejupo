@@ -5,13 +5,13 @@
   var BASE = "data/tactica/";
   var NIVELES = [["Todos", 0, 9999], ["Iniciación (hasta 1200)", 0, 1200], ["Intermedio (1200-1800)", 1200, 1800], ["Avanzado (1800-2200)", 1800, 2200], ["Experto (más de 2200)", 2200, 9999]];
   var cat = null, indice = null, lista = [], cache = {};
-  var chess = null, p = null, paso = 0, orient = "w", sel = null, bloqueado = false, fallos = 0, pistaVista = false;
-  var hechos = {};
+  var temporizador = null, avance = null, inicio = 0, chess = null, p = null, paso = 0, orient = "w", sel = null, bloqueado = false, fallos = 0, pistaVista = false;
+  var hechos = {}, pistaNivel = 0;
   try { hechos = JSON.parse(localStorage.getItem("apejupo_tactica") || "{}"); } catch (e) {}
 
   var el = {
     cats: U.$("ent-cats"), nivel: U.$("ent-nivel"), tablero: U.$("ent-tablero"), msg: U.$("ent-msg"),
-    info: U.$("ent-info"), pista: U.$("ent-pista"), sol: U.$("ent-sol"), sig: U.$("ent-sig"), prog: U.$("ent-prog")
+    info: U.$("ent-info"), reloj: U.$("ent-reloj"), pista: U.$("ent-pista"), sig: U.$("ent-sig"), prog: U.$("ent-prog")
   };
   el.nivel.innerHTML = NIVELES.map(function (n, i) { return '<option value="' + i + '">' + U.esc(n[0]) + "</option>"; }).join("");
 
@@ -37,6 +37,7 @@
       if (resalta && resalta.indexOf(s) >= 0) cl += " dest";
       if (chess.in_check() && pz && pz.type === "k" && pz.color === chess.turn()) cl += " chk";
       html += '<div class="' + cl + '" data-s="' + s + '">' +
+        (c === 0 ? '<i class="co r">' + (8 - r) + "</i>" : "") + (f === 7 ? '<i class="co f">' + "abcdefgh"[k] + "</i>" : "") +
         (pz ? '<img src="assets/pieces/' + pz.color + pz.type.toUpperCase() + '.png" alt="" draggable="false">' : "") + "</div>";
     }
     el.tablero.innerHTML = html;
@@ -59,9 +60,16 @@
   }
 
   function empieza(prob) {
-    p = prob; paso = 0; sel = null; fallos = 0; pistaVista = false; bloqueado = false;
+    clearTimeout(avance); clearInterval(temporizador);
+    p = prob; paso = 0; sel = null; fallos = 0; pistaVista = false; pistaNivel = 0; bloqueado = false;
+    inicio = Date.now(); el.reloj.textContent = "0:00";
+    temporizador = setInterval(function () {
+      var seg = Math.floor((Date.now() - inicio) / 1000);
+      el.reloj.textContent = Math.floor(seg / 60) + ":" + ("0" + (seg % 60)).slice(-2);
+    }, 1000);
     chess = new Chess(p.f);
     orient = chess.turn();
+    el.pista.disabled = false;
     el.info.textContent = "Dificultad " + p.r + " · Juegan " + (orient === "w" ? "blancas" : "negras");
     mensaje("Encuentra la mejor jugada.");
     el.sig.hidden = true;
@@ -103,11 +111,12 @@
   }
 
   function termina() {
-    bloqueado = true;
+    bloqueado = true; clearInterval(temporizador); el.pista.disabled = true;
     if (!hechos[p.i]) { hechos[p.i] = fallos || pistaVista ? 1 : 2; guardar(); }
-    mensaje(fallos || pistaVista ? "Resuelto (con ayuda)." : "¡Resuelto a la primera!", "bien");
+    mensaje("Variante correcta" + (fallos || pistaVista ? "." : " a la primera."), "bien");
     el.sig.hidden = false;
     progreso();
+    avance = setTimeout(siguiente, 1800);
   }
 
   el.tablero.addEventListener("click", function (e) {
@@ -123,25 +132,15 @@
 
   el.pista.addEventListener("click", function () {
     if (!p || bloqueado) return;
-    pistaVista = true; sel = p.s[paso].slice(0, 2);
-    dibuja([p.l.slice(0, 2), p.l.slice(2, 4)]);
-    mensaje("Pista: mueve la pieza marcada.");
-  });
-
-  el.sol.addEventListener("click", function () {
-    if (!p || bloqueado) return;
-    var tmp = new Chess(chess.fen()), san = [];
-    for (var k = paso; k < p.s.length; k++) {
-      var m = tmp.move({ from: p.s[k].slice(0, 2), to: p.s[k].slice(2, 4), promotion: p.s[k][4] || "q" });
-      if (m) san.push(m.san);
-    }
-    pistaVista = true; bloqueado = true;
-    mensaje("Solución: " + san.join("  "), "bien");
-    el.sig.hidden = false;
+    pistaVista = true; pistaNivel++;
+    var m = p.s[paso];
+    sel = m.slice(0, 2);
+    dibuja([p.l.slice(0, 2), p.l.slice(2, 4)], pistaNivel > 1 ? [m.slice(2, 4)] : null);
+    mensaje(pistaNivel > 1 ? "Pista: la pieza marcada va a la casilla señalada." : "Pista: mueve la pieza marcada.");
   });
 
   el.sig.addEventListener("click", function () {
-    if (!hechos[p.i]) { hechos[p.i] = 1; guardar(); }
+    clearTimeout(avance);
     siguiente();
   });
   el.nivel.addEventListener("change", siguiente);
