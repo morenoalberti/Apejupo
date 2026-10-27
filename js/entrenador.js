@@ -87,7 +87,9 @@
     clearTimeout(avance); clearInterval(temporizador);
     p = prob; paso = 0; sel = null; fallos = 0; pistaVista = false; pistaNivel = 0; bloqueado = false;
     inicio = Date.now(); el.reloj.textContent = "0:00";
-    temporizador = setInterval(function () {
+    // El reloj solo corre dentro de una batería
+    el.reloj.hidden = !bat;
+    if (bat) temporizador = setInterval(function () {
       var seg = Math.floor((Date.now() - inicio) / 1000);
       el.reloj.textContent = Math.floor(seg / 60) + ":" + ("0" + (seg % 60)).slice(-2);
     }, 1000);
@@ -238,6 +240,7 @@
   function avanza() { if (bat) avanzaBateria(); else siguiente(); }
   function cierraBateria() {
     bat = null; el.bat.value = ""; el.result.hidden = true; el.result.innerHTML = "";
+    clearInterval(temporizador); el.reloj.hidden = true;
   }
   function iniciaBateria(n) {
     var nv = NIVELES[+el.nivel.value];
@@ -254,7 +257,7 @@
     empieza(bat.cola[bat.res.length]);
   }
   function terminaBateria() {
-    clearInterval(temporizador); clearTimeout(avance);
+    clearInterval(temporizador); clearTimeout(avance); el.reloj.hidden = true;
     var tot = bat.res.length, ok = bat.res.filter(Boolean).length, ms = Date.now() - bat.inicio, n = bat.n;
     var puntos = bat.res.map(function (r) { return '<i class="' + (r ? "ok" : "ko") + '"></i>'; }).join("");
     el.result.innerHTML = "<h4>Batería completada</h4>" +
