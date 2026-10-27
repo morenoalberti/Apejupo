@@ -6,12 +6,24 @@
   var NIVELES = [["Todos", 0, 9999], ["Iniciación (hasta 1200)", 0, 1200], ["Intermedio (1200-1800)", 1200, 1800], ["Avanzado (1800-2200)", 1800, 2200], ["Experto (más de 2200)", 2200, 9999]];
   var cat = null, indice = null, lista = [], cache = {};
   var temporizador = null, avance = null, inicio = 0, chess = null, p = null, paso = 0, orient = "w", sel = null, bloqueado = false, fallos = 0, pistaVista = false;
-  var hechos = {}, pistaNivel = 0;
+  var hechos = {}, res = {}, pistaNivel = 0;
   try { hechos = JSON.parse(localStorage.getItem("apejupo_tactica") || "{}"); } catch (e) {}
+  // Resultado del primer intento de cada problema: 1 = acertado a la primera, 0 = con fallo o pista
+  try { res = JSON.parse(localStorage.getItem("apejupo_tactica_res") || "{}"); } catch (e) {}
+  function anota(ok) {
+    if (!p || res[p.i] !== undefined) return;
+    res[p.i] = ok ? 1 : 0;
+    try { localStorage.setItem("apejupo_tactica_res", JSON.stringify(res)); } catch (e) {}
+  }
+  function porcentaje(ids) {
+    var n = 0, ok = 0;
+    ids.forEach(function (i) { if (res[i] !== undefined) { n++; ok += res[i]; } });
+    return n ? Math.round(ok * 100 / n) + " % de acierto (" + n + (n === 1 ? " ejercicio" : " ejercicios") + ")" : "";
+  }
 
   var el = {
     titulo: U.$("ent-titulo"), nivel: U.$("ent-nivel"), tablero: U.$("ent-tablero"), msg: U.$("ent-msg"),
-    info: U.$("ent-info"), reloj: U.$("ent-reloj"), pista: U.$("ent-pista"), sig: U.$("ent-sig"), prog: U.$("ent-prog")
+    info: U.$("ent-info"), reloj: U.$("ent-reloj"), pista: U.$("ent-pista"), sig: U.$("ent-sig"), prog: U.$("ent-prog"), pct: U.$("ent-pct")
   };
   el.nivel.innerHTML = NIVELES.map(function (n, i) { return '<option value="' + i + '">' + U.esc(n[0]) + "</option>"; }).join("");
 
@@ -28,6 +40,8 @@
     var n = 0;
     lista.forEach(function (x) { if (hechos[x.i]) n++; });
     el.prog.textContent = n + " de " + lista.length + " resueltos en " + cat.titulo;
+    var t = porcentaje(lista.map(function (x) { return x.i; })), g = porcentaje(Object.keys(res));
+    el.pct.innerHTML = (t ? "<b>" + U.esc(cat.titulo) + ":</b> " + t : "Aún no tienes aciertos en este ejercicio.") + (g ? "<br><b>Total:</b> " + g : "");
   }
 
   function dibuja(ultima, resalta) {
@@ -96,7 +110,7 @@
     chess.move({ from: from, to: to, promotion: promo || undefined });
     var correcto = uci === esperado || chess.in_checkmate();
     if (!correcto) {
-      chess.undo(); fallos++; sel = null;
+      chess.undo(); fallos++; sel = null; anota(false); progreso();
       dibuja([p.l.slice(0, 2), p.l.slice(2, 4)]);
       mensaje("Esa no es. Inténtalo de nuevo.", "mal");
       return true;
@@ -118,6 +132,7 @@
   function termina() {
     bloqueado = true; clearInterval(temporizador); el.pista.disabled = true;
     if (!hechos[p.i]) { hechos[p.i] = fallos || pistaVista ? 1 : 2; guardar(); }
+    anota(true);
     mensaje("¡Correcto!", "bien");
     el.sig.hidden = false;
     progreso();
@@ -171,7 +186,7 @@
 
   el.pista.addEventListener("click", function () {
     if (!p || bloqueado) return;
-    pistaVista = true; pistaNivel++;
+    pistaVista = true; pistaNivel++; anota(false); progreso();
     var m = p.s[paso];
     sel = m.slice(0, 2);
     dibuja([p.l.slice(0, 2), p.l.slice(2, 4)], pistaNivel > 1 ? [m.slice(2, 4)] : null);
