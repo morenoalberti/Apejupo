@@ -41,6 +41,17 @@ CATEGORIAS = {
         "Combinaciones", "Horquillas, clavadas, ataques descubiertos y más.", 400,
         {"fork", "pin", "skewer", "discoveredAttack", "deflection", "attraction", "sacrifice", "doubleCheck"}, MATES),
 }
+# Temas sueltos para las tarjetas "Entrena por temas": id de Lichess -> titulo. Se guardan como t-<id>.json
+TEMAS = {
+    "backRankMate": "Mate del pasillo", "smotheredMate": "Mate ahogado", "fork": "Horquilla", "pin": "Clavada",
+    "skewer": "Enfilada", "discoveredAttack": "Ataque descubierto", "hangingPiece": "Pieza colgada",
+    "sacrifice": "Sacrificio", "deflection": "Desviación", "attraction": "Atracción", "zugzwang": "Zugzwang",
+    "trappedPiece": "Pieza atrapada", "clearance": "Despejar", "promotion": "Promoción",
+    "advancedPawn": "Peón avanzado", "quietMove": "Jugada tranquila", "opening": "Apertura", "middlegame": "Medio juego",
+}
+POR_TEMA = 150
+for _t, _n in TEMAS.items():
+    CATEGORIAS["t-" + _t] = (_n, "", POR_TEMA, {_t}, set())
 TRAMOS = [(0, 800), (800, 1200), (1200, 1600), (1600, 2000), (2000, 2400), (2400, 4000)]
 MIN_JUGADAS_MAX = 12  # descarta problemas de solucion larguisima
 POPULARIDAD_MIN = 80
@@ -114,16 +125,17 @@ def main():
         print("Fin del fichero antes de llenar todos los cupos.", file=sys.stderr)
 
     os.makedirs(OUT, exist_ok=True)
-    indice = []
+    indice, temas = [], []
     for cat, (titulo, desc, total, _, _) in CATEGORIAS.items():
         lista = sorted((p for t in datos[cat] for p in t), key=lambda p: p["r"])[:total]
         with open(os.path.join(OUT, cat + ".json"), "w", encoding="utf-8") as f:
             json.dump(lista, f, ensure_ascii=False, separators=(",", ":"))
-        indice.append({"id": cat, "titulo": titulo, "desc": desc, "n": len(lista),
-                       "min": lista[0]["r"] if lista else 0, "max": lista[-1]["r"] if lista else 0})
+        (temas if cat.startswith("t-") else indice).append({
+            "id": cat, "titulo": titulo, "desc": desc, "n": len(lista),
+            "min": lista[0]["r"] if lista else 0, "max": lista[-1]["r"] if lista else 0})
         print(f"{cat}: {len(lista)} problemas", file=sys.stderr)
     with open(os.path.join(OUT, "indice.json"), "w", encoding="utf-8") as f:
-        json.dump({"fuente": "Lichess (CC0)", "categorias": indice}, f, ensure_ascii=False, separators=(",", ":"))
+        json.dump({"fuente": "Lichess (CC0)", "categorias": indice, "temas": temas}, f, ensure_ascii=False, separators=(",", ":"))
 
 
 if __name__ == "__main__":

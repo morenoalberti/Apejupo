@@ -10,9 +10,18 @@
     ["Promoción", "promotion", "wP"], ["Peón avanzado", "advancedPawn", "wP"], ["Jugada tranquila", "quietMove", "wB"],
     ["Apertura", "opening", "wN"], ["Medio juego", "middlegame", "wQ"], ["Finales", "endgame", "wK"]
   ];
-  document.getElementById("temas").innerHTML = TEMAS.map(function (t) {
-    return '<a class="theme" target="_blank" rel="noopener" href="https://lichess.org/training/' + t[1] + '">' +
+  // Temas que coinciden con una categoria del entrenador; el resto se abre como t-<tema>
+  var CATEGORIA = { mateIn1: "mate1", mateIn2: "mate2", mateIn3: "mate3", endgame: "finales" };
+  var cont = document.getElementById("temas");
+  cont.innerHTML = TEMAS.map(function (t) {
+    return '<a class="theme" href="#entrenador-sec" data-id="' + (CATEGORIA[t[1]] || "t-" + t[1]) + '">' +
       '<span class="pc"><img src="assets/pieces/' + t[2] + '.png" alt="" width="32" height="32"></span>' +
       "<span>" + U.esc(t[0]) + "</span></a>";
   }).join("");
+  cont.addEventListener("click", function (e) {
+    var a = e.target.closest("a.theme"); if (!a || !window.Entrenador) return;
+    e.preventDefault();
+    window.Entrenador.abre(a.getAttribute("data-id"));
+    document.getElementById("entrenador-sec").scrollIntoView({ behavior: "smooth" });
+  });
 })();

@@ -147,10 +147,19 @@
   el.nivel.addEventListener("change", siguiente);
 
   function elige(id) {
-    cat = indice.categorias.filter(function (c) { return c.id === id; })[0];
+    cat = indice.categorias.concat(indice.temas || []).filter(function (c) { return c.id === id; })[0];
+    if (!cat) return;
     Array.prototype.forEach.call(el.cats.children, function (b) { b.setAttribute("aria-pressed", b.dataset.id === id ? "true" : "false"); });
     cargaCategoria(id, function (d) { lista = d; siguiente(); });
   }
+
+  window.Entrenador = {
+    abre: function (id) {
+      if (!indice) { pendiente = id; return; }
+      elige(id);
+    }
+  };
+  var pendiente = null;
 
   fetch(BASE + "indice.json").then(function (r) { return r.json(); }).then(function (d) {
     indice = d;
@@ -161,6 +170,6 @@
     el.cats.addEventListener("click", function (e) {
       var b = e.target.closest("button"); if (b) elige(b.dataset.id);
     });
-    elige(d.categorias[0].id);
+    elige(pendiente || d.categorias[0].id);
   }).catch(function () { mensaje("No se han podido cargar los problemas.", "mal"); });
 })();
