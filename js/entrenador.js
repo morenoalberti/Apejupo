@@ -18,7 +18,7 @@
 
   var el = {
     titulo: U.$("ent-titulo"), nivel: U.$("ent-nivel"), tablero: U.$("ent-tablero"), msg: U.$("ent-msg"),
-    info: U.$("ent-info"), reloj: U.$("ent-reloj"), pista: U.$("ent-pista"), sig: U.$("ent-sig"), pct: U.$("ent-pct"), sol: U.$("ent-sol")
+    reloj: U.$("ent-reloj"), pista: U.$("ent-pista"), sig: U.$("ent-sig"), pct: U.$("ent-pct"), sol: U.$("ent-sol")
   };
   el.nivel.innerHTML = NIVELES.map(function (n, i) { return '<option value="' + i + '">' + U.esc(n[0]) + "</option>"; }).join("");
 
@@ -47,7 +47,7 @@
       if (ultima && (ultima[0] === s || ultima[1] === s)) cl += " last";
       if (sel === s) cl += " sel";
       if (resalta && resalta.indexOf(s) >= 0) cl += " dest";
-      if (chess.in_check() && pz && pz.type === "k" && pz.color === chess.turn()) cl += " chk";
+      if (chess.in_check() && !chess.in_checkmate() && pz && pz.type === "k" && pz.color === chess.turn()) cl += " chk";
       if (chess.in_checkmate() && pz && pz.type === "k" && pz.color === chess.turn()) cl += " mate";
       html += '<div class="' + cl + '" data-s="' + s + '">' +
         (c === 0 ? '<i class="co r">' + (8 - r) + "</i>" : "") + (f === 7 ? '<i class="co f">' + "abcdefgh"[k] + "</i>" : "") +
@@ -83,8 +83,7 @@
     chess = new Chess(p.f);
     orient = chess.turn();
     el.pista.disabled = false; el.sol.disabled = false;
-    el.info.textContent = "Dificultad " + p.r + " · Juegan " + (orient === "w" ? "blancas" : "negras");
-    mensaje("Encuentra la mejor jugada.");
+    mensaje("Juegas " + (orient === "w" ? "blancas" : "negras") + ".");
     el.sig.hidden = true;
     dibuja([p.l.slice(0, 2), p.l.slice(2, 4)]);
     progreso();
@@ -118,7 +117,7 @@
     setTimeout(function () {
       juega(resp); paso++; bloqueado = false;
       dibuja([resp.slice(0, 2), resp.slice(2, 4)]);
-      mensaje("Tu turno.");
+      mensaje("Juegas " + (orient === "w" ? "blancas" : "negras") + ".");
     }, 450);
     return true;
   }
