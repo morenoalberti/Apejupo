@@ -85,7 +85,7 @@
     p = null; sel = null; bloqueado = true; paso = 0; orient = "w";
     chess = new Chess();
     el.reloj.textContent = "0:00";
-    el.pista.disabled = true; el.sol.disabled = true; el.sig.hidden = true; el.cancelar.hidden = true;
+    el.pista.disabled = true; el.sol.disabled = true; el.sig.hidden = true; el.cancelar.disabled = true;
     mensaje(texto || "Elige una batería de problemas para empezar.");
     dibuja(null);
     progreso();
@@ -103,7 +103,7 @@
     }, 1000);
     chess = new Chess(p.f);
     orient = chess.turn();
-    el.pista.disabled = false; el.sol.disabled = false; el.cancelar.hidden = false;
+    el.pista.disabled = false; el.sol.disabled = false; el.cancelar.disabled = false;
     mensaje("Juegas " + (orient === "w" ? "blancas" : "negras") + ".");
     el.sig.hidden = true;
     dibuja([p.l.slice(0, 2), p.l.slice(2, 4)]);
@@ -276,7 +276,7 @@
       '<button type="button" class="btn-ghost" id="bat-cerrar">' + ICO.x + 'Cerrar</button></div>';
     el.result.hidden = false;
     el.sig.hidden = true; el.pct.textContent = "";
-    bloqueado = true; el.pista.disabled = true; el.sol.disabled = true; el.cancelar.hidden = true;
+    bloqueado = true; el.pista.disabled = true; el.sol.disabled = true; el.cancelar.disabled = true;
     mensaje("Batería terminada", "bien");
     U.$("bat-rep").onclick = function () { cierraBateria(); el.bat.value = String(n); iniciaBateria(n); };
     U.$("bat-cerrar").onclick = function () { cierraBateria(); reposo(); };

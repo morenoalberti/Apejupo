@@ -275,3 +275,4 @@ a { color: var(--blue); }
 .ent-cancel button { border: 1px solid var(--line); }
 .ent-cancel button[hidden] { display: none; }
 @media (max-width: 760px) { .ent-side { margin-bottom: 0; } }
+.ent-cancel button:disabled { opacity: .45; cursor: default; }
