@@ -232,23 +232,56 @@
   // ---------- Ventana de estadísticas: la ficha oficial de FIDE abierta directamente en sus estadísticas ----------
   // statistics = partidas, victorias, tablas y derrotas con blancas y negras por ritmo; chart = evolución del Elo.
   // La ancla #tabs hace que la ficha de FIDE se abra ya situada en ese bloque, sin la cabecera ni los datos básicos.
-  var dlg = $("stats-dlg"), jugadorStats = null;
+  var dlg = $("stats-dlg"), jugadorStats = null, STATS_URL = "https://apejupo-eventos.chessrival-worker.workers.dev/?fide=";
+  function barra(titulo, b, w, d, l) {
+    function seg(n, c) { return n ? '<i class="' + c + '" style="flex:' + n + '">' + n + "</i>" : ""; }
+    return '<div class="fb"><span>' + titulo + " " + b + '</span><div class="fbar">' + seg(w, "w") + seg(d, "d") + seg(l, "l") + "</div></div>";
+  }
+  function bloqueStats(st, nombre, suf) {
+    function n(k) { return +st[k + suf] || 0; }
+    var bt = n("white_total"), bw = n("white_win_num"), bd = n("white_draw_num"), nt = n("black_total"), nw = n("black_win_num"), nd = n("black_draw_num");
+    if (!bt && !nt) return "";
+    return '<div class="fcard"><h5>' + nombre + "</h5>" + barra("Blancas", bt, bw, bd, Math.max(0, bt - bw - bd)) + barra("Negras", nt, nw, nd, Math.max(0, nt - nw - nd)) + "</div>";
+  }
+  function pintaFicha(r, f, st, errSt) {
+    var anio = f && f.year, edad = anio ? new Date().getFullYear() - anio : "";
+    var gen = f && f.gender === "F" ? "Mujer" : f && f.gender === "M" ? "Hombre" : "";
+    var fed = (f && f.federation) || r.federacion || "", titulo = (f && f.title) || r.titulo || "";
+    function fila(k, v) { return v !== "" && v != null ? "<dt>" + k + "</dt><dd>" + v + "</dd>" : ""; }
+    var foto = f && f.photo && f.photo.medium ? '<img class="fphoto" alt="" src="' + esc(f.photo.medium) + '">' : "";
+    var h = "<h3>" + esc(r.nombre) + '</h3><p class="muted small">FIDE ID: ' + esc(r.fide_id) + '</p><div class="fhead">' +
+      '<div class="fimg">' + (foto || U.avatar(r.nombre, r.fide_id).replace('class="av"', 'class="av av-xl"')) + "</div><dl>" +
+      fila("Federación", fed ? U.flag(fed) + " " + esc(U.pais(fed)) : "") + fila("Año", anio || "") + fila("Género", gen) + fila("Edad", edad ? edad : "") +
+      fila("Título", esc(titulo || "—")) + fila("Standard", (f && f.standard) || r.standard || "") + fila("Rapid", (f && f.rapid) || r.rapid || "") + fila("Blitz", (f && f.blitz) || r.blitz || "") + "</dl></div>";
+    h += '<div class="fsep"></div>';
+    if (st && (st.white_total || st.black_total)) h += '<div class="fcards">' + bloqueStats(st, "Total", "") + bloqueStats(st, "Standard", "_std") + bloqueStats(st, "Rapid", "_rpd") + bloqueStats(st, "Blitz", "_blz") + "</div>";
+    else h += '<p class="muted small">' + (errSt ? "No se pudieron cargar las estadísticas ahora mismo." : "Este jugador no tiene estadísticas de partidas en FIDE.") + ' <a target="_blank" rel="noopener" href="https://ratings.fide.com/profile/' + encodeURIComponent(r.fide_id) + '/statistics">Verlas en FIDE ↗</a></p>';
+    $("stats-ficha").innerHTML = h;
+    U.fotos($("stats-ficha"));
+  }
+  function cargarFicha() {
+    var r = jugadorStats, id = encodeURIComponent(r.fide_id);
+    $("stats-ficha").innerHTML = '<p class="muted small">Cargando la ficha…</p>';
+    var pf = fetch("https://lichess.org/api/fide/player/" + id).then(function (x) { return x.ok ? x.json() : null; }).catch(function () { return null; });
+    var ps = fetch(STATS_URL + id + "&v=2").then(function (x) { return x.ok ? x.json() : null; }).then(function (j) { return j && j.stats ? j.stats : null; }).catch(function () { return null; });
+    Promise.all([pf, ps]).then(function (v) {
+      if (jugadorStats !== r) return; // se cerró o se abrió otro jugador mientras tanto
+      pintaFicha(r, v[0], v[1], !v[1]);
+    });
+  }
   function cargarVista(vista) {
     var url = "https://ratings.fide.com/profile/" + encodeURIComponent(jugadorStats.fide_id);
-    $("stats-fide").href = url;
-    $("stats-cargando").hidden = false;
-    $("stats-frame").src = url + "/" + vista + "#tabs";
+    var ficha = vista === "ficha";
+    $("stats-ficha").hidden = !ficha; $("stats-frame").hidden = ficha; $("stats-cargando").hidden = ficha;
+    if (ficha) cargarFicha();
+    else { $("stats-cargando").hidden = false; $("stats-frame").src = url + "/chart#tabs"; }
     Array.prototype.forEach.call($("stats-tabs").children, function (b) { b.setAttribute("aria-selected", b.getAttribute("data-vista") === vista ? "true" : "false"); });
   }
   function abrirStats(r) {
     if (!r || !r.fide_id) return;
     jugadorStats = r;
-    $("stats-nombre").textContent = r.nombre;
-    $("stats-av").innerHTML = U.avatar(r.nombre, r.fide_id).replace('class="av"', 'class="av av-lg"');
-    $("stats-datos").innerHTML = (r.federacion ? U.flag(r.federacion) + esc(r.federacion) + " · " : "") + (r.titulo ? esc(r.titulo) + " · " : "") + "FIDE ID " + esc(r.fide_id);
-    cargarVista("statistics");
+    cargarVista("ficha");
     dlg.showModal();
-    U.fotos($("stats-av"));
   }
   $("stats-tabs").addEventListener("click", function (e) {
     var b = e.target.closest("button[data-vista]");
@@ -257,7 +290,7 @@
   $("stats-frame").addEventListener("load", function () { if (this.getAttribute("src") !== "about:blank") $("stats-cargando").hidden = true; });
   $("stats-cerrar").addEventListener("click", function () { dlg.close(); });
   dlg.addEventListener("click", function (e) { if (e.target === dlg) dlg.close(); });  // clic fuera de la ventana
-  dlg.addEventListener("close", function () { $("stats-frame").src = "about:blank"; });
+  dlg.addEventListener("close", function () { $("stats-frame").src = "about:blank"; jugadorStats = null; });
   $("tbl-body").addEventListener("click", function (e) {
     var b = e.target.closest("button[data-fid-ver]");
     if (b) abrirStats(filas[b.getAttribute("data-fid-ver")]);

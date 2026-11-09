@@ -19,13 +19,28 @@ FEEDS = [
     ("ChessBase", "https://es.chessbase.com/feed", "es"),
     ("Chess.com", "https://www.chess.com/es/rss/news", "es"),
     ("Lichess", "https://lichess.org/blog.atom", "en"),
-    ("Chessdom", "https://www.chessdom.com/feed/", "en"),
     ("FIDE", "https://www.fide.com/feed/", "en"),
-    ("Unión Europea de Ajedrez", "https://www.europechess.org/feed/", "en"),
     ("Saint Louis Chess Club", "https://saintlouischessclub.org/feed/", "en"),
     ("Federación Inglesa", "https://www.englishchess.org.uk/feed/", "en"),
 ]
 MAX_PER_FEED = {"es": 12, "en": 5}
+
+# La web ya muestra los torneos (Torneos Live y Próximos Torneos): aquí no entran noticias de competiciones concretas.
+# Se descarta toda noticia cuyo título o resumen contenga alguna de estas expresiones (en español o inglés).
+TORNEOS = re.compile(
+    r"\b(round\s*\d+|ronda\s*\d+|rondas?|tournaments?|torneos?|championships?|campeonatos?|open|grand prix|candidates|candidatos|"
+    r"olympiad|olimpiada|world cup|copa del mundo|grand swiss|grand chess tour|clutch chess|showdown|match|"
+    r"standings|clasificaci[oó]n|pairings|emparejamientos|results?|resultados?|"
+    r"wins?|gana|ganó|gan[oó]|se proclama|campe[oó]n(?:a)? de|crowned|claims?|titles?|títulos?|"
+    r"qualif\w+|clasific\w+|playoffs?|semifinal\w*|cuartos de final|quarterfinal\w*|final round|"
+    r"leads?|lidera|vs\.?|se llevaron|oro|medalla\w*|festival|simult\w+|"
+    r"se consagr\w+|enfrentar\w+|final de \w+|norway chess|olympiads?|junior|juvenil|sub-?\d+|u\d{2})\b",
+    re.I,
+)
+
+
+def es_de_torneo(item):
+    return bool(TORNEOS.search(item["title"] + " " + item["text"][:80]))
 TOTAL = 36
 ROOT = Path(__file__).resolve().parent
 OUT = ROOT.parent / "data" / "news.json"
@@ -86,6 +101,7 @@ def read(name, url, lang):
             "text": clean(raw)[:140],
             "lang": lang,
         })
+    items = [i for i in items if not es_de_torneo(i)]
     return items[:MAX_PER_FEED[lang]]
 
 

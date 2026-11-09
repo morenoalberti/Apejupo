@@ -4,3 +4,6 @@ scripts/.cache/
 data/elo/
 build/
 .claude/
+worker/.wrangler/
+worker/node_modules/
+.dev.vars

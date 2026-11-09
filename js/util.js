@@ -1,5 +1,16 @@
 (function () {
   window.U = {
+    // Nombre de ronda siempre en español («Round 3», «Runde 3», «Rodada 3»… → «Ronda 3»)
+    ronda: function (n) {
+      n = String(n || "").replace(/^\s*(\d+)\s*[.ºª°]*\s*(?:Round|Runde|Rodada|Ronde|Rond|Runda|Rundan|Kolo|Kierros|Tour|Turn|Turno|Raund|Раунд|Тур|Forduló|Tur)(?![A-Za-zÀ-ÿ])/i, "Ronda $1"); // «2.ª Rodada» → «Ronda 2»
+      return n.replace(/^\s*(Round|Runde|Rodada|Ronde|Rond|Runda|Rundan|Kolo|Kierros|Tour|Turn|Turno|Raund|Раунд|Тур|Forduló|Tur)(?=\s*\d)/i, "Ronda");
+    },
+    // Datos del torneo para el cuadro que sale al pasar el ratón por una tarjeta (atributo data-tip)
+    tipAttr: function (t) {
+      t = t || {}; var i = t.info || {};
+      var d = { id: t.id || "", n: t.name || "", f: i.format || "", c: i.tc || "", l: i.location || "", d: t.dates || [], z: i.timeZone || "", p: i.players || "", s: t.tier || 0 };
+      return ' data-tip="' + JSON.stringify(d).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;") + '"';
+    },
     $: function (id) { return document.getElementById(id); },
     esc: function (s) {
       var d = document.createElement("div");
@@ -34,6 +45,13 @@
     SWE: "se", SYR: "sy", THA: "th", TJK: "tj", TKM: "tm", TUN: "tn", TUR: "tr", UKR: "ua", USA: "us", UZB: "uz", VEN: "ve",
     YEM: "ye"
   };
+  U.flagCode = function (fed) { var c = (fed || "").trim().toUpperCase(); return c in ESPECIAL ? ESPECIAL[c] : c in ISO3 ? ISO3[c] : ""; };
+  /** Nombre del país en español a partir del código de federación FIDE («NOR» -> «Noruega»). */
+  U.pais = function (fed) {
+    var code = U.flagCode(fed);
+    try { if (code && /^[a-z]{2}$/.test(code)) return new Intl.DisplayNames(["es"], { type: "region" }).of(code.toUpperCase()); } catch (e) {}
+    return fed || "";
+  };
   U.flag = function (fed) {
     var c = (fed || "").trim().toUpperCase();
     var code = c in ESPECIAL ? ESPECIAL[c] : c in ISO3 ? ISO3[c] : "";
@@ -47,9 +65,10 @@
   // que además guarda copias verificadas de algunos jugadores para cuando FIDE no responde.
   var FOTO_FUENTES = [
     "https://chessrival-api.chessrival-worker.workers.dev/api/fide/foto?id=",
-    "https://chessrival.net/api/fide/foto?id="
+    "https://chessrival.net/api/fide/foto?id=",
+    "https://apejupo-eventos.chessrival-worker.workers.dev/?foto="  // nuestro propio Worker: lee la foto del perfil de FIDE
   ];
-  var SIN_FOTO_MIN = 30, MAX_A_LA_VEZ = 4, activas = 0, cola = [];
+  var SIN_FOTO_MIN = 5, MAX_A_LA_VEZ = 4, activas = 0, cola = [];
 
   function fotosActivas() {
     try { return localStorage.getItem("fotosOff") !== "1"; } catch (e) { return true; }
@@ -66,15 +85,18 @@
     var id = el.getAttribute("data-fid"), i = 0;
     activas++;
     (function probar() {
-      var img = new Image();
+      var img = new Image(), hecho = false, t;
+      function sig() { // esa fuente no tiene la foto, falló o no contesta: se prueba la siguiente
+        if (hecho) return; hecho = true; clearTimeout(t); img.onload = img.onerror = null;
+        if (++i < FOTO_FUENTES.length * 2) probar(); // dos vueltas: un fallo puntual de un servidor no deja al jugador sin foto
+        else { marcarSinFoto(id); fin(); }
+      }
       img.alt = "";
       img.decoding = "async";
-      img.onload = function () { el.textContent = ""; el.appendChild(img); el.classList.add("con-foto"); fin(); };
-      img.onerror = function () {
-        if (++i < FOTO_FUENTES.length) probar();  // esa fuente no tiene la foto o falló: se prueba la siguiente
-        else { marcarSinFoto(id); fin(); }
-      };
-      img.src = FOTO_FUENTES[i] + encodeURIComponent(id);
+      img.onload = function () { if (hecho) return; hecho = true; clearTimeout(t); el.textContent = ""; el.appendChild(img); el.classList.add("con-foto"); fin(); };
+      img.onerror = sig;
+      t = setTimeout(sig, 7000); // si un servidor se queda sin responder, no se bloquea la cola de fotos
+      img.src = FOTO_FUENTES[i % FOTO_FUENTES.length] + encodeURIComponent(id);
     })();
   }
   function fin() { activas--; siguiente(); }
@@ -107,4 +129,70 @@
       vigilante.observe(el);
     });
   };
+})();
+
+
+// ---------- Cuadro de información al pasar el ratón por las tarjetas de torneos ----------
+(function () {
+  var tip = null, cur = null, prizes = {}, asked = {};
+  // El premio no es un dato aparte en Lichess: se busca en la descripción del torneo (solo si el organizador lo escribe)
+  function findPrize(txt) {
+    txt = String(txt || "").replace(/[*_`]/g, "");
+    var re = /(?:prizes?(?:\s+(?:fund|pool|money))?|premios?|preis(?:geld|fonds)|prix)[^\n]{0,70}?((?:€|\$|£|USD|EUR)\s?\d[\d.,]*(?:\s?[kK]\b)?|\d[\d.,]*(?:\s?[kK]\b)?\s?(?:€|\$|£|USD|EUR|dollars|euros))/i;
+    var m = re.exec(txt);
+    return m ? m[1].replace(/\s+/g, " ").trim() : "";
+  }
+  function loadPrize(d, el) {
+    if (!d.id || asked[d.id]) return; asked[d.id] = 1;
+    fetch("https://lichess.org/api/broadcast/" + encodeURIComponent(d.id)).then(function (r) { return r.ok ? r.json() : null; }).then(function (j) {
+      var p = j && j.tour && findPrize((j.tour.description || "") + " " + ((j.tour.info && j.tour.info.prize) || ""));
+      if (!p) return; prizes[d.id] = p;
+      if (cur === el && tip && !tip.hidden) { tip.innerHTML = build(d); }
+    }).catch(function () {});
+  }
+  function es(x) {
+    return (x || "")
+      .replace(/(\d+)[- ]players?\b/gi, "$1 jugadores")
+      .replace(/(\d+)[- ]rounds?\s+(Swiss|Round[- ]Robin|Knockout)/i, function (_, n, k) { return ({ swiss: "Swiss", "round-robin": "Round-Robin", "round robin": "Round-Robin", knockout: "Knockout" })[k.toLowerCase()] + " a " + n + " rondas"; })
+      .replace(/\bfor teams\b/i, "por equipos")
+      .replace(/(\d+)\s*-\s*rounds?\s+(Swiss|Round[- ]Robin|Knockout)/i, "$2 a $1 rondas")
+      .replace(/\b(Swiss|Round[- ]Robin|Knockout)\s+(\d+)\s*rounds?\b/i, "$1 a $2 rondas")
+      .replace(/\bround[- ]robin\b/gi, "Round-Robin").replace(/\bseg\b/gi, "s").replace(/\bafter\b/gi, "después de")
+      .replace(/\bmin(utes?)?\b/gi, "min").replace(/\bsec(onds?)?\b/gi, "s").replace(/\/\s*move\b/i, "por jugada").replace(/\bper move\b/i, "por jugada")
+      .replace(/\bmoves\b/gi, "jugadas").replace(/\bhours?\b/gi, "h").replace(/\bplus\b/gi, "+");
+  }
+  function dd(ms, z, o) { var d = new Date(ms); try { return d.toLocaleDateString("es-ES", Object.assign({ timeZone: z || undefined }, o)); } catch (_) { return d.toLocaleDateString("es-ES", o); } }
+  function build(d) {
+    var rows = [];
+    function row(k, v) { if (v) rows.push('<div><b>' + k + '</b><span>' + U.esc(v) + '</span></div>'); }
+    var fm = es(d.f.replace(/\s*\d+[- ]players?\b\s*/i, " ").trim()), np = (/(\d+)[- ]players?\b/i.exec(d.f) || [])[1];
+    row("Sitio de juego", d.l);
+    row("Premios", prizes[d.id] || "");
+    row("Sistema", fm);
+    row("Ritmo", es(d.c));
+    if (d.d && d.d[0]) {
+      var a = dd(d.d[0], d.z, { day: "numeric", month: "short", year: "numeric" }), b = d.d[1] ? dd(d.d[1], d.z, { day: "numeric", month: "short", year: "numeric" }) : a;
+      row("Fechas", a === b ? a : "del " + dd(d.d[0], d.z, { day: "numeric", month: "short" }) + " al " + b);
+    }
+    row("Jugadores", np ? np : "");
+    if (!rows.length) rows.push('<div class="tp-none">Sin más datos del organizador.</div>');
+    return '<div class="tp-h">' + U.esc(d.n) + '</div>' + rows.join("");
+  }
+  function place(x, y) {
+    var w = tip.offsetWidth, h = tip.offsetHeight, nx = x + 18, ny = y + 14;
+    if (nx + w > innerWidth - 8) nx = Math.max(8, x - w - 18);
+    if (ny + h > innerHeight - 8) ny = Math.max(8, innerHeight - h - 8);
+    tip.style.left = nx + "px"; tip.style.top = ny + "px";
+  }
+  function hide() { if (tip) tip.hidden = true; cur = null; }
+  document.addEventListener("mouseover", function (e) {
+    var c = e.target.closest && e.target.closest("[data-tip]");
+    if (!c) { hide(); return; }
+    if (c === cur) return;
+    var d; try { d = JSON.parse(c.getAttribute("data-tip")); } catch (_) { return; }
+    if (!tip) { tip = document.createElement("div"); tip.className = "tour-tip"; tip.hidden = true; document.body.appendChild(tip); }
+    cur = c; tip.innerHTML = build(d); tip.hidden = false; place(e.clientX, e.clientY); loadPrize(d, c);
+  });
+  document.addEventListener("mousemove", function (e) { if (cur && tip && !tip.hidden) place(e.clientX, e.clientY); });
+  document.addEventListener("scroll", hide, true);
 })();

@@ -1,73 +1,71 @@
 (function () {
   var D = window.APEJUPO, $ = U.$, esc = U.esc, safeUrl = U.safeUrl, fmt = U.fmt;
 
-  // ---------- Tablero decorativo (posición por FEN) ----------
-  var FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR";
+  // ---------- Tablero de la portada: reproduce una apertura (1.b4 e5 2.Ab2 Cf6 3.Axe5 Cc6) y vuelve a empezar ----------
+  var START = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR";
+  var MOVES = [["b2", "b4"], ["e7", "e5"], ["c1", "b2"], ["g8", "f6"], ["b2", "e5"], ["b8", "c6"]];
+  var boardEl = $("board");
+  function sqIdx(sq) { return (8 - +sq[1]) * 8 + "abcdefgh".indexOf(sq[0]); }
+  function fromFen(fen) {
+    var g = [];
+    fen.split("/").forEach(function (row) { row.split("").forEach(function (ch) { if (/\d/.test(ch)) { for (var k = 0; k < +ch; k++) g.push(""); } else g.push(ch); }); });
+    return g;
+  }
   function pieceImg(ch) {
     var name = (ch === ch.toUpperCase() ? "w" : "b") + ch.toUpperCase();
     return '<img src="assets/pieces/' + name + '.png" alt="" draggable="false">';
   }
-  var cells = "";
-  function cell(x, y, ch) {
-    return '<i class="' + ((x + y) % 2 ? "d" : "l") + '">' + (ch ? pieceImg(ch) : "") + "</i>";
+  function paint(g, last) {
+    var h = "";
+    for (var i = 0; i < 64; i++) {
+      var x = i % 8, y = (i - x) / 8;
+      h += '<i class="' + ((x + y) % 2 ? "d" : "l") + (last && (i === last[0] || i === last[1]) ? " last" : "") + '">' + (g[i] ? pieceImg(g[i]) : "") + "</i>";
+    }
+    boardEl.innerHTML = h;
   }
-  FEN.split("/").forEach(function (row, y) {
-    var x = 0;
-    row.split("").forEach(function (ch) {
-      if (/\d/.test(ch)) {
-        for (var k = 0; k < +ch; k++, x++) cells += cell(x, y, "");
-      } else {
-        cells += cell(x, y, ch);
-        x++;
-      }
-    });
-  });
-  $("board").innerHTML = cells;
-
-  // ---------- Resumen ----------
-  $("stat-players").textContent = D.players.length;
-
-  // ---------- Equipo ----------
-  $("players").innerHTML = D.players.map(function (p) {
-    var ini = p.name.split(" ").map(function (w) { return w[0]; }).join("").slice(0, 2).toUpperCase();
-    var av = p.foto
-      ? '<div class="avatar con-foto"><img alt="" src="' + esc(p.foto) + '"></div>'   // foto propia (assets/equipo/…)
-      : '<div class="avatar"' + (p.fide ? ' data-fid="' + esc(p.fide) + '"' : "") + ">" + esc(ini) + "</div>"; // foto de FIDE si hay número
-    return '<div class="card player">' + av +
-      '<h4>' + esc(p.name) + '</h4><p>' + esc(p.title) + '</p>' +
-      '<p class="elo">Elo ' + esc(p.elo) + '</p></div>';
-  }).join("");
-
-  U.fotos($("players"));
-
-  // ---------- Calendario ----------
-  var now = Date.now();
-  var evs = D.events.filter(function (e) { return new Date(e.date).getTime() >= now - 864e5; })
-    .sort(function (a, b) { return new Date(a.date) - new Date(b.date); });
-  $("stat-events").textContent = evs.length;
-  $("events").innerHTML = evs.length ? evs.map(function (e, i) {
-    return '<li' + (i === 0 ? ' class="next"' : "") + '><div class="date">' + fmt(e.date, { day: "numeric" }) +
-      '<small>' + fmt(e.date, { month: "short" }) + '</small></div>' +
-      '<div>' + (i === 0 ? '<span class="badge soon">PRÓXIMO</span> ' : "") + '<strong>' + esc(e.title) + '</strong><div class="muted">' + esc(e.place) + '</div></div></li>';
-  }).join("") : '<li class="muted">No hay eventos próximos.</li>';
+  var grid = fromFen(START), step = 0, still = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+  function playMove(m) {
+    var a = sqIdx(m[0]), b = sqIdx(m[1]);
+    grid[b] = grid[a]; grid[a] = "";
+    paint(grid, [a, b]);
+    var img = boardEl.children[b].firstChild;
+    if (img && img.animate) img.animate([{ transform: "translate(" + ((a % 8) - (b % 8)) * 100 + "%," + (Math.floor(a / 8) - Math.floor(b / 8)) * 100 + "%)" }, { transform: "none" }], { duration: 360, easing: "ease-in-out" });
+    boardEl.children[b].style.zIndex = 2; // la pieza que se mueve pasa por encima de las demás
+  }
+  paint(grid, null);
+  if (still) { MOVES.forEach(function (m) { var a = sqIdx(m[0]), b = sqIdx(m[1]); grid[b] = grid[a]; grid[a] = ""; }); paint(grid, null); }
+  else (function tick() {
+    var wait;
+    if (step < MOVES.length) { playMove(MOVES[step]); step++; wait = 900; if (step === MOVES.length) wait = 3500; }
+    else { step = 0; grid = fromFen(START); paint(grid, null); wait = 1000; }
+    setTimeout(tick, wait);
+  })();
 
   // ---------- Ahora en directo (Lichess) ----------
-  fetch("https://lichess.org/api/broadcast/top")
+  // Se guarda unos minutos para no volver a consultar Lichess cada vez que se entra en la portada
+  var HK = "apejupoHomeLive", HTTL = 5 * 60 * 1000;
+  function pintaAhora(live) {
+    if (!live.length) return;
+    $("ahora").hidden = false;
+    $("now").innerHTML = live.slice(0, 3).map(function (x) {
+      var t = x.tour || {}, r = x.round || {};
+      var img = t.image ? '<img loading="lazy" src="' + esc(safeUrl(t.image)) + '" alt="">' : "";
+      return '<article class="card">' + img + '<div class="body"><span class="badge live">EN DIRECTO</span>' +
+        '<h4>' + esc(t.name) + '</h4><p class="meta">' + esc(U.ronda(r.name)) + '</p>' +
+        '<a class="more" href="torneos-live.html">Ver en Torneos Live →</a></div></article>';
+    }).join("");
+  }
+  var hc = null;
+  try { hc = JSON.parse(localStorage.getItem(HK)); } catch (_) {}
+  if (hc && Array.isArray(hc.live) && Date.now() - hc.t < HTTL) pintaAhora(hc.live);
+  else fetch("https://lichess.org/api/broadcast/top")
     .then(function (r) { return r.json(); })
     .then(function (j) {
-      var live = (j.active || []).filter(function (x) { return x.round && x.round.ongoing; });
-      $("stat-live").textContent = live.length;
-      if (!live.length) return;
-      $("ahora").hidden = false;
-      $("now").innerHTML = live.slice(0, 3).map(function (x) {
-        var t = x.tour || {}, r = x.round || {};
-        var img = t.image ? '<img loading="lazy" src="' + esc(safeUrl(t.image)) + '" alt="">' : "";
-        return '<article class="card">' + img + '<div class="body"><span class="badge live">EN DIRECTO</span>' +
-          '<h4>' + esc(t.name) + '</h4><p class="meta">' + esc(r.name) + '</p>' +
-          '<a class="more" href="torneos-live.html">Ver en Torneos Live →</a></div></article>';
-      }).join("");
+      var live = (j.active || []).filter(function (x) { return x.round && x.round.ongoing; }).slice(0, 3);
+      try { localStorage.setItem(HK, JSON.stringify({ t: Date.now(), live: live })); } catch (_) {}
+      pintaAhora(live);
     })
-    .catch(function () { $("stat-live").textContent = "–"; });
+    .catch(function () {});
 
   // ---------- Noticias ----------
   // data/news.json lo genera scripts/update_news.py

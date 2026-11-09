@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="color-scheme" content="light dark">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Torneo en directo · Apejupo Chess Club</title>
+<link rel="icon" type="image/svg+xml" href="assets/icon.svg">
+<meta name="description" content="Torneos de ajedrez en directo: tableros en vivo de Lichess y streams de Twitch y YouTube.">
+<link rel="stylesheet" href="css/style.css?v=20261110zk">
+</head>
+<body>
+<header class="site-header">
+  <div class="wrap wide bar">
+    <a class="brand" href="index.html" aria-label="Apejupo Chess Club, inicio"><img src="assets/logo.svg" alt="Apejupo Chess Club" width="140" height="38"></a>
+  </div>
+</header>
+
+<main>
+  <section class="wrap section wide" style="padding-top:14px">
+    <div id="lv-thumbs" class="viewer lv-thumbs" hidden>
+      <button type="button" id="viewer-voice" class="lv-eyebtn lv-voice" aria-label="Avisos por voz"></button><div id="lv-vpop" class="lv-vpop" hidden><label class="vp-row"><input type="checkbox" id="vp-on" checked> Avisos por voz</label><label class="vp-row"><input type="checkbox" id="vp-front"> Traer la partida al frente al avisar</label><div class="vp-vol"><span>Volumen</span><input type="range" id="vp-vol" min="0" max="100" step="5" value="100"><b id="vp-volv">100 %</b></div><button type="button" id="vp-test" class="btn-ghost">Probar voz</button></div>
+      <div class="lv-addrow"><div class="lv-tt"><strong id="viewer-title"></strong><small id="viewer-info" class="lv-info"></small><small id="viewer-np" class="lv-info"></small></div><select id="viewer-more" aria-label="Otras partidas del torneo"></select><button type="button" id="viewer-add" class="btn-ghost" title="Añadir la partida elegida como miniatura"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg> Añadir</button><div class="lv-tools"><select id="viewer-round" aria-label="Cambiar de ronda"></select><button type="button" id="viewer-stand" class="btn-ghost"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0zM17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/></svg> Clasificación</button><button type="button" id="viewer-pair" class="btn-ghost"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/></svg> Emparejamientos</button><button type="button" id="viewer-bell" class="lv-eyebtn" aria-label="Sonido de aviso"></button><button type="button" id="viewer-reset" class="lv-eyebtn" title="Restablecer el orden original de los tableros" aria-label="Restablecer el orden original de los tableros"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg></button></div></div>
+      <div id="lv-grid" class="lv-grid"></div>
+    </div>
+    <div id="lv-backdrop" hidden></div>
+    <div id="lv-toast" class="lv-toast" hidden role="status"></div>
+    <div id="lv-fbd" class="lv-fbd" hidden></div>
+    <div id="lv-fide" class="lv-fide" hidden role="dialog" aria-label="Ficha comparativa de los jugadores"></div>
+    <div id="viewer" class="viewer lv-modal" hidden role="dialog" aria-label="Partida en directo">
+      <div class="viewer-bar">
+        <div class="lv-tt"><strong id="viewer-bd">Partida</strong><small id="viewer-op" class="lv-info"></small></div>
+        <button type="button" id="viewer-eye" class="lv-eyebtn" title="Ver la ficha de los jugadores" aria-label="Ver la ficha de los jugadores"></button><select id="viewer-games" aria-label="Elegir partida"></select>
+        <button type="button" id="lv-closebig" class="btn-ghost" title="Cerrar la partida (Esc)"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg> Cerrar</button>
+      </div>
+      <div id="lv-big" class="lv">
+        <div class="lv-col">
+          <div class="lv-player"><span id="lv-top-name"></span><span id="lv-top-clk" class="lv-clk">--:--</span></div>
+          <div class="lv-row">
+        <div class="lv-bar"><div id="lv-evalbar" class="lv-evalbar" title="Evaluación de Stockfish"><div id="lv-evalw" class="lv-evalw"></div></div></div>
+          <div id="lv-board" class="ent-board lv-board"></div>
+          </div>
+          <div class="lv-player"><span id="lv-bot-name"></span><span id="lv-bot-clk" class="lv-clk">--:--</span></div>
+          <div class="lv-an">
+            <div class="lv-anhead"><span class="lv-anname"><span id="lv-dot" class="lv-dot"></span>Stockfish 19</span><span id="lv-stats" class="lv-stats"></span><span class="lv-anctl"><button type="button" id="lv-less" aria-label="Quitar una línea de análisis" title="Quitar una línea">&minus;</button><span id="lv-nl" class="lv-nl">3</span><button type="button" id="lv-more" aria-label="Añadir una línea de análisis" title="Añadir una línea">+</button><label class="lv-sw" title="Activar o desactivar el análisis"><input type="checkbox" id="lv-on" checked><i></i><span id="lv-ontxt">On</span></label></span></div>
+            <div id="lv-lines" class="lv-lines" aria-label="Análisis de Stockfish"></div>
+          </div>
+          <div class="lv-nav"><button type="button" id="lv-prev" aria-label="Jugada anterior" title="Jugada anterior (←)"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button><button type="button" id="lv-live" title="Ir a la última jugada"><i class="lv-livedot"></i>En vivo</button><button type="button" id="lv-next" aria-label="Jugada siguiente" title="Jugada siguiente (→)"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button></div>
+        </div>
+        <div class="lv-mvwrap"><div id="lv-moves" class="lv-moves"></div></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script src="js/util.js?v=20261110zk"></script>
+<script src="js/data.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+<script src="js/live.js?v=20261110zk"></script>
+</body>
+</html>
