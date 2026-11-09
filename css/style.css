@@ -741,3 +741,6 @@ a { color: var(--blue); }
   .bar { height: auto; min-height: 64px; flex-wrap: wrap; padding-top: 8px; padding-bottom: 8px; row-gap: 6px; }
   .site-header nav { row-gap: 6px; }
 }
+
+/* Tableros: nunca se reoscurecen con el «modo oscuro» automático del móvil (colores propios de tablero) */
+.board, .board *, .lv-board, .lv-board *, .th-board, .th-board *, .ent-board, .ent-board * { color-scheme: only light; forced-color-adjust: none; }
