@@ -23,8 +23,20 @@
     }
     boardEl.innerHTML = h;
   }
-  /* Tablero estático, igual que el de Torneos Live (sin animación ni capas encima) */
-  paint(fromFen("r1bq1rk1/pp2bppp/2n1pn2/2pp4/3P1B2/2PBPN2/PP1N1PPP/R2QK2R"), null);
+  /* Tablero dibujado en un canvas: el modo oscuro automatico de algunos moviles (Samsung Internet) no recolorea su contenido */
+  (function () {
+    var g = fromFen("r1bq1rk1/pp2bppp/2n1pn2/2pp4/3P1B2/2PBPN2/PP1N1PPP/R2QK2R"), S = 640, c = document.createElement("canvas");
+    c.width = c.height = S; c.style.cssText = "display:block;width:100%;height:100%";
+    var x = c.getContext("2d"), q = S / 8;
+    function casillas() { for (var i = 0; i < 64; i++) { var f = i % 8, r = (i - f) / 8; x.fillStyle = (f + r) % 2 ? "#769656" : "#eeeed2"; x.fillRect(f * q, r * q, q, q); } }
+    casillas();
+    boardEl.innerHTML = ""; boardEl.style.display = "block"; boardEl.appendChild(c);
+    g.forEach(function (ch, i) {
+      if (!ch) return;
+      var im = new Image(); im.onload = function () { x.drawImage(im, (i % 8) * q, Math.floor(i / 8) * q, q, q); };
+      im.src = "assets/pieces/" + (ch === ch.toUpperCase() ? "w" : "b") + ch.toUpperCase() + ".png";
+    });
+  })();
 
   // ---------- Ahora en directo (Lichess) ----------
   // Se guarda unos minutos para no volver a consultar Lichess cada vez que se entra en la portada
