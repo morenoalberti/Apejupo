@@ -748,3 +748,8 @@ a { color: var(--blue); }
 /* Tablero de la portada con el mismo estilo que el de Torneos Live (sin borde, esquinas redondeadas y sombra) */
 .hero-home .board { border: 0; border-radius: 10px; box-shadow: 0 14px 40px rgba(0,0,0,.45), 0 0 0 1px rgba(255,255,255,.08); }
 @media (max-width: 720px) { .hero-home .board { max-width: 260px; } }
+
+/* Portada: la última jugada se marca con color sólido (sin capa translúcida encima), igual que el tablero de Torneos Live */
+.board i.last::after { content: none; }
+.board .l.last { background: #f5f682; }
+.board .d.last { background: #b9ca43; }
