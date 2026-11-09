@@ -23,23 +23,8 @@
     }
     boardEl.innerHTML = h;
   }
-  var grid = fromFen(START), step = 0, still = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
-  function playMove(m) {
-    var a = sqIdx(m[0]), b = sqIdx(m[1]);
-    grid[b] = grid[a]; grid[a] = "";
-    paint(grid, [a, b]);
-    var img = boardEl.children[b].firstChild;
-    if (img && img.animate) img.animate([{ transform: "translate(" + ((a % 8) - (b % 8)) * 100 + "%," + (Math.floor(a / 8) - Math.floor(b / 8)) * 100 + "%)" }, { transform: "none" }], { duration: 360, easing: "ease-in-out" });
-    boardEl.children[b].style.zIndex = 2; // la pieza que se mueve pasa por encima de las demás
-  }
-  paint(grid, null);
-  if (still) { MOVES.forEach(function (m) { var a = sqIdx(m[0]), b = sqIdx(m[1]); grid[b] = grid[a]; grid[a] = ""; }); paint(grid, null); }
-  else (function tick() {
-    var wait;
-    if (step < MOVES.length) { playMove(MOVES[step]); step++; wait = 900; if (step === MOVES.length) wait = 3500; }
-    else { step = 0; grid = fromFen(START); paint(grid, null); wait = 1000; }
-    setTimeout(tick, wait);
-  })();
+  /* Tablero estático, igual que el de Torneos Live (sin animación ni capas encima) */
+  paint(fromFen("r1bq1rk1/pp2bppp/2n1pn2/2pp4/3P1B2/2PBPN2/PP1N1PPP/R2QK2R"), null);
 
   // ---------- Ahora en directo (Lichess) ----------
   // Se guarda unos minutos para no volver a consultar Lichess cada vez que se entra en la portada
