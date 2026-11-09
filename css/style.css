@@ -744,3 +744,7 @@ a { color: var(--blue); }
 
 /* Tableros: nunca se reoscurecen con el «modo oscuro» automático del móvil (colores propios de tablero) */
 .board, .board *, .lv-board, .lv-board *, .th-board, .th-board *, .ent-board, .ent-board * { color-scheme: only light; forced-color-adjust: none; }
+
+/* Tablero de la portada con el mismo estilo que el de Torneos Live (sin borde, esquinas redondeadas y sombra) */
+.hero-home .board { border: 0; border-radius: 10px; box-shadow: 0 14px 40px rgba(0,0,0,.45), 0 0 0 1px rgba(255,255,255,.08); }
+@media (max-width: 720px) { .hero-home .board { max-width: 260px; } }
