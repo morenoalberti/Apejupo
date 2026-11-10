@@ -1,4 +1,5 @@
-"""Torneos de ajedrez de Andalucía (por provincias) -> data/torneos-locales.json. Solo biblioteca estándar.
+"""Torneos de ajedrez de Andalucía (por provincias) -> data/torneos-locales.json.
+Dependencias para extraer las bases PDF: pip install -r scripts/requirements-local.txt.
 
 Fuentes (todo automático):
   - Info64 (info64.org): torneos de España que no han empezado o se están jugando.
@@ -8,12 +9,14 @@ La provincia de las ciudades de Info64 se averigua con OpenStreetMap (Nominatim)
 Uso:  python scripts/update_local.py
 """
 import json
+import hashlib
 import re
 import time
 import urllib.parse
 import urllib.request
 from datetime import date, datetime, timezone
 from html import unescape
+from html.parser import HTMLParser
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
@@ -39,6 +42,196 @@ def norm(s):
     for a, b in zip("áàäâéèëêíìïîóòöôúùüûñ", "aaaaeeeeiiiioooouuuun"):
         s = s.replace(a, b)
     return re.sub(r"[^a-z0-9]+", " ", s).strip()
+
+
+class FichaEnlaces(HTMLParser):
+    """Enlaces publicados y texto de «Información adicional» de Info64."""
+    VOID = {"area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param", "source", "track", "wbr"}
+
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.links = []
+        self.anchor = None
+        self.label = []
+        self.depth = 0
+        self.description = []
+
+    def handle_starttag(self, tag, attrs):
+        attrs = dict(attrs)
+        if self.depth:
+            if tag not in self.VOID:
+                self.depth += 1
+            if tag in {"br", "p", "div", "li", "tr", "h2", "h3", "h4"}:
+                self.description.append("\n")
+        elif attrs.get("id") == "collapseText":
+            self.depth = 1
+        if tag == "a":
+            self.anchor = attrs
+            self.label = []
+        elif tag == "img" and self.anchor is not None:
+            self.label.append(attrs.get("alt", ""))
+
+    def handle_data(self, text):
+        if self.depth:
+            self.description.append(text)
+        if self.anchor is not None:
+            self.label.append(text)
+
+    def handle_endtag(self, tag):
+        if self.depth and tag not in self.VOID:
+            self.depth -= 1
+        if tag == "a" and self.anchor is not None:
+            self.links.append((self.anchor.get("href", ""), " ".join(self.label), self.anchor.get("title", "")))
+            self.anchor = None
+
+
+def enlaces_ficha(t, html):
+    """Solo usar enlaces reales de la ficha; nunca confundir la web genérica con las bases."""
+    parsed = FichaEnlaces()
+    parsed.feed(html)
+    candidates = []
+    for href, label, title in parsed.links:
+        if not href.strip() or href.startswith("#"):
+            continue
+        url = urllib.parse.urljoin(t["url"], href.strip())
+        if urllib.parse.urlsplit(url).scheme not in {"http", "https"}:
+            continue
+        text = norm(label)
+        same_source = urllib.parse.urlsplit(url).hostname == urllib.parse.urlsplit(t["url"]).hostname
+        if same_source and text in {"ranking inicial", "ranking inicial de los equipos", "starting rank", "starting rank list", "equipos", "inscritos"}:
+            candidates.append(url)
+        if same_source and text in {"composicion", "listado de jugadores por ranking inicial", "player overview by rating"}:
+            t["players_url"] = url
+        reference = norm(label + " " + title + " " + urllib.parse.unquote(urllib.parse.urlsplit(url).path))
+        if re.search(r"\b(?:bases|reglamento|normativa|regulations|tournament rules|prospectus)\b", reference):
+            t.setdefault("rules_url", url)
+    t["participants_url"] = candidates[0] if candidates else t["url"]
+    description = re.sub(r"[^\S\n]+", " ", "".join(parsed.description))
+    description = re.sub(r"\n *\n(?: *\n)+", "\n\n", description).strip()
+    rule_sections = re.findall(r"^\s*\d{1,2}[.)]+\s*[-–]?\s*(?:participantes|inscripci[oó]n(?:es)?|sistema|ritmo|horario|lugar|fecha|premios|desempates|condiciones|organizaci[oó]n|caracter[ií]sticas|categor[ií]as)\b", description, re.I | re.M)
+    explicit_rules = re.search(r"\b(?:bases|reglamento|normativa|tournament rules|regulations)\b", norm(description))
+    if len(description) > 120 and (explicit_rules or len(rule_sections) >= 3):
+        t["rules_text"] = description
+        t["rules_source"] = t["url"]
+
+
+class TablasInscritos(HTMLParser):
+    """Lee las tablas completas, incluidas las composiciones de equipos."""
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.tables = []
+        self.stack = []
+
+    def handle_starttag(self, tag, attrs):
+        if tag == "table":
+            table = {"rows": [], "caption": "", "row": None, "cell": None, "in_caption": False}
+            self.tables.append(table)
+            self.stack.append(table)
+        if not self.stack:
+            return
+        t = self.stack[-1]
+        if tag == "caption": t["in_caption"] = True
+        if tag == "tr": t["row"] = []
+        if tag in {"td", "th"}: t["cell"] = ""
+
+    def handle_data(self, data):
+        if self.stack:
+            t = self.stack[-1]
+            if t["cell"] is not None: t["cell"] += data
+            if t["in_caption"]: t["caption"] += data
+
+    def handle_endtag(self, tag):
+        if not self.stack:
+            return
+        t = self.stack[-1]
+        if tag in {"td", "th"} and t["cell"] is not None:
+            if t["row"] is not None: t["row"].append(limpia(t["cell"]))
+            t["cell"] = None
+        if tag == "tr" and t["row"] is not None:
+            t["rows"].append(t["row"])
+            t["row"] = None
+        if tag == "caption": t["in_caption"] = False
+        if tag == "table": self.stack.pop()
+
+
+def inscritos_html(html):
+    parsed = TablasInscritos()
+    parsed.feed(html)
+    players, seen = [], {}
+    titles = {"GM", "IM", "FM", "CM", "WGM", "WIM", "WFM", "WCM"}
+    for table in parsed.tables:
+        columns = None
+        for row in table["rows"]:
+            headers = [norm(c) for c in row]
+            if "nombre" in headers or "name" in headers:
+                columns = headers if any(c in headers for c in {"fide", "elo", "rtg", "rtg int", "elo fide", "rating"}) else None
+                continue
+            if columns is None or len(row) != len(columns):
+                continue
+            def cell(*names):
+                return next((row[columns.index(n)] for n in names if n in columns), "")
+            name = cell("nombre", "name")
+            # El Elo medio de un equipo no es el Elo de un jugador.
+            rating = cell("fide", "elo", "rtg", "rtg int", "elo fide", "rating")
+            if not name or not re.fullmatch(r"\d{1,4}", rating or "0"):
+                continue
+            fide_id = cell("fide id", "fideid")
+            title = next((c for c in row[:columns.index("nombre") if "nombre" in columns else columns.index("name")] if c in titles), "")
+            key = fide_id if fide_id and fide_id != "0" else norm(name)
+            team = cell("equipo", "team") or limpia(table["caption"])
+            if key in seen:
+                # Un jugador puede estar incluido en varios equipos del mismo club.
+                previous = seen[key]
+                if team and team not in previous.get("team", "").split(" / "):
+                    previous["team"] = " / ".join(filter(None, [previous.get("team"), team]))
+                continue
+            player = {"name": name, "title": title, "country": cell("fed", "federacion"), "elo": int(rating or 0)}
+            club = cell("origen club", "club", "club ciudad", "club city", "club location", "club ciudad nombre")
+            if club: player["club"] = club
+            if team: player["team"] = team
+            seen[key] = player
+            players.append(player)
+    return sorted(players, key=lambda p: (-p["elo"], norm(p["name"])))
+
+
+def inscritos_ficha(t, html):
+    """Usa el listado de jugadores enlazado por la propia ficha, si lo hay."""
+    players_url = t.get("players_url", t["url"])
+    if players_url != t["url"]:
+        try:
+            html = get(players_url, 25)
+        except Exception:
+            return
+    t["players"] = inscritos_html(html)
+    t["players_url"] = players_url
+
+
+def bases_ficha(t):
+    """Sirve las bases PDF desde la web, incluso si la fuente fuerza una descarga."""
+    url = t.get("rules_url")
+    if not url:
+        return
+    relative = "data/bases/" + hashlib.sha256(url.encode("utf-8")).hexdigest()[:16] + ".pdf"
+    target = ROOT.parent / relative
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": UA})
+        with urllib.request.urlopen(req, timeout=25) as response:
+            document = response.read(20 * 1024 * 1024 + 1)
+        if not document.startswith(b"%PDF-") or len(document) > 20 * 1024 * 1024:
+            return
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(document)
+    except Exception:
+        if not target.is_file():
+            return
+    t["rules_document"] = relative
+    try:
+        from rules_pdf import extract_rules_pdf
+        blocks = extract_rules_pdf(target)
+        if blocks:
+            t["rules_blocks"] = blocks
+    except Exception as error:
+        print("[aviso] Extracción de bases PDF:", error)
 
 
 FUERA = {"la rioja", "asturias", "navarra", "cantabria", "madrid", "cataluna", "catalunya", "aragon", "galicia", "murcia", "valencia", "euskadi", "castilla", "extremadura", "canarias", "baleares", "islas baleares"}
@@ -128,6 +321,9 @@ def detalle_info64(t):
         h = get(t["url"], 25)
     except Exception:
         return
+    enlaces_ficha(t, h)
+    inscritos_ficha(t, h)
+    bases_ficha(t)
     m = re.search(r'class="rateofplay">\s*(.*?)\s*</span>', h, re.S)
     if m:
         tc = limpia(m.group(1))
@@ -163,10 +359,14 @@ def chessresults():
         if not nombre:
             continue
         ciudad = re.sub(r"\s*\(.*$", "", lugar.split(",")[-2] if lugar.count(",") >= 2 else lugar).strip()
-        out.append({"source": "Chess-Results", "url": u, "name": nombre, "city": ciudad or lugar, "province": prov, "start": ini, "end": fin,
+        torneo = {"source": "Chess-Results", "url": u, "name": nombre, "city": ciudad or lugar, "province": prov, "start": ini, "end": fin,
                     "tc": ritmo(datos.get("Control de tiempo (Standard)", "") or datos.get("Time control (Standard)", "")),
                     "rounds": datos.get("Número de rondas", "") or datos.get("Number of rounds", ""),
-                    "organizer": datos.get("Organizador", "") or datos.get("Organizer(s)", "")})
+                    "organizer": datos.get("Organizador", "") or datos.get("Organizer(s)", "")}
+        enlaces_ficha(torneo, p)
+        inscritos_ficha(torneo, p)
+        bases_ficha(torneo)
+        out.append(torneo)
         time.sleep(0.3)
     return out
 

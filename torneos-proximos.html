@@ -7,7 +7,7 @@
 <title>Próximos Torneos · Apejupo Chess Club</title>
 <meta name="description" content="Calendario de próximos torneos de ajedrez: los del equipo Apejupo y los grandes torneos internacionales.">
 <link rel="icon" type="image/svg+xml" href="assets/icon.svg">
-<link rel="stylesheet" href="css/style.css?v=20261110zzm">
+<link rel="stylesheet" href="css/style.css?v=20261110-bases-unificadas">
 </head>
 <body>
 <header class="site-header">
@@ -27,13 +27,8 @@
   <section class="hero hero-small">
     <div class="wrap">
       <h1>Próximos Torneos</h1>
-      <p>Lo que viene: las citas del equipo, los torneos de Andalucía por provincias y los internacionales que se retransmitirán.</p>
+      <p>Lo que viene: los torneos de Andalucía por provincias y los internacionales que se retransmitirán.</p>
     </div>
-  </section>
-
-  <section class="wrap section">
-    <div class="section-head"><h2>Torneos de Apejupo</h2></div>
-    <div id="team-events" class="cards"></div>
   </section>
 
   <section class="wrap section" id="andalucia">
@@ -46,12 +41,46 @@
   <section class="wrap section">
     <div class="section-head">
       <h2>Torneos internacionales</h2>
-      <a href="https://lichess.org/broadcast" target="_blank" rel="noopener">Ver todos en Lichess →</a>
     </div>
     <div id="intl-events" class="cards" aria-live="polite"><p class="muted">Cargando torneos…</p></div>
     <p class="muted small">Cuando un torneo empieza, aparece automáticamente en <a href="torneos-live.html">Torneos Live</a>.</p>
   </section>
 </main>
+
+<dialog id="local-players" aria-labelledby="local-players-title">
+  <div class="local-players-top">
+    <div class="dlg-head">
+      <div class="local-players-heading">
+        <p class="local-players-kicker"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="7" r="3"/><path d="M3 21v-2a6 6 0 0 1 12 0v2M16 4a3 3 0 0 1 0 6M21 21v-2a6 6 0 0 0-4-5.65"/></svg>Inscritos</p>
+        <h3 id="local-players-title">Jugadores del torneo</h3>
+      </div>
+      <button type="button" id="local-players-close" class="btn-ghost" aria-label="Cerrar inscritos">×</button>
+    </div>
+    <div class="local-players-search-heading">
+      <label for="local-players-search">Buscar un jugador</label>
+      <p id="local-players-total"></p>
+    </div>
+    <div class="local-players-searchbox">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></svg>
+      <input type="search" id="local-players-search" placeholder="Nombre o apellidos" autocomplete="off">
+    </div>
+    <p id="local-players-matches" class="muted small" role="status"></p>
+  </div>
+  <div id="local-players-list" tabindex="0" aria-label="Listado de inscritos">
+    <table class="local-players-table"><thead id="local-players-head"></thead><tbody id="local-players-body"></tbody></table>
+  </div>
+  <p class="local-players-footer"><a id="local-players-source" target="_blank" rel="noopener">Consultar original</a></p>
+</dialog>
+
+<dialog id="local-rules" aria-labelledby="local-rules-title">
+  <div class="dlg-head">
+    <h3 id="local-rules-title">Bases del torneo</h3>
+    <button type="button" id="local-rules-close" class="btn-ghost" aria-label="Cerrar las bases">×</button>
+  </div>
+  <div id="local-rules-text"></div>
+  <div id="local-rules-document" aria-label="Bases del torneo" hidden></div>
+  <p class="local-rules-footer"><a id="local-rules-source" target="_blank" rel="noopener">Consultar original</a></p>
+</dialog>
 
 <footer class="site-footer">
   <div class="wrap">
@@ -62,6 +91,6 @@
 <script src="js/menu.js"></script>
 <script src="js/util.js?v=20261110zz"></script>
 <script src="js/data.js"></script>
-<script src="js/upcoming.js?v=20261110zq"></script>
+<script src="js/upcoming.js?v=20261110-bases-unificadas"></script>
 </body>
 </html>

@@ -69,7 +69,9 @@ jobs:
         run: python scripts/update_news.py
       - name: Torneos de Andalucía (Info64 y Chess-Results)
         continue-on-error: true
-        run: python scripts/update_local.py
+        run: |
+          python -m pip install -r scripts/requirements-local.txt
+          python scripts/update_local.py
       - name: Preparar sitio
         run: |
           mkdir _site

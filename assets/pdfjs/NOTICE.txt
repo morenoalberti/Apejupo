@@ -1,0 +1,9 @@
+PDF.js / pdfjs-dist 6.5.438
+Copyright Mozilla Foundation and contributors.
+https://github.com/mozilla/pdf.js
+https://www.npmjs.com/package/pdfjs-dist/v/6.5.438
+
+Distributed under the Apache License 2.0; see LICENSE.
+Font, CMap and WebAssembly notices are retained in their respective directories.
+The build/pdf.mjs and build/pdf.worker.mjs modules are named pdf.js and
+pdf.worker.js so Windows static servers send the JavaScript MIME type.

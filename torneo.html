@@ -7,7 +7,7 @@
 <title>Torneo en directo · Apejupo Chess Club</title>
 <link rel="icon" type="image/svg+xml" href="assets/icon.svg">
 <meta name="description" content="Torneos de ajedrez en directo: tableros en vivo de Lichess y streams de Twitch y YouTube.">
-<link rel="stylesheet" href="css/style.css?v=20261110zzu">
+<link rel="stylesheet" href="css/style.css?v=20261110-controles-separados">
 </head>
 <body>
 <header class="site-header">
@@ -28,20 +28,21 @@
     <div id="lv-fbd" class="lv-fbd" hidden></div>
     <div id="lv-fide" class="lv-fide" hidden role="dialog" aria-label="Ficha comparativa de los jugadores"></div>
     <div id="viewer" class="viewer lv-modal" hidden role="dialog" aria-label="Partida en directo">
+      <button type="button" id="lv-closebig" class="lv-eyebtn" title="Cerrar la partida (Esc)" aria-label="Cerrar la partida"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
       <div class="viewer-bar">
         <div class="lv-tt"><strong id="viewer-bd">Partida</strong><small id="viewer-op" class="lv-info"></small></div>
-        <button type="button" id="viewer-eye" class="lv-eyebtn" title="Ver la ficha de los jugadores" aria-label="Ver la ficha de los jugadores"></button><select id="viewer-games" aria-label="Elegir partida"></select>
-        <button type="button" id="lv-review-go" class="btn-ghost" title="Analizar toda la partida desde el principio con comentarios">Analizar</button>
-        <button type="button" id="lv-closebig" class="btn-ghost" title="Cerrar la partida (Esc)"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg> Cerrar</button>
       </div>
       <div id="lv-big" class="lv">
         <div class="lv-col">
-          <div class="lv-player"><span id="lv-top-name"></span><span id="lv-top-clk" class="lv-clk">--:--</span></div>
+          <div class="lv-controls" role="group" aria-label="Controles de la partida">
+            <select id="viewer-games" aria-label="Elegir partida"></select>
+          </div>
+          <div class="lv-player lv-player-top"><span id="lv-top-name"></span><span id="lv-top-clk" class="lv-clk">--:--</span></div>
           <div class="lv-row">
         <div class="lv-bar"><div id="lv-evalbar" class="lv-evalbar" title="Evaluación de Stockfish"><div id="lv-evalw" class="lv-evalw"></div></div></div>
           <div id="lv-board" class="ent-board lv-board"></div>
           </div>
-          <div class="lv-player"><span id="lv-bot-name"></span><span id="lv-bot-clk" class="lv-clk">--:--</span></div>
+          <div class="lv-player lv-player-bottom"><span id="lv-bot-name"></span><span id="lv-bot-clk" class="lv-clk">--:--</span></div>
           <div class="lv-an">
             <div class="lv-anhead"><span class="lv-anname"><span id="lv-dot" class="lv-dot"></span>Stockfish 19</span><span id="lv-stats" class="lv-stats"></span><span class="lv-anctl"><button type="button" id="lv-less" aria-label="Quitar una línea de análisis" title="Quitar una línea">&minus;</button><span id="lv-nl" class="lv-nl">3</span><button type="button" id="lv-more" aria-label="Añadir una línea de análisis" title="Añadir una línea">+</button><label class="lv-sw" title="Activar o desactivar el análisis"><input type="checkbox" id="lv-on" checked><i></i><span id="lv-ontxt">On</span></label></span></div>
             <div id="lv-lines" class="lv-lines" aria-label="Análisis de Stockfish"></div>
@@ -49,13 +50,17 @@
           <div class="lv-nav"><button type="button" id="lv-prev" aria-label="Jugada anterior" title="Jugada anterior (←)"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button><button type="button" id="lv-live" title="Ir a la última jugada"><i class="lv-livedot"></i>En vivo</button><button type="button" id="lv-next" aria-label="Jugada siguiente" title="Jugada siguiente (→)"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button></div>
         </div>
         <div class="lv-mvwrap">
-          <div id="lv-moves" class="lv-moves"></div>
+          <div class="lv-review-tools" role="group" aria-label="Controles de las anotaciones">
+            <button type="button" id="viewer-eye" class="lv-eyebtn" title="Ver la ficha de los jugadores" aria-label="Ver la ficha de los jugadores"></button>
+            <button type="button" id="lv-review-go" class="btn-ghost" title="Analizar toda la partida desde el principio con comentarios">Analizar</button>
+          </div>
           <section id="lv-review" class="lv-review" aria-label="Revisión comentada de la partida" hidden>
+            <p id="lv-review-loading" class="lv-review-status" role="status" aria-label="Analizando" hidden>Analizando <span class="lv-review-dots" aria-hidden="true"><span>.</span><span>.</span><span>.</span></span></p>
             <p id="lv-review-status" class="lv-review-status" role="status"></p>
             <progress id="lv-review-progress" max="1" value="0" aria-label="Progreso del análisis"></progress>
-            <small>Revisión rápida de Stockfish. Valoraciones desde las blancas. Pulsa un comentario para ver la posición.</small>
-            <div id="lv-review-comments" class="lv-review-comments"></div>
+            <small id="lv-review-note">Revisión rápida. Valoración desde las blancas. Se señalan cambios de al menos ±0,50.</small>
           </section>
+          <div id="lv-moves" class="lv-moves"></div>
         </div>
       </div>
     </div>
@@ -65,7 +70,7 @@
 <script src="js/util.js?v=20261110zz"></script>
 <script src="js/data.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
-<script src="js/game-review.js?v=20261110zzu"></script>
-<script src="js/live.js?v=20261110zzu"></script>
+<script src="js/game-review.js?v=20261110-notacion-rapida"></script>
+<script src="js/live.js?v=20261110-revision-completada"></script>
 </body>
 </html>

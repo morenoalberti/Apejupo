@@ -29,7 +29,7 @@
   var roundDone = false; // la ronda ya está terminada en Lichess: ninguna de sus partidas puede estar en juego
   var orient = "w", order = [], mode = "grid";
   var vari = null, curCh = null, dragging = false, pendingRender = false; // variante propuesta por el usuario al mover piezas
-  var reviewState = null, reviewController = null, reviewEntryKey = "";
+  var reviewState = null, reviewController = null;
 
   function parseGame(txt) {
     var g = { tags: {}, san: [], clk: [], over: false };
@@ -110,8 +110,12 @@
   // Notación con figuritas (como en las revistas): la letra de la pieza se sustituye por su símbolo
   var FIG = { K: "♔︎", Q: "♕︎", R: "♖︎", B: "♗︎", N: "♘︎" }; // ︎: símbolo de texto, nunca emoji de color
   function fig(san) {
-    var m = /^([KQRBN])(.*)$/.exec(san);
-    return m ? '<b class="fg">' + FIG[m[1]] + "</b>" + esc(m[2]) : esc(san);
+    return esc(san).replace(/^([KQRBN])|=([QRBN])/g, function (_, piece, promotion) {
+      return (promotion ? "=" : "") + '<b class="fg">' + FIG[piece || promotion] + '</b>';
+    });
+  }
+  function figComment(text) {
+    return esc(text).replace(/\b(?:[KQRBN](?:[a-h][1-8]?|[1-8])?x?[a-h][1-8]|[a-h](?:x[a-h])?[18]=[QRBN])(?:[+#])?/g, fig);
   }
   function fmtClk(s, hours) {
     if (s == null) return "--:--";
@@ -121,6 +125,7 @@
   }
   function render() {
     var g = games[curId]; if (!g) return;
+    reviewSync(g);
     if (dragging) { pendingRender = true; return; }
     var n = g.san.length;
     if (vari && vari.gid !== curId) vari = null;
@@ -161,13 +166,13 @@
     var key = curId + "|" + n + "|" + res + "|" + (vari ? vari.base + ":" + vari.moves.join(",") + ":" + vari.collapsed : "") + "|" + rvVer;
     if (key !== listKey) { listKey = key; mv.innerHTML = listHtml(g, n, res); }
     var prev = mv.querySelector(".cur"); if (prev) prev.classList.remove("cur");
-    var cur = inVar ? mv.querySelector('[data-v="' + vari.pos + '"]') : mv.querySelector('[data-p="' + ply + '"]');
+    var cur = reviewState && reviewState.running ? null : inVar ? mv.querySelector('[data-v="' + vari.pos + '"]') : mv.querySelector('[data-p="' + ply + '"]');
     if (cur) {
       cur.classList.add("cur");
       if (cur.offsetTop < mv.scrollTop || cur.offsetTop + cur.offsetHeight > mv.scrollTop + mv.clientHeight) mv.scrollTop = cur.offsetTop - mv.clientHeight / 2;
     }
     $("lv-live").classList.toggle("on", !inVar && ply === n);
-    reviewSync(g); clocks(); analyse(ch.fen()); rvKick();
+    clocks(); analyse(ch.fen()); rvKick();
   }
   var listKey = "";
   // Nombre de la apertura (Lichess lo envía en inglés): se traduce con reglas sencillas y las más habituales
@@ -189,12 +194,14 @@
   function opEs(n) { return String(n).split(/:\s*/).map(function (a) { return a.split(/\s*,\s*/).map(opSeg).join(", "); }).join(": "); }
   // Lista de jugadas en pastillas: cada pareja (número, blancas, negras) en su caja; el resultado, al final
   function listHtml(g, n, res) {
-    var h = "", open = false;
-    function closePair() { if (open) { h += "</span>"; open = false; } }
+    var h = "", open = false, notes = "";
+    function closePair() { if (open) { h += notes + "</span>"; notes = ""; open = false; } }
     for (var i = 0; i < n; i++) {
       if (i % 2 === 0) { closePair(); h += '<span class="pr"><span class="n">' + (i / 2 + 1) + ".</span>"; open = true; }
       else if (!open) { h += '<span class="pr ct">'; open = true; } // continuación de una pareja cortada por una variante
       h += '<span data-p="' + (i + 1) + '">' + fig(g.san[i]) + rvBadge(g.id, i + 1) + "</span>";
+      var entry = reviewEntry(g.id, i + 1);
+      if (entry && entry.relevant) notes += '<small class="lv-move-comment ' + entry.kind + '" data-p="' + (i + 1) + '">' + fig(g.san[i]) + ' · ' + esc(entry.label) + '. ' + figComment(entry.text) + '</small>';
       if (vari && i === vari.base) { closePair(); h += varBlock(); } // la variante va justo después de la jugada que sustituye
     }
     closePair();
@@ -374,11 +381,12 @@
     } catch (_) { mini = false; }
   }
   function miniNext() {
-    if (miniBusy || !miniQ.length || !mini) return;
+    if (miniBusy || !miniQ.length || !mini || (reviewState && reviewState.running)) return;
     miniBusy = miniQ.shift(); miniScore = null;
     mini.postMessage("position fen " + miniBusy.fen); mini.postMessage("go movetime 700");
   }
   function miniAsk(id, fen) {
+    if (reviewState && reviewState.running) return;
     var e = miniEval[id];
     if (e && e.fen === fen) return;
     if ((miniBusy && miniBusy.id === id && miniBusy.fen === fen) || miniQ.some(function (j) { return j.id === id && j.fen === fen; })) return;
@@ -386,7 +394,8 @@
     miniQ.push({ id: id, fen: fen, turn: fen.split(" ")[1] });
     miniInit(); miniNext();
   }
-  function miniStop() { if (mini) mini.terminate(); mini = null; miniQ = []; miniBusy = null; miniScore = null; miniEval = {}; }
+  function miniPause() { if (mini) mini.terminate(); mini = null; miniQ = []; miniBusy = null; miniScore = null; }
+  function miniStop() { miniPause(); miniEval = {}; }
 
   function setThumbBar(id) {
     var el = $("lv-grid").querySelector('[data-g="' + id + '"] .th-w'), g = games[id]; if (!el || !g) return;
@@ -610,7 +619,7 @@
 
   sel.addEventListener("change", function () { curId = sel.value; follow = true; ply = -1; vari = null; listKey = ""; render(); renderGrid(); });
   $("lv-moves").addEventListener("click", function (e) {
-    var t = e.target, g = games[curId]; if (!t.getAttribute || !g) return;
+    var t = e.target.closest("[data-p],[data-v],[data-vt]"), g = games[curId]; if (!t || !g) return;
     if (t.getAttribute("data-vt")) { vari.collapsed = !vari.collapsed; render(); return; }
     var v = t.getAttribute("data-v");
     if (v && vari) { vari.active = true; vari.pos = +v; render(); return; }
@@ -708,7 +717,8 @@
     var barKey = "";
     var mvEl = $("lv-moves");
     mvEl.addEventListener("mousemove", function (e) {
-      var t = e.target, g = games[curId], p = t.getAttribute && t.getAttribute("data-p");
+      if (reviewState && reviewState.running) { hide(); return; }
+      var t = e.target.closest("[data-p]"), g = games[curId], p = t && t.getAttribute("data-p");
       if (!p || !g) { hide(); return; }
       show(g, +p, e.clientX, e.clientY);
     });
@@ -895,8 +905,8 @@
   fbd.addEventListener("click", closeFide);
   document.addEventListener("keydown", function (e) { if (e.key === "Escape" && !fbox.hidden) closeFide(); });
 
-  // Revisión con Stockfish: evalúa cada posición de la partida abierta y marca las jugadas tras las que la valoración varía más de 0,9
-  var RV_LIMIT = 90, rv = null, rvBusy = null, rvScore = null;
+  // Señalar cambios de al menos medio peón en la valoración.
+  var RV_LIMIT = 50, rv = null, rvBusy = null, rvScore = null;
   function rvInit() {
     if (rv !== null) return;
     rv = false;
@@ -931,20 +941,30 @@
   function rvDelta(id, k) {
     var a = rvEval[id]; if (!a || k < 1 || a[k] == null || a[k - 1] == null) return null;
     var d = a[k] - a[k - 1];
-    return Math.abs(d) > RV_LIMIT ? d : null;
+    return Math.abs(d) >= RV_LIMIT ? d : null;
   }
   function rvText(v) {
     if (Math.abs(v) >= 1900) return (v > 0 ? "+" : "-") + "#" + (2000 - Math.abs(v));
     return (v > 0 ? "+" : v < 0 ? "−" : "") + (Math.abs(v) / 100).toFixed(2);
   }
+  function reviewEntry(id, k) {
+    return reviewState && reviewState.id === id && !reviewState.running ? reviewState.entries[k - 1] : null;
+  }
   function rvBadge(id, k) {
+    if (reviewState && reviewState.id === id && reviewState.running) return "";
+    if (reviewState && reviewState.id === id && k <= reviewState.san.length) {
+      var entry = reviewEntry(id, k); if (!entry || !entry.relevant) return "";
+      var symbol = entry.score.mate && entry.score.v === 0 ? (k % 2 ? "+-" : "-+") : evalSym(entry.score);
+      return (entry.mark ? '<b class="lv-mark">' + esc(entry.mark) + '</b>' : '') + '<i class="ev ' + entry.kind + '" title="Stockfish: ' + esc(symbol + " (" + evalText(entry.score) + "), desde las blancas") + '">' + esc(symbol) + '</i>';
+    }
     var d = rvDelta(id, k); if (d === null) return "";
     var bad = (k % 2 === 1) ? d < 0 : d > 0; // la jugada empeoró la posición de quien la hizo
-    return '<i class="ev ' + (bad ? "bad" : "good") + '" title="Valoración tras esta jugada: ' + rvText(rvEval[id][k]) + '">' + rvText(rvEval[id][k]) + "</i>";
+    return '<i class="ev ' + (bad ? "bad" : "good") + '" title="Stockfish: ' + rvText(rvEval[id][k]) + ', desde las blancas">' + evalSym({ mate: false, v: rvEval[id][k] }) + "</i>";
   }
   function rvKick() {
     if (rvBusy || viewer.hidden || (reviewState && reviewState.running)) return;
     var g = games[curId]; if (!g) return;
+    if (reviewState && reviewState.id === curId && reviewState.done >= g.san.length) return;
     rvInit(); if (!rv) return;
     var fens = fenCache(g).fens, n = g.san.length, arr = rvEval[curId] || (rvEval[curId] = []);
     // si la partida cambió por detrás (poco probable), se descartan valoraciones sobrantes
@@ -966,58 +986,57 @@
     if (reviewState && reviewState.running) {
       reviewState.running = false;
       reviewState.status = message || "Revisión detenida. Se conservan los comentarios ya calculados.";
+      rvVer++;
     }
     anFen = "";
   }
   function reviewSync(g) {
     var button = $("lv-review-go"), panel = $("lv-review"); if (!button || !panel) return;
     if (reviewState && (reviewState.id !== g.id || g.san.slice(0, reviewState.san.length).join(" ") !== reviewState.san.join(" "))) {
-      reviewStop(); reviewState = null; reviewEntryKey = "";
+      reviewStop(); reviewState = null; rvVer++; listKey = "";
     }
     var state = reviewState;
-    button.disabled = !g.san.length;
-    button.textContent = state && state.running ? "Detener" : "Analizar";
+    var upToDate = state && !state.running && state.done >= g.san.length;
+    button.disabled = !g.san.length || !!upToDate;
+    button.textContent = state && state.running ? "Detener" : upToDate ? "Analizado" : state && state.done > 0 ? "Continuar" : "Analizar";
+    button.title = state && state.done > 0 ? "Analizar únicamente las jugadas pendientes" : "Analizar toda la partida desde el principio con comentarios";
     button.setAttribute("aria-pressed", String(!!(state && state.running)));
     panel.hidden = !state; if (!state) return;
-    $("lv-review-status").textContent = state.status + (!state.running && g.san.length > state.san.length ? " Hay nuevas jugadas: pulsa Analizar para incluirlas." : "");
-    $("lv-review-progress").max = state.san.length; $("lv-review-progress").value = state.done;
-    var box = $("lv-review-comments"), key = state.id + "|" + state.entries.length;
-    if (reviewEntryKey !== key) {
-      reviewEntryKey = key;
-      var atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 40, top = box.scrollTop;
-      box.innerHTML = state.entries.map(function (entry) {
-        return '<button type="button" class="lv-review-item ' + entry.kind + '" data-review-p="' + entry.ply + '"><strong>' + Math.ceil(entry.ply / 2) + (entry.ply % 2 ? ". " : "... ") + esc(entry.san) + ' · ' + esc(entry.label) + ' <em>(' + esc(evalText(entry.score)) + ')</em></strong><span>' + esc(entry.text) + '</span></button>';
-      }).join("");
-      box.scrollTop = atBottom ? box.scrollHeight : top;
-    }
-    Array.prototype.forEach.call(box.querySelectorAll("[data-review-p]"), function (entry) { entry.setAttribute("aria-current", String(+entry.getAttribute("data-review-p") === ply && !(vari && vari.active))); });
+    $("lv-review-loading").hidden = !state.running;
+    $("lv-review-status").textContent = state.status + (!state.running && g.san.length > state.san.length ? " Hay nuevas jugadas: pulsa Continuar." : "");
+    $("lv-review-status").hidden = state.running;
+    $("lv-review-note").hidden = state.running;
+    var pending = state.san.length - state.startDone, done = state.done - state.startDone;
+    $("lv-review-progress").max = Math.max(1, pending); $("lv-review-progress").value = Math.max(0, done);
+    $("lv-review-progress").hidden = !state.running;
+    $("lv-review-progress").setAttribute("aria-valuetext", done + " de " + pending + (state.startDone ? " nuevas" : "") + " medias jugadas analizadas");
   }
   if ($("lv-review-go")) $("lv-review-go").addEventListener("click", function () {
     var g = games[curId]; if (!g || !g.san.length) return;
+    reviewSync(g);
     if (reviewState && reviewState.running) { reviewStop(); render(); return; }
-    reviewStop(); rvStop(); clearTimeout(anTimer);
+    var previous = reviewState;
+    if (previous && previous.done >= g.san.length) return;
+    reviewStop(); rvStop(); miniPause(); clearTimeout(anTimer);
     if (sf) { sf.terminate(); sf = null; outstanding = 0; }
-    reviewState = { id: curId, san: g.san.slice(), done: 0, entries: [], running: true, status: "Preparando análisis desde la posición inicial…" };
-    reviewEntryKey = ""; vari = null; follow = false; ply = 0; render();
-    $("lv-review-comments").scrollTop = 0;
+    var startDone = previous ? previous.done : 0;
+    reviewState = { id: curId, san: g.san.slice(), done: startDone, startDone: startDone, entries: previous ? previous.entries.slice() : [], checkpoint: previous ? previous.checkpoint : null, running: true, status: startDone ? "Analizando las jugadas pendientes…" : "Preparando análisis desde la posición inicial…" };
+    rvVer++; follow = false; if (ply < 0) ply = g.san.length; render();
     if (!window.ApejupoGameReview) { reviewStop("No se pudo cargar el módulo de revisión. Recarga la página."); render(); return; }
     var state = reviewState;
     reviewController = window.ApejupoGameReview.start({
-      fens: fenCache(g).fens.slice(), san: state.san,
+      fens: fenCache(g).fens.slice(), san: state.san, previous: state.checkpoint,
       onProgress: function (progress) {
         if (reviewState !== state) return;
         state.done = progress.done; state.entries = progress.entries; state.running = !progress.complete;
-        state.status = progress.complete ? "Revisión completa: " + progress.total + " medias jugadas analizadas." : "Analizando desde el principio: " + progress.done + "/" + progress.total + " medias jugadas.";
-        if (progress.complete) { reviewController = null; anFen = ""; }
-        ply = progress.done; follow = false; render();
+        state.checkpoint = progress.checkpoint;
+        state.status = progress.complete ? "Revisión completada" : "Analizando: " + progress.done + "/" + progress.total + " medias jugadas.";
+        if (progress.complete) {
+          reviewController = null; anFen = ""; rvVer++; render(); renderGrid();
+        } else reviewSync(g);
       },
       onError: function (message) { if (reviewState === state) { reviewStop(message); render(); } }
     });
-  });
-  if ($("lv-review-comments")) $("lv-review-comments").addEventListener("click", function (event) {
-    var entry = event.target.closest("[data-review-p]"); if (!entry || !reviewState) return;
-    if (vari) vari.active = false;
-    ply = +entry.getAttribute("data-review-p"); follow = false; render();
   });
 
   // ---------- Rondas, clasificación, emparejamientos y avisos ----------
@@ -1252,7 +1271,7 @@
   // Abre una ronda (la página torneo.html la recibe por la dirección: ?r=id&t=título)
   var qs = new URLSearchParams(location.search), rid = qs.get("r");
   function openRound(rid, title, inPlace) {
-    reviewStop(); reviewState = null; reviewEntryKey = "";
+    reviewStop(); reviewState = null; rvVer++; listKey = "";
     if (inPlace) { stop(); if (!viewer.hidden) closeBig(); curId = ""; ply = -1; order = []; $("lv-grid").innerHTML = ""; }
     roundId = rid; roundDone = false; games = {}; evalCache = {}; order = []; userOrder = loadUserOrder(); try { extras = JSON.parse(localStorage.getItem("apejupoExtra" + rid)) || []; } catch (_) { extras = []; } try { removed = JSON.parse(localStorage.getItem("apejupoDel" + rid)) || []; } catch (_) { removed = []; } miniStop(); setMode("open");
     $("viewer-title").textContent = title || "Torneo";
