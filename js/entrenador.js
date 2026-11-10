@@ -417,8 +417,7 @@
   function elige(id) {
     cat = indice.categorias.concat(indice.temas || []).filter(function (c) { return c.id === id; })[0];
     if (!cat) return;
-    var tarjeta = document.querySelector('a.theme[data-id="' + id + '"] .pc');
-    el.titulo.innerHTML = (tarjeta ? tarjeta.outerHTML : "") + '<span class="tn">' + U.esc(cat.titulo) +
+    el.titulo.innerHTML = '<span class="tn">' + U.esc(cat.titulo) +
       '<small class="cnt">' + cat.n.toLocaleString("es-ES") + " ejercicios</small></span>";
     Array.prototype.forEach.call(document.querySelectorAll("a.theme[data-id]"), function (a) {
       if (a.getAttribute("data-id") === id) a.setAttribute("aria-current", "true"); else a.removeAttribute("aria-current");
