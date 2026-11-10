@@ -43,13 +43,12 @@
     repetir: '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"/></svg>'
   };
   function mensaje(t, clase) { el.msg.textContent = t; el.msg.className = "ent-msg " + (clase || ""); }
-  // Jugada en notación con figuritas: la inicial de la pieza (K, Q, R, B, N) se cambia por su silueta,
-  // pintada del mismo color que el texto (sea de blancas o de negras), como en los libros
+  // Figuras de contorno, del mismo color que el texto para ambos bandos.
   var NOMBRE = { K: "Rey", Q: "Dama", R: "Torre", B: "Alfil", N: "Caballo" };
+  var FIGURA = { K: "♔", Q: "♕", R: "♖", B: "♗", N: "♘" };
   function figurita(san) {
     var img = function (l) {
-      var u = "url(assets/pieces/w" + l + ".png)"; // en el atributo style la ruta es relativa a la página, no al CSS
-      return '<span class="fig" role="img" aria-label="' + NOMBRE[l] + '" style="-webkit-mask-image:' + u + ";mask-image:" + u + '"></span>';
+      return '<span class="fig" role="img" aria-label="' + NOMBRE[l] + '">' + FIGURA[l] + '</span>';
     };
     return san.replace(/^([KQRBN])/, function (m, l) { return img(l); }).replace(/=([QRBN])/, function (m, l) { return "=" + img(l); });
   }

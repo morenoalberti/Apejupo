@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 74 74" width="74" height="74">
+  <style>
+    rect { fill: #2563eb; animation: pulse 1.5s ease-in-out infinite; }
+    @keyframes pulse { 0%, 100% { opacity: .3; } 50% { opacity: 1; } }
+    @media (prefers-reduced-motion: reduce) { rect { animation: none; } }
+  </style>
+  <rect x="0" y="0" width="22" height="22" rx="4" opacity=".85" style="animation-delay:-.6s"/>
+  <rect x="26" y="0" width="22" height="22" rx="4" opacity="1" style="animation-delay:-.75s"/>
+  <rect x="52" y="0" width="22" height="22" rx="4" opacity=".9" style="animation-delay:-.6s"/>
+  <rect x="0" y="26" width="22" height="22" rx="4" opacity="1" style="animation-delay:-.75s"/>
+  <rect x="26" y="26" width="22" height="22" rx="4" opacity=".9" style="animation-delay:-.6s"/>
+  <rect x="52" y="26" width="22" height="22" rx="4" opacity=".6" style="animation-delay:-.35s"/>
+  <rect x="0" y="52" width="22" height="22" rx="4" opacity=".9" style="animation-delay:-.6s"/>
+  <rect x="26" y="52" width="22" height="22" rx="4" opacity=".6" style="animation-delay:-.35s"/>
+  <rect x="52" y="52" width="22" height="22" rx="4" opacity=".3" style="animation-delay:0s"/>
+</svg>

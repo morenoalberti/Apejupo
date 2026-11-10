@@ -259,7 +259,7 @@ body.card-dragging .tour-tip { display: none !important; }
 .ent-board .mate img { transform: rotate(90deg); }
 .theme .tn { display: flex; flex-direction: column; gap: 2px; }
 .theme .cnt { color: var(--muted); font-weight: 400; font-size: .8rem; }
-.ent-col { min-width: 0; }
+.ent-col { min-width: 0; --ent-coord-width: 18px; }
 .ent-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 8px; }
 .ent-head h3 { margin: 0; font-size: 1.15rem; }
 .ent-reloj { font-variant-numeric: tabular-nums; font-weight: 600; color: var(--muted); }
@@ -271,7 +271,7 @@ body.card-dragging .tour-tip { display: none !important; }
 .ent-titulo:hover { border: 0; }
 .ent-titulo .tn { font-size: 1.05rem; font-weight: 600; }
 .ent-pct { font-variant-numeric: tabular-nums; font-size: 1.1rem; font-weight: 600; margin: 8px 0; }
-.ent-head { height: 44px; margin-bottom: 8px; align-items: center; }
+.ent-head { height: 44px; margin-bottom: 8px; align-items: center; padding-left: var(--ent-coord-width); }
 .ent-nivel { width: 100%; max-width: 260px; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--card); color: var(--text); font-size: .95rem; }
 .ent-side { margin-top: 52px; }
 @media (max-width: 760px) { .ent-side { margin-top: 0; } }
@@ -284,14 +284,13 @@ body.card-dragging .tour-tip { display: none !important; }
 .ent-result .dots i { width: 10px; height: 10px; border-radius: 50%; display: block; }
 .ent-result .dots .ok { background: #16a34a; }
 .ent-result .dots .ko { background: #dc2626; }
-.ent-bwrap { display: grid; grid-template-columns: 18px 1fr; grid-template-rows: auto 18px; }
+.ent-bwrap { display: grid; grid-template-columns: var(--ent-coord-width) 1fr; grid-template-rows: auto 18px; }
 .ent-ranks { display: grid; grid-template-rows: repeat(8, 1fr); grid-column: 1; grid-row: 1; }
 .ent-board { grid-column: 2; grid-row: 1; }
 .ent-files { display: grid; grid-template-columns: repeat(8, 1fr); grid-column: 2; grid-row: 2; }
 .ent-ranks span, .ent-files span { display: flex; align-items: center; justify-content: center; font-size: .8rem; font-weight: 600; color: var(--muted); }
 .ent-board .co { display: none; }
-.ent-msg .fig { display: inline-block; width: 1.05em; height: 1.05em; vertical-align: -.17em; margin-right: 1px; background: currentColor;
-  -webkit-mask-position: center; mask-position: center; -webkit-mask-size: contain; mask-size: contain; -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat; }
+.ent-msg .fig { display: inline-block; font-family: "Segoe UI Symbol", "Noto Sans Symbols 2", serif; font-size: 1.2em; font-weight: 400; line-height: 1; vertical-align: -.08em; margin-right: 1px; color: inherit; }
 .ent-reloj[hidden] { display: none; }
 .grupos { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
 .grupo { cursor: pointer; display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--line); background: var(--card); color: var(--text); border-radius: 999px; padding: 7px 14px; font-size: .95rem; font-weight: 600; }
@@ -649,10 +648,14 @@ body.card-dragging .tour-tip { display: none !important; }
 .lv-ptab.stand td.fd { text-align: left; white-space: nowrap; color: #9fb0c8; font-size: .82rem; }
 .lv-ptab.stand td.fd .lv-flag { width: 22px; height: 15px; margin-right: 6px; vertical-align: -3px; }
 .live-h { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.live-loading { grid-column: 1 / -1; min-height: 180px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 24px; text-align: center; }
+.live-loading p { margin: 0; }
+.live-loading[hidden] { display: none; }
+.live-loading-board { width: clamp(100px, 12vw, 132px); height: auto; }
 .iconbtn { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--line); background: var(--card, #162039); color: var(--text); cursor: pointer; padding: 0; }
 .iconbtn:hover { border-color: #3b82f6; color: #fff; background: #1d3a6e; }
 .iconbtn:disabled { cursor: progress; opacity: .8; }
-.iconbtn.spin svg { animation: lvspin .9s linear infinite; }
+.iconbtn.spin svg { display: block; transform-origin: center; animation: lvspin .9s linear infinite; }
 @keyframes lvspin { to { transform: rotate(360deg); } }
 .live-count { font-size: inherit; font-weight: inherit; margin-left: 14px; color: var(--muted, #9fb0c8); }
 #viewer, #viewer * { caret-color: transparent; }

@@ -7,7 +7,7 @@
 <title>Torneos Live · Apejupo Chess Club</title>
 <link rel="icon" type="image/svg+xml" href="assets/icon.svg">
 <meta name="description" content="Torneos de ajedrez en directo: tableros en vivo de Lichess y streams de Twitch y YouTube.">
-<link rel="stylesheet" href="css/style.css?v=20261110zzm">
+<link rel="stylesheet" href="css/style.css?v=20261110zzt">
 </head>
 <body>
 <header class="site-header">
@@ -47,7 +47,11 @@
       <div id="tsearch-res" class="cards" aria-live="polite"></div>
       <button type="button" id="tsearch-more" class="btn-ghost" hidden>Ver más resultados</button>
     </div>
-    <div id="live" class="cards" aria-live="polite"><p class="muted">Cargando retransmisiones…</p></div>
+    <div id="live-loading" class="live-loading" role="status">
+      <img class="live-loading-board" src="assets/loading-board.svg?v=20261110zzs" width="132" height="132" alt="">
+      <p class="muted">Cargando torneos en directo…</p>
+    </div>
+    <div id="live" class="cards" aria-live="polite" aria-busy="true"></div>
     <h3>Próximas</h3>
     <div id="upcoming" class="cards"></div>
   </section>
@@ -73,6 +77,6 @@
 <script src="js/util.js?v=20261110zz"></script>
 <script src="js/data.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
-<script src="js/live.js?v=20261110zzi"></script>
+<script src="js/live.js?v=20261110zzt"></script>
 </body>
 </html>

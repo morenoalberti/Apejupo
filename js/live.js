@@ -1311,12 +1311,35 @@
   // ---------- Lista de torneos en directo: se reúnen varias fuentes de Lichess y se quitan los repetidos ----------
   if ($("live")) (function () {
     var busy = false;
+    function loading(active) {
+      var indicator = $("live-loading"), btn = $("live-refresh");
+      if (indicator) indicator.hidden = !active;
+      $("live").setAttribute("aria-busy", String(active));
+      if (btn) {
+        btn.classList.toggle("spin", active); btn.disabled = active;
+        btn.setAttribute("aria-busy", String(active));
+      }
+    }
     function getJson(u) { return fetch(u).then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); }); }
-    function getNdjson(u) {
-      return fetch(u).then(function (r) { if (!r.ok) throw new Error(r.status); return r.text(); }).then(function (t) {
-        var out = [];
-        t.split("\n").forEach(function (l) { l = l.trim(); if (!l) return; try { out.push(JSON.parse(l)); } catch (_) {} });
-        return out;
+    function getNdjson(u, onItem) {
+      function line(t) {
+        t = t.trim(); if (!t) return;
+        var item; try { item = JSON.parse(t); } catch (_) { return; }
+        onItem(item);
+      }
+      return fetch(u).then(function (r) {
+        if (!r.ok) throw new Error(r.status);
+        if (!r.body || !r.body.getReader) return r.text().then(function (t) { t.split("\n").forEach(line); });
+        var reader = r.body.getReader(), decoder = new TextDecoder(), buffer = "";
+        function read() {
+          return reader.read().then(function (part) {
+            buffer += decoder.decode(part.value, { stream: !part.done });
+            var lines = buffer.split("\n"); buffer = lines.pop(); lines.forEach(line);
+            if (part.done) { line(buffer); return; }
+            return read();
+          });
+        }
+        return read();
       });
     }
     // De cada torneo (formato {tour, rounds, defaultRoundId}) se toma su ronda en juego más reciente
@@ -1338,13 +1361,18 @@
     }
     // Orden manual: el usuario puede arrastrar las tarjetas (U.sortable); ese orden se respeta al pintar (U.applyOrder)
     var OK = "apejupoLiveOrder";
+    function cardHtml(x) {
+      return x.round.ongoing ? bcCard(x, "EN DIRECTO", "live") : bcCard(x, (x.round.startsAt || 0) - Date.now() < 864e5 ? "HOY" : "PRÓXIMAMENTE", "soon", true);
+    }
+    function count(n) { window.apejupoLiveN = n; window.apejupoCount && window.apejupoCount(); }
     function paint(live, up) {
       live.sort(byNearest); // también reordena la lista guardada en caché
       U.applyOrder(live, OK, function (x) { return x.tour.id; });
       $("live").innerHTML = live.length
-        ? live.map(function (x) { return x.round.ongoing ? bcCard(x, "EN DIRECTO", "live") : bcCard(x, (x.round.startsAt || 0) - Date.now() < 864e5 ? "HOY" : "PRÓXIMAMENTE", "soon", true); }).join("")
+        ? live.map(cardHtml).join("")
         : '<p class="muted">Ahora mismo no hay torneos en directo.</p>';
-      window.apejupoLiveN = live.length; window.apejupoCount && window.apejupoCount();
+      $("live").setAttribute("aria-busy", "false");
+      count(live.length);
       if (up) {
         $("upcoming").innerHTML = up.length
           ? up.map(function (x) { return bcCard(x, "PRÓXIMAMENTE", "soon"); }).join("")
@@ -1354,26 +1382,35 @@
     function load(force) {
       if (busy) return;
       var cached = force ? null : readCache();
-      if (cached) { paint(cached.live, cached.up); return; }
+      if (cached) { loading(false); paint(cached.live, cached.up); return; }
       busy = true;
-      var btn = $("live-refresh");
-      if (btn) { btn.classList.add("spin"); btn.disabled = true; }
-      $("live").innerHTML = '<p class="muted">Buscando todos los torneos en directo…</p>';
+      loading(true);
+      $("live").innerHTML = "";
+      count(0);
       if ($("live-count")) $("live-count").textContent = "En directo";
-      var seenT = {}, seenR = {}, live = [], top = null, ok = 0;
+      var seenT = {}, seenR = {}, live = [], top = null, ok = 0, pending = [], renderTimer = null;
+      // Añadir por lotes pequeños conserva las tarjetas y sus imágenes mientras sigue llegando la respuesta.
+      function renderPending() {
+        renderTimer = null;
+        $("live").insertAdjacentHTML("beforeend", pending.map(cardHtml).join(""));
+        pending = []; count(live.length);
+      }
       function add(it) {
         if (!it || !it.tour || !it.round || !it.round.id) return;
         // En «Torneos Live» solo lo que se juega ya o empieza en las próximas 24 h (el resto va a «Próximos Torneos»)
         if (!it.round.ongoing && (it.round.finished || !it.round.startsAt || it.round.startsAt - Date.now() >= 864e5)) return;
         if (seenT[it.tour.id] || seenR[it.round.id]) return; // ni un torneo ni una ronda se repiten
-        seenT[it.tour.id] = seenR[it.round.id] = true; live.push(it);
+        seenT[it.tour.id] = seenR[it.round.id] = true; live.push(it); pending.push(it);
+        if (renderTimer === null) renderTimer = setTimeout(renderPending, 60);
       }
+      function addTour(e) { add(fromTour(e)); }
       Promise.all([
-        getNdjson("https://lichess.org/api/broadcast?live=true&nb=500").then(function (l) { ok++; l.forEach(function (e) { add(fromTour(e)); }); }).catch(function () {}),
+        getNdjson("https://lichess.org/api/broadcast?live=true&nb=500", addTour).then(function () { ok++; }).catch(function () {}),
         getJson("https://lichess.org/api/broadcast/top").then(function (j) { ok++; top = j; (j.active || []).forEach(function (x) { add(x); }); /* todos los activos de Lichess */ }).catch(function () {}),
-        getNdjson("https://lichess.org/api/broadcast?nb=100").then(function (l) { ok++; l.forEach(function (e) { add(fromTour(e)); }); }).catch(function () {})
+        getNdjson("https://lichess.org/api/broadcast?nb=100", addTour).then(function () { ok++; }).catch(function () {})
       ]).then(function () {
-        if (!ok) throw new Error("sin datos");
+        clearTimeout(renderTimer); pending = [];
+        if (!ok && !live.length) throw new Error("sin datos");
         live.sort(byNearest);
         var up = null;
         if (top) {
@@ -1385,7 +1422,7 @@
         $("live").innerHTML = '<p class="muted">No se pudieron cargar las retransmisiones. <a target="_blank" rel="noopener" href="https://lichess.org/broadcast">Verlas en Lichess</a>.</p>';
       }).then(function () {
         busy = false;
-        if (btn) { btn.classList.remove("spin"); btn.disabled = false; }
+        loading(false);
       });
     }
     if ($("live-refresh")) $("live-refresh").addEventListener("click", function () { load(true); });
