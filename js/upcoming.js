@@ -3,7 +3,7 @@
 
   // Tarjetas como las de Torneos Live: imagen (si hay), etiqueta, título, fecha y enlace
   function card(id, img, badge, title, meta, href, linkText, tip) {
-    return '<article class="card" data-id="' + esc(id || "") + '"' + (tip ? U.tipAttr(tip) : "") + '>' + (img ? '<img loading="lazy" src="' + esc(safeUrl(img)) + '" alt="">' : "") + '<div class="body">' +
+    return '<article class="card" data-id="' + esc(id || "") + '"' + (typeof tip === "string" ? tip : tip ? U.tipAttr(tip) : "") + '>' + (img ? '<img loading="lazy" src="' + esc(safeUrl(img)) + '" alt="">' : "") + '<div class="body">' +
       '<span class="badge ' + badge[0] + '">' + badge[1] + '</span>' +
       '<h4>' + esc(title) + '</h4>' +
       '<p class="meta">' + esc(meta) + '</p>' +
@@ -26,7 +26,7 @@
   U.sortable($("team-events"), function () { return "apejupoOrderTeam"; }, pintaEquipo);
 
   // ---------- Torneos en Andalucía (Info64 y Chess-Results; los genera scripts/update_local.py) ----------
-  var local = [], provSel = "";
+  var local = [], provSel = "Málaga"; // por defecto se abre la provincia del club
   function localId(t) { return t.url || t.name; }
   function localKey() { return "apejupoOrderLocal:" + provSel; } // cada pestaña de provincia guarda su propio orden
   function fechas(t) {
@@ -38,6 +38,7 @@
     var provs = [];
     local.forEach(function (t) { if (provs.indexOf(t.province) < 0) provs.push(t.province); });
     provs.sort();
+    if (provSel && provs.indexOf(provSel) < 0) provSel = ""; // sin torneos en esa provincia: se enseñan todas
     tabs.hidden = !local.length;
     tabs.innerHTML = ['<button type="button" role="tab" aria-selected="' + (!provSel) + '" data-p="">Todas (' + local.length + ")</button>"].concat(provs.map(function (p) {
       var n = local.filter(function (t) { return t.province === p; }).length;
@@ -52,8 +53,23 @@
     U.applyOrder(lista, localKey(), localId);
     box.innerHTML = lista.length ? lista.map(function (t) {
       var extra = [t.tc, t.rounds ? t.rounds + " rondas" : "", t.organizer].filter(Boolean).join(" · ");
+      var sitio = t.city.toLowerCase().indexOf(t.province.toLowerCase()) >= 0 ? t.city : t.city + " (" + t.province + ")";
+      var dias = Math.round((new Date(t.end) - new Date(t.start)) / 864e5) + 1;
+      function fa(d, o) { return fmt(d + "T12:00:00", o); }
+      var y = { day: "numeric", month: "short", year: "numeric" };
+      // Cuadro de información al pasar el ratón, como en Torneos Live
+      var tip = U.tipRows(t.name, [
+        ["Sitio de juego", sitio],
+        ["Fechas", t.start === t.end ? fa(t.start, { weekday: "long", day: "numeric", month: "short", year: "numeric" }) : "del " + fa(t.start, { day: "numeric", month: "short" }) + " al " + fa(t.end, y)],
+        ["Duración", dias > 1 ? dias + " días" : "1 día"],
+        ["Ritmo", t.tc],
+        ["Rondas", t.rounds],
+        ["Organiza", t.organizer],
+        ["Estado", t.start <= hoy ? "En curso" : "Aún no ha empezado"],
+        ["Fuente", t.source]
+      ]);
       return card(localId(t), "", t.start <= new Date().toISOString().slice(0, 10) ? ["live", "EN CURSO"] : ["soon", "PRÓXIMO"], t.name,
-        (t.city.toLowerCase().indexOf(t.province.toLowerCase()) >= 0 ? t.city : t.city + " (" + t.province + ")") + " · " + fechas(t) + (extra ? " · " + extra : ""), t.url, "Más información →");
+        sitio + " · " + fechas(t) + (extra ? " · " + extra : ""), t.url, "Más información →", tip);
     }).join("") : '<p class="muted">No hay torneos programados en esta provincia.</p>';
   }
   U.sortable($("local-events"), localKey, pintaLocal);

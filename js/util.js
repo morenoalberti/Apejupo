@@ -11,6 +11,11 @@
       var d = { id: t.id || "", n: t.name || "", f: i.format || "", c: i.tc || "", l: i.location || "", d: t.dates || [], z: i.timeZone || "", p: i.players || "", s: t.tier || 0 };
       return ' data-tip="' + JSON.stringify(d).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;") + '"';
     },
+    // Lo mismo para torneos que no son de Lichess: título y filas [etiqueta, valor] ya preparadas
+    tipRows: function (name, rows) {
+      var d = { n: name || "", r: rows.filter(function (x) { return x[1]; }) };
+      return ' data-tip="' + JSON.stringify(d).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;") + '"';
+    },
     $: function (id) { return document.getElementById(id); },
     esc: function (s) {
       var d = document.createElement("div");
@@ -263,7 +268,12 @@
   function dd(ms, z, o) { var d = new Date(ms); try { return d.toLocaleDateString("es-ES", Object.assign({ timeZone: z || undefined }, o)); } catch (_) { return d.toLocaleDateString("es-ES", o); } }
   function build(d) {
     var rows = [];
-    function row(k, v) { if (v) rows.push('<div><b>' + k + '</b><span>' + U.esc(v) + '</span></div>'); }
+    function row(k, v) { if (v) rows.push('<div><b>' + U.esc(k) + '</b><span>' + U.esc(v) + '</span></div>'); }
+    if (d.r) { // filas ya preparadas (U.tipRows)
+      d.r.forEach(function (x) { row(x[0], x[1]); });
+      if (!rows.length) rows.push('<div class="tp-none">Sin más datos del organizador.</div>');
+      return '<div class="tp-h">' + U.esc(d.n) + '</div>' + rows.join("");
+    }
     var fm = es(d.f.replace(/\s*\d+[- ]players?\b\s*/i, " ").trim()), np = (/(\d+)[- ]players?\b/i.exec(d.f) || [])[1];
     row("Sitio de juego", d.l);
     row("Premios", prizes[d.id] || "");
