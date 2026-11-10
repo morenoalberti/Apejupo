@@ -20,6 +20,105 @@
     safeUrl: function (u) { return /^https?:\/\//i.test(u || "") ? u : "#"; },
     fmt: function (d, opts) { return new Date(d).toLocaleString("es-ES", opts); }
   };
+  // ---------- Tarjetas que se arrastran con el ratón para cambiarlas de sitio ----------
+  function readOrder(key) { try { var o = JSON.parse(localStorage.getItem(key)); return Array.isArray(o) ? o : []; } catch (_) { return []; } }
+  // Aplica a «list» el orden manual guardado en «key»: los elementos ya ordenados a mano conservan ese orden entre sí
+  // (ocupando sus mismos huecos) y los nuevos se quedan donde les toca por el orden automático.
+  U.applyOrder = function (list, key, idOf) {
+    var pos = {}; readOrder(key).forEach(function (id, i) { pos[id] = i; });
+    var slots = [], known = [];
+    list.forEach(function (x, i) { if (pos[idOf(x)] != null) { slots.push(i); known.push(x); } });
+    known.sort(function (a, b) { return pos[idOf(a)] - pos[idOf(b)]; });
+    slots.forEach(function (s, k) { list[s] = known[k]; });
+    return list;
+  };
+  // box: rejilla de tarjetas (.card con data-id) · keyFn(): clave de localStorage del orden actual · repaint(): repinta con el orden automático
+  U.sortable = function (box, keyFn, repaint) {
+    if (!box) return;
+    var EASE = "transform .26s cubic-bezier(.2,.8,.2,1)";
+    var el = null, sx = 0, sy = 0, px = 0, py = 0, gx = 0, gy = 0, active = false, raf = 0, justDragged = false;
+    function cards() { return Array.prototype.filter.call(box.children, function (c) { return c.classList.contains("card"); }); }
+    box.classList.add("sortable");
+    // Botón para volver al orden automático: solo se ve si hay un orden manual guardado
+    var reset = document.createElement("button");
+    reset.type = "button"; reset.className = "btn-ghost order-reset"; reset.textContent = "Restablecer el orden automático"; reset.hidden = true;
+    box.parentNode.insertBefore(reset, box.nextSibling);
+    function sync() { reset.hidden = !readOrder(keyFn()).length || cards().length < 2; }
+    reset.addEventListener("click", function () { try { localStorage.removeItem(keyFn()); } catch (_) {} repaint(); sync(); });
+    if (window.MutationObserver) new MutationObserver(function () { if (!active) sync(); }).observe(box, { childList: true });
+    sync();
+    // Coloca la tarjeta arrastrada bajo el puntero, sea cual sea el hueco que ocupa ahora en la rejilla
+    function follow() {
+      el.style.transform = "";
+      var r = el.getBoundingClientRect();
+      el.style.transform = "translate(" + (px - gx - r.left) + "px," + (py - gy - r.top) + "px) scale(1.03)";
+    }
+    // Hueco (tarjeta) sobre el que está el puntero, según la posición real en la rejilla y no la animada: así no hay vaivenes
+    function target() {
+      var b = box.getBoundingClientRect(), x = px - b.left - box.clientLeft, y = py - b.top - box.clientTop, list = cards();
+      for (var i = 0; i < list.length; i++) {
+        var c = list[i];
+        if (c !== el && x >= c.offsetLeft && x <= c.offsetLeft + c.offsetWidth && y >= c.offsetTop && y <= c.offsetTop + c.offsetHeight) return c;
+      }
+      return null;
+    }
+    // Mueve la tarjeta al hueco de «t» y anima a las demás desde donde estaban hasta su sitio nuevo (FLIP)
+    function moveTo(t) {
+      var list = cards(), others = list.filter(function (c) { return c !== el; });
+      var before = others.map(function (c) { return c.getBoundingClientRect(); });
+      if (list.indexOf(el) < list.indexOf(t)) box.insertBefore(el, t.nextSibling); else box.insertBefore(el, t);
+      others.forEach(function (c, i) {
+        c.style.transition = "none"; c.style.transform = "";
+        var a = c.getBoundingClientRect(), dx = before[i].left - a.left, dy = before[i].top - a.top;
+        if (!dx && !dy) { c.style.transition = ""; return; }
+        c.style.transform = "translate(" + dx + "px," + dy + "px)";
+        c.getBoundingClientRect(); // fija el punto de partida antes de animar
+        c.style.transition = EASE; c.style.transform = "";
+      });
+    }
+    function frame() {
+      if (!active) return;
+      // cerca del borde superior o inferior de la ventana, la página se desplaza sola
+      var vh = window.innerHeight, edge = 70, d = py < edge ? py - edge : py > vh - edge ? py - (vh - edge) : 0;
+      if (d) window.scrollBy({ top: d * 0.25, behavior: "instant" });
+      var t = target(); if (t) moveTo(t);
+      follow();
+      raf = requestAnimationFrame(frame);
+    }
+    function start() {
+      active = true;
+      var r = el.getBoundingClientRect(); gx = sx - r.left; gy = sy - r.top;
+      el.classList.add("dragging"); document.body.classList.add("card-dragging");
+      var s = window.getSelection && window.getSelection(); if (s && s.removeAllRanges) s.removeAllRanges();
+      raf = requestAnimationFrame(frame);
+    }
+    function end() {
+      document.removeEventListener("pointermove", move); document.removeEventListener("pointerup", end); document.removeEventListener("pointercancel", end);
+      if (!active) { el = null; return; }
+      active = false; cancelAnimationFrame(raf);
+      var c = el; el = null; justDragged = true; setTimeout(function () { justDragged = false; }, 0);
+      document.body.classList.remove("card-dragging");
+      c.classList.add("dropping"); c.style.transition = EASE; c.style.transform = "";
+      var done = function () { c.removeEventListener("transitionend", done); c.classList.remove("dragging", "dropping"); c.style.transition = ""; };
+      c.addEventListener("transitionend", done); setTimeout(done, 320);
+      try { localStorage.setItem(keyFn(), JSON.stringify(cards().map(function (x) { return x.getAttribute("data-id"); }).filter(Boolean))); } catch (_) {}
+      sync();
+    }
+    function move(e) {
+      px = e.clientX; py = e.clientY;
+      if (!active && Math.abs(px - sx) + Math.abs(py - sy) > 8) start();
+    }
+    box.addEventListener("pointerdown", function (e) {
+      if (e.pointerType !== "mouse" || e.button !== 0 || el) return;
+      var c = e.target.closest && e.target.closest(".card");
+      if (!c || c.parentNode !== box || !c.getAttribute("data-id") || cards().length < 2) return;
+      el = c; sx = px = e.clientX; sy = py = e.clientY;
+      document.addEventListener("pointermove", move); document.addEventListener("pointerup", end); document.addEventListener("pointercancel", end);
+    });
+    box.addEventListener("dragstart", function (e) { e.preventDefault(); }); // sin el arrastre nativo de imágenes y enlaces
+    box.addEventListener("click", function (e) { if (justDragged) { e.preventDefault(); e.stopPropagation(); } }, true); // soltar no abre el torneo
+  };
+
   var y = document.getElementById("year");
   if (y) y.textContent = new Date().getFullYear();
 

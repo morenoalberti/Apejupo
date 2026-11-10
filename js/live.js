@@ -23,7 +23,7 @@
     var t = it.tour || {}, r = it.round || {};
     var img = t.image ? '<img loading="lazy" src="' + esc(safeUrl(t.image)) + '" alt="">' : "";
     var when = r.startsAt ? fmt(r.startsAt, { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "";
-    return '<article class="card"' + U.tipAttr(t) + '>' + img + '<div class="body">' +
+    return '<article class="card" data-id="' + esc(t.id || "") + '"' + U.tipAttr(t) + '>' + img + '<div class="body">' +
       '<span class="badge ' + cls + '">' + badge + '</span>' +
       '<h4>' + esc(t.name) + '</h4>' +
       '<p class="meta">' + esc(U.ronda(r.name)) + (when ? " · " + esc(when) : "") + '</p>' +
@@ -1349,8 +1349,11 @@
       var as = a.round.startsAt || 0, bs = b.round.startsAt || 0;
       return ao ? bs - as : as - bs;
     }
+    // Orden manual: el usuario puede arrastrar las tarjetas (U.sortable); ese orden se respeta al pintar (U.applyOrder)
+    var OK = "apejupoLiveOrder";
     function paint(live, up) {
       live.sort(byNearest); // también reordena la lista guardada en caché
+      U.applyOrder(live, OK, function (x) { return x.tour.id; });
       $("live").innerHTML = live.length
         ? live.map(function (x) { return x.round.ongoing ? bcCard(x, "EN DIRECTO", "live") : bcCard(x, (x.round.startsAt || 0) - Date.now() < 864e5 ? "HOY" : "PRÓXIMAMENTE", "soon", true); }).join("")
         : '<p class="muted">Ahora mismo no hay torneos en directo.</p>';
@@ -1399,6 +1402,7 @@
       });
     }
     if ($("live-refresh")) $("live-refresh").addEventListener("click", function () { load(true); });
+    U.sortable($("live"), function () { return OK; }, function () { var c = readCache(); if (c) paint(c.live, null); else load(true); });
     load();
   })();
 
