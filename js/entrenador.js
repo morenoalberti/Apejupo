@@ -43,9 +43,14 @@
     repetir: '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"/></svg>'
   };
   function mensaje(t, clase) { el.msg.textContent = t; el.msg.className = "ent-msg " + (clase || ""); }
-  // Jugada en notación con figuritas: la inicial de la pieza (K, Q, R, B, N) se cambia por su dibujo
-  function figurita(san, color) {
-    var img = function (l) { return '<img class="fig" src="assets/pieces/' + color + l + '.png" alt="' + l + '">'; };
+  // Jugada en notación con figuritas: la inicial de la pieza (K, Q, R, B, N) se cambia por su silueta,
+  // pintada del mismo color que el texto (sea de blancas o de negras), como en los libros
+  var NOMBRE = { K: "Rey", Q: "Dama", R: "Torre", B: "Alfil", N: "Caballo" };
+  function figurita(san) {
+    var img = function (l) {
+      var u = "url(assets/pieces/w" + l + ".png)"; // en el atributo style la ruta es relativa a la página, no al CSS
+      return '<span class="fig" role="img" aria-label="' + NOMBRE[l] + '" style="-webkit-mask-image:' + u + ";mask-image:" + u + '"></span>';
+    };
     return san.replace(/^([KQRBN])/, function (m, l) { return img(l); }).replace(/=([QRBN])/, function (m, l) { return "=" + img(l); });
   }
 
@@ -268,7 +273,7 @@
     anota(false); registra(false); progreso();
     if (!hechos[p.i]) { hechos[p.i] = 1; guardar(); }
     bloqueado = true; clearInterval(temporizador); el.pista.disabled = true; el.sol.disabled = true; sel = null;
-    var resto = p.s.slice(paso), san = [], k = 0;
+    var resto = p.s.slice(paso), san = [], k = 0, n = paso / 2 + 1; // n: número de la próxima jugada propia, empezando por 1
     mensaje("Solución…");
     (function siguientePaso() {
       if (k >= resto.length) {
@@ -277,8 +282,10 @@
         el.sig.hidden = false;
         return;
       }
-      var u = resto[k++], quien = chess.turn(), m = chess.move({ from: u.slice(0, 2), to: u.slice(2, 4), promotion: u[4] || undefined });
-      if (m) san.push(figurita(m.san, quien));
+      var u = resto[k++], quien = chess.turn();
+      var m = chess.move({ from: u.slice(0, 2), to: u.slice(2, 4), promotion: u[4] || undefined });
+      // numeración del problema, no de la partida: «1. Tc8+ Axc8 2. De7#»; solo llevan número las jugadas propias
+      if (m) san.push((quien === orient ? n++ + ". " : "") + figurita(m.san));
       dibuja([u.slice(0, 2), u.slice(2, 4)]);
       avance = setTimeout(siguientePaso, 800);
     })();
