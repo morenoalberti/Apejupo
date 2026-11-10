@@ -367,13 +367,14 @@
     U.$("bat-cerrar").onclick = function () { cierraBateria(); reposo(); };
     ultimoCrono = c; crono = null; marcador(); // el marcador conserva el resultado hasta que empiece otra
   }
-  function iniciaBateria(n) {
+  function iniciaBateria(n, primero) {
     var nv = NIVELES[+el.nivel.value];
     var cand = lista.filter(function (x) { return x.r >= nv[1] && x.r < nv[2]; });
     ultimaBat = null;
     if (!cand.length) { reposo("No hay problemas en este nivel."); el.msg.className = "ent-msg mal"; el.empezar.hidden = true; return; }
     cand = cand.map(function (x) { return { x: x, k: Math.random() + (hechos[x.i] ? 1 : 0) }; })
       .sort(function (a, b) { return a.k - b.k; }).map(function (o) { return o.x; });
+    if (primero) cand = [primero].concat(cand.filter(function (x) { return x.i !== primero.i; }));
     bat = { n: n, cola: cand.slice(0, n), res: [], tiempos: [], inicio: Date.now() };
     el.result.hidden = true;
     empieza(bat.cola[0]);
@@ -413,7 +414,7 @@
   });
   el.empezar.addEventListener("click", function () { cierraBateria(); inicia(); });
 
-  function elige(id) {
+  function elige(id, problemaId) {
     cat = indice.categorias.concat(indice.temas || []).filter(function (c) { return c.id === id; })[0];
     if (!cat) return;
     el.titulo.innerHTML = '<span class="tn">' + U.esc(cat.titulo) +
@@ -423,7 +424,21 @@
     });
     cierraBateria();
     // Al elegir un tema arranca sola una batería del tamaño elegido en el desplegable (10 por defecto)
-    cargaCategoria(id, function (d) { lista = d; reposo(); inicia(); });
+    cargaCategoria(id, function (d) {
+      lista = d; reposo();
+      if (!problemaId) { inicia(); return; }
+      var objetivo = lista.filter(function (x) { return x.i === problemaId; })[0];
+      if (!objetivo) { mensaje("No se ha encontrado ese problema en este tema.", "mal"); return; }
+      // Un enlace directo abre el ejercicio aunque el nivel recordado no lo incluya.
+      var nv = NIVELES[+el.nivel.value];
+      if (objetivo.r < nv[1] || objetivo.r >= nv[2]) {
+        for (var i = 1; i < NIVELES.length; i++) {
+          if (objetivo.r >= NIVELES[i][1] && objetivo.r < NIVELES[i][2]) { el.nivel.value = String(i); break; }
+        }
+      }
+      if (esCrono()) el.bat.value = "10";
+      iniciaBateria(+el.bat.value, objetivo);
+    });
   }
 
   // ---------- Copiar posición: dibuja el tablero actual en una imagen PNG y la pone en el portapapeles ----------
@@ -491,6 +506,8 @@
 
   fetch(BASE + "indice.json").then(function (r) { return r.json(); }).then(function (d) {
     indice = d;
-    elige(pendiente || "mate2"); // al entrar se abre Mate en 2 (Mate en 1 no se ofrece: demasiado fácil)
+    var enlace = new URLSearchParams(location.search), tema = enlace.get("tema"), problema = enlace.get("problema");
+    var existe = indice.categorias.concat(indice.temas || []).some(function (c) { return c.id === tema; });
+    elige(pendiente || (existe ? tema : "mate2"), pendiente ? null : existe ? problema : null);
   }).catch(function () { mensaje("No se han podido cargar los problemas.", "mal"); });
 })();

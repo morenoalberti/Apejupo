@@ -7,7 +7,7 @@
 <title>Torneo en directo · Apejupo Chess Club</title>
 <link rel="icon" type="image/svg+xml" href="assets/icon.svg">
 <meta name="description" content="Torneos de ajedrez en directo: tableros en vivo de Lichess y streams de Twitch y YouTube.">
-<link rel="stylesheet" href="css/style.css?v=20261110zzm">
+<link rel="stylesheet" href="css/style.css?v=20261110zzu">
 </head>
 <body>
 <header class="site-header">
@@ -31,6 +31,7 @@
       <div class="viewer-bar">
         <div class="lv-tt"><strong id="viewer-bd">Partida</strong><small id="viewer-op" class="lv-info"></small></div>
         <button type="button" id="viewer-eye" class="lv-eyebtn" title="Ver la ficha de los jugadores" aria-label="Ver la ficha de los jugadores"></button><select id="viewer-games" aria-label="Elegir partida"></select>
+        <button type="button" id="lv-review-go" class="btn-ghost" title="Analizar toda la partida desde el principio con comentarios">Analizar</button>
         <button type="button" id="lv-closebig" class="btn-ghost" title="Cerrar la partida (Esc)"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg> Cerrar</button>
       </div>
       <div id="lv-big" class="lv">
@@ -47,7 +48,15 @@
           </div>
           <div class="lv-nav"><button type="button" id="lv-prev" aria-label="Jugada anterior" title="Jugada anterior (←)"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button><button type="button" id="lv-live" title="Ir a la última jugada"><i class="lv-livedot"></i>En vivo</button><button type="button" id="lv-next" aria-label="Jugada siguiente" title="Jugada siguiente (→)"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button></div>
         </div>
-        <div class="lv-mvwrap"><div id="lv-moves" class="lv-moves"></div></div>
+        <div class="lv-mvwrap">
+          <div id="lv-moves" class="lv-moves"></div>
+          <section id="lv-review" class="lv-review" aria-label="Revisión comentada de la partida" hidden>
+            <p id="lv-review-status" class="lv-review-status" role="status"></p>
+            <progress id="lv-review-progress" max="1" value="0" aria-label="Progreso del análisis"></progress>
+            <small>Revisión rápida de Stockfish. Valoraciones desde las blancas. Pulsa un comentario para ver la posición.</small>
+            <div id="lv-review-comments" class="lv-review-comments"></div>
+          </section>
+        </div>
       </div>
     </div>
   </section>
@@ -56,6 +65,7 @@
 <script src="js/util.js?v=20261110zz"></script>
 <script src="js/data.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
-<script src="js/live.js?v=20261110zzi"></script>
+<script src="js/game-review.js?v=20261110zzu"></script>
+<script src="js/live.js?v=20261110zzu"></script>
 </body>
 </html>

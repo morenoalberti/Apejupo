@@ -618,6 +618,23 @@ body.card-dragging .tour-tip { display: none !important; }
 .lv-addrow .lv-tt { flex: 1 0 100%; margin-right: 0; }
 .lv-addrow .lv-tools { margin-left: auto; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 #lv-closebig { display: inline-flex; align-items: center; gap: 6px; }
+#lv-review-go { border: 1px solid #3b82f6; color: #bfdbfe; }
+#lv-review-go[aria-pressed="true"] { background: #1d4ed8; color: #fff; }
+.lv-mvwrap:has(.lv-review:not([hidden])) { max-height: 650px; }
+.lv-mvwrap:has(.lv-review:not([hidden])) .lv-moves { flex: 0 1 210px; min-height: 100px; }
+.lv-review { display: flex; flex-direction: column; gap: 8px; min-height: 0; margin-top: 10px; padding: 12px; background: #101c2e; border: 1px solid #2a3b57; border-radius: 10px; color: #e8eef7; }
+.lv-review[hidden] { display: none; }
+.lv-review-status { margin: 0; font-size: .85rem; font-weight: 600; }
+.lv-review progress { width: 100%; height: 7px; accent-color: #3b82f6; }
+.lv-review > small { color: #9fb0c8; font-size: .72rem; line-height: 1.4; }
+.lv-review-comments { min-height: 0; max-height: 340px; overflow: auto; display: flex; flex-direction: column; gap: 8px; }
+.lv-review-item { display: block; text-align: left; width: 100%; border: 1px solid #2a3b57; border-left: 3px solid #4ade80; background: #17273e; color: #e8eef7; border-radius: 6px; padding: 9px; cursor: pointer; font: inherit; font-size: .8rem; line-height: 1.5; }
+.lv-review-item.warn { border-left-color: #fbbf24; }
+.lv-review-item.bad { border-left-color: #f87171; }
+.lv-review-item.neutral { border-left-color: #93a4bd; }
+.lv-review-item[aria-current="true"] { background: #203d61; border-color: #60a5fa; }
+.lv-review-item strong, .lv-review-item span { display: block; }
+.lv-review-item em { color: #a7c7ef; font-style: normal; font-weight: 400; }
 .lv-nav { gap: 8px; margin-top: 10px; }
 .lv-nav button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 42px; border-radius: 10px; border: 1px solid #343a4a; background: linear-gradient(#2c303c, #232733); color: #cdd6e6; font-weight: 600; font-size: 14px; letter-spacing: .02em; transition: background .15s, border-color .15s, transform .08s; }
 .lv-nav button:hover { background: linear-gradient(#364059, #2a3248); border-color: #4a6cb3; color: #fff; }

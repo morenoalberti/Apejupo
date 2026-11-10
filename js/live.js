@@ -29,6 +29,7 @@
   var roundDone = false; // la ronda ya está terminada en Lichess: ninguna de sus partidas puede estar en juego
   var orient = "w", order = [], mode = "grid";
   var vari = null, curCh = null, dragging = false, pendingRender = false; // variante propuesta por el usuario al mover piezas
+  var reviewState = null, reviewController = null, reviewEntryKey = "";
 
   function parseGame(txt) {
     var g = { tags: {}, san: [], clk: [], over: false };
@@ -166,7 +167,7 @@
       if (cur.offsetTop < mv.scrollTop || cur.offsetTop + cur.offsetHeight > mv.scrollTop + mv.clientHeight) mv.scrollTop = cur.offsetTop - mv.clientHeight / 2;
     }
     $("lv-live").classList.toggle("on", !inVar && ply === n);
-    clocks(); analyse(ch.fen()); rvKick();
+    reviewSync(g); clocks(); analyse(ch.fen()); rvKick();
   }
   var listKey = "";
   // Nombre de la apertura (Lichess lo envía en inglés): se traduce con reglas sencillas y las más habituales
@@ -304,6 +305,7 @@
   var anFen = "", engineOn = true;
   try { engineOn = localStorage.getItem("apejupoSf") !== "off"; } catch (_) {}
   function analyse(fen) {
+    if (reviewState && reviewState.running) return;
     if (fen === anFen) return; // la misma posición (p. ej. al refrescar la partida): no se reinicia el análisis
     anFen = fen; curFen = fen; turnNow = fen.split(" ")[1];
     if (evalCache[fen]) showEval(evalCache[fen]);
@@ -582,6 +584,7 @@
     render(); renderGrid();
   }
   function closeBig() {
+    reviewStop("Revisión detenida al cerrar la partida.");
     viewer.hidden = true; $("lv-backdrop").hidden = true; vari = null;
     if (sf) { sf.terminate(); sf = null; outstanding = 0; } anFen = ""; rvStop();
   }
@@ -940,7 +943,7 @@
     return '<i class="ev ' + (bad ? "bad" : "good") + '" title="Valoración tras esta jugada: ' + rvText(rvEval[id][k]) + '">' + rvText(rvEval[id][k]) + "</i>";
   }
   function rvKick() {
-    if (rvBusy || viewer.hidden) return;
+    if (rvBusy || viewer.hidden || (reviewState && reviewState.running)) return;
     var g = games[curId]; if (!g) return;
     rvInit(); if (!rv) return;
     var fens = fenCache(g).fens, n = g.san.length, arr = rvEval[curId] || (rvEval[curId] = []);
@@ -955,6 +958,67 @@
     }
   }
   function rvStop() { if (rv) rv.terminate(); rv = null; rvBusy = null; rvScore = null; }
+
+  // Revisión completa bajo demanda: se conserva la instantánea aunque el directo añada jugadas.
+  function reviewStop(message) {
+    if (reviewController) reviewController.stop();
+    reviewController = null;
+    if (reviewState && reviewState.running) {
+      reviewState.running = false;
+      reviewState.status = message || "Revisión detenida. Se conservan los comentarios ya calculados.";
+    }
+    anFen = "";
+  }
+  function reviewSync(g) {
+    var button = $("lv-review-go"), panel = $("lv-review"); if (!button || !panel) return;
+    if (reviewState && (reviewState.id !== g.id || g.san.slice(0, reviewState.san.length).join(" ") !== reviewState.san.join(" "))) {
+      reviewStop(); reviewState = null; reviewEntryKey = "";
+    }
+    var state = reviewState;
+    button.disabled = !g.san.length;
+    button.textContent = state && state.running ? "Detener" : "Analizar";
+    button.setAttribute("aria-pressed", String(!!(state && state.running)));
+    panel.hidden = !state; if (!state) return;
+    $("lv-review-status").textContent = state.status + (!state.running && g.san.length > state.san.length ? " Hay nuevas jugadas: pulsa Analizar para incluirlas." : "");
+    $("lv-review-progress").max = state.san.length; $("lv-review-progress").value = state.done;
+    var box = $("lv-review-comments"), key = state.id + "|" + state.entries.length;
+    if (reviewEntryKey !== key) {
+      reviewEntryKey = key;
+      var atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 40, top = box.scrollTop;
+      box.innerHTML = state.entries.map(function (entry) {
+        return '<button type="button" class="lv-review-item ' + entry.kind + '" data-review-p="' + entry.ply + '"><strong>' + Math.ceil(entry.ply / 2) + (entry.ply % 2 ? ". " : "... ") + esc(entry.san) + ' · ' + esc(entry.label) + ' <em>(' + esc(evalText(entry.score)) + ')</em></strong><span>' + esc(entry.text) + '</span></button>';
+      }).join("");
+      box.scrollTop = atBottom ? box.scrollHeight : top;
+    }
+    Array.prototype.forEach.call(box.querySelectorAll("[data-review-p]"), function (entry) { entry.setAttribute("aria-current", String(+entry.getAttribute("data-review-p") === ply && !(vari && vari.active))); });
+  }
+  if ($("lv-review-go")) $("lv-review-go").addEventListener("click", function () {
+    var g = games[curId]; if (!g || !g.san.length) return;
+    if (reviewState && reviewState.running) { reviewStop(); render(); return; }
+    reviewStop(); rvStop(); clearTimeout(anTimer);
+    if (sf) { sf.terminate(); sf = null; outstanding = 0; }
+    reviewState = { id: curId, san: g.san.slice(), done: 0, entries: [], running: true, status: "Preparando análisis desde la posición inicial…" };
+    reviewEntryKey = ""; vari = null; follow = false; ply = 0; render();
+    $("lv-review-comments").scrollTop = 0;
+    if (!window.ApejupoGameReview) { reviewStop("No se pudo cargar el módulo de revisión. Recarga la página."); render(); return; }
+    var state = reviewState;
+    reviewController = window.ApejupoGameReview.start({
+      fens: fenCache(g).fens.slice(), san: state.san,
+      onProgress: function (progress) {
+        if (reviewState !== state) return;
+        state.done = progress.done; state.entries = progress.entries; state.running = !progress.complete;
+        state.status = progress.complete ? "Revisión completa: " + progress.total + " medias jugadas analizadas." : "Analizando desde el principio: " + progress.done + "/" + progress.total + " medias jugadas.";
+        if (progress.complete) { reviewController = null; anFen = ""; }
+        ply = progress.done; follow = false; render();
+      },
+      onError: function (message) { if (reviewState === state) { reviewStop(message); render(); } }
+    });
+  });
+  if ($("lv-review-comments")) $("lv-review-comments").addEventListener("click", function (event) {
+    var entry = event.target.closest("[data-review-p]"); if (!entry || !reviewState) return;
+    if (vari) vari.active = false;
+    ply = +entry.getAttribute("data-review-p"); follow = false; render();
+  });
 
   // ---------- Rondas, clasificación, emparejamientos y avisos ----------
   var tourId = null, tourRounds = [];
@@ -1188,6 +1252,7 @@
   // Abre una ronda (la página torneo.html la recibe por la dirección: ?r=id&t=título)
   var qs = new URLSearchParams(location.search), rid = qs.get("r");
   function openRound(rid, title, inPlace) {
+    reviewStop(); reviewState = null; reviewEntryKey = "";
     if (inPlace) { stop(); if (!viewer.hidden) closeBig(); curId = ""; ply = -1; order = []; $("lv-grid").innerHTML = ""; }
     roundId = rid; roundDone = false; games = {}; evalCache = {}; order = []; userOrder = loadUserOrder(); try { extras = JSON.parse(localStorage.getItem("apejupoExtra" + rid)) || []; } catch (_) { extras = []; } try { removed = JSON.parse(localStorage.getItem("apejupoDel" + rid)) || []; } catch (_) { removed = []; } miniStop(); setMode("open");
     $("viewer-title").textContent = title || "Torneo";
