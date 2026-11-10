@@ -230,7 +230,7 @@ body.card-dragging .tour-tip { display: none !important; }
 #local-players-search:focus-visible { outline: 2px solid var(--players-accent); outline-offset: 2px; }
 #local-players-matches { margin: 10px 0 0; font-size: .76rem; }
 #local-players-list { overflow: auto; min-height: 100px; }
-.local-players-table { width: 100%; min-width: 580px; table-layout: fixed; border-collapse: collapse; font-size: .9rem; text-align: left; }
+.local-players-table { width: 100%; min-width: 580px; table-layout: auto; border-collapse: collapse; font-size: .9rem; text-align: left; }
 .local-players-table th { position: sticky; top: 0; z-index: 1; background: color-mix(in srgb, var(--players-accent) 7%, var(--card)); color: var(--muted); font-size: .77rem; font-weight: 600; }
 .local-players-table th button { display: inline-flex; align-items: center; gap: 6px; border: 0; background: transparent; color: inherit; font: inherit; padding: 3px 0; cursor: pointer; white-space: nowrap; }
 .local-players-table th button:hover, .local-players-table th[aria-sort] { color: var(--players-accent); }
@@ -242,11 +242,14 @@ body.card-dragging .tour-tip { display: none !important; }
 .local-players-table tbody tr:hover { background: rgba(129, 230, 217, .07); }
 .local-players-table th:first-child, .local-players-table td:first-child { width: 48px; font-variant-numeric: tabular-nums; }
 .local-players-table td:first-child { color: var(--muted); font-size: .8rem; }
-.local-players-table th:nth-child(2), .local-players-table td:nth-child(2) { width: 31%; overflow-wrap: anywhere; }
+.local-players-table th:nth-child(2), .local-players-table td:nth-child(2) { width: 46%; white-space: nowrap; overflow-wrap: normal; }
 .local-players-table td:nth-child(2) { font-weight: 600; }
 .local-players-table th:nth-child(3), .local-players-table td:nth-child(3) { width: 100px; }
 .local-players-table th:nth-child(4), .local-players-table td:nth-child(4) { width: 80px; }
 .local-player-title { color: #e99500; font-weight: 700; }
+.local-player-name { display: flex; align-items: center; gap: 8px; }
+.local-player-name > .flag { flex: none; }
+.local-player-name > span { white-space: nowrap; }
 .local-player-country { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; color: var(--muted); }
 .local-player-elo { font-variant-numeric: tabular-nums; font-weight: 600; }
 .local-player-team { font-size: .85rem; color: var(--muted); }

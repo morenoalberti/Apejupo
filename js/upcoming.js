@@ -106,7 +106,7 @@
       return '<th scope="col"' + (active ? ' aria-sort="' + order + '"' : '') + '><button type="button" data-sort="' + c.key + '" title="Ordenar por ' + c.label + '">' + c.label + '<span aria-hidden="true">' + (active ? (rosterSort.direction === 1 ? '↑' : '↓') : '↕') + '</span></button></th>';
     }).join("") + '</tr>';
     $("local-players-body").innerHTML = filtered.map(function (p) {
-      return '<tr><td>' + p.rank + '</td><td>' + (p.title ? '<span class="local-player-title">' + esc(p.title) + '</span> ' : '') + esc(p.name) + '</td><td><span class="local-player-country" title="' + esc(U.pais(p.country)) + '">' + U.flag(p.country) + esc(p.country || "—") + '</span></td><td class="local-player-elo">' + (p.elo || "—") + '</td><td class="local-player-team">' + esc(p.club || "—") + '</td></tr>';
+      return '<tr><td>' + p.rank + '</td><td><span class="local-player-name">' + U.flag(p.country) + '<span>' + (p.title ? '<span class="local-player-title">' + esc(p.title) + '</span> ' : '') + esc(p.name) + '</span></span></td><td><span class="local-player-country" title="' + esc(U.pais(p.country)) + '">' + esc(p.country || "—") + '</span></td><td class="local-player-elo">' + (p.elo || "—") + '</td><td class="local-player-team">' + esc(p.club || "—") + '</td></tr>';
     }).join("") || '<tr><td colspan="5" class="local-players-empty">' + (roster.length ? 'No hay jugadores que coincidan con la búsqueda.' : 'La fuente todavía no ofrece un listado de jugadores disponible. Puedes consultar el original abajo.') + '</td></tr>';
     $("local-players-list").scrollTop = 0;
   }
