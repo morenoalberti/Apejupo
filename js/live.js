@@ -1342,7 +1342,15 @@
     // El botón de refrescar sí fuerza una búsqueda nueva.
     var CK = "apejupoLiveList3", TTL = 5 * 60 * 1000;
     function readCache() { try { var c = JSON.parse(localStorage.getItem(CK)); if (c && Array.isArray(c.live) && Date.now() - c.t < TTL) return c; } catch (_) {} return null; }
+    // Orden por cercanía de emisión: primero lo que ya se emite (la ronda empezada más recientemente arriba) y después lo que está por empezar, de lo más próximo a lo más lejano.
+    function byNearest(a, b) {
+      var ao = a.round.ongoing ? 1 : 0, bo = b.round.ongoing ? 1 : 0;
+      if (ao !== bo) return bo - ao;
+      var as = a.round.startsAt || 0, bs = b.round.startsAt || 0;
+      return ao ? bs - as : as - bs;
+    }
     function paint(live, up) {
+      live.sort(byNearest); // también reordena la lista guardada en caché
       $("live").innerHTML = live.length
         ? live.map(function (x) { return x.round.ongoing ? bcCard(x, "EN DIRECTO", "live") : bcCard(x, (x.round.startsAt || 0) - Date.now() < 864e5 ? "HOY" : "PRÓXIMAMENTE", "soon", true); }).join("")
         : '<p class="muted">Ahora mismo no hay torneos en directo.</p>';
@@ -1376,7 +1384,7 @@
         getNdjson("https://lichess.org/api/broadcast?nb=100").then(function (l) { ok++; l.forEach(function (e) { add(fromTour(e)); }); }).catch(function () {})
       ]).then(function () {
         if (!ok) throw new Error("sin datos");
-        live.sort(function (a, b) { return (b.round.ongoing ? 1 : 0) - (a.round.ongoing ? 1 : 0) || (b.round.startsAt || 0) - (a.round.startsAt || 0); });
+        live.sort(byNearest);
         var up = null;
         if (top) {
           up = (top.upcoming || []).filter(function (x) { return !seenT[x.tour && x.tour.id]; }).slice(0, 6);
