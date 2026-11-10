@@ -3,7 +3,7 @@
 
   // Tarjetas como las de Torneos Live: imagen (si hay), etiqueta, título, fecha y enlace
   function card(id, img, badge, title, meta, href, linkText, tip) {
-    return '<article class="card" data-id="' + esc(id || "") + '"' + (typeof tip === "string" ? tip : tip ? U.tipAttr(tip) : "") + '>' + (img ? '<img loading="lazy" src="' + esc(safeUrl(img)) + '" alt="">' : "") + '<div class="body">' +
+    return '<article class="card" data-id="' + esc(id || "") + '"' + (tip ? U.tipAttr(tip) : "") + '>' + (img ? '<img loading="lazy" src="' + esc(safeUrl(img)) + '" alt="">' : "") + '<div class="body">' +
       '<span class="badge ' + badge[0] + '">' + badge[1] + '</span>' +
       '<h4>' + esc(title) + '</h4>' +
       '<p class="meta">' + esc(meta) + '</p>' +
@@ -54,22 +54,8 @@
     box.innerHTML = lista.length ? lista.map(function (t) {
       var extra = [t.tc, t.rounds ? t.rounds + " rondas" : "", t.organizer].filter(Boolean).join(" · ");
       var sitio = t.city.toLowerCase().indexOf(t.province.toLowerCase()) >= 0 ? t.city : t.city + " (" + t.province + ")";
-      var dias = Math.round((new Date(t.end) - new Date(t.start)) / 864e5) + 1;
-      function fa(d, o) { return fmt(d + "T12:00:00", o); }
-      var y = { day: "numeric", month: "short", year: "numeric" };
-      // Cuadro de información al pasar el ratón, como en Torneos Live
-      var tip = U.tipRows(t.name, [
-        ["Sitio de juego", sitio],
-        ["Fechas", t.start === t.end ? fa(t.start, { weekday: "long", day: "numeric", month: "short", year: "numeric" }) : "del " + fa(t.start, { day: "numeric", month: "short" }) + " al " + fa(t.end, y)],
-        ["Duración", dias > 1 ? dias + " días" : "1 día"],
-        ["Ritmo", t.tc],
-        ["Rondas", t.rounds],
-        ["Organiza", t.organizer],
-        ["Estado", t.start <= hoy ? "En curso" : "Aún no ha empezado"],
-        ["Fuente", t.source]
-      ]);
-      return card(localId(t), "", t.start <= new Date().toISOString().slice(0, 10) ? ["live", "EN CURSO"] : ["soon", "PRÓXIMO"], t.name,
-        sitio + " · " + fechas(t) + (extra ? " · " + extra : ""), t.url, "Más información →", tip);
+      return card(localId(t), "", t.start <= hoy ? ["live", "EN CURSO"] : ["soon", "PRÓXIMO"], t.name,
+        sitio + " · " + fechas(t) + (extra ? " · " + extra : ""), t.url, "Más información →");
     }).join("") : '<p class="muted">No hay torneos programados en esta provincia.</p>';
   }
   U.sortable($("local-events"), localKey, pintaLocal);

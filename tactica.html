@@ -7,7 +7,7 @@
 <title>Táctica · Apejupo Chess Club</title>
 <meta name="description" content="Entrena táctica de ajedrez: problemas por categorías y temas (mates, horquillas, clavadas…) y modos de entrenamiento.">
 <link rel="icon" type="image/svg+xml" href="assets/icon.svg">
-<link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="css/style.css?v=20261110zzi">
 </head>
 <body>
 <header class="site-header">
@@ -35,6 +35,7 @@
     <div class="section-head"><h2>Entrenador Apejupo</h2></div>
     <div class="grupos" id="grupos" role="group" aria-label="Grupos de temas"></div>
     <div id="temas"></div>
+    <div class="ent-stats" id="ent-stats" aria-live="polite"></div>
     <div class="ent" id="entrenador">
       <div class="ent-col">
         <div class="ent-head"><div class="theme ent-titulo" id="ent-titulo"></div><span class="ent-reloj" id="ent-reloj" title="Tiempo">0:00</span></div>
@@ -46,16 +47,21 @@
       </div>
       <div class="ent-side">
         <select id="ent-nivel" class="ent-nivel" aria-label="Nivel de dificultad"></select>
-        <select id="ent-bateria" class="ent-nivel" aria-label="Batería de problemas">
-          <option value="">Batería de problemas</option>
-          <option value="10">10 problemas</option><option value="20">20 problemas</option><option value="30">30 problemas</option>
-          <option value="50">50 problemas</option><option value="100">100 problemas</option>
+        <select id="ent-bateria" class="ent-nivel" aria-label="Modo de entrenamiento">
+          <optgroup label="Batería">
+            <option value="10">10 problemas</option><option value="20">20 problemas</option><option value="30">30 problemas</option>
+            <option value="50">50 problemas</option><option value="100">100 problemas</option>
+          </optgroup>
+          <optgroup label="Contrarreloj">
+            <option value="t180">Contrarreloj 3 min</option><option value="t300">Contrarreloj 5 min</option>
+          </optgroup>
         </select>
         <div class="ent-result" id="ent-result" hidden></div>
         <p class="ent-msg" id="ent-msg" role="status" aria-live="polite"></p>
         <div class="ent-btns">
           <button type="button" class="btn-ghost" id="ent-pista"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3z"/></svg>Pista</button>
           <button type="button" class="btn-ghost" id="ent-sol"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>Solución</button>
+          <button type="button" class="btn" id="ent-empezar" hidden>Empezar</button>
           <button type="button" class="btn" id="ent-sig" hidden>Siguiente<svg class="ico der" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
         </div>
         <p class="ent-pct" id="ent-pct"></p>
@@ -82,14 +88,14 @@
 
 <footer class="site-footer">
   <div class="wrap">
-    <p>&copy; <span id="year"></span> Apejupo Chess Club. Los problemas son de la base abierta de <a href="https://database.lichess.org/#puzzles" target="_blank" rel="noopener" style="color:inherit">Lichess</a> (CC0), gratuita y de código abierto.</p>
+    <p>&copy; <span id="year"></span> Apejupo Chess Club.</p>
   </div>
 </footer>
 
 <script src="js/menu.js"></script>
-<script src="js/util.js"></script>
+<script src="js/util.js?v=20261110zz"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
-<script src="js/tactica.js"></script>
-<script src="js/entrenador.js"></script>
+<script src="js/tactica.js?v=20261110zz"></script>
+<script src="js/entrenador.js?v=20261110zzd"></script>
 </body>
 </html>

@@ -11,10 +11,21 @@
       var d = { id: t.id || "", n: t.name || "", f: i.format || "", c: i.tc || "", l: i.location || "", d: t.dates || [], z: i.timeZone || "", p: i.players || "", s: t.tier || 0 };
       return ' data-tip="' + JSON.stringify(d).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;") + '"';
     },
-    // Lo mismo para torneos que no son de Lichess: título y filas [etiqueta, valor] ya preparadas
-    tipRows: function (name, rows) {
-      var d = { n: name || "", r: rows.filter(function (x) { return x[1]; }) };
-      return ' data-tip="' + JSON.stringify(d).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;") + '"';
+    // Tarjeta de un torneo de Lichess, la misma en Torneos Live y en la portada:
+    // imagen, etiqueta, nombre, ronda y hora, y botón «Ver torneo» que abre nuestro visor (torneo.html)
+    bcCard: function (it, badge, cls, withLink) {
+      var t = it.tour || {}, r = it.round || {}, esc = U.esc;
+      var img = t.image ? '<img loading="lazy" src="' + esc(U.safeUrl(t.image)) + '" alt="">' : "";
+      var when = r.startsAt ? U.fmt(r.startsAt, { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "";
+      return '<article class="card" data-id="' + esc(t.id || "") + '"' + U.tipAttr(t) + '>' + img + '<div class="body">' +
+        '<span class="badge ' + cls + '">' + badge + '</span>' +
+        '<h4>' + esc(t.name) + '</h4>' +
+        '<p class="meta">' + esc(U.ronda(r.name)) + (when ? " · " + esc(when) : "") + '</p>' +
+        // Con ronda abierta se ve en nuestra web; «Próximamente» sin ronda queda solo informativa
+        ((withLink || cls !== "soon") && r.id
+          ? '<a class="more btn-view" target="_blank" rel="noopener" href="torneo.html?r=' + encodeURIComponent(r.id) + '&t=' + encodeURIComponent(t.name || "") + '">Ver torneo</a>'
+          : "") +
+        '</div></article>';
     },
     $: function (id) { return document.getElementById(id); },
     esc: function (s) {
@@ -99,6 +110,7 @@
     }
     function end() {
       document.removeEventListener("pointermove", move); document.removeEventListener("pointerup", end); document.removeEventListener("pointercancel", end);
+      document.body.classList.remove("card-pressing");
       if (!active) { el = null; return; }
       active = false; cancelAnimationFrame(raf);
       var c = el; el = null; justDragged = true; setTimeout(function () { justDragged = false; }, 0);
@@ -118,6 +130,8 @@
       var c = e.target.closest && e.target.closest(".card");
       if (!c || c.parentNode !== box || !c.getAttribute("data-id") || cards().length < 2) return;
       el = c; sx = px = e.clientX; sy = py = e.clientY;
+      // con el botón pulsado sobre la tarjeta ya sale la mano de arrastrar (sobre «Ver torneo» no, ahí se pulsa)
+      if (!e.target.closest("a, button")) document.body.classList.add("card-pressing");
       document.addEventListener("pointermove", move); document.addEventListener("pointerup", end); document.addEventListener("pointercancel", end);
     });
     box.addEventListener("dragstart", function (e) { e.preventDefault(); }); // sin el arrastre nativo de imágenes y enlaces
@@ -268,12 +282,7 @@
   function dd(ms, z, o) { var d = new Date(ms); try { return d.toLocaleDateString("es-ES", Object.assign({ timeZone: z || undefined }, o)); } catch (_) { return d.toLocaleDateString("es-ES", o); } }
   function build(d) {
     var rows = [];
-    function row(k, v) { if (v) rows.push('<div><b>' + U.esc(k) + '</b><span>' + U.esc(v) + '</span></div>'); }
-    if (d.r) { // filas ya preparadas (U.tipRows)
-      d.r.forEach(function (x) { row(x[0], x[1]); });
-      if (!rows.length) rows.push('<div class="tp-none">Sin más datos del organizador.</div>');
-      return '<div class="tp-h">' + U.esc(d.n) + '</div>' + rows.join("");
-    }
+    function row(k, v) { if (v) rows.push('<div><b>' + k + '</b><span>' + U.esc(v) + '</span></div>'); }
     var fm = es(d.f.replace(/\s*\d+[- ]players?\b\s*/i, " ").trim()), np = (/(\d+)[- ]players?\b/i.exec(d.f) || [])[1];
     row("Sitio de juego", d.l);
     row("Premios", prizes[d.id] || "");

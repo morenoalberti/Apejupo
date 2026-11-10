@@ -33,12 +33,11 @@ OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data", "ta
 # categoria -> (titulo, descripcion, cantidad, temas que debe tener (cualquiera), temas prohibidos)
 MATES = {"mateIn1", "mateIn2", "mateIn3", "mateIn4", "mateIn5", "mate"}
 CATEGORIAS = {
-    "mate1": ("Mate en 1", "Encuentra el mate en una jugada.", 300, {"mateIn1"}, set()),
     "mate2": ("Mate en 2", "Mate forzado en dos jugadas.", 3400, {"mateIn2"}, set()),
-    "mate3": ("Mate en 3", "Mate forzado en tres jugadas.", 750, {"mateIn3"}, set()),
-    "finales": ("Finales", "Técnica de final: peones, torres y piezas menores.", 150, {"endgame"}, MATES),
+    "mate3": ("Mate en 3", "Mate forzado en tres jugadas.", 1000, {"mateIn3"}, set()),
+    "finales": ("Finales", "Técnica de final: peones, torres y piezas menores.", 500, {"endgame"}, MATES),
     "combinaciones": (
-        "Combinaciones", "Horquillas, clavadas, ataques descubiertos y más.", 400,
+        "Combinaciones", "Horquillas, clavadas, ataques descubiertos y más.", 1000,
         {"fork", "pin", "skewer", "discoveredAttack", "deflection", "attraction", "sacrifice", "doubleCheck"}, MATES),
 }
 # Temas sueltos para las tarjetas "Entrena por temas": id de Lichess -> titulo. Se guardan como t-<id>.json
@@ -48,11 +47,16 @@ TEMAS = {
     "sacrifice": "Sacrificio", "deflection": "Desviación", "attraction": "Atracción", "zugzwang": "Zugzwang",
     "trappedPiece": "Pieza atrapada", "clearance": "Despejar", "promotion": "Promoción",
     "advancedPawn": "Peón avanzado", "quietMove": "Jugada tranquila", "opening": "Apertura", "middlegame": "Medio juego",
+    "mateIn4": "Mate en 4", "doubleCheck": "Jaque doble", "xRayAttack": "Rayos X", "interference": "Interferencia",
+    "intermezzo": "Jugada intermedia", "defensiveMove": "Jugada defensiva",
+    "rookEndgame": "Final de torres", "pawnEndgame": "Final de peones", "bishopEndgame": "Final de alfiles",
+    "knightEndgame": "Final de caballos", "queenEndgame": "Final de damas",
 }
-POR_TEMA = 150
+POR_TEMA = 500
 for _t, _n in TEMAS.items():
     CATEGORIAS["t-" + _t] = (_n, "", POR_TEMA, {_t}, set())
-TRAMOS = [(0, 800), (800, 1200), (1200, 1600), (1600, 2000), (2000, 2400), (2400, 4000)]
+ELO_MIN = 1000  # por debajo los problemas son demasiado simples: no entran en la coleccion
+TRAMOS = [(ELO_MIN, 1200), (1200, 1600), (1600, 2000), (2000, 2400), (2400, 4000)]
 MIN_JUGADAS_MAX = 12  # descarta problemas de solucion larguisima
 POPULARIDAD_MIN = 80
 DESVIACION_MAX = 90
@@ -102,6 +106,8 @@ def main():
 
     for row in csv.DictReader(abrir(args.source)):
         vistos += 1
+        if int(row["Rating"]) < ELO_MIN:
+            continue
         if int(row["Popularity"]) < POPULARIDAD_MIN or int(row["RatingDeviation"]) > DESVIACION_MAX \
                 or int(row["NbPlays"]) < JUGADAS_MIN_PARTIDAS:
             continue

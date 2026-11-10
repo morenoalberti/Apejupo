@@ -140,10 +140,13 @@ a { color: var(--blue); }
 .card a.stretch { color: inherit; text-decoration: none; }
 /* Tarjetas que se arrastran con el ratón para cambiarlas de sitio (U.sortable) */
 .cards.sortable { position: relative; }
-@media (hover: hover) and (pointer: fine) { .cards.sortable > .card[data-id] { cursor: grab; } }
+@media (hover: hover) and (pointer: fine) {
+  /* Al pasar el ratón, cursor normal; la mano de arrastrar sale solo al mantener pulsado el botón izquierdo (body.card-pressing) */
+  .cards.sortable > .card[data-id], .cards.sortable > .card[data-id] a, .cards.sortable > .card[data-id] button { cursor: default; }
+}
 .cards.sortable > .card.dragging { position: relative; z-index: 50; pointer-events: none; border-color: var(--blue); box-shadow: 0 18px 40px rgba(0, 0, 0, .45); will-change: transform; }
 .cards.sortable > .card.dropping { box-shadow: 0 4px 12px rgba(0, 0, 0, .25); }
-body.card-dragging, body.card-dragging * { cursor: grabbing !important; user-select: none; -webkit-user-select: none; }
+body.card-pressing, body.card-pressing *, body.card-dragging, body.card-dragging * { cursor: grabbing !important; user-select: none; -webkit-user-select: none; }
 body.card-dragging .tour-tip { display: none !important; }
 .order-reset { margin-top: 14px; font-size: .85rem; }
 
@@ -164,6 +167,30 @@ body.card-dragging .tour-tip { display: none !important; }
 .tabs button[aria-selected="true"] { background: var(--blue); border-color: var(--blue); color: #fff; }
 .stream { position: relative; padding-top: 56.25%; background: #000; border-radius: 12px; overflow: hidden; }
 .stream iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+.stream[hidden], .stream-off[hidden], .stream-info[hidden] { display: none; }
+/* Streams: pestaña y aviso de lo que está en directo, y panel de próximas emisiones */
+.tabs button.tab-live { border-color: #ef4444; }
+.tabs .dot, .stream-info .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #ef4444; animation: lvpulse 1.4s infinite; }
+.stream-info { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 0 0 10px; color: var(--muted); }
+.stream-info b { color: var(--text); }
+.stream-off { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 22px 24px; }
+.stream-off .so-h { margin: 0 0 14px; font-weight: 600; font-size: 1.05rem; }
+.stream-off .so-sub { margin: 0 0 8px; color: var(--muted); font-size: .85rem; text-transform: uppercase; letter-spacing: .04em; }
+.stream-off .so-cards { margin-bottom: 16px; }
+.so-card .so-band { height: 96px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; color: #fff; }
+.so-card .so-band.twitch { background: linear-gradient(135deg, #9146ff, #5c16c5); }
+.so-card .so-band.youtube { background: linear-gradient(135deg, #ff3b3b, #b31212); }
+.so-card .so-band.kick { background: linear-gradient(135deg, #53fc18, #2a9d0a); color: #0b1a05; }
+.so-card .so-band.otra { background: linear-gradient(135deg, #3b82f6, #1e40af); }
+.so-card .so-pl { font-size: 1.5rem; font-weight: 800; letter-spacing: .02em; }
+.so-card .so-ch { font-size: .85rem; opacity: .85; }
+.so-card .so-dato { display: flex; align-items: center; gap: 8px; margin: 0; font-size: .9rem; color: var(--text); }
+.so-card .so-dato svg { flex: none; width: 16px; height: 16px; fill: none; stroke: var(--muted); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.so-card .so-dato span { color: var(--muted); }
+.so-card .so-btns { margin-top: auto; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.so-card .so-btns .btn-view { margin-top: 0; border: 0; font: inherit; font-weight: 500; cursor: pointer; }
+.so-card .so-ext { font-size: .9rem; }
+.stream-off .so-pie { margin: 0; color: var(--muted); font-size: .85rem; }
 .small { font-size: .85rem; }
 .badge { align-self: flex-start; font-size: .7rem; font-weight: 600; letter-spacing: .04em; padding: 2px 8px; border-radius: 4px; background: var(--blue); color: #fff; }
 .badge.live { background: #dc2626; }
@@ -234,6 +261,7 @@ body.card-dragging .tour-tip { display: none !important; }
 .ent-reloj { font-variant-numeric: tabular-nums; font-weight: 600; color: var(--muted); }
 .theme[aria-current="true"] { border-color: var(--blue); box-shadow: 0 0 0 1px var(--blue); }
 .ent-msg.bien { font-size: 1.5rem; }
+.ent-msg.sol { font-size: 1.05rem; line-height: 1.6; } /* la solución, más pequeña que «¡Correcto!» */
 .ent-pct { font-size: .95rem; line-height: 1.6; margin: 6px 0; }
 .ent-titulo { display: inline-flex; border: 0; padding: 0; background: none; cursor: default; }
 .ent-titulo:hover { border: 0; }
@@ -279,7 +307,25 @@ body.card-dragging .tour-tip { display: none !important; }
 .ent-btns button, .ent-cancel button, .ent-result .ent-btns button { display: inline-flex; align-items: center; cursor: pointer; }
 .grupo .gi { width: 20px; height: 20px; }
 /* Columna de la derecha: llega hasta el borde inferior del tablero y Cancelar queda abajo */
-.ent { align-items: stretch; }
+.ent { align-items: stretch; margin-top: 22px; }
+/* Marcador de la batería, entre los menús de temas y el entrenador */
+.ent-stats { margin-top: 36px; padding: 6px 16px 7px; background: var(--card); border: 1px solid var(--line); border-radius: 12px; }
+.ent-stats:empty { display: none; }
+.ent-stats .es-nums { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 22px; font-size: .9rem; color: var(--muted); }
+.ent-stats .es-nums b { color: var(--text); font-size: .95rem; font-variant-numeric: tabular-nums; }
+.ent-stats .es-tit { color: var(--text); font-weight: 600; margin-right: auto; }
+.ent-stats .ok b { color: #22c55e; }
+.ent-stats .ko b { color: #ef4444; }
+.ent-stats .es-bar { display: flex; gap: 3px; margin-top: 5px; }
+.ent-stats .es-bar i { flex: 1; min-width: 0; height: 5px; border-radius: 4px; background: var(--line); }
+.ent-stats .es-bar i.ok { background: #22c55e; }
+.ent-stats .es-bar i.ko { background: #ef4444; }
+.ent-stats .es-bar i.cur { background: var(--blue); }
+/* Contrarreloj: la barra es el tiempo que queda */
+.ent-stats .es-bar i.t { position: relative; overflow: hidden; }
+.ent-stats .es-bar i.t span { position: absolute; left: 0; top: 0; bottom: 0; background: var(--blue); border-radius: 4px; transition: width .25s linear; }
+.ent-reloj.ultimos { color: #ef4444; }
+.ent-result .rec { color: #22c55e; font-weight: 700; }
 .ent-side { display: flex; flex-direction: column; margin-bottom: 18px; }
 .ent-cancel { margin-top: auto; padding-top: 12px; }
 .ent-cancel button { border: 1px solid var(--line); }
@@ -754,7 +800,7 @@ body.card-dragging .tour-tip { display: none !important; }
 .board, .board *, .lv-board, .lv-board *, .th-board, .th-board *, .ent-board, .ent-board * { color-scheme: only light; forced-color-adjust: none; }
 
 /* Tablero de la portada con el mismo estilo que el de Torneos Live (sin borde, esquinas redondeadas y sombra) */
-.hero-home .board { border: 0; border-radius: 10px; box-shadow: 0 14px 40px rgba(0,0,0,.45), 0 0 0 1px rgba(255,255,255,.08); }
+.hero-home .board { transform: none; border: 0; border-radius: 10px; box-shadow: 0 14px 40px rgba(0,0,0,.45), 0 0 0 1px rgba(255,255,255,.08); }
 @media (max-width: 720px) { .hero-home .board { max-width: 260px; } }
 
 /* Portada: la última jugada se marca con color sólido (sin capa translúcida encima), igual que el tablero de Torneos Live */

@@ -7,6 +7,10 @@
   var cat = null, indice = null, lista = [], cache = {};
   var temporizador = null, avance = null, inicio = 0, chess = null, p = null, paso = 0, orient = "w", sel = null, bloqueado = false, fallos = 0, pistaVista = false;
   var hechos = {}, res = {}, pistaNivel = 0, bat = null;
+  // Contrarreloj: tantos problemas como se pueda en un tiempo fijo (estado aparte de la batería)
+  var crono = null, ultimoCrono = null, cronoT = null, PENAL = 10000; // cada fallo resta 10 s
+  var records = {};
+  try { records = JSON.parse(localStorage.getItem("apejupo_crono") || "{}"); } catch (e) {}
   try { hechos = JSON.parse(localStorage.getItem("apejupo_tactica") || "{}"); } catch (e) {}
   // Resultado del primer intento de cada problema: 1 = acertado a la primera, 0 = con fallo o pista
   try { res = JSON.parse(localStorage.getItem("apejupo_tactica_res") || "{}"); } catch (e) {}
@@ -18,7 +22,7 @@
 
   var el = {
     titulo: U.$("ent-titulo"), nivel: U.$("ent-nivel"), tablero: U.$("ent-tablero"), msg: U.$("ent-msg"),
-    reloj: U.$("ent-reloj"), pista: U.$("ent-pista"), sig: U.$("ent-sig"), pct: U.$("ent-pct"), sol: U.$("ent-sol"), bat: U.$("ent-bateria"), cancelar: U.$("ent-cancelar"), copiar: U.$("ent-copiar"), result: U.$("ent-result")
+    reloj: U.$("ent-reloj"), pista: U.$("ent-pista"), sig: U.$("ent-sig"), pct: U.$("ent-pct"), sol: U.$("ent-sol"), bat: U.$("ent-bateria"), cancelar: U.$("ent-cancelar"), empezar: U.$("ent-empezar"), stats: U.$("ent-stats"), copiar: U.$("ent-copiar"), result: U.$("ent-result")
   };
   el.nivel.innerHTML = NIVELES.map(function (n, i) { return '<option value="' + i + '">' + U.esc(n[0]) + "</option>"; }).join("");
 
@@ -26,6 +30,12 @@
     var nv = localStorage.getItem("apejupo_nivel");
     if (nv !== null && NIVELES[+nv]) el.nivel.value = nv;
   } catch (e) {}
+  // Tamaño de la batería: 10 problemas por defecto; se recuerda el último elegido
+  var ultimaBat = null;
+  try {
+    var nb = localStorage.getItem("apejupo_bateria");
+    el.bat.value = nb && el.bat.querySelector('option[value="' + nb + '"]') ? nb : "10";
+  } catch (e) { el.bat.value = "10"; }
   function guardar() { try { localStorage.setItem("apejupo_tactica", JSON.stringify(hechos)); } catch (e) {} }
   function sq(i) { return "abcdefgh"[i % 8] + (8 - Math.floor(i / 8)); }
   var ICO = {
@@ -40,9 +50,40 @@
   }
 
   // Estadística minimalista del tema: aciertos a la primera / ejercicios intentados - porcentaje
+  // Marcador de la batería (entre los menús de temas y el tablero): problema actual, aciertos, fallos, % y una barra con un tramo por problema
+  function esCrono() { return el.bat.value.charAt(0) === "t"; }
+  function claveRecord(seg) { return (cat ? cat.id : "") + "|" + seg + "|" + el.nivel.value; }
+  function marcadorCrono() {
+    var c = crono || ultimoCrono, seg = c ? c.seg : +el.bat.value.slice(1), r = c ? c.res : [];
+    var ok = r.filter(Boolean).length, ko = r.length - ok, rec = records[claveRecord(seg)] || 0;
+    var queda = crono ? Math.max(0, crono.fin - Date.now()) : c ? 0 : seg * 1000;
+    el.stats.innerHTML = '<div class="es-nums">' +
+      '<span class="es-tit">Contrarreloj ' + seg / 60 + " min</span>" +
+      '<span class="ok"><b>' + ok + "</b> " + (ok === 1 ? "acierto" : "aciertos") + "</span>" +
+      '<span class="ko"><b>' + ko + "</b> " + (ko === 1 ? "fallo" : "fallos") + "</span>" +
+      "<span><b>" + (r.length ? Math.round(ok * 100 / r.length) + " %" : "–") + "</b> de acierto</span>" +
+      "<span>Récord <b>" + rec + "</b></span></div>" +
+      // la barra es el tiempo que queda
+      '<div class="es-bar"><i class="t"><span style="width:' + (queda * 100 / (seg * 1000)).toFixed(2) + '%"></span></i></div>';
+  }
+  function marcador() {
+    if (crono || ultimoCrono || (!bat && !ultimaBat && esCrono())) { marcadorCrono(); return; }
+    var b = bat || ultimaBat, n = b ? b.cola.length : +el.bat.value, r = b ? b.res : [];
+    var ok = r.filter(Boolean).length, ko = r.length - ok, enCurso = bat && r.length < n;
+    var barra = "";
+    for (var i = 0; i < n; i++) barra += '<i class="' + (i < r.length ? (r[i] ? "ok" : "ko") : enCurso && i === r.length ? "cur" : "") + '"></i>';
+    el.stats.innerHTML = '<div class="es-nums">' +
+      '<span class="es-tit">Batería de ' + n + " problemas</span>" +
+      "<span><b>" + (enCurso ? r.length + 1 : r.length) + "</b>/" + n + (enCurso ? " en curso" : " resueltos") + "</span>" +
+      '<span class="ok"><b>' + ok + "</b> " + (ok === 1 ? "acierto" : "aciertos") + "</span>" +
+      '<span class="ko"><b>' + ko + "</b> " + (ko === 1 ? "fallo" : "fallos") + "</span>" +
+      "<span><b>" + (r.length ? Math.round(ok * 100 / r.length) + " %" : "–") + "</b> de acierto</span></div>" +
+      '<div class="es-bar">' + barra + "</div>";
+  }
   function progreso() {
+    marcador();
     if (!cat) return;
-    if (bat) { el.pct.textContent = "Batería " + Math.min(bat.res.length + 1, bat.cola.length) + "/" + bat.cola.length + " · " + (bat.res.filter(Boolean).length === 1 ? "1 acierto" : bat.res.filter(Boolean).length + " aciertos"); return; }
+    if (bat || crono) { el.pct.textContent = ""; return; }
     var n = 0, ok = 0;
     lista.forEach(function (x) { if (res[x.i] !== undefined) { n++; ok += res[x.i]; } });
     el.pct.textContent = n ? ok + "/" + n + " · " + Math.round(ok * 100 / n) + " % acierto" : "";
@@ -88,7 +129,8 @@
     chess = new Chess();
     el.reloj.textContent = "0:00";
     el.pista.disabled = true; el.sol.disabled = true; el.sig.hidden = true; el.cancelar.disabled = true;
-    mensaje(texto || "Elige una batería de problemas para empezar.");
+    el.empezar.hidden = false;
+    mensaje(texto || (esCrono() ? "Pulsa «Empezar» para iniciar la contrarreloj." : "Pulsa «Empezar» para iniciar la batería."));
     dibuja(null);
     progreso();
   }
@@ -96,7 +138,7 @@
   function empieza(prob) {
     clearTimeout(avance); clearInterval(temporizador);
     p = prob; paso = 0; sel = null; fallos = 0; pistaVista = false; pistaNivel = 0; bloqueado = false;
-    inicio = Date.now(); el.reloj.textContent = "0:00";
+    inicio = Date.now(); if (!crono) el.reloj.textContent = "0:00"; // en la contrarreloj el reloj es la cuenta atrás
     // El reloj siempre se ve, pero solo corre dentro de una batería
     el.reloj.hidden = false;
     if (bat) temporizador = setInterval(function () {
@@ -105,7 +147,7 @@
     }, 1000);
     chess = new Chess(p.f);
     orient = chess.turn();
-    el.pista.disabled = false; el.sol.disabled = false; el.cancelar.disabled = false;
+    el.pista.disabled = !!crono; el.sol.disabled = !!crono; el.cancelar.disabled = false; el.empezar.hidden = true; // sin pista ni solución contra el reloj
     mensaje("Juegas " + (orient === "w" ? "blancas" : "negras") + ".");
     el.sig.hidden = true;
     dibuja([p.l.slice(0, 2), p.l.slice(2, 4)]);
@@ -128,6 +170,12 @@
     if (!correcto) {
       chess.undo(); fallos++; sel = null; anota(false); progreso();
       dibuja([p.l.slice(0, 2), p.l.slice(2, 4)]);
+      if (crono) { // contrarreloj: el fallo cuenta, resta tiempo y se pasa al siguiente
+        crono.res.push(false); crono.fin -= PENAL; bloqueado = true;
+        mensaje("Fallo · −" + PENAL / 1000 + " s", "mal"); tickCrono();
+        if (crono) avance = setTimeout(siguienteCrono, 700);
+        return true;
+      }
       mensaje("Esa no es. Inténtalo de nuevo.", "mal");
       return true;
     }
@@ -137,7 +185,7 @@
     dibuja([from, to]);
     mensaje("¡Bien! Sigue…", "bien");
     bloqueado = true;
-    setTimeout(function () {
+    avance = setTimeout(function () { // se guarda en «avance» para anularla si se cancela o se acaba el tiempo
       juega(resp); paso++; bloqueado = false;
       dibuja([resp.slice(0, 2), resp.slice(2, 4)]);
       mensaje("Juegas " + (orient === "w" ? "blancas" : "negras") + ".");
@@ -149,11 +197,16 @@
     bloqueado = true; clearInterval(temporizador); el.pista.disabled = true;
     if (!hechos[p.i]) { hechos[p.i] = fallos || pistaVista ? 1 : 2; guardar(); }
     anota(true);
+    if (crono) { // contrarreloj: acierto y al siguiente casi al momento
+      crono.res.push(true); mensaje("¡Correcto!", "bien"); progreso();
+      avance = setTimeout(siguienteCrono, 450);
+      return;
+    }
     registra(!(fallos || pistaVista));
     mensaje("¡Correcto!", "bien");
     el.sig.hidden = false;
     progreso();
-    avance = setTimeout(avanza, 2500);
+    avance = setTimeout(avanza, 2000); // resuelto: a los 2 segundos pasa solo al siguiente
   }
 
   // Mover piezas: arrastrando con el ratón (o el dedo) o pulsando origen y destino
@@ -202,7 +255,7 @@
   document.addEventListener("pointercancel", suelta);
 
   el.pista.addEventListener("click", function () {
-    if (!p || bloqueado) return;
+    if (!p || bloqueado || crono) return;
     pistaVista = true; pistaNivel++; anota(false); progreso();
     var m = p.s[paso];
     sel = m.slice(0, 2);
@@ -211,7 +264,7 @@
   });
 
   el.sol.addEventListener("click", function () {
-    if (!p || bloqueado) return;
+    if (!p || bloqueado || crono) return;
     anota(false); registra(false); progreso();
     if (!hechos[p.i]) { hechos[p.i] = 1; guardar(); }
     bloqueado = true; clearInterval(temporizador); el.pista.disabled = true; el.sol.disabled = true; sel = null;
@@ -219,7 +272,7 @@
     mensaje("Solución…");
     (function siguientePaso() {
       if (k >= resto.length) {
-        mensaje("", "bien");
+        mensaje("", "bien sol");
         el.msg.innerHTML = "Solución: " + san.join("&nbsp; ");
         el.sig.hidden = false;
         return;
@@ -238,7 +291,7 @@
   el.nivel.addEventListener("change", function () {
     try { localStorage.setItem("apejupo_nivel", el.nivel.value); } catch (e) {}
     cierraBateria();
-    reposo();
+    if (lista.length) inicia(); else reposo(); // con otro nivel la batería empieza de nuevo
   });
 
   // ---------- Batería de problemas: N problemas seguidos del tema y nivel elegidos, con estadísticas al final ----------
@@ -248,14 +301,71 @@
     bat.res.push(ok); bat.tiempos.push(Date.now() - inicio);
   }
   function avanza() { if (bat) avanzaBateria(); else reposo(); }
-  function cierraBateria() {
-    bat = null; el.bat.value = ""; el.result.hidden = true; el.result.innerHTML = "";
-    clearInterval(temporizador); el.reloj.textContent = "0:00";
+  function cierraBateria() { // cierra también la contrarreloj, si la hay
+    bat = null; ultimaBat = null; crono = null; ultimoCrono = null; el.result.hidden = true; el.result.innerHTML = "";
+    clearInterval(temporizador); clearInterval(cronoT); clearTimeout(avance); el.reloj.textContent = "0:00";
+  }
+  // Lo que toque según el desplegable: batería de N problemas o contrarreloj
+  function inicia() { if (esCrono()) iniciaCrono(+el.bat.value.slice(1)); else iniciaBateria(+el.bat.value); }
+
+  // ---------- Contrarreloj: del más fácil al más difícil del tema y nivel; cada acierto suma, cada fallo resta 10 s ----------
+  function iniciaCrono(seg) {
+    var nv = NIVELES[+el.nivel.value];
+    var cand = lista.filter(function (x) { return x.r >= nv[1] && x.r < nv[2]; });
+    ultimoCrono = null;
+    if (!cand.length) { reposo("No hay problemas en este nivel."); el.msg.className = "ent-msg mal"; el.empezar.hidden = true; return; }
+    // de menor a mayor dificultad, con algo de azar para que cada partida sea distinta
+    cand = cand.map(function (x) { return { x: x, k: x.r + Math.random() * 150 }; })
+      .sort(function (a, b) { return a.k - b.k; }).map(function (o) { return o.x; });
+    crono = { seg: seg, cola: cand, k: 0, res: [], fin: Date.now() + seg * 1000 };
+    el.result.hidden = true;
+    clearInterval(cronoT); cronoT = setInterval(tickCrono, 250);
+    empieza(crono.cola[0]); tickCrono();
+  }
+  function tickCrono() {
+    if (!crono) return;
+    var queda = crono.fin - Date.now();
+    if (queda <= 0) { terminaCrono(); return; }
+    var s = Math.ceil(queda / 1000);
+    el.reloj.textContent = Math.floor(s / 60) + ":" + ("0" + (s % 60)).slice(-2);
+    el.reloj.classList.toggle("ultimos", s <= 10);
+    marcador();
+  }
+  function siguienteCrono() {
+    if (!crono) return;
+    crono.k++;
+    if (crono.k >= crono.cola.length) { terminaCrono(); return; }
+    empieza(crono.cola[crono.k]);
+  }
+  function terminaCrono() {
+    clearInterval(cronoT); clearTimeout(avance); clearInterval(temporizador);
+    if (arrastre) { arrastre.clon.remove(); arrastre = null; }
+    var c = crono, tot = c.res.length, ok = c.res.filter(Boolean).length, key = claveRecord(c.seg), antes = records[key] || 0;
+    var nuevo = ok > antes;
+    if (nuevo) { records[key] = ok; try { localStorage.setItem("apejupo_crono", JSON.stringify(records)); } catch (e) {} }
+    var puntos = c.res.map(function (r) { return '<i class="' + (r ? "ok" : "ko") + '"></i>'; }).join("");
+    el.result.innerHTML = "<h4>Contrarreloj terminada</h4>" +
+      '<p class="big">' + ok + (ok === 1 ? " acierto" : " aciertos") + "</p>" +
+      '<p class="muted">' + tot + (tot === 1 ? " problema" : " problemas") + " · " + (tot ? Math.round(ok * 100 / tot) : 0) + " % acierto</p>" +
+      '<p class="' + (nuevo ? "rec" : "muted") + '">' + (nuevo ? "¡Nuevo récord!" : "Récord: " + antes) + "</p>" +
+      (puntos ? '<div class="dots">' + puntos + "</div>" : "") +
+      '<div class="ent-btns"><button type="button" class="btn" id="bat-rep">' + ICO.repetir + 'Repetir</button>' +
+      '<button type="button" class="btn-ghost" id="bat-cerrar">' + ICO.x + 'Cerrar</button></div>';
+    el.result.hidden = false;
+    el.reloj.textContent = "0:00"; el.reloj.classList.remove("ultimos");
+    el.sig.hidden = true; el.pct.textContent = ""; el.empezar.hidden = true;
+    bloqueado = true; sel = null; el.pista.disabled = true; el.sol.disabled = true; el.cancelar.disabled = true;
+    mensaje("¡Tiempo!", "bien");
+    if (p) dibuja(ultima());
+    U.$("bat-rep").onclick = function () { cierraBateria(); inicia(); };
+    U.$("bat-cerrar").onclick = function () { cierraBateria(); reposo(); };
+    ultimoCrono = c; crono = null; marcador(); // el marcador conserva el resultado hasta que empiece otra
   }
   function iniciaBateria(n) {
     var nv = NIVELES[+el.nivel.value];
     var cand = lista.filter(function (x) { return x.r >= nv[1] && x.r < nv[2]; });
-    if (!cand.length) { mensaje("No hay problemas en este nivel.", "mal"); el.bat.value = ""; return; }
+    ultimaBat = null;
+    if (!cand.length) { reposo("No hay problemas en este nivel."); el.msg.className = "ent-msg mal"; el.empezar.hidden = true; return; }
     cand = cand.map(function (x) { return { x: x, k: Math.random() + (hechos[x.i] ? 1 : 0) }; })
       .sort(function (a, b) { return a.k - b.k; }).map(function (o) { return o.x; });
     bat = { n: n, cola: cand.slice(0, n), res: [], tiempos: [], inicio: Date.now() };
@@ -277,21 +387,25 @@
       '<div class="ent-btns"><button type="button" class="btn" id="bat-rep">' + ICO.repetir + 'Repetir</button>' +
       '<button type="button" class="btn-ghost" id="bat-cerrar">' + ICO.x + 'Cerrar</button></div>';
     el.result.hidden = false;
-    el.sig.hidden = true; el.pct.textContent = "";
+    el.sig.hidden = true; el.pct.textContent = ""; el.empezar.hidden = true;
     bloqueado = true; el.pista.disabled = true; el.sol.disabled = true; el.cancelar.disabled = true;
     mensaje("Batería terminada", "bien");
-    U.$("bat-rep").onclick = function () { cierraBateria(); el.bat.value = String(n); iniciaBateria(n); };
+    U.$("bat-rep").onclick = function () { cierraBateria(); inicia(); };
     U.$("bat-cerrar").onclick = function () { cierraBateria(); reposo(); };
-    bat = null;
+    ultimaBat = bat; bat = null; marcador(); // el marcador conserva el resultado final hasta que empiece otra
   }
   // Cancelar: para el entrenamiento (y la batería, si la hay) y deja el tablero quieto
   el.cancelar.addEventListener("click", function () {
     cierraBateria();
-    reposo("Batería cancelada. Elige otra batería para empezar.");
+    reposo(esCrono() ? "Contrarreloj cancelada. Pulsa «Empezar» para iniciar otra." : "Batería cancelada. Pulsa «Empezar» para iniciar otra.");
   });
+  // Al cambiar el número de problemas empieza una batería nueva de ese tamaño
   el.bat.addEventListener("change", function () {
-    if (el.bat.value) iniciaBateria(+el.bat.value); else reposo();
+    try { localStorage.setItem("apejupo_bateria", el.bat.value); } catch (e) {}
+    cierraBateria();
+    if (lista.length) inicia(); else reposo();
   });
+  el.empezar.addEventListener("click", function () { cierraBateria(); inicia(); });
 
   function elige(id) {
     cat = indice.categorias.concat(indice.temas || []).filter(function (c) { return c.id === id; })[0];
@@ -303,7 +417,8 @@
       if (a.getAttribute("data-id") === id) a.setAttribute("aria-current", "true"); else a.removeAttribute("aria-current");
     });
     cierraBateria();
-    cargaCategoria(id, function (d) { lista = d; reposo(); });
+    // Al elegir un tema arranca sola una batería del tamaño elegido en el desplegable (10 por defecto)
+    cargaCategoria(id, function (d) { lista = d; reposo(); inicia(); });
   }
 
   // ---------- Copiar posición: dibuja el tablero actual en una imagen PNG y la pone en el portapapeles ----------
@@ -371,6 +486,6 @@
 
   fetch(BASE + "indice.json").then(function (r) { return r.json(); }).then(function (d) {
     indice = d;
-    elige(pendiente || "mate1");
+    elige(pendiente || "mate2"); // al entrar se abre Mate en 2 (Mate en 1 no se ofrece: demasiado fácil)
   }).catch(function () { mensaje("No se han podido cargar los problemas.", "mal"); });
 })();

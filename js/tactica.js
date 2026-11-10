@@ -1,18 +1,21 @@
 (function () {
   // Temas: [nombre, identificador de tema, pieza que lo representa], agrupados en tres bloques plegables
   var GRUPOS = [
-    ["Mates", [["Mate en 1", "mateIn1", "wK"], ["Mate en 2", "mateIn2", "wK"], ["Mate en 3", "mateIn3", "wK"],
+    ["Mates", [["Mate en 2", "mateIn2", "wK"], ["Mate en 3", "mateIn3", "wK"], ["Mate en 4", "mateIn4", "wK"],
       ["Mate del pasillo", "backRankMate", "wR"], ["Mate ahogado", "smotheredMate", "wN"]]],
     ["Tácticas", [["Combinaciones", "combinations", "wN"], ["Horquilla", "fork", "wN"], ["Clavada", "pin", "wB"],
       ["Enfilada", "skewer", "wR"], ["Ataque descubierto", "discoveredAttack", "wB"], ["Sacrificio", "sacrifice", "wQ"],
       ["Desviación", "deflection", "wQ"], ["Atracción", "attraction", "wK"], ["Despejar", "clearance", "wR"],
-      ["Pieza colgada", "hangingPiece", "bP"], ["Pieza atrapada", "trappedPiece", "bN"]]],
+      ["Pieza colgada", "hangingPiece", "bP"], ["Pieza atrapada", "trappedPiece", "bN"], ["Jaque doble", "doubleCheck", "wN"],
+      ["Rayos X", "xRayAttack", "wR"], ["Interferencia", "interference", "wB"], ["Jugada intermedia", "intermezzo", "wQ"],
+      ["Jugada defensiva", "defensiveMove", "bK"]]],
     ["Fases y otros", [["Apertura", "opening", "wN"], ["Medio juego", "middlegame", "wQ"], ["Finales", "endgame", "wK"],
       ["Promoción", "promotion", "wP"], ["Peón avanzado", "advancedPawn", "wP"], ["Zugzwang", "zugzwang", "bK"],
-      ["Jugada tranquila", "quietMove", "wB"]]]
+      ["Jugada tranquila", "quietMove", "wB"], ["Final de torres", "rookEndgame", "wR"], ["Final de peones", "pawnEndgame", "wP"],
+      ["Final de alfiles", "bishopEndgame", "wB"], ["Final de caballos", "knightEndgame", "wN"], ["Final de damas", "queenEndgame", "wQ"]]]
   ];
   // Temas que coinciden con una categoria del entrenador; el resto se abre como t-<tema>
-  var CATEGORIA = { mateIn1: "mate1", mateIn2: "mate2", mateIn3: "mate3", endgame: "finales", combinations: "combinaciones" };
+  var CATEGORIA = { mateIn2: "mate2", mateIn3: "mate3", endgame: "finales", combinations: "combinaciones" };
   var ICONO = ["wK", "wN", "wP"];
   var botones = document.getElementById("grupos"), cont = document.getElementById("temas");
 

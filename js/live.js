@@ -19,20 +19,7 @@
   })();
 
   // ---------- Torneos en directo (Lichess Broadcasts) ----------
-  function bcCard(it, badge, cls, withLink) {
-    var t = it.tour || {}, r = it.round || {};
-    var img = t.image ? '<img loading="lazy" src="' + esc(safeUrl(t.image)) + '" alt="">' : "";
-    var when = r.startsAt ? fmt(r.startsAt, { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "";
-    return '<article class="card" data-id="' + esc(t.id || "") + '"' + U.tipAttr(t) + '>' + img + '<div class="body">' +
-      '<span class="badge ' + cls + '">' + badge + '</span>' +
-      '<h4>' + esc(t.name) + '</h4>' +
-      '<p class="meta">' + esc(U.ronda(r.name)) + (when ? " · " + esc(when) : "") + '</p>' +
-      // Con ronda abierta se ve en nuestra web; el enlace a Lichess queda solo para lo que aún no tiene ronda («Próximamente»)
-      ((withLink || cls !== "soon") && r.id
-        ? '<a class="more btn-view" target="_blank" rel="noopener" href="torneo.html?r=' + encodeURIComponent(r.id) + '&t=' + encodeURIComponent(t.name || "") + '">Ver torneo</a>'
-        : "") + // «Próximamente»: solo informativa, sin enlace
-      '</div></article>';
-  }
+  var bcCard = U.bcCard; // tarjeta compartida con la portada (js/util.js)
 
   try { // si algo del visor fallara, las tarjetas de torneos y los streams se cargan igualmente
     if (!$("viewer")) throw 0; // esta página no lleva visor (solo la de un torneo)
@@ -1439,10 +1426,85 @@
   })();
 
   // ---------- Streams (Twitch y YouTube) ----------
+  // Primero lo que de verdad se emite: el calendario de Chess.com (a través del Worker) dice qué hay en directo y qué viene.
+  // Si hay una emisión en directo en Twitch o YouTube se abre sola; si no, se avisa de las próximas en lugar de un reproductor apagado.
+  // Los canales fijos (js/data.js) quedan como pestañas para quien quiera abrirlos igualmente.
   var tabs = $("stream-tabs"), sframe = $("stream-frame");
   if (!tabs) return;
+  var EV_URL = "https://apejupo-eventos.chessrival-worker.workers.dev";
+  try { var qe = /[?&]eventos=([^&]+)/.exec(location.search); if (qe && /^(https:\/\/|\/|worker\/)/.test(decodeURIComponent(qe[1]))) EV_URL = decodeURIComponent(qe[1]); } catch (_) {} // para pruebas, como más arriba
+  var fijos = (D.streams || []).slice(), eventos = [], proximos = [], sel = -1, elegida = null; // elegida: próxima emisión abierta con «Ver aquí»
+  // Retransmisión de un evento: canal de Twitch o vídeo de YouTube sacado de su enlace
+  function deEvento(e) {
+    var m = /twitch\.tv\/([A-Za-z0-9_]+)/.exec(e.url || "");
+    if (m) return { type: "twitch", channel: m[1], ev: e };
+    m = /youtube\.com\/watch\?v=([\w-]{6,})/.exec(e.url || "");
+    if (m) return { type: "youtube", videoId: m[1], ev: e };
+    return null; // otras plataformas (Kick…) no se pueden incrustar
+  }
+  function cuando(ms) {
+    var d = new Date(ms), hoy = new Date(), man = new Date(); man.setDate(hoy.getDate() + 1);
+    var h = fmt(ms, { hour: "2-digit", minute: "2-digit" });
+    if (d.toDateString() === hoy.toDateString()) return "hoy a las " + h;
+    if (d.toDateString() === man.toDateString()) return "mañana a las " + h;
+    return fmt(ms, { weekday: "long", day: "numeric", month: "short" }) + " a las " + h;
+  }
+  function plataforma(e) {
+    var m = /twitch\.tv\/([A-Za-z0-9_]+)/.exec(e.url || "");
+    return m ? "Twitch (" + m[1] + ")" : e.via === "youtube" ? "YouTube" : e.via === "kick" ? "Kick" : e.source;
+  }
+  function todos() { return eventos.concat(elegida ? [elegida] : [], fijos); }
+  function pintaTabs() {
+    // «Próximas emisiones» (si las hay) siempre como primera pestaña, para poder volver a la lista
+    tabs.innerHTML = (proximos.length ? '<button type="button" role="tab" data-i="-1" aria-selected="' + (sel === -1) + '">Próximas emisiones</button>' : "") +
+      todos().map(function (s, i) {
+        var et = !s.ev ? esc(s.label)
+          : s.prox ? esc(fmt(s.ev.start, { hour: "2-digit", minute: "2-digit" })) + " · " + esc(s.ev.title)
+          : '<span class="dot" aria-hidden="true"></span>EN DIRECTO · ' + esc(s.ev.title);
+        return '<button type="button" role="tab" data-i="' + i + '" aria-selected="' + (i === sel) + '"' + (s.ev && !s.prox ? ' class="tab-live"' : "") + ">" + et + "</button>";
+      }).join("");
+  }
+  function verPanel(on) { $("stream-off").hidden = !on; $("stream-box").hidden = on; $("stream-note").hidden = on; }
+  // Sin nada en directo: aviso con las próximas emisiones
+  function sinDirecto() {
+    sel = -1; pintaTabs(); sframe.removeAttribute("src"); verPanel(true);
+    $("stream-info").hidden = true;
+    $("stream-off").innerHTML = (eventos.length ? "" : '<p class="so-h">Ahora mismo no hay ninguna retransmisión con comentaristas en directo.</p>') +
+      (proximos.length ? '<p class="so-sub">Próximas emisiones</p><div class="cards so-cards">' + proximos.map(tarjetaProxima).join("") + "</div>" : "") +
+      '<p class="so-pie">También puedes abrir uno de los canales de arriba, aunque es posible que no esté emitiendo.</p>';
+  }
+  // «Hoy, martes 10 nov» / «Mañana, miércoles 11 nov» / «jueves 12 nov»
+  function fecha(ms) {
+    var d = new Date(ms), hoy = new Date(), man = new Date(); man.setDate(hoy.getDate() + 1);
+    var f = fmt(ms, { weekday: "long", day: "numeric", month: "short" }).replace(/^(\S+),/, "$1"); // «martes 10 nov», sin coma
+    if (d.toDateString() === hoy.toDateString()) return "Hoy, " + f;
+    if (d.toDateString() === man.toDateString()) return "Mañana, " + f;
+    return f.charAt(0).toUpperCase() + f.slice(1);
+  }
+  // Tarjeta de una próxima emisión: franja con el color y el canal de la plataforma, etiqueta, nombre, hora y botón
+  function tarjetaProxima(e) {
+    var m = /twitch\.tv\/([A-Za-z0-9_]+)/.exec(e.url || ""), via = m ? "twitch" : e.via === "youtube" ? "youtube" : e.via === "kick" ? "kick" : "otra";
+    var nombre = { twitch: "Twitch", youtube: "YouTube", kick: "Kick", otra: e.source }[via];
+    var hoy = new Date(e.start).toDateString() === new Date().toDateString(), k = proximos.indexOf(e);
+    return '<article class="card so-card"><div class="so-band ' + via + '"><span class="so-pl">' + esc(nombre) + "</span>" +
+      (m ? '<span class="so-ch">' + esc(m[1]) + "</span>" : "") + "</div>" +
+      '<div class="body"><span class="badge soon">' + (hoy ? "HOY" : "PRÓXIMAMENTE") + "</span>" +
+      "<h4>" + esc(e.title) + "</h4>" +
+      // cuándo (día y hora) y dónde (plataforma y canal), cada cosa en su línea
+      '<p class="so-dato"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>' +
+      esc(fecha(e.start)) + " · <b>" + esc(fmt(e.start, { hour: "2-digit", minute: "2-digit" })) + "</b></p>" +
+      '<p class="so-dato"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="4" width="20" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg>' +
+      esc(nombre) + (m ? " · " + esc(m[1]) : "") + " <span>(" + esc(e.source) + ")</span></p>" +
+      // Twitch y YouTube se ven aquí mismo; Kick no se puede incrustar y su enlace lleva a la página de eventos de Chess.com
+      (deEvento(e)
+        ? '<div class="so-btns"><button type="button" class="more btn-view" data-ver="' + k + '">Ver aquí</button>' +
+          '<a class="so-ext" target="_blank" rel="noopener" href="' + esc(safeUrl(e.url)) + '">Abrir en ' + esc(nombre) + "</a></div>"
+        : '<a class="more btn-view" target="_blank" rel="noopener" href="' + esc(safeUrl(e.url)) + '">' + (via === "kick" ? "Ver en Chess.com" : "Abrir en " + esc(nombre)) + "</a>") +
+      "</div></article>";
+  }
   function pickStream(i) {
-    var s = D.streams[i];
+    var s = todos()[i]; if (!s) return;
+    sel = i; pintaTabs(); verPanel(false);
     if (s.type === "youtube") {
       sframe.src = s.videoId
         ? "https://www.youtube.com/embed/" + encodeURIComponent(s.videoId)
@@ -1457,18 +1519,42 @@
       $("stream-link").href = "https://www.twitch.tv/" + encodeURIComponent(s.channel);
       $("stream-link").textContent = "Abrir en Twitch";
     }
-    Array.prototype.forEach.call(tabs.children, function (b, k) { b.setAttribute("aria-selected", k === i ? "true" : "false"); });
+    var info = $("stream-info");
+    info.hidden = !s.ev;
+    if (s.ev) info.innerHTML = s.prox
+      ? "<b>" + esc(s.ev.title) + "</b> · empieza " + esc(cuando(s.ev.start)) + " en " + esc(plataforma(s.ev)) +
+        (s.type === "twitch" ? " · hasta entonces el canal puede aparecer desconectado" : "")
+      : '<span class="dot" aria-hidden="true"></span><b>' + esc(s.ev.title) + "</b> · " + esc(s.ev.source) + " en " + esc(plataforma(s.ev));
+    $("stream-note").hidden = !!s.ev; // el aviso de «sin conexión» solo tiene sentido en los canales fijos
   }
-  if (D.streams && D.streams.length) {
-    tabs.innerHTML = D.streams.map(function (s, i) {
-      return '<button type="button" role="tab" data-i="' + i + '">' + esc(s.label) + "</button>";
-    }).join("");
-    tabs.addEventListener("click", function (e) {
-      var b = e.target.closest("button[data-i]");
-      if (b) pickStream(+b.getAttribute("data-i"));
+  tabs.addEventListener("click", function (e) {
+    var b = e.target.closest("button[data-i]"); if (!b) return;
+    var i = +b.getAttribute("data-i");
+    if (i < 0) sinDirecto(); else pickStream(i);
+  });
+  // «Ver aquí» en una próxima emisión: se abre en el reproductor de la página, con su propia pestaña
+  $("stream-off").addEventListener("click", function (e) {
+    var b = e.target.closest("button[data-ver]"); if (!b) return;
+    var ev = proximos[+b.getAttribute("data-ver")], s = ev && deEvento(ev); if (!s) return;
+    s.prox = true; elegida = s;
+    pickStream(eventos.length); // va justo detrás de las que están en directo
+    $("streams").scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+  if (!fijos.length) $("streams").hidden = true;
+  pintaTabs();
+  fetch(EV_URL).then(function (r) { if (!r.ok) throw 0; return r.json(); }).then(function (j) {
+    var visto = {};
+    eventos = (j.live || []).map(deEvento).filter(function (s) {
+      if (!s) return false;
+      var k = s.channel || s.videoId; if (visto[k]) return false; visto[k] = 1; return true;
     });
-    pickStream(0);
-  } else {
-    $("streams").hidden = true;
-  }
+    var vistoP = {};
+    proximos = (j.upcoming || []).filter(function (e) {
+      var k = e.title + "|" + e.start; if (vistoP[k]) return false; vistoP[k] = 1; return true;
+    }).slice(0, 3);
+    $("streams").hidden = false;
+    if (eventos.length) pickStream(0); else sinDirecto();
+  }).catch(function () {
+    if (fijos.length) pickStream(0); // sin calendario: como antes, el primer canal fijo
+  });
 })();
