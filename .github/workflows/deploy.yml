@@ -66,6 +66,8 @@ jobs:
           key: elo-v2-${{ steps.elohash.outputs.valor }}
       - name: Descargar noticias
         run: python scripts/update_news.py
+      - name: Comprobar extracción de bases e información adicional
+        run: python scripts/test_update_local.py
       - name: Torneos de Andalucía (Info64 y Chess-Results)
         continue-on-error: true
         run: |

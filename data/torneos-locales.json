@@ -1,5 +1,5 @@
 {
- "updated": "2026-11-09T14:29:16Z",
+ "updated": "2026-11-11T11:41:53Z",
  "tournaments": [
   {
    "source": "Chess-Results",
@@ -8245,7 +8245,33 @@
      "club": "LOCAL/BAMBUCHESS"
     }
    ],
-   "players_url": "https://info64.org/vi-bambuchess-chess-festival-blitz"
+   "players_url": "https://info64.org/vi-bambuchess-chess-festival-blitz",
+   "related_tournaments": [
+    "https://info64.org/vi-bambuchess-chess-festival-masters",
+    "https://info64.org/vi-bambuchess-chess-festival-masters-b",
+    "https://info64.org/vi-bambuchess-chess-festival-masters-c",
+    "https://info64.org/vi-bambuchess-chess-festival-open-irt-sub2400",
+    "https://info64.org/vi-bambuchess-chess-festival-open-irt-sub1800",
+    "https://info64.org/vi-bambuchess-chess-festival-blitz"
+   ],
+   "rules_related": [
+    {
+     "name": "VI Bambuchess Chess Festival – Masters",
+     "url": "https://info64.org/vi-bambuchess-chess-festival-masters",
+     "source": "Info64",
+     "rules_text": "FIRST BAMBUCHESS MASTERS COMPLETED – 7/7 NORM-SEEKER SPOTS CONFIRMED\n\nREGISTRATION FOR A SECOND BAMBUCHESS MASTERS IS NOW OPEN\n\nInformation and conditions:\n+34 650596467\nescuelabambuchess@gmail.com\n\nIf both Masters are completed, players will be distributed between the two groups to keep their average ratings as balanced as possible.",
+     "rules_source": "https://info64.org/vi-bambuchess-chess-festival-masters",
+     "rules_kind": "additional"
+    },
+    {
+     "name": "VI Bambuchess Chess Festival – Masters B",
+     "url": "https://info64.org/vi-bambuchess-chess-festival-masters-b",
+     "source": "Info64",
+     "rules_text": "SECOND BAMBUCHESS MASTERS – REGISTRATION NOW OPEN\n\nIM NORM TOURNAMENT – 10 PLAYERS / 9 ROUNDS\n\nREGISTRATION DEADLINE: OCTOBER 31st\n\nInformation and conditions:\n+34 650596467\nescuelabambuchess@gmail.com\n\nIf both Masters are completed, players will be distributed between the two groups to keep their average ratings as balanced as possible.",
+     "rules_source": "https://info64.org/vi-bambuchess-chess-festival-masters-b",
+     "rules_kind": "additional"
+    }
+   ]
   },
   {
    "source": "Info64",
@@ -8330,7 +8356,28 @@
      "club": "IM"
     }
    ],
-   "players_url": "https://info64.org/vi-bambuchess-chess-festival-masters"
+   "players_url": "https://info64.org/vi-bambuchess-chess-festival-masters",
+   "rules_text": "FIRST BAMBUCHESS MASTERS COMPLETED – 7/7 NORM-SEEKER SPOTS CONFIRMED\n\nREGISTRATION FOR A SECOND BAMBUCHESS MASTERS IS NOW OPEN\n\nInformation and conditions:\n+34 650596467\nescuelabambuchess@gmail.com\n\nIf both Masters are completed, players will be distributed between the two groups to keep their average ratings as balanced as possible.",
+   "rules_source": "https://info64.org/vi-bambuchess-chess-festival-masters",
+   "rules_kind": "additional",
+   "related_tournaments": [
+    "https://info64.org/vi-bambuchess-chess-festival-masters",
+    "https://info64.org/vi-bambuchess-chess-festival-masters-b",
+    "https://info64.org/vi-bambuchess-chess-festival-masters-c",
+    "https://info64.org/vi-bambuchess-chess-festival-open-irt-sub2400",
+    "https://info64.org/vi-bambuchess-chess-festival-open-irt-sub1800",
+    "https://info64.org/vi-bambuchess-chess-festival-blitz"
+   ],
+   "rules_related": [
+    {
+     "name": "VI Bambuchess Chess Festival – Masters B",
+     "url": "https://info64.org/vi-bambuchess-chess-festival-masters-b",
+     "source": "Info64",
+     "rules_text": "SECOND BAMBUCHESS MASTERS – REGISTRATION NOW OPEN\n\nIM NORM TOURNAMENT – 10 PLAYERS / 9 ROUNDS\n\nREGISTRATION DEADLINE: OCTOBER 31st\n\nInformation and conditions:\n+34 650596467\nescuelabambuchess@gmail.com\n\nIf both Masters are completed, players will be distributed between the two groups to keep their average ratings as balanced as possible.",
+     "rules_source": "https://info64.org/vi-bambuchess-chess-festival-masters-b",
+     "rules_kind": "additional"
+    }
+   ]
   },
   {
    "source": "Info64",
@@ -8415,7 +8462,28 @@
      "club": "CONFIRMADO"
     }
    ],
-   "players_url": "https://info64.org/vi-bambuchess-chess-festival-masters-b"
+   "players_url": "https://info64.org/vi-bambuchess-chess-festival-masters-b",
+   "rules_text": "SECOND BAMBUCHESS MASTERS – REGISTRATION NOW OPEN\n\nIM NORM TOURNAMENT – 10 PLAYERS / 9 ROUNDS\n\nREGISTRATION DEADLINE: OCTOBER 31st\n\nInformation and conditions:\n+34 650596467\nescuelabambuchess@gmail.com\n\nIf both Masters are completed, players will be distributed between the two groups to keep their average ratings as balanced as possible.",
+   "rules_source": "https://info64.org/vi-bambuchess-chess-festival-masters-b",
+   "rules_kind": "additional",
+   "related_tournaments": [
+    "https://info64.org/vi-bambuchess-chess-festival-masters",
+    "https://info64.org/vi-bambuchess-chess-festival-masters-b",
+    "https://info64.org/vi-bambuchess-chess-festival-masters-c",
+    "https://info64.org/vi-bambuchess-chess-festival-open-irt-sub2400",
+    "https://info64.org/vi-bambuchess-chess-festival-open-irt-sub1800",
+    "https://info64.org/vi-bambuchess-chess-festival-blitz"
+   ],
+   "rules_related": [
+    {
+     "name": "VI Bambuchess Chess Festival – Masters",
+     "url": "https://info64.org/vi-bambuchess-chess-festival-masters",
+     "source": "Info64",
+     "rules_text": "FIRST BAMBUCHESS MASTERS COMPLETED – 7/7 NORM-SEEKER SPOTS CONFIRMED\n\nREGISTRATION FOR A SECOND BAMBUCHESS MASTERS IS NOW OPEN\n\nInformation and conditions:\n+34 650596467\nescuelabambuchess@gmail.com\n\nIf both Masters are completed, players will be distributed between the two groups to keep their average ratings as balanced as possible.",
+     "rules_source": "https://info64.org/vi-bambuchess-chess-festival-masters",
+     "rules_kind": "additional"
+    }
+   ]
   },
   {
    "source": "Info64",
@@ -8472,7 +8540,33 @@
      "club": "CONFIRMADO"
     }
    ],
-   "players_url": "https://info64.org/vi-bambuchess-chess-festival-masters-c"
+   "players_url": "https://info64.org/vi-bambuchess-chess-festival-masters-c",
+   "related_tournaments": [
+    "https://info64.org/vi-bambuchess-chess-festival-masters",
+    "https://info64.org/vi-bambuchess-chess-festival-masters-b",
+    "https://info64.org/vi-bambuchess-chess-festival-masters-c",
+    "https://info64.org/vi-bambuchess-chess-festival-open-irt-sub2400",
+    "https://info64.org/vi-bambuchess-chess-festival-open-irt-sub1800",
+    "https://info64.org/vi-bambuchess-chess-festival-blitz"
+   ],
+   "rules_related": [
+    {
+     "name": "VI Bambuchess Chess Festival – Masters",
+     "url": "https://info64.org/vi-bambuchess-chess-festival-masters",
+     "source": "Info64",
+     "rules_text": "FIRST BAMBUCHESS MASTERS COMPLETED – 7/7 NORM-SEEKER SPOTS CONFIRMED\n\nREGISTRATION FOR A SECOND BAMBUCHESS MASTERS IS NOW OPEN\n\nInformation and conditions:\n+34 650596467\nescuelabambuchess@gmail.com\n\nIf both Masters are completed, players will be distributed between the two groups to keep their average ratings as balanced as possible.",
+     "rules_source": "https://info64.org/vi-bambuchess-chess-festival-masters",
+     "rules_kind": "additional"
+    },
+    {
+     "name": "VI Bambuchess Chess Festival – Masters B",
+     "url": "https://info64.org/vi-bambuchess-chess-festival-masters-b",
+     "source": "Info64",
+     "rules_text": "SECOND BAMBUCHESS MASTERS – REGISTRATION NOW OPEN\n\nIM NORM TOURNAMENT – 10 PLAYERS / 9 ROUNDS\n\nREGISTRATION DEADLINE: OCTOBER 31st\n\nInformation and conditions:\n+34 650596467\nescuelabambuchess@gmail.com\n\nIf both Masters are completed, players will be distributed between the two groups to keep their average ratings as balanced as possible.",
+     "rules_source": "https://info64.org/vi-bambuchess-chess-festival-masters-b",
+     "rules_kind": "additional"
+    }
+   ]
   },
   {
    "source": "Info64",
@@ -8760,7 +8854,33 @@
      "club": "PAKISTAN"
     }
    ],
-   "players_url": "https://info64.org/vi-bambuchess-chess-festival-open-irt-sub1800"
+   "players_url": "https://info64.org/vi-bambuchess-chess-festival-open-irt-sub1800",
+   "related_tournaments": [
+    "https://info64.org/vi-bambuchess-chess-festival-masters",
+    "https://info64.org/vi-bambuchess-chess-festival-masters-b",
+    "https://info64.org/vi-bambuchess-chess-festival-masters-c",
+    "https://info64.org/vi-bambuchess-chess-festival-open-irt-sub2400",
+    "https://info64.org/vi-bambuchess-chess-festival-open-irt-sub1800",
+    "https://info64.org/vi-bambuchess-chess-festival-blitz"
+   ],
+   "rules_related": [
+    {
+     "name": "VI Bambuchess Chess Festival – Masters",
+     "url": "https://info64.org/vi-bambuchess-chess-festival-masters",
+     "source": "Info64",
+     "rules_text": "FIRST BAMBUCHESS MASTERS COMPLETED – 7/7 NORM-SEEKER SPOTS CONFIRMED\n\nREGISTRATION FOR A SECOND BAMBUCHESS MASTERS IS NOW OPEN\n\nInformation and conditions:\n+34 650596467\nescuelabambuchess@gmail.com\n\nIf both Masters are completed, players will be distributed between the two groups to keep their average ratings as balanced as possible.",
+     "rules_source": "https://info64.org/vi-bambuchess-chess-festival-masters",
+     "rules_kind": "additional"
+    },
+    {
+     "name": "VI Bambuchess Chess Festival – Masters B",
+     "url": "https://info64.org/vi-bambuchess-chess-festival-masters-b",
+     "source": "Info64",
+     "rules_text": "SECOND BAMBUCHESS MASTERS – REGISTRATION NOW OPEN\n\nIM NORM TOURNAMENT – 10 PLAYERS / 9 ROUNDS\n\nREGISTRATION DEADLINE: OCTOBER 31st\n\nInformation and conditions:\n+34 650596467\nescuelabambuchess@gmail.com\n\nIf both Masters are completed, players will be distributed between the two groups to keep their average ratings as balanced as possible.",
+     "rules_source": "https://info64.org/vi-bambuchess-chess-festival-masters-b",
+     "rules_kind": "additional"
+    }
+   ]
   },
   {
    "source": "Info64",
@@ -8901,7 +9021,33 @@
      "club": "ALGAZARA"
     }
    ],
-   "players_url": "https://info64.org/vi-bambuchess-chess-festival-open-irt-sub2400"
+   "players_url": "https://info64.org/vi-bambuchess-chess-festival-open-irt-sub2400",
+   "related_tournaments": [
+    "https://info64.org/vi-bambuchess-chess-festival-masters",
+    "https://info64.org/vi-bambuchess-chess-festival-masters-b",
+    "https://info64.org/vi-bambuchess-chess-festival-masters-c",
+    "https://info64.org/vi-bambuchess-chess-festival-open-irt-sub2400",
+    "https://info64.org/vi-bambuchess-chess-festival-open-irt-sub1800",
+    "https://info64.org/vi-bambuchess-chess-festival-blitz"
+   ],
+   "rules_related": [
+    {
+     "name": "VI Bambuchess Chess Festival – Masters",
+     "url": "https://info64.org/vi-bambuchess-chess-festival-masters",
+     "source": "Info64",
+     "rules_text": "FIRST BAMBUCHESS MASTERS COMPLETED – 7/7 NORM-SEEKER SPOTS CONFIRMED\n\nREGISTRATION FOR A SECOND BAMBUCHESS MASTERS IS NOW OPEN\n\nInformation and conditions:\n+34 650596467\nescuelabambuchess@gmail.com\n\nIf both Masters are completed, players will be distributed between the two groups to keep their average ratings as balanced as possible.",
+     "rules_source": "https://info64.org/vi-bambuchess-chess-festival-masters",
+     "rules_kind": "additional"
+    },
+    {
+     "name": "VI Bambuchess Chess Festival – Masters B",
+     "url": "https://info64.org/vi-bambuchess-chess-festival-masters-b",
+     "source": "Info64",
+     "rules_text": "SECOND BAMBUCHESS MASTERS – REGISTRATION NOW OPEN\n\nIM NORM TOURNAMENT – 10 PLAYERS / 9 ROUNDS\n\nREGISTRATION DEADLINE: OCTOBER 31st\n\nInformation and conditions:\n+34 650596467\nescuelabambuchess@gmail.com\n\nIf both Masters are completed, players will be distributed between the two groups to keep their average ratings as balanced as possible.",
+     "rules_source": "https://info64.org/vi-bambuchess-chess-festival-masters-b",
+     "rules_kind": "additional"
+    }
+   ]
   },
   {
    "source": "Info64",

@@ -17,12 +17,30 @@
   function localKey() { return "apejupoOrderLocal:" + provSel; } // cada pestaña de provincia guarda su propio orden
   var playersIcon = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="7" r="3"/><path d="M3 21v-2a6 6 0 0 1 12 0v2M16 4a3 3 0 0 1 0 6M21 21v-2a6 6 0 0 0-4-5.65"/></svg>';
   var rulesIcon = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M8 13h8M8 17h6"/></svg>';
+  function hasOwnRules(t) { return t.rules_url || t.rules_text || t.rules_document || (t.rules_blocks || []).length || (t.rules_links || []).length || (t.rules_images || []).length; }
   function localActions(t) {
     var html = '<button type="button" class="btn-ghost local-players-button" data-players="' + esc(localId(t)) + '">' + playersIcon + 'Inscritos</button>';
-    if (t.rules_url || t.rules_text || t.rules_document || t.rules_blocks) html += '<button type="button" class="btn-ghost local-rules-button" data-rules="' + esc(localId(t)) + '">' + rulesIcon + 'Bases</button>';
+    if (hasOwnRules(t) || (t.rules_related || []).length) html += '<button type="button" class="btn-ghost local-rules-button" data-rules="' + esc(localId(t)) + '">' + rulesIcon + 'Bases</button>';
     return '<div class="local-actions">' + html + '</div>';
   }
   var roster = [], rosterSort = { key: "elo", direction: -1 }, rulesViewer = null, rulesGeneration = 0;
+  function rulesResources(t) {
+    var html = (t.rules_links || []).map(function (link) { return '<p><a target="_blank" rel="noopener" href="' + esc(safeUrl(link.url)) + '">' + esc(link.label || "Consultar documento") + '</a></p>'; }).join("");
+    return html + (t.rules_images || []).map(function (image) { return '<a target="_blank" rel="noopener" href="' + esc(safeUrl(image.url)) + '"><img class="rules-image" loading="lazy" referrerpolicy="no-referrer" src="' + esc(safeUrl(image.url)) + '" alt="' + esc(image.label || "Información adicional del torneo") + '"></a>'; }).join("");
+  }
+  function rulesContent(t) {
+    var blocks = Array.isArray(t.rules_blocks) && t.rules_blocks.length ? t.rules_blocks : null;
+    var html = formatRules(t.rules_text || "", blocks);
+    if (blocks && t.rules_kind === "additional" && t.rules_text) html += '<section class="rules-section"><h4>Información adicional</h4>' + formatRules(t.rules_text) + '</section>';
+    return html + rulesResources(t);
+  }
+  function relatedRules(t) {
+    var related = t.rules_related || [];
+    if (!related.length) return "";
+    return '<p>Información del festival publicada en estas modalidades:</p>' + related.map(function (other) {
+      return '<section class="rules-section rules-section-lead"><h4>' + esc(other.name) + '</h4>' + rulesContent(other) + '<p><a target="_blank" rel="noopener" href="' + esc(safeUrl(other.rules_url || other.rules_source || other.url)) + '">Consultar original · ' + esc(other.name) + '</a></p></section>';
+    }).join("");
+  }
   function formatRules(text, blocks) {
     var sections = [{ title: "", number: "", lines: [] }];
     var topics = /^(?:participantes|fecha|lugar|sistema|ritmo|inscripci[oó]n|inscripciones|premios|desempates|reglas|condiciones|horario|calendario|cuotas|admisi[oó]n|reclamaciones|contacto|puntuaci[oó]n|descansos|orden|normas|torneos|programaci[oó]n|informaci[oó]n|emparejamientos|incomparecencias|v[aá]lido|aceptaci[oó]n|organizaci[oó]n)\b/i;
@@ -164,10 +182,12 @@
     var rulesDocument = !extractedRules && /^data\/bases\/[a-f0-9]{16}\.pdf$/.test(t.rules_document || "") ? t.rules_document : "";
     var generation = ++rulesGeneration;
     $("local-rules-title").textContent = "Bases · " + t.name;
-    $("local-rules-text").hidden = !!rulesDocument;
-    $("local-rules-text").innerHTML = formatRules(t.rules_text || "No se pudieron cargar las bases en este momento.", extractedRules);
+    var content = rulesContent(t) + relatedRules(t);
+    $("local-rules-text").hidden = !!rulesDocument && !content;
+    $("local-rules-text").innerHTML = content || (rulesDocument ? "" : formatRules("No se pudieron cargar las bases en este momento."));
     $("local-rules-document").hidden = !rulesDocument;
-    $("local-rules-source").href = safeUrl(t.rules_url || t.rules_source || t.url);
+    var source = !hasOwnRules(t) && (t.rules_related || []).length ? t.rules_related[0] : t;
+    $("local-rules-source").href = safeUrl(source.rules_url || source.rules_source || source.url);
     $("local-rules-source").textContent = "Consultar original en " + t.source;
     $("local-rules").showModal();
     $("local-rules").scrollTop = 0;

@@ -55,9 +55,18 @@ class FichaEnlaces(HTMLParser):
         self.label = []
         self.depth = 0
         self.description = []
+        self.description_links = []
+        self.description_images = []
+        self.group_depth = 0
+        self.group_links = []
 
     def handle_starttag(self, tag, attrs):
         attrs = dict(attrs)
+        if self.group_depth:
+            if tag not in self.VOID:
+                self.group_depth += 1
+        elif attrs.get("id") == "tournament-selection-nav":
+            self.group_depth = 1
         if self.depth:
             if tag not in self.VOID:
                 self.depth += 1
@@ -68,8 +77,12 @@ class FichaEnlaces(HTMLParser):
         if tag == "a":
             self.anchor = attrs
             self.label = []
+            self.anchor_in_description = bool(self.depth)
+            self.anchor_in_group = bool(self.group_depth)
         elif tag == "img" and self.anchor is not None:
             self.label.append(attrs.get("alt", ""))
+        if tag == "img" and self.depth and attrs.get("src"):
+            self.description_images.append((attrs["src"], attrs.get("alt", "")))
 
     def handle_data(self, text):
         if self.depth:
@@ -80,8 +93,15 @@ class FichaEnlaces(HTMLParser):
     def handle_endtag(self, tag):
         if self.depth and tag not in self.VOID:
             self.depth -= 1
+        if self.group_depth and tag not in self.VOID:
+            self.group_depth -= 1
         if tag == "a" and self.anchor is not None:
-            self.links.append((self.anchor.get("href", ""), " ".join(self.label), self.anchor.get("title", "")))
+            link = (self.anchor.get("href") or "", " ".join(self.label), self.anchor.get("title") or "")
+            self.links.append(link)
+            if self.anchor_in_description:
+                self.description_links.append(link)
+            if self.anchor_in_group:
+                self.group_links.append(link)
             self.anchor = None
 
 
@@ -108,11 +128,54 @@ def enlaces_ficha(t, html):
     t["participants_url"] = candidates[0] if candidates else t["url"]
     description = re.sub(r"[^\S\n]+", " ", "".join(parsed.description))
     description = re.sub(r"\n *\n(?: *\n)+", "\n\n", description).strip()
+    def resource_url(href):
+        url = urllib.parse.urljoin(t["url"], href.strip())
+        return url if href.strip() and not href.startswith("#") and urllib.parse.urlsplit(url).scheme in {"http", "https"} else ""
+    if urllib.parse.urlsplit(t["url"]).hostname == "info64.org":
+        # «Información adicional» es contenido publicado por el organizador, aunque
+        # sea breve, esté en otro idioma o no contenga la palabra «bases».
+        if description:
+            t["rules_text"] = description
+            t["rules_source"] = t["url"]
+            t["rules_kind"] = "additional"
+        links = [{"url": resource_url(href), "label": limpia(label) or limpia(title) or "Consultar documento"} for href, label, title in parsed.description_links if resource_url(href)]
+        images = [{"url": resource_url(src), "label": limpia(alt)} for src, alt in parsed.description_images if resource_url(src)]
+        if links:
+            t["rules_links"] = links
+        if images:
+            t["rules_images"] = images
+        if links or images:
+            t["rules_source"] = t["url"]
+            t["rules_kind"] = "additional"
+        related = [resource_url(href) for href, _, _ in parsed.group_links if resource_url(href) and urllib.parse.urlsplit(resource_url(href)).hostname == "info64.org"]
+        if related:
+            t["related_tournaments"] = list(dict.fromkeys(related))
     rule_sections = re.findall(r"^\s*\d{1,2}[.)]+\s*[-–]?\s*(?:participantes|inscripci[oó]n(?:es)?|sistema|ritmo|horario|lugar|fecha|premios|desempates|condiciones|organizaci[oó]n|caracter[ií]sticas|categor[ií]as)\b", description, re.I | re.M)
     explicit_rules = re.search(r"\b(?:bases|reglamento|normativa|tournament rules|regulations)\b", norm(description))
     if len(description) > 120 and (explicit_rules or len(rule_sections) >= 3):
         t["rules_text"] = description
         t["rules_source"] = t["url"]
+
+
+def bases_relacionadas(tournaments):
+    """Conservar los recursos de las modalidades enlazadas por el propio festival.
+
+    No se presentan como reglamento del torneo actual: se mantiene el nombre y
+    la fuente de cada modalidad, y nunca se agrupan por parecido del nombre.
+    """
+    indexed = {t["url"]: t for t in tournaments}
+    fields = ("rules_url", "rules_text", "rules_source", "rules_document", "rules_blocks", "rules_kind", "rules_links", "rules_images")
+    for t in tournaments:
+        related = []
+        for url in t.get("related_tournaments", []):
+            other = indexed.get(url)
+            if not other or url == t["url"] or not any(other.get(key) for key in ("rules_url", "rules_text", "rules_document", "rules_blocks", "rules_links", "rules_images")):
+                continue
+            related.append({"name": other["name"], "url": url, "source": other["source"], **{key: other[key] for key in fields if key in other}})
+        if related:
+            t["rules_related"] = related
+        else:
+            t.pop("rules_related", None)
 
 
 class TablasInscritos(HTMLParser):
@@ -316,10 +379,14 @@ def ritmo(tc):
     return re.sub(r"\s+", " ", t).strip()
 
 
-def detalle_info64(t):
+def detalle_info64(t, previous=None):
     try:
         h = get(t["url"], 25)
     except Exception:
+        # Un fallo temporal de la fuente no debe ocultar unas bases ya publicadas.
+        for key, value in (previous or {}).items():
+            if key.startswith("rules_") or key == "related_tournaments":
+                t[key] = value
         return
     enlaces_ficha(t, h)
     inscritos_ficha(t, h)
@@ -374,6 +441,10 @@ def chessresults():
 def main():
     hoy = date.today().isoformat()
     geo = carga_geo(); gastadas = [0]
+    try:
+        previous = {t["url"]: t for t in json.loads(OUT.read_text(encoding="utf-8")).get("tournaments", [])}
+    except (OSError, ValueError, KeyError):
+        previous = {}
     todos = []
     try:
         for t in info64():
@@ -402,7 +473,8 @@ def main():
         lista.append(t)
     for t in lista:
         if t["source"] == "Info64":
-            detalle_info64(t)
+            detalle_info64(t, previous.get(t["url"]))
+    bases_relacionadas(lista)
     lista.sort(key=lambda x: (x["start"], x["name"]))
     OUT.parent.mkdir(exist_ok=True)
     OUT.write_text(json.dumps({"updated": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), "tournaments": lista}, ensure_ascii=False, indent=1), encoding="utf-8")
