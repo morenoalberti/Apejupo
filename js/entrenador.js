@@ -93,6 +93,26 @@
     el.pct.textContent = n ? ok + "/" + n + " · " + Math.round(ok * 100 / n) + " % acierto" : "";
   }
 
+  // El modo oscuro automático de algunos móviles invierte los PNG transparentes.
+  // Dibujamos las mismas figuras en canvas para conservar los colores de ambos bandos.
+  var imagenesPieza = {};
+  function pintaPieza(lienzo) {
+    var clave = lienzo.getAttribute("data-piece"), imagen = imagenesPieza[clave];
+    if (!imagen) {
+      imagen = new Image();
+      imagen.src = "assets/pieces/" + clave + ".png";
+      imagenesPieza[clave] = imagen;
+    }
+    function pinta() {
+      if (!lienzo.isConnected) return;
+      lienzo.width = imagen.naturalWidth;
+      lienzo.height = imagen.naturalHeight;
+      lienzo.getContext("2d").drawImage(imagen, 0, 0);
+    }
+    if (imagen.complete && imagen.naturalWidth) pinta();
+    else imagen.addEventListener("load", pinta, { once: true });
+  }
+
   function dibuja(ultima, resalta) {
     var tab = chess.board(), html = "";
     for (var f = 0; f < 8; f++) for (var c = 0; c < 8; c++) {
@@ -105,9 +125,10 @@
       if (chess.in_check() && !chess.in_checkmate() && pz && pz.type === "k" && pz.color === chess.turn()) cl += " chk";
       if (chess.in_checkmate() && pz && pz.type === "k" && pz.color === chess.turn()) cl += " mate";
       html += '<div class="' + cl + '" data-s="' + s + '">' +
-        (pz ? '<img src="assets/pieces/' + pz.color + pz.type.toUpperCase() + '.png" alt="" draggable="false">' : "") + "</div>";
+        (pz ? '<canvas class="ent-piece" width="80" height="80" data-piece="' + pz.color + pz.type.toUpperCase() + '" aria-hidden="true"></canvas>' : "") + "</div>";
     }
     el.tablero.innerHTML = html;
+    Array.prototype.forEach.call(el.tablero.querySelectorAll(".ent-piece"), pintaPieza);
     var nums = "", letras = "";
     for (var i = 0; i < 8; i++) {
       nums += "<span>" + (orient === "w" ? 8 - i : i + 1) + "</span>";
@@ -235,9 +256,10 @@
     if (pz && pz.color === chess.turn()) {
       sel = s;
       dibuja(ultima(), destinos(s));
-      var img = el.tablero.querySelector('.sq[data-s="' + s + '"] img');
+      var img = el.tablero.querySelector('.sq[data-s="' + s + '"] .ent-piece');
       if (!img) return;
       var clon = img.cloneNode(true);
+      clon.getContext("2d").drawImage(img, 0, 0);
       clon.className = "ent-drag";
       clon.style.width = img.getBoundingClientRect().width + "px";
       document.body.appendChild(clon);
