@@ -30,6 +30,14 @@ Abre http://localhost:8080.
 
 Los directos de Lichess se cargan en el navegador de cada visitante, así que siempre están al día.
 
+## Estadísticas de visitas
+
+Umami (`https://metricas.chessrival.net`) y PulseMetrics (`https://pulsemetrics.chessrival.net`) tienen registrado el sitio **Apejupo**, dominio `apejupo.com`.
+
+Las 25 páginas incluyen `js/analytics.js`. El cargador solo actúa por HTTPS en `apejupo.com` y `www.apejupo.com`, respeta Do Not Track y Global Privacy Control, evita cargas duplicadas y excluye parámetros y fragmentos de las páginas. Solo contiene identificadores públicos; las claves administrativas permanecen en el servidor.
+
+PulseMetrics recupera la lista actual de sitios y las estadísticas al abrir el programa con la conexión guardada. Las visitas anteriores a instalar el seguimiento no se pueden reconstruir. Las pruebas locales deben interceptar la recogida para no generar estadísticas ficticias; la comprobación final usa visitas reales a la web publicada.
+
 ## Dominio propio (opcional)
 
 Settings → Pages → Custom domain. Un dominio `.es` cuesta unos 8 € al año.
