@@ -862,10 +862,26 @@
   };
   // Bandera delante del nombre, como en Lichess: la federación sale de la lista de jugadores del torneo (por FIDE id o por nombre)
   var fedBy = { id: {}, name: {} }, fedFor = null;
+  var playersCache = {}, playersPending = {};
+  function tournamentPlayers(id) {
+    var cached = playersCache[id];
+    if (cached && Date.now() - cached.at < 60000) return Promise.resolve(cached.data);
+    if (playersPending[id]) return playersPending[id];
+    playersPending[id] = fetch("https://apejupo-eventos.chessrival-worker.workers.dev/?players=" + encodeURIComponent(id)).then(function (r) {
+      if (!r.ok) throw new Error("No se pudo consultar la lista de jugadores");
+      return r.json();
+    }).then(function (data) {
+      if (!Array.isArray(data)) throw new Error("Lista de jugadores no válida");
+      playersCache[id] = { at: Date.now(), data: data };
+      delete playersPending[id];
+      return data;
+    }).catch(function (error) { delete playersPending[id]; throw error; });
+    return playersPending[id];
+  }
   function loadFeds() {
     if (!tourId || fedFor === tourId) return;
     var tid = fedFor = tourId;
-    fetch("https://lichess.org/broadcast/" + encodeURIComponent(tid) + "/players").then(function (r) { return r.ok ? r.json() : []; }).then(function (ps) {
+    tournamentPlayers(tid).then(function (ps) {
       if (tid !== tourId) return;
       ps.forEach(function (p) { if (p.fed) { if (p.fideId) fedBy.id[p.fideId] = p.fed; fedBy.name[p.name] = p.fed; } });
       if (order.length) refresh();
@@ -978,9 +994,9 @@
   function rvBadge(id, k) {
     if (reviewState && reviewState.id === id && reviewState.running) return "";
     if (reviewState && reviewState.id === id && k <= reviewState.san.length) {
-      var entry = reviewEntry(id, k); if (!entry || !entry.relevant) return "";
+      var entry = reviewEntry(id, k); if (!entry || !entry.score) return "";
       var symbol = entry.score.mate && entry.score.v === 0 ? (k % 2 ? "+-" : "-+") : evalSym(entry.score);
-      return (entry.mark ? '<b class="lv-mark">' + esc(entry.mark) + '</b>' : '') + '<i class="ev ' + entry.kind + '" title="Stockfish: ' + esc(symbol + " (" + evalText(entry.score) + "), desde las blancas") + '">' + esc(symbol) + '</i>';
+      return (entry.mark ? '<b class="lv-mark">' + esc(entry.mark) + '</b>' : '') + '<i class="ev review-score ' + entry.kind + '" title="Stockfish: ' + esc(symbol + " (" + evalText(entry.score) + "), desde las blancas") + '">' + esc(evalText(entry.score)) + '</i>';
     }
     var d = rvDelta(id, k); if (d === null) return "";
     var bad = (k % 2 === 1) ? d < 0 : d > 0; // la jugada empeoró la posición de quien la hizo
@@ -1067,11 +1083,8 @@
   // ---------- Rondas, clasificación, emparejamientos y avisos ----------
   var tourId = null, tourRounds = [];
   function standTitle() {
-    var i = -1;
-    tourRounds.forEach(function (r, k) { if (r.id === roundId) i = k; });
-    if (i < 0) return "Clasificación provisional";
-    var r = tourRounds[i], last = r.finished ? r : tourRounds[i - 1];
-    return last ? "Clasificación provisional después de la " + es2(last.name).toLowerCase() : "Clasificación provisional";
+    // Lichess entrega la clasificación actual del torneo, no una instantánea de una ronda pasada.
+    return "Clasificación provisional del torneo";
   }
   function es2(n) { return U.ronda(n); }
   // PGN de cada ronda: las ya terminadas no cambian, así que se guardan y se precargan en segundo plano
@@ -1126,7 +1139,7 @@
   $("viewer-stand").addEventListener("click", function () {
     if (!tourId) return;
     openPanel(standTitle(), '<p class="muted" style="padding:16px">Cargando clasificación…</p>', true);
-    fetch("https://lichess.org/broadcast/" + encodeURIComponent(tourId) + "/players").then(function (r) { return r.json(); }).then(function (ps) {
+    tournamentPlayers(tourId).then(function (ps) {
       if (ps.some(function (p) { return p.score != null; })) return ps;
       // Lichess no da los puntos de este torneo: se suman a partir de los resultados de las partidas terminadas
       var done = tourRounds.filter(function (r) { return r.finished || r.ongoing; });
@@ -1165,7 +1178,7 @@
           ((p.performances && p.performances.standard) || "—") + "</td></tr>";
       });
       openPanel(standTitle(), h + "</table>" + (ps.calc ? '<p class="lv-ffoot">Puntos calculados con las partidas retransmitidas en Lichess; si el torneo tiene más tableros, pueden faltar puntos.</p>' : ""), true);
-    }).catch(function () { openPanel(standTitle(), '<p class="muted" style="padding:16px">No se pudo cargar la clasificación.</p>'); });
+    }).catch(function () { openPanel(standTitle(), '<p class="muted" style="padding:16px">Lichess no ha podido proporcionar la clasificación. Vuelve a intentarlo en unos instantes o <a target="_blank" rel="noopener" href="https://lichess.org/broadcast/' + encodeURIComponent(tourId) + '/players">consulta los jugadores en Lichess</a>.</p>'); });
   });
   $("viewer-pair").addEventListener("click", function () {
     var h = '<table class="lv-ptab pairs"><tr><th>Tab.</th><th class="l">Blancas</th><th></th><th class="l">Negras</th></tr>';
@@ -1339,7 +1352,7 @@
       $("viewer-info").textContent = bits.join(" · ");
       var npEl = $("viewer-np"); npEl.textContent = np ? np + " jugadores" : "";
       var tid = j.tour && j.tour.id; // jugadores, Elo medio y países salen de la lista de participantes
-      if (tid) fetch("https://lichess.org/broadcast/" + encodeURIComponent(tid) + "/players").then(function (x) { return x.ok ? x.json() : []; }).then(function (ps) {
+      if (tid) tournamentPlayers(tid).then(function (ps) {
         if (!ps.length || rid !== roundId) return;
         var rs = ps.map(function (p) { return p.rating; }).filter(function (v) { return v > 0; }), fs = {};
         ps.forEach(function (p) { if (p.fed) fs[p.fed] = 1; });

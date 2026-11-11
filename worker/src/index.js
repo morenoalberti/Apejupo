@@ -1,5 +1,5 @@
 // Colector de torneos en directo de fuentes que el navegador no puede leer (sin CORS).
-// Hoy: Chess.com (retransmisiones públicas). Responde JSON con CORS abierto y lo guarda en caché 5 minutos.
+// Chess.com, FIDE y jugadores/clasificaciones de Lichess. Cada fuente tiene su propia caché.
 
 const SOURCES = [chesscom];
 
@@ -52,6 +52,27 @@ async function fideStats(id) {
 export default {
   async fetch(request, env, ctx) {
     if (request.method === "OPTIONS") return new Response(null, { headers: CORS });
+    // La lista pública de jugadores de Lichess no permite CORS desde otra web.
+    // Solo se admite un ID de torneo; no se aceptan direcciones arbitrarias.
+    const players = new URL(request.url).searchParams.get("players");
+    if (players !== null) {
+      const headers = { ...CORS, "Cache-Control": "public, max-age=60" };
+      if (!/^[a-zA-Z0-9]{8}$/.test(players)) return new Response("[]", { status: 400, headers });
+      const cache = typeof caches !== "undefined" ? caches.default : null;
+      const key = new Request(new URL(request.url).origin + "/players/" + players);
+      if (cache) { const hit = await cache.match(key); if (hit) return hit; }
+      try {
+        const upstream = await fetch(`https://lichess.org/broadcast/${players}/players`, { headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0 (compatible; ApejupoChessClub/1.0; +https://apejupo.com)" } });
+        if (!upstream.ok) return new Response(JSON.stringify({ error: "Lichess no está disponible", upstreamStatus: upstream.status }), { status: upstream.status === 429 ? 429 : 502, headers: { ...headers, "Cache-Control": "no-store" } });
+        const data = await upstream.json();
+        if (!Array.isArray(data)) throw new Error("Formato de jugadores no válido");
+        const res = new Response(JSON.stringify(data), { headers });
+        if (cache) ctx.waitUntil(cache.put(key, res.clone()));
+        return res;
+      } catch (e) {
+        return new Response(JSON.stringify({ error: "No se pudieron obtener los jugadores" }), { status: 502, headers: { ...headers, "Cache-Control": "no-store" } });
+      }
+    }
     const foto = new URL(request.url).searchParams.get("foto");
     if (foto !== null) { // foto del perfil público de la FIDE: /?foto=2256657 (imagen). Solo se usa cuando otros servidores no la tienen.
       if (!/^\d{1,10}$/.test(foto)) return new Response("", { status: 400, headers: CORS });

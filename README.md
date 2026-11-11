@@ -38,6 +38,10 @@ Las 25 páginas incluyen `js/analytics.js`. El cargador solo actúa por HTTPS en
 
 PulseMetrics recupera la lista actual de sitios y las estadísticas al abrir el programa con la conexión guardada. Las visitas anteriores a instalar el seguimiento no se pueden reconstruir. Las pruebas locales deben interceptar la recogida para no generar estadísticas ficticias; la comprobación final usa visitas reales a la web publicada.
 
+## Servidor auxiliar
+
+El Worker `worker/src/index.js` sirve las fuentes que no permiten lectura directa desde el navegador. `?players=ID` obtiene los jugadores y la clasificación pública de un torneo de Lichess, con CORS y caché de 60 segundos. Solo admite identificadores alfanuméricos de ocho caracteres. Para publicar cambios del Worker: `npx wrangler deploy --config worker/wrangler.toml`.
+
 ## Dominio propio (opcional)
 
 Settings → Pages → Custom domain. Un dominio `.es` cuesta unos 8 € al año.

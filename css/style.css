@@ -942,6 +942,9 @@ body.card-dragging .tour-tip { display: none !important; }
 .lv-review > small { color: #9fb0c8; font-size: .72rem; line-height: 1.4; }
 .lv-moves:has(.ev):not(.one) { grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr)); }
 .lv-moves .lv-mark { font-size: 1em; margin-left: 1px; }
+.lv-moves .review-score { display: inline-block; font-size: .85em; font-variant-numeric: tabular-nums; }
+.lv-moves .pr:has(.review-score) { grid-template-columns: 22px minmax(0, 1fr) minmax(0, 1fr); }
+.lv-moves .pr > span[data-p]:has(.review-score) { min-width: 0; white-space: normal; }
 .lv-moves .pr .lv-move-comment { grid-column: 1 / -1; display: block; margin: 3px 2px; padding: 3px 7px; border-left: 2px solid #4ade80; white-space: normal; color: #c3cfdf; font-size: 11px; font-weight: 400; line-height: 1.5; cursor: pointer; }
 .lv-moves .pr .lv-move-comment.warn { border-left-color: #fbbf24; }
 .lv-moves .pr .lv-move-comment.bad { border-left-color: #f87171; }
