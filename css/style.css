@@ -515,6 +515,9 @@ body.card-dragging .tour-tip { display: none !important; }
 .ent-board .sq { position: relative; display: flex; align-items: center; justify-content: center; cursor: pointer; }
 .ent-board .lt { background: #f0d9b5; }
 .ent-board .dk { background: #b58863; }
+/* Fondo como imagen: algunos navegadores móviles fuerzan colores oscuros en las casillas CSS aunque indiquen only light. */
+#ent-tablero { background: #f0d9b5 url("../assets/tactics-board.png") center / 100% 100% no-repeat; }
+#ent-tablero .sq { background-color: transparent; }
 .ent-board .sq img { width: 90%; height: 90%; pointer-events: none; }
 .ent-board .last { box-shadow: inset 0 0 0 100px rgba(155, 199, 0, .41); }
 .ent-board .sel { box-shadow: inset 0 0 0 100px rgba(20, 85, 30, .5); }
@@ -1157,7 +1160,7 @@ body.card-dragging .tour-tip { display: none !important; }
 }
 
 /* Tableros: nunca se reoscurecen con el «modo oscuro» automático del móvil (colores propios de tablero) */
-.board, .board *, .lv-board, .lv-board *, .th-board, .th-board *, .ent-board, .ent-board * { color-scheme: only light; forced-color-adjust: none; }
+.board, .board *, .lv-board, .lv-board *, .th-board, .th-board *, .ent-board, .ent-board *, .ent-drag { color-scheme: only light; forced-color-adjust: none; }
 
 /* Tablero de la portada con el mismo estilo que el de Torneos Live (sin borde, esquinas redondeadas y sombra) */
 .hero-home .board { transform: none; border: 0; border-radius: 10px; box-shadow: 0 14px 40px rgba(0,0,0,.45), 0 0 0 1px rgba(255,255,255,.08); }
