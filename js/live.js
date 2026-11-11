@@ -1,6 +1,24 @@
 (function () {
   var D = window.APEJUPO, $ = U.$, esc = U.esc, safeUrl = U.safeUrl, fmt = U.fmt;
 
+  // Canvas conserva las figuras originales cuando el móvil invierte las imágenes transparentes.
+  var pieceImages = {};
+  function pieceHtml(key) {
+    return '<canvas class="live-piece" width="80" height="80" data-piece="' + key + '" aria-hidden="true"></canvas>';
+  }
+  function paintPiece(canvas) {
+    var key = canvas.getAttribute("data-piece"), img = pieceImages[key];
+    if (!img) { img = new Image(); img.src = "assets/pieces/" + key + ".png"; pieceImages[key] = img; }
+    function paint() {
+      if (!canvas.isConnected) return;
+      canvas.width = img.naturalWidth; canvas.height = img.naturalHeight;
+      canvas.getContext("2d").drawImage(img, 0, 0);
+    }
+    if (img.complete && img.naturalWidth) paint();
+    else img.addEventListener("load", paint, { once: true });
+  }
+  function paintPieces(root) { Array.prototype.forEach.call(root.querySelectorAll(".live-piece"), paintPiece); }
+
   // ---------- Tablero decorativo de la cabecera ----------
   (function () {
     var el = $("board"); if (!el) return;
@@ -10,12 +28,13 @@
       row.split("").forEach(function (ch) {
         if (/\d/.test(ch)) { for (var k = 0; k < +ch; k++, x++) cells += '<i class="' + ((x + y) % 2 ? "d" : "l") + '"></i>'; }
         else {
-          cells += '<i class="' + ((x + y) % 2 ? "d" : "l") + '"><img src="assets/pieces/' + (ch === ch.toUpperCase() ? "w" : "b") + ch.toUpperCase() + '.png" alt="" draggable="false"></i>';
+          cells += '<i class="' + ((x + y) % 2 ? "d" : "l") + '">' + pieceHtml((ch === ch.toUpperCase() ? "w" : "b") + ch.toUpperCase()) + '</i>';
           x++;
         }
       });
     });
     el.innerHTML = cells;
+    paintPieces(el);
   })();
 
   // ---------- Torneos en directo (Lichess Broadcasts) ----------
@@ -141,7 +160,7 @@
       var r = orient === "w" ? f : 7 - f, k = orient === "w" ? c : 7 - c, s = "abcdefgh"[k] + (8 - r), pz = tab[r][k];
       html += '<div class="sq ' + ((r + k) % 2 ? "dk" : "lt") + (ul.indexOf(s) >= 0 ? " last" : "") + '">' +
         (c === 7 ? '<b class="rk">' + (orient === "w" ? 8 - r : r + 1) + '</b>' : "") + (f === 7 ? '<b class="fl">' + "abcdefgh"[k] + '</b>' : "") +
-        (pz ? '<img src="assets/pieces/' + pz.color + pz.type.toUpperCase() + '.png" alt="" draggable="false">' : "") + "</div>";
+        (pz ? pieceHtml(pz.color + pz.type.toUpperCase()) : "") + "</div>";
     }
     if (st.last) { // flecha amarilla de la última jugada, como en ChessBase
       var xy = function (sq) { var fi = "abcdefgh".indexOf(sq[0]), ri = 8 - +sq[1]; return [(orient === "w" ? fi : 7 - fi) + .5, (orient === "w" ? ri : 7 - ri) + .5]; };
@@ -152,6 +171,7 @@
         (hx - uy * .2) + "," + (hy + ux * .2) + " " + (hx + uy * .2) + "," + (hy - ux * .2) + '" fill="#f5e300" opacity=".9"/></svg>';
     }
     board.innerHTML = html;
+    paintPieces(board);
     function pl(t, nm, el) { return (t ? '<em class="ttl">' + esc(t) + '</em> ' : "") + esc(nm) + (el ? ' <small>(' + esc(el) + ')</small>' : ""); }
     var w = nameFlag(g, "w") + pl(g.tags.WhiteTitle, g.tags.White, g.tags.WhiteElo), b = nameFlag(g, "b") + pl(g.tags.BlackTitle, g.tags.Black, g.tags.BlackElo);
     $("lv-top-name").innerHTML = orient === "w" ? b : w; $("lv-bot-name").innerHTML = orient === "w" ? w : b;
@@ -479,9 +499,10 @@
         for (var r = 0; r < 8; r++) for (var f = 0; f < 8; f++) {
           var pz = tab[r][f], s = "abcdefgh"[f] + (8 - r);
           h += '<div class="sq ' + ((r + f) % 2 ? "dk" : "lt") + (ul.indexOf(s) >= 0 ? " last" : "") + '">' +
-            (pz ? '<img src="assets/pieces/' + pz.color + pz.type.toUpperCase() + '.png" alt="" draggable="false">' : "") + "</div>";
+            (pz ? pieceHtml(pz.color + pz.type.toUpperCase()) : "") + "</div>";
         }
         bd.innerHTML = h + thumbArrow(c.last[k]);
+        paintPieces(bd);
       }
       setThumbBar(id);
       if (!g.over) miniAsk(id, c.fens[k]);
@@ -500,7 +521,7 @@
       st.dx = st.x - r.left; st.dy = st.y - r.top;
       var g = el.cloneNode(true); g.className = "th th-ghost"; g.style.width = r.width + "px"; g.style.height = r.height + "px";
       g.style.left = st.lx - st.dx + "px"; g.style.top = st.ly - st.dy + "px";
-      document.body.appendChild(g); st.ghost = g; el.classList.add("dragging");
+      document.body.appendChild(g); paintPieces(g); st.ghost = g; el.classList.add("dragging");
       if (navigator.vibrate) { try { navigator.vibrate(15); } catch (_) {} }
     }
     function cancel() {
@@ -696,7 +717,7 @@
         for (var f = 0; f < 8; f++) for (var q = 0; q < 8; q++) {
           var r = orient === "w" ? f : 7 - f, k = orient === "w" ? q : 7 - q, sq = "abcdefgh"[k] + (8 - r), pz = tab[r][k];
           b += '<i class="' + ((r + k) % 2 ? "dk" : "lt") + (ul.indexOf(sq) >= 0 ? " last" : "") + '">' +
-            (pz ? '<img src="assets/pieces/' + pz.color + pz.type.toUpperCase() + '.png" alt="" draggable="false">' : "") + "</i>";
+            (pz ? pieceHtml(pz.color + pz.type.toUpperCase()) : "") + "</i>";
         }
         function pn(t, nm, el) { return (t ? esc(t) + " " : "") + esc(nm) + (el ? " (" + esc(el) + ")" : ""); }
         var res = g.over ? { "1-0": "1-0", "0-1": "0-1", "1/2-1/2": "\u00bd-\u00bd" }[g.tags.Result] : "";
@@ -711,6 +732,7 @@
           '<div class="hv-row"><div class="hv-eb"><div class="hv-ew"></div></div><div class="hv-b">' + b + arrow + "</div></div>" +
           '<div class="hv-c">' + (p ? "Posición tras " + num + dots + fig(g.san[p - 1]) : "Posición inicial") + "</div>" +
           '<div class="hv-f">' + (hint || "Pulsa para ir a esta posición.") + "</div>";
+        paintPieces(tip);
       }
       tip.hidden = false; place(x, y);
       var cc = fenCache(g), pp = Math.min(p, cc.san.length);
@@ -769,7 +791,7 @@
     if (!drag) return;
     if (drag.ghost.parentNode) drag.ghost.parentNode.removeChild(drag.ghost);
     Array.prototype.forEach.call(board.querySelectorAll(".dest, .from"), function (x) { x.classList.remove("dest", "from"); });
-    var el = sqEl(drag.from), img = el && el.querySelector("img"); if (img) img.style.opacity = "";
+    var el = sqEl(drag.from), img = el && el.querySelector(".live-piece"); if (img) img.style.opacity = "";
     drag = null; dragging = false;
     if (pendingRender) { pendingRender = false; render(); }
   }
@@ -780,13 +802,14 @@
     var moves = curCh.moves({ square: sq, verbose: true });
     if (!moves.length) return;
     e.preventDefault();
-    var ghost = document.createElement("img");
-    ghost.src = "assets/pieces/" + pz.color + pz.type.toUpperCase() + ".png"; ghost.className = "lv-ghost";
+    var ghost = document.createElement("canvas");
+    ghost.setAttribute("data-piece", pz.color + pz.type.toUpperCase()); ghost.className = "lv-ghost";
     var size = board.getBoundingClientRect().width / 8 * .95;
     ghost.style.width = ghost.style.height = size + "px";
     document.body.appendChild(ghost);
+    paintPiece(ghost);
     drag = { from: sq, ghost: ghost, size: size, moves: moves }; dragging = true;
-    var el = sqEl(sq); el.classList.add("from"); var im = el.querySelector("img"); if (im) im.style.opacity = ".3";
+    var el = sqEl(sq); el.classList.add("from"); var im = el.querySelector(".live-piece"); if (im) im.style.opacity = ".3";
     moves.forEach(function (m) { var d = sqEl(m.to); if (d) d.classList.add("dest"); });
     ghost.style.left = e.clientX - size / 2 + "px"; ghost.style.top = e.clientY - size / 2 + "px";
     try { board.setPointerCapture(e.pointerId); } catch (_) {}

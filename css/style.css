@@ -48,7 +48,7 @@ a { color: var(--blue); }
 .board i { position: relative; display: block; font-style: normal; }
 .board .l { background: #eeeed2; }
 .board .d { background: #769656; }
-.board i img { width: 100%; height: 100%; display: block; user-select: none; }
+.board i img, .board .live-piece { width: 100%; height: 100%; display: block; user-select: none; }
 .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: -28px; position: relative; }
 .stat { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px; text-align: center; }
 .stat strong { display: block; font-size: 1.9rem; line-height: 1.1; color: var(--blue); }
@@ -516,9 +516,9 @@ body.card-dragging .tour-tip { display: none !important; }
 .ent-board .lt { background: #f0d9b5; }
 .ent-board .dk { background: #b58863; }
 /* Fondo como imagen: algunos navegadores móviles fuerzan colores oscuros en las casillas CSS aunque indiquen only light. */
-#ent-tablero { background: #f0d9b5 url("../assets/tactics-board.png") center / 100% 100% no-repeat; }
-#ent-tablero .sq { background-color: transparent; }
-.ent-board .sq img, .ent-board .ent-piece { width: 90%; height: 90%; pointer-events: none; }
+.ent-board { background: #f0d9b5 url("../assets/tactics-board.png") center / 100% 100% no-repeat; }
+.ent-board .sq { background-color: transparent; }
+.ent-board .sq img, .ent-board .ent-piece, .ent-board .live-piece { width: 90%; height: 90%; pointer-events: none; }
 .ent-board .last { box-shadow: inset 0 0 0 100px rgba(155, 199, 0, .41); }
 .ent-board .sel { box-shadow: inset 0 0 0 100px rgba(20, 85, 30, .5); }
 .ent-board .chk { box-shadow: inset 0 0 0 100px rgba(220, 38, 38, .5); }
@@ -695,7 +695,7 @@ body.card-dragging .tour-tip { display: none !important; }
 .lv-sw i::after { content: ""; position: absolute; top: 2px; left: 2px; width: 12px; height: 12px; border-radius: 50%; background: #fff; transition: left .2s; }
 .lv-sw input:checked + i { background: #3cc64a; } .lv-sw input:checked + i::after { left: 16px; }
 .lv-board .sq { cursor: default; }
-.lv-board .sq img { cursor: grab; }
+.lv-board .sq img, .lv-board .live-piece { cursor: grab; }
 .lv-board .sq.from { box-shadow: inset 0 0 0 100px rgba(20, 85, 30, .5); }
 .lv-board .sq.dest::after { content: ""; position: absolute; width: 28%; height: 28%; border-radius: 50%; background: rgba(20, 85, 30, .45); pointer-events: none; }
 .lv-ghost { position: fixed; z-index: 1000; pointer-events: none; cursor: grabbing; filter: drop-shadow(0 4px 6px rgba(0,0,0,.45)); }
@@ -736,7 +736,7 @@ body.card-dragging .tour-tip { display: none !important; }
 .th-w { position: absolute; left: 0; right: 0; bottom: 0; height: 50%; background: #f0f0f0; transition: height .4s; }
 .th-board { flex: 1 1 auto; min-width: 0; aspect-ratio: 1; width: auto; grid-template-rows: repeat(8, 1fr); border-radius: 3px; }
 .th-board .sq { cursor: pointer; min-width: 0; min-height: 0; }
-.th-board .sq img { width: 94%; height: 94%; }
+.th-board .sq img, .th-board .live-piece { width: 94%; height: 94%; }
 .lv-thumbs[hidden] { display: none; }
 .lv-thumbs { margin-bottom: 14px; }
 .th.sel { border-color: #3692e7; }
@@ -1001,11 +1001,12 @@ body.card-dragging .tour-tip { display: none !important; }
 .lv-hv .hv-ew { position: absolute; left: 0; right: 0; bottom: 0; height: 50%; background: #f0f0ea; transition: height .25s; }
 .lv-hv .hv-b { display: grid; grid-template-columns: repeat(8, 1fr); flex: 1 1 auto; min-width: 0; aspect-ratio: 1; border-radius: 3px; overflow: hidden; }
 .lv-hv .hv-b i { position: relative; display: block; }
-.lv-hv .hv-b i.lt { background: #f0d9b5; } .lv-hv .hv-b i.dk { background: #b58863; }
+.lv-hv .hv-b { background: #f0d9b5 url("../assets/tactics-board.png") center / 100% 100% no-repeat; }
+.lv-hv .hv-b i.lt, .lv-hv .hv-b i.dk { background: transparent; }
 .lv-hv .hv-b { position: relative; }
 .lv-hv .hv-b i.last { box-shadow: inset 0 0 0 100px rgba(155, 199, 0, .41); }
 .lv-hv .hv-a { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 2; }
-.lv-hv .hv-b img { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 1; }
+.lv-hv .hv-b img, .lv-hv .live-piece { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 1; }
 .lv-hv .hv-c { text-align: center; font-size: 13px; margin-top: 7px; color: #c3cad6; }
 .lv-hv .hv-c .fg { font-family: "Segoe UI Symbol", "DejaVu Sans", "Noto Sans Symbols 2", sans-serif; font-weight: 400; }
 .lv-hv .hv-f { text-align: center; font-size: 11.5px; margin-top: 5px; color: #8fb8ee; font-weight: 600; }
@@ -1160,7 +1161,7 @@ body.card-dragging .tour-tip { display: none !important; }
 }
 
 /* Tableros: nunca se reoscurecen con el «modo oscuro» automático del móvil (colores propios de tablero) */
-.board, .board *, .lv-board, .lv-board *, .th-board, .th-board *, .ent-board, .ent-board *, .ent-drag { color-scheme: only light; forced-color-adjust: none; }
+.board, .board *, .lv-board, .lv-board *, .th-board, .th-board *, .ent-board, .ent-board *, .ent-drag, .lv-ghost, .lv-hv .hv-b, .lv-hv .hv-b * { color-scheme: only light; forced-color-adjust: none; }
 
 /* Tablero de la portada con el mismo estilo que el de Torneos Live (sin borde, esquinas redondeadas y sombra) */
 .hero-home .board { transform: none; border: 0; border-radius: 10px; box-shadow: 0 14px 40px rgba(0,0,0,.45), 0 0 0 1px rgba(255,255,255,.08); }
