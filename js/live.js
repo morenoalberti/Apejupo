@@ -48,9 +48,11 @@
   }
 
   function loadRound(first) {
-    var rd = roundId;
-    return fetch("https://lichess.org/api/broadcast/round/" + rd + ".pgn").then(function (r) { return r.text(); }).then(function (t) {
+    var rd = roundId, tr = tourRounds.filter(function (x) { return x.id === rd; })[0];
+    // Mismo camino que la precarga: usa el PGN ya guardado de las rondas terminadas y reintenta si Lichess responde «demasiadas peticiones» (429)
+    return roundTxt({ id: rd, finished: roundDone || !!(tr && tr.finished) }, 0).then(function (t) {
       if (rd !== roundId) return; // se cambió de ronda mientras llegaba la respuesta: no se mezclan partidas de rondas distintas
+      if (!t) { if (first) setTimeout(function () { if (rd === roundId && !order.length) loadRound(true); }, 5000); return; } // sin respuesta: se vuelve a intentar
       var parts = t.split(/\n\s*\n(?=\[Event )/), list = [], ended = [];
       parts.forEach(function (p) {
         if (!p.trim()) return;
@@ -1060,15 +1062,23 @@
   }
   function prefetchRounds() {
     var c = Promise.resolve();
-    tourRounds.filter(function (r) { return r.finished; }).forEach(function (r) { c = c.then(function () { return roundTxt(r, 0); }); });
+    // Una a una y con pausa entre ellas, para no agotar el límite de peticiones de Lichess (la ronda que se está viendo va primero)
+    var pausa = function () { return new Promise(function (ok) { setTimeout(ok, 1500); }); };
+    tourRounds.filter(function (r) { return r.finished && r.id !== roundId; }).forEach(function (r) { c = c.then(function () { return rcache[r.id] != null ? null : roundTxt(r, 0).then(pausa); }); });
   }
   function onTour(j) {
     tourId = j.tour && j.tour.id;
     if (!tourId) return;
     loadFeds();
     fetch("https://lichess.org/api/broadcast/" + encodeURIComponent(tourId)).then(function (r) { return r.json(); }).then(function (t) {
-      var rs = t.rounds || [], s = $("viewer-round"); tourRounds = rs; setTimeout(prefetchRounds, 4000);
+      var rs = U.rondas(t.rounds), s = $("viewer-round"); tourRounds = rs; setTimeout(prefetchRounds, 4000);
       if (!rs.length) { s.hidden = true; return; }
+      var cur = rs.filter(function (r) { return r.id === roundId; })[0];
+      if (cur && cur.finished && !roundDone) { // ronda sin cerrar en Lichess pero ya superada: sus partidas no están en juego
+        roundDone = true;
+        Object.keys(games).forEach(function (k) { games[k].over = true; });
+        if (order.length) refresh();
+      }
       s.innerHTML = rs.map(function (r) {
         var st = r.finished ? "terminada" : r.ongoing ? "en juego" : "pendiente";
         return '<option value="' + esc(r.id) + '">' + esc(es2(r.name)) + " · " + st + "</option>";
@@ -1288,6 +1298,7 @@
         return (x || "")
           .replace(/(\d+)[- ]players?\b/gi, "$1 jugadores")
           .replace(/(\d+)[- ]rounds?\s+(Swiss|Round[- ]Robin|Knockout)/i, function (_, n, k) { return ({ swiss: "Swiss", "round-robin": "Round-Robin", "round robin": "Round-Robin", knockout: "Knockout" })[k.toLowerCase()] + " a " + n + " rondas"; })
+          .replace(/\b(Swiss|Round[- ]Robin|Knockout)\s+(\d+)\s*rounds?\b/i, "$1 a $2 rondas")
           .replace(/\bDouble Round[- ]Robin\b/i, "Double Round-Robin").replace(/\bRound[- ]Robin\b/i, "Round-Robin").replace(/\bSwiss\b/i, "Swiss").replace(/\bKnockout\b/i, "Knockout")
           .replace(/\bmin(utes?)?\b/gi, "min").replace(/\bsec(onds?)?\b/gi, "s").replace(/\/\s*move\b/i, "por jugada").replace(/\bper move\b/i, "por jugada")
           .replace(/\bmoves\b/gi, "jugadas").replace(/\bhours?\b/gi, "h").replace(/\bplus\b/gi, "+");
@@ -1301,7 +1312,7 @@
           : "del " + dd(d1, { day: "numeric", month: "short" }) + " al " + dd(d2, { day: "numeric", month: "short", year: "numeric" });
       }
       var np = (/(\d+)[- ]players?\b/i.exec(i.format || "") || [])[1];
-      var bits = [U.ronda(r.name), i.location, dtxt, es((i.format || "").replace(/\s*\d+[- ]players?\b\s*/i, " ").trim()), es(i.tc)].filter(Boolean);
+      var bits = [U.ronda(r.name), i.location, dtxt, es((i.format || "").replace(/\s*\d+[- ]players?\b\s*/i, " ").trim()), U.ritmo(i.tc)].filter(Boolean);
       $("viewer-info").textContent = bits.join(" · ");
       var npEl = $("viewer-np"); npEl.textContent = np ? np + " jugadores" : "";
       var tid = j.tour && j.tour.id; // jugadores, Elo medio y países salen de la lista de participantes
@@ -1428,7 +1439,7 @@
     }
     // De cada torneo (formato {tour, rounds, defaultRoundId}) se toma su ronda en juego más reciente
     function fromTour(e) {
-      var rs = e.rounds || [], on = rs.filter(function (r) { return r.ongoing; });
+      var rs = U.rondas(e.rounds), on = rs.filter(function (r) { return r.ongoing; });
       if (!on.length) return null;
       return { tour: e.tour, round: on[on.length - 1] };
     }
@@ -1482,6 +1493,7 @@
       function add(it) {
         if (!it || !it.tour || !it.round || !it.round.id) return;
         // En «Torneos Live» solo lo que se juega ya o empieza en las próximas 24 h (el resto va a «Próximos Torneos»)
+        if (it.round.ongoing && !U.enJuego(it.round)) return; // ronda olvidada sin cerrar en Lichess: no está en directo
         if (!it.round.ongoing && (it.round.finished || !it.round.startsAt || it.round.startsAt - Date.now() >= 864e5)) return;
         if (seenT[it.tour.id] || seenR[it.round.id]) return; // ni un torneo ni una ronda se repiten
         seenT[it.tour.id] = seenR[it.round.id] = true; live.push(it); pending.push(it);
@@ -1589,6 +1601,7 @@
   // Sin nada en directo: aviso con las próximas emisiones
   function sinDirecto() {
     sel = -1; pintaTabs(); sframe.removeAttribute("src"); verPanel(true);
+    var av = $("stream-box").querySelector(".terceros"); if (av) av.remove();
     $("stream-info").hidden = true;
     $("stream-off").innerHTML = (eventos.length ? "" : '<p class="so-h">Ahora mismo no hay ninguna retransmisión con comentaristas en directo.</p>') +
       (proximos.length ? '<p class="so-sub">Próximas emisiones</p><div class="cards so-cards">' + proximos.map(tarjetaProxima).join("") + "</div>" : "") +
@@ -1626,8 +1639,10 @@
   function pickStream(i) {
     var s = todos()[i]; if (!s) return;
     sel = i; pintaTabs(); verPanel(false);
+    var url, quien;
     if (s.type === "youtube") {
-      sframe.src = s.videoId
+      quien = "YouTube";
+      url = s.videoId
         ? "https://www.youtube.com/embed/" + encodeURIComponent(s.videoId)
         : "https://www.youtube.com/embed/live_stream?channel=" + encodeURIComponent(s.channelId);
       $("stream-link").href = s.videoId
@@ -1635,11 +1650,15 @@
         : "https://www.youtube.com/channel/" + encodeURIComponent(s.channelId) + "/live";
       $("stream-link").textContent = "Abrir en YouTube";
     } else {
-      sframe.src = "https://player.twitch.tv/?channel=" + encodeURIComponent(s.channel) +
+      quien = "Twitch";
+      url = "https://player.twitch.tv/?channel=" + encodeURIComponent(s.channel) +
         "&muted=true&autoplay=false&parent=" + encodeURIComponent(location.hostname || "localhost");
       $("stream-link").href = "https://www.twitch.tv/" + encodeURIComponent(s.channel);
       $("stream-link").textContent = "Abrir en Twitch";
     }
+    // El reproductor de Twitch o YouTube puede instalar cookies: se carga cuando el visitante lo pide (o si ya lo permitió)
+    sframe.removeAttribute("src");
+    U.aviso($("stream-box"), { titulo: "Directo en " + quien, quien: quien, boton: "Ver el directo", icono: '<circle cx="12" cy="12" r="10"/><path d="m10 8 6 4-6 4V8z"/>' }, function () { if (sel === i) sframe.src = url; });
     var info = $("stream-info");
     info.hidden = !s.ev;
     if (s.ev) info.innerHTML = s.prox

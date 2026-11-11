@@ -5,6 +5,34 @@
       n = String(n || "").replace(/^\s*(\d+)\s*[.ºª°]*\s*(?:Round|Runde|Rodada|Ronde|Rond|Runda|Rundan|Kolo|Kierros|Tour|Turn|Turno|Raund|Раунд|Тур|Forduló|Tur)(?![A-Za-zÀ-ÿ])/i, "Ronda $1"); // «2.ª Rodada» → «Ronda 2»
       return n.replace(/^\s*(Round|Runde|Rodada|Ronde|Rond|Runda|Rundan|Kolo|Kierros|Tour|Turn|Turno|Raund|Раунд|Тур|Forduló|Tur)(?=\s*\d)/i, "Ronda");
     },
+    // Ritmo de juego corto: solo «90 min + 30 s» (o «90 min / 40 jugadas + 30 min + 30 s»), sin «por jugada», «desde la jugada 1»…
+    ritmo: function (tc) {
+      var s = " " + String(tc || "").replace(/\\/g, "") + " ";
+      if (/^\s*G?\d+\s*\+\s*\d+\s*$/i.test(s)) s = s.replace(/G?(\d+)\s*\+\s*(\d+)/i, "$1 min + $2 s");
+      s = s.replace(/^\s*(\d+)\s*\+(?=\s*\d+\s*(?:sec|seg|sek|s\b|''|"))/i, "$1 min +").replace(/\bafter\b/gi, "después de");
+      s = s.replace(/(\d+)h(\d+)/gi, function (_, h, m) { return (+h * 60 + +m) + " min"; })
+        .replace(/(\d+)\s*(?:''|"|seconds?|secs?|seg|sek|s)(?![a-z])/gi, "$1 s")
+        .replace(/(\d+)\s*(?:'|minutes?|mins?|minutos?)(?![a-z])/gi, "$1 min")
+        .replace(/(\d+)\s*(?:moves?|jugadas?)\b/gi, "$1 jugadas")
+        .replace(/\b(?:starting\s+)?from\s+move\s*\d+|\bdesde la jugada\s*\d+|\bmove\s*\d+/gi, "")
+        .replace(/\/\s*(?:move|jugada)\b|\b(?:per|each|all|por)\s+(?:moves?|jugadas?)\b|\bincrement(?:o)?\b|\bde incremento\b/gi, "")
+        .replace(/\bfor\s+(?=\d+ jugadas)/gi, "/ ").replace(/^\s*a\s+/i, "")
+        .replace(/\s*,\s*/g, " + ").replace(/\s*([/+])\s*/g, " $1 ").replace(/[\s.+/]+$/, "").replace(/\s+/g, " ");
+      return s.trim();
+    },
+    // Estado real de las rondas: a veces el organizador no cierra una ronda en Lichess y sigue «en juego» aunque las
+    // siguientes ya se hayan jugado. Si una ronda posterior ya terminó o está en juego, las anteriores se dan por terminadas.
+    // Una ronda empezada hace más de 24 h tampoco se está jugando, aunque Lichess la siga dando «en juego».
+    enJuego: function (r) { return !!(r && r.ongoing && !(r.startsAt && Date.now() - r.startsAt > 864e5)); },
+    rondas: function (rs) {
+      rs = (rs || []).map(function (r) { return Object.assign({}, r); });
+      var despues = false;
+      for (var i = rs.length - 1; i >= 0; i--) {
+        if (!rs[i].finished && ((despues) || (rs[i].ongoing && !U.enJuego(rs[i])))) { rs[i].finished = true; rs[i].ongoing = false; }
+        if (rs[i].finished || rs[i].ongoing) despues = true;
+      }
+      return rs;
+    },
     // Datos del torneo para el cuadro que sale al pasar el ratón por una tarjeta (atributo data-tip)
     tipAttr: function (t) {
       t = t || {}; var i = t.info || {};
@@ -140,6 +168,118 @@
 
   var y = document.getElementById("year");
   if (y) y.textContent = new Date().getFullYear();
+
+  // ---------- Contenidos de terceros (Google Maps, YouTube, Twitch) ----------
+  // Pueden instalar cookies, así que no se cargan hasta que el visitante lo pide. La decisión se recuerda (ver cookies.html).
+  var TK = "apejupoTerceros", pendientes = [];
+  U.terceros = {
+    ok: function () { try { return localStorage.getItem(TK) === "1"; } catch (_) { return false; } },
+    acepta: function () {
+      try { localStorage.setItem(TK, "1"); } catch (_) {}
+      var p = pendientes; pendientes = []; p.forEach(function (f) { f(); }); // se cargan también los demás avisos de la página
+    },
+    retira: function () { try { localStorage.removeItem(TK); } catch (_) {} }
+  };
+  // Pone un aviso con botón dentro de «box»; al pulsarlo (o si ya se aceptó antes) se ejecuta «cargar»
+  U.aviso = function (box, o, cargar) {
+    var viejo = box.querySelector(":scope > .terceros"); if (viejo) viejo.remove();
+    if (U.terceros.ok()) { cargar(); return; }
+    var d = document.createElement("div"); d.className = "terceros";
+    d.innerHTML = '<svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (o.icono || '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>') + '</svg>' +
+      '<p class="t-h">' + o.titulo + '</p>' +
+      '<p class="t-p">Al cargarlo, ' + o.quien + ' puede instalar cookies en tu navegador. <a href="cookies.html">Más información</a></p>' +
+      '<button type="button" class="t-btn">' + o.boton + '</button>';
+    box.appendChild(d);
+    var hecho = false, ir = function () { if (hecho) return; hecho = true; d.remove(); cargar(); };
+    pendientes.push(ir);
+    d.querySelector(".t-btn").addEventListener("click", function () { ir(); U.terceros.acepta(); });
+  };
+
+  // Pie de página: sede del club (foto, dirección y mapa), el mismo en todas las páginas
+  var pie = document.querySelector(".site-footer .wrap");
+  if (pie && !pie.querySelector(".sede")) {
+    var mapa = "https://maps.app.goo.gl/yKii3MrJB7TaUyds5",
+      embed = "https://www.google.com/maps?q=" + encodeURIComponent("Centro Ciudadano Parque Mediterráneo, Calle Francisco Jiménez Lomas 11, 29004 Málaga") + "&z=16&output=embed";
+    // Iconos de trazo (24×24), heredan el color del texto
+    var ico = function (d) { return '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + d + '</svg>'; },
+      I = {
+        pin: ico('<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/>'),
+        edificio: ico('<rect x="4" y="2" width="16" height="20" rx="2"/><path d="M9 22v-4h6v4M8 6h.01M16 6h.01M12 6h.01M12 10h.01M12 14h.01M16 10h.01M16 14h.01M8 10h.01M8 14h.01"/>'),
+        copiar: ico('<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>'),
+        ok: ico('<path d="M20 6 9 17l-5-5"/>'),
+        foto: ico('<path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3Z"/><circle cx="12" cy="13" r="3"/>'),
+        arriba: ico('<path d="m18 15-6-6-6 6"/>')
+      },
+      dir = "C/ Francisco Jiménez Lomas, 11, 29004 Málaga";
+    pie.insertAdjacentHTML("afterbegin",
+      '<div class="sede" id="sede">' +
+        '<div class="sede-txt">' +
+          '<span class="sede-eti">' + I.pin + 'Sede del club</span>' +
+          '<h2>Dónde estamos</h2>' +
+          '<ul class="sede-datos">' +
+            '<li><span class="sede-ic">' + I.edificio + '</span><span><strong>Centro Ciudadano Parque Mediterráneo</strong></span></li>' +
+            '<li><span class="sede-ic">' + I.pin + '</span><address>C/ Francisco Jiménez Lomas, 11<br>29004 Málaga</address></li>' +
+          '</ul>' +
+          '<div class="sede-btns">' +
+            '<button type="button" class="sede-btn" data-copiar>' + I.copiar + '<span>Copiar dirección</span></button>' +
+          '</div>' +
+        '</div>' +
+        '<a class="sede-foto" href="' + mapa + '" target="_blank" rel="noopener"><img src="assets/sede-club.webp" width="1080" height="716" loading="lazy" alt="Fachada del Centro Ciudadano Parque Mediterráneo, sede del club"><span class="sede-cap">' + I.foto + 'Nuestra sede</span></a>' +
+        '<div class="sede-gmap-box"></div>' +
+      '</div>');
+    var gbox = pie.querySelector(".sede-gmap-box");
+    U.mapaPie = function () { gbox.innerHTML = ""; ponMapa(); }; // al retirar el permiso (cookies.html) el mapa vuelve a taparse
+    var ponMapa = function () { U.aviso(gbox,{ titulo: "Mapa de Google Maps", quien: "Google", boton: "Cargar mapa", icono: '<path d="M14.1 6 9.9 4 3 7v13l6.9-3 4.2 2L21 16V3l-6.9 3ZM9.9 4v13M14.1 6v13"/>' }, function () {
+      gbox.innerHTML = '<iframe class="sede-gmap" src="' + embed + '" loading="lazy" referrerpolicy="no-referrer-when-downgrade" allowfullscreen title="Mapa: Centro Ciudadano Parque Mediterráneo, Málaga"></iframe>';
+    }); };
+    ponMapa();
+    // Línea final: escudo del club delante del copyright y «Volver arriba» a la derecha
+    var cp = pie.querySelector(":scope > p:last-child");
+    if (cp) {
+      var fila = document.createElement("div"); fila.className = "pie-fila";
+      cp.parentNode.insertBefore(fila, cp); fila.appendChild(cp);
+      var marca = document.createElement("div"); marca.className = "pie-marca";
+      fila.insertBefore(marca, cp); marca.innerHTML = '<img src="assets/icon.svg" width="22" height="22" alt="">'; marca.appendChild(cp);
+      fila.insertAdjacentHTML("beforeend", '<nav class="pie-legal" aria-label="Información legal"><a href="aviso-legal.html">Aviso legal</a><a href="privacidad.html">Privacidad</a><a href="cookies.html">Cookies</a></nav>' +
+        '<a class="pie-arriba" href="#">' + I.arriba + 'Volver arriba</a>');
+      fila.querySelector(".pie-arriba").addEventListener("click", function (e) { e.preventDefault(); window.scrollTo({ top: 0, behavior: "smooth" }); });
+    }
+    var bc = pie.querySelector("[data-copiar]");
+    bc.addEventListener("click", function () {
+      var hecho = function () { bc.innerHTML = I.ok + "<span>¡Copiada!</span>"; bc.classList.add("ok"); setTimeout(function () { bc.innerHTML = I.copiar + "<span>Copiar dirección</span>"; bc.classList.remove("ok"); }, 2000); };
+      if (navigator.clipboard) navigator.clipboard.writeText(dir).then(hecho, function () {}); else { var t = document.createElement("textarea"); t.value = dir; document.body.appendChild(t); t.select(); try { document.execCommand("copy"); hecho(); } catch (_) {} t.remove(); }
+    });
+  }
+
+  // Correo de contacto: en el HTML va partido («contacto [arroba] apejupo.com») para que los robots que buscan correos no lo lean;
+  // aquí se convierte en un enlace normal. data-t cambia el texto visible (p. ej. «escríbenos»).
+  Array.prototype.forEach.call(document.querySelectorAll(".email[data-u][data-d]"), function (s) {
+    var m = s.getAttribute("data-u") + "@" + s.getAttribute("data-d"), a = document.createElement("a");
+    a.href = "mailto:" + m; a.textContent = s.getAttribute("data-t") || m;
+    s.replaceWith(a);
+  });
+  // Botones que ya son enlaces (p. ej. «Escríbenos» de Quiénes somos): solo se completa la dirección
+  Array.prototype.forEach.call(document.querySelectorAll("a[data-mail][data-dom]"), function (a) {
+    a.href = "mailto:" + a.getAttribute("data-mail") + "@" + a.getAttribute("data-dom");
+  });
+
+  // Página de cookies: estado del permiso para contenidos de terceros y botón para darlo o retirarlo
+  var cbox = document.getElementById("consent-box");
+  if (cbox) {
+    var cEst = document.getElementById("consent-estado"), cBtn = document.getElementById("consent-btn");
+    var pinta = function () {
+      var on = U.terceros.ok();
+      cbox.classList.toggle("on", on);
+      cEst.innerHTML = on ? "<b>Permitido:</b> los mapas y vídeos de terceros se cargan directamente." : "<b>No permitido:</b> los mapas y vídeos de terceros esperan a que pulses su botón.";
+      cBtn.textContent = on ? "Retirar el permiso" : "Permitir siempre";
+      cBtn.hidden = false;
+    };
+    cBtn.addEventListener("click", function () {
+      if (U.terceros.ok()) { U.terceros.retira(); if (U.mapaPie) U.mapaPie(); } else U.terceros.acepta();
+      pinta();
+    });
+    pinta();
+  }
 
   // ---------- Banderas: código de federación FIDE -> país (flagcdn.com), como en ChessRival ----------
   var ESPECIAL = {
@@ -287,7 +427,7 @@
     row("Sitio de juego", d.l);
     row("Premios", prizes[d.id] || "");
     row("Sistema", fm);
-    row("Ritmo", es(d.c));
+    row("Ritmo", U.ritmo(d.c));
     if (d.d && d.d[0]) {
       var a = dd(d.d[0], d.z, { day: "numeric", month: "short", year: "numeric" }), b = d.d[1] ? dd(d.d[1], d.z, { day: "numeric", month: "short", year: "numeric" }) : a;
       row("Fechas", a === b ? a : "del " + dd(d.d[0], d.z, { day: "numeric", month: "short" }) + " al " + b);

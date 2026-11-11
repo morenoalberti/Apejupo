@@ -80,7 +80,7 @@
   else fetch("https://lichess.org/api/broadcast/top")
     .then(function (r) { return r.json(); })
     .then(function (j) {
-      var live = (j.active || []).filter(function (x) { return x.round && x.round.ongoing; }).slice(0, 3);
+      var live = (j.active || []).filter(function (x) { return x.round && U.enJuego(x.round); }).slice(0, 3);
       try { localStorage.setItem(HK, JSON.stringify({ t: Date.now(), live: live })); } catch (_) {}
       pintaAhora(live);
     })
