@@ -214,7 +214,7 @@
     var b = e.target.closest("button[data-p]");
     if (b) { provSel = b.getAttribute("data-p"); pintaLocal(); }
   });
-  fetch("data/torneos-locales.json?t=" + Math.floor(Date.now() / 600000))
+  fetch("data/torneos-locales.json?v=20261111-bases-info64&t=" + Math.floor(Date.now() / 600000))
     .then(function (r) { return r.json(); })
     .then(function (j) { local = (j.tournaments || []).filter(function (t) { return t.end >= new Date(now - 864e5).toISOString().slice(0, 10); }); pintaLocal(); })
     .catch(function () { $("local-events").innerHTML = '<p class="muted">No se pudo cargar el calendario de Andalucía ahora mismo.</p>'; });
