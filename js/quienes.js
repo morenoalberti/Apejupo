@@ -17,6 +17,7 @@
   function cerrar() { if (dlg.close) dlg.close(); else dlg.removeAttribute("open"); }
 
   Array.prototype.forEach.call(document.querySelectorAll("[data-inscribete]"), function (b) { b.addEventListener("click", abrir); });
+  if (location.hash === "#inscribete") abrir(); // viene del botón «Inscríbete» de la portada
   dlg.addEventListener("click", function (e) {
     if (e.target.closest("[data-cerrar]") || e.target === dlg) cerrar(); // también al pulsar fuera de la ficha
     var c = e.target.closest("[data-por-correo]");

@@ -74,7 +74,7 @@ jobs:
       - name: Preparar sitio
         run: |
           mkdir _site
-          cp -r *.html assets css js data _site/
+          cp -r *.html sitemap.xml robots.txt assets css js data _site/
           # versión en cada despliegue: el navegador no usa CSS/JS antiguos
           sed -i -E "s#(href|src)=\"((css|js)/[^\"?]+)\"#\1=\"\2?v=${GITHUB_SHA::8}\"#g" _site/*.html
       - name: Identificar el paquete de esta ejecución

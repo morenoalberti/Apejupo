@@ -203,12 +203,14 @@
     // Iconos de trazo (24×24), heredan el color del texto
     var ico = function (d) { return '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + d + '</svg>'; },
       I = {
+        ruta: ico('<path d="m3 11 19-9-9 19-2-8-8-2Z"/>'),
         pin: ico('<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/>'),
         edificio: ico('<rect x="4" y="2" width="16" height="20" rx="2"/><path d="M9 22v-4h6v4M8 6h.01M16 6h.01M12 6h.01M12 10h.01M12 14h.01M16 10h.01M16 14h.01M8 10h.01M8 14h.01"/>'),
         copiar: ico('<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>'),
         ok: ico('<path d="M20 6 9 17l-5-5"/>'),
         foto: ico('<path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3Z"/><circle cx="12" cy="13" r="3"/>'),
-        arriba: ico('<path d="m18 15-6-6-6 6"/>')
+        arriba: ico('<path d="m18 15-6-6-6 6"/>'),
+        movil: ico('<rect x="6" y="2" width="12" height="20" rx="2"/><path d="M11 18h2"/>')
       },
       dir = "C/ Francisco Jiménez Lomas, 11, 29004 Málaga";
     pie.insertAdjacentHTML("afterbegin",
@@ -226,6 +228,14 @@
         '</div>' +
         '<a class="sede-foto" href="' + mapa + '" target="_blank" rel="noopener"><img src="assets/sede-club.webp" width="1080" height="716" loading="lazy" alt="Fachada del Centro Ciudadano Parque Mediterráneo, sede del club"><span class="sede-cap">' + I.foto + 'Nuestra sede</span></a>' +
         '<div class="sede-gmap-box"></div>' +
+        // En el móvil, botón grande para abrir la ubicación (el enlace «Abrir en Maps» del mapa es muy pequeño)
+        '<a class="sede-btn sede-llegar" href="' + mapa + '" target="_blank" rel="noopener">' + I.ruta + '<span>Cómo llegar</span></a>' +
+        // A la derecha del mapa: código QR para abrir la ubicación en el móvil
+        '<div class="sede-movil">' +
+          '<span class="sede-eti">' + I.movil + 'Llévatelo al móvil</span>' +
+          '<a class="sede-qr" href="' + mapa + '" target="_blank" rel="noopener" title="Abrir la ubicación en Google Maps"><img src="assets/qr-sede.svg" width="264" height="264" loading="lazy" alt="Código QR con la ubicación de la sede en Google Maps"></a>' +
+          '<p class="sede-qr-txt">Escanéalo con la cámara del móvil para abrir la ubicación</p>' +
+        '</div>' +
       '</div>');
     var gbox = pie.querySelector(".sede-gmap-box");
     U.mapaPie = function () { gbox.innerHTML = ""; ponMapa(); }; // al retirar el permiso (cookies.html) el mapa vuelve a taparse
@@ -249,6 +259,27 @@
       var hecho = function () { bc.innerHTML = I.ok + "<span>¡Copiada!</span>"; bc.classList.add("ok"); setTimeout(function () { bc.innerHTML = I.copiar + "<span>Copiar dirección</span>"; bc.classList.remove("ok"); }, 2000); };
       if (navigator.clipboard) navigator.clipboard.writeText(dir).then(hecho, function () {}); else { var t = document.createElement("textarea"); t.value = dir; document.body.appendChild(t); t.select(); try { document.execCommand("copy"); hecho(); } catch (_) {} t.remove(); }
     });
+  }
+
+  // Punto rojo junto a «Torneos Live» cuando hay torneos en directo. Se consulta Lichess como mucho cada 5 minutos por visitante.
+  var liveA = document.querySelector('.site-header nav > a[href="torneos-live.html"]');
+  if (liveA) {
+    var LK = "apejupoHayDirecto", pon = function (n) {
+      if (!n || liveA.querySelector(".nav-dot")) return;
+      // Delante del texto («● Torneos Live»), como las etiquetas de «en directo»; en el móvil queda entre el icono y el texto
+      var txt = Array.prototype.filter.call(liveA.childNodes, function (c) { return c.nodeType === 3 && c.nodeValue.trim(); })[0];
+      var dot = document.createElement("span"); dot.className = "nav-dot"; dot.title = "Hay torneos en directo";
+      liveA.insertBefore(dot, txt || liveA.firstChild);
+      liveA.insertAdjacentHTML("beforeend", '<span class="vh">(hay ' + n + ' en directo)</span>');
+    };
+    var ld = null; try { ld = JSON.parse(localStorage.getItem(LK)); } catch (_) {}
+    if (ld && Date.now() - ld.t < 5 * 60 * 1000) pon(ld.n);
+    else fetch("https://lichess.org/api/broadcast/top").then(function (r) { return r.ok ? r.json() : null; }).then(function (j) {
+      if (!j) return;
+      var n = (j.active || []).filter(function (x) { return x.round && U.enJuego(x.round); }).length;
+      try { localStorage.setItem(LK, JSON.stringify({ t: Date.now(), n: n })); } catch (_) {}
+      pon(n);
+    }).catch(function () {});
   }
 
   // Correo de contacto: en el HTML va partido («contacto [arroba] apejupo.com») para que los robots que buscan correos no lo lean;
