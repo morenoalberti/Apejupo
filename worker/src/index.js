@@ -265,7 +265,12 @@ async function listaYoutube(request, env, ctx, forzar) {
   // se añaden los que no estaban y se actualizan título y fecha de los que sí
   const porId = new Map(guardada.map((v) => [v.id, v]));
   let nuevos = 0;
-  for (const v of rss) { if (!porId.has(v.id)) nuevos++; porId.set(v.id, v); }
+  // solo se añaden los que no estaban: a los que ya están no se les toca el título (como mucho se completa una fecha que faltara)
+  for (const v of rss) {
+    const ya = porId.get(v.id);
+    if (!ya) { nuevos++; porId.set(v.id, v); }
+    else if (!ya.fecha && v.fecha) porId.set(v.id, { ...ya, fecha: v.fecha });
+  }
   if (forzar) for (const v of await subidasCompletas(porId)) { nuevos++; porId.set(v.id, v); }
   const lista = [...porId.values()].sort((x, y) => (y.fecha || "").localeCompare(x.fecha || ""));
   if (env.FOTOS && JSON.stringify(lista) !== JSON.stringify(guardada)) await env.FOTOS.put(YT_LISTA, JSON.stringify(lista), { httpMetadata: { contentType: "application/json" } });
