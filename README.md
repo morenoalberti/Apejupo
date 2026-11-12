@@ -44,7 +44,7 @@ El Worker `worker/src/index.js` sirve las fuentes que no permiten lectura direct
 
 ## Galería de fotos
 
-`fotos.html` permite arrastrar fotos y vídeos. Las fotos se reducen en el navegador a 2000 px en WebP con su miniatura; los vídeos (MP4, MOV o WebM, hasta 300 MB) se suben sin cambios en trozos de 8 MB con una portada sacada del propio vídeo. Todo se guarda en el bucket R2 `apejupo-fotos` a través del Worker. Ver la galería es público; subir pide la clave del club y borrar, la de administración. Las claves son secretos del Worker (`FOTOS_CLAVE` y `FOTOS_ADMIN`) y nunca van en el repositorio; en local se leen de `worker/.dev.vars`.
+`fotos.html` permite arrastrar fotos; el navegador las reduce a 2000 px en WebP, crea una miniatura y las envía al Worker, que las guarda en el bucket R2 `apejupo-fotos`. Ver la galería es público; subir pide la clave del club y borrar, la de administración. Las claves son secretos del Worker (`FOTOS_CLAVE` y `FOTOS_ADMIN`) y nunca van en el repositorio; en local se leen de `worker/.dev.vars`.
 
 Puesta en marcha (una sola vez): activar R2 en el panel de Cloudflare y después
 

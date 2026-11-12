@@ -3,7 +3,7 @@
 (function () {
   var LOCAL = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
   var API = LOCAL ? "http://127.0.0.1:8787/fotos" : "https://apejupo-eventos.chessrival-worker.workers.dev/fotos";
-  var LADO = 2000, LADO_MINI = 640, A_LA_VEZ = 3, MAX_ORIGINAL = 40 * 1024 * 1024, VIDEO_MAX = 300 * 1024 * 1024;
+  var LADO = 2000, LADO_MINI = 640, A_LA_VEZ = 3, MAX_ORIGINAL = 40 * 1024 * 1024;
   var $ = function (id) { return document.getElementById(id); };
   var drop = $("fg-drop"), file = $("fg-file"), cola = $("fg-cola"), grid = $("fg-grid"), chips = $("fg-chips");
   var album = $("fg-album"), capa = $("fg-capa"), sesion = $("fg-sesion");
@@ -14,7 +14,6 @@
   function guardar(k, v) { try { v ? localStorage.setItem(k, v) : localStorage.removeItem(k); } catch (e) {} }
   function url(t, id) { return API + "/" + t + "/" + id; }
   function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return "&#" + c.charCodeAt(0) + ";"; }); }
-  function duracion(s) { s = Math.round(s); return Math.floor(s / 60) + ":" + ("0" + s % 60).slice(-2); }
   var FECHA = new Intl.DateTimeFormat("es-ES", { day: "numeric", month: "long", year: "numeric" });
 
   // ───── Galería ─────
@@ -37,15 +36,13 @@
     }).join("") : "";
     $("fg-albums").innerHTML = albums.map(function (a) { return '<option value="' + esc(a) + '">'; }).join("");
     vista = filtro ? fotos.filter(function (f) { return f.album === filtro; }) : fotos.slice();
-    var nv = vista.filter(function (f) { return f.video; }).length, nf = vista.length - nv;
-    $("fg-cuenta").textContent = [nf ? nf + (nf === 1 ? " foto" : " fotos") : "", nv ? nv + (nv === 1 ? " vídeo" : " vídeos") : ""].filter(Boolean).join(" · ");
+    $("fg-cuenta").textContent = vista.length ? vista.length + (vista.length === 1 ? " foto" : " fotos") : "";
     grid.removeAttribute("aria-busy");
     $("fg-vacio").hidden = fotos.length > 0;
     $("fg-ordenar").hidden = !admin || vista.length < 2 || ordenando;
     var celdas = vista.map(function (f, i) {
       return '<figure class="fg-cel" data-id="' + f.id + '"><button type="button" class="fg-item" data-i="' + i + '" style="aspect-ratio:' + f.w + "/" + f.h + '" aria-label="Ver foto' + (f.pie ? ": " + esc(f.pie) : f.album ? " de " + esc(f.album) : "") + '">' +
         '<img src="' + url("t", f.id) + '" alt="' + esc(f.pie || "") + '" loading="lazy" decoding="async" draggable="false" width="' + f.w + '" height="' + f.h + '" onload="this.classList.add(\'ok\')">' +
-        (f.video ? '<span class="fg-play" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M8 5.5v13l10.5-6.5z"/></svg></span>' + (f.dur ? '<span class="fg-dur">' + duracion(f.dur) + "</span>" : "") : "") +
         (f.album && !filtro ? '<span class="fg-tag">' + esc(f.album) + "</span>" : "") + "</button>" +
         (f.pie ? '<figcaption class="fg-pie">' + esc(f.pie) + "</figcaption>" : "") + "</figure>";
     });
@@ -134,26 +131,17 @@
   grid.addEventListener("pointercancel", soltar);
 
   // ───── Visor a pantalla completa ─────
-  var visor = $("fg-visor"), vimg = $("fg-v-img"), vvid = $("fg-v-vid");
-  function pararVideo() { if (vvid.hidden) return; vvid.pause(); vvid.removeAttribute("src"); vvid.removeAttribute("poster"); vvid.load(); vvid.hidden = true; }
+  var visor = $("fg-visor"), vimg = $("fg-v-img");
   function abrir(i) {
     if (!vista.length) return;
     actual = (i + vista.length) % vista.length;
     var f = vista[actual];
     vimg.classList.remove("ok");
-    pararVideo();
-    if (f.video) {
-      vimg.hidden = true; vvid.hidden = false;
-      vvid.poster = url("t", f.id); vvid.src = url("f", f.id);
-      var pr = vvid.play(); if (pr && pr.catch) pr.catch(function () {});
-    } else {
-      vimg.hidden = false;
-      vimg.src = url("t", f.id); // la miniatura aparece al momento y la foto grande la sustituye al llegar
-      var g = new Image(); g.onload = function () { if (vista[actual] === f) { vimg.src = g.src; vimg.classList.add("ok"); } }; g.src = url("f", f.id);
-    }
+    vimg.src = url("t", f.id); // la miniatura aparece al momento y la foto grande la sustituye al llegar
+    var g = new Image(); g.onload = function () { if (vista[actual] === f) { vimg.src = g.src; vimg.classList.add("ok"); } }; g.src = url("f", f.id);
     pintarPie(f);
     $("fg-v-dl").href = url("f", f.id);
-    $("fg-v-dl").setAttribute("download", "apejupo-" + f.id + "." + (f.video ? f.ext || "mp4" : "webp"));
+    $("fg-v-dl").setAttribute("download", "apejupo-" + f.id + ".webp");
     $("fg-v-del").hidden = !admin;
     $("fg-v-ed").hidden = !puedeEditar(f);
     var varias = vista.length > 1;
@@ -189,13 +177,13 @@
     });
   });
   visor.addEventListener("cancel", function (e) { if (editando) { e.preventDefault(); pintarPie(vista[actual]); } }); // Escape cancela la edición sin cerrar el visor
-  visor.addEventListener("close", function () { document.documentElement.classList.remove("fg-sin-scroll"); vimg.removeAttribute("src"); pararVideo(); actual = -1; });
+  visor.addEventListener("close", function () { document.documentElement.classList.remove("fg-sin-scroll"); vimg.removeAttribute("src"); actual = -1; });
   $("fg-v-prev").addEventListener("click", function () { abrir(actual - 1); });
   $("fg-v-next").addEventListener("click", function () { abrir(actual + 1); });
   $("fg-v-x").addEventListener("click", cerrar);
   visor.addEventListener("click", function (e) { if (!editando && (e.target === visor || e.target.tagName === "FIGURE")) cerrar(); });
   visor.addEventListener("keydown", function (e) {
-    if (editando || e.target === vvid) return; // con el vídeo enfocado, las flechas adelantan o retrasan el vídeo
+    if (editando) return;
     if (e.key === "ArrowLeft") { e.preventDefault(); abrir(actual - 1); }
     else if (e.key === "ArrowRight") { e.preventDefault(); abrir(actual + 1); }
   });
@@ -278,7 +266,7 @@
   });
 
   function anadir(lista) {
-    var nuevos = [].filter.call(lista || [], function (f) { return /^(image|video)\//.test(f.type) || /\.(jpe?g|png|webp|heic|heif|avif|gif|mp4|m4v|mov|webm)$/i.test(f.name); });
+    var nuevos = [].filter.call(lista || [], function (f) { return /^image\//.test(f.type) || /\.(jpe?g|png|webp|heic|heif|avif|gif)$/i.test(f.name); });
     if (!nuevos.length) return;
     var a = album.value.replace(/\s+/g, " ").trim();
     nuevos.forEach(function (f) {
@@ -322,18 +310,16 @@
   }
 
   function subir(p) {
-    var video = tipoVideo(p.f);
-    if (video && p.f.size > VIDEO_MAX) { estado(p, "El vídeo pesa más de 300 MB", "mal", 100); return Promise.resolve(); }
-    if (!video && p.f.size > MAX_ORIGINAL) { estado(p, "Es demasiado grande (más de 40 MB)", "mal", 100); return Promise.resolve(); }
+    if (p.f.size > MAX_ORIGINAL) { estado(p, "Es demasiado grande (más de 40 MB)", "mal", 100); return Promise.resolve(); }
     estado(p, "Preparando…", "", 4);
-    return (video ? subirVideo(p, video) : preparar(p.f).then(function (r) {
+    return preparar(p.f).then(function (r) {
       estado(p, "Subiendo…", "", 8);
       var fd = new FormData();
       fd.append("foto", r.foto, "foto"); fd.append("mini", r.mini, "mini");
       fd.append("w", r.w); fd.append("h", r.h); fd.append("album", p.album);
       fd.append("pie", p.li.querySelector(".fg-up-pie").value);
       return enviar(fd, function (pct) { estado(p, "Subiendo… " + Math.round(pct) + " %", "", 8 + pct * .92); });
-    })).then(function (j) {
+    }).then(function (j) {
       p.foto = j;
       estado(p, j.pie ? "Subida con su pie ✓" : "Subida ✓ · añade un pie si quieres", "bien", 100);
       p.li.querySelector(".fg-up-x").hidden = false;
@@ -349,85 +335,10 @@
     });
   }
 
-  // ───── Vídeos: se suben tal cual, en trozos de 8 MB, con una portada sacada del propio vídeo ─────
-  function tipoVideo(f) {
-    if (/^video\/(mp4|quicktime|webm)$/.test(f.type)) return f.type;
-    var m = /\.(mp4|m4v|mov|webm)$/i.exec(f.name);
-    return m ? { mp4: "video/mp4", m4v: "video/mp4", mov: "video/quicktime", webm: "video/webm" }[m[1].toLowerCase()] : "";
-  }
-  function subirVideo(p, tipo) {
-    var sub = null;
-    return portadaVideo(p.f).then(function (por) {
-      var pu = URL.createObjectURL(por.blob); // en la lista de subida se ve la portada del vídeo
-      p.li.querySelector(".fg-up-img").style.backgroundImage = "url(" + pu + ")";
-      return pedir("POST", API + "/video/inicio", JSON.stringify({ tipo: tipo, size: p.f.size }), "application/json").then(function (j) {
-        sub = j;
-        var n = Math.ceil(p.f.size / j.parte), partes = [], hecho = 0;
-        var una = function (i, intento) { // cada trozo se reintenta hasta 3 veces si falla la conexión
-          var trozo = p.f.slice((i - 1) * j.parte, Math.min(p.f.size, i * j.parte));
-          return enviar(trozo, function (pct) {
-            var t = (hecho + trozo.size * pct / 100) / p.f.size * 100;
-            estado(p, "Subiendo vídeo… " + Math.round(t) + " %", "", 8 + t * .9);
-          }, "PUT", API + "/video/" + j.id + "/parte?u=" + encodeURIComponent(j.u) + "&n=" + i).then(function (r) {
-            hecho += trozo.size; partes.push(r);
-          }, function (e) {
-            if (e.status || intento >= 3) throw e;
-            return new Promise(function (ok) { setTimeout(ok, 1500 * intento); }).then(function () { return una(i, intento + 1); });
-          });
-        };
-        var cadena = Promise.resolve();
-        for (var i = 1; i <= n; i++) (function (i) { cadena = cadena.then(function () { return una(i, 1); }); })(i);
-        return cadena.then(function () {
-          estado(p, "Terminando…", "", 99);
-          var fd = new FormData();
-          fd.append("u", j.u); fd.append("partes", JSON.stringify(partes));
-          fd.append("poster", por.blob, "poster"); fd.append("w", por.w); fd.append("h", por.h); fd.append("dur", por.dur);
-          fd.append("album", p.album); fd.append("pie", p.li.querySelector(".fg-up-pie").value);
-          return pedir("POST", API + "/video/" + j.id + "/fin", fd);
-        });
-      });
-    }).catch(function (e) {
-      if (sub) pedir("POST", API + "/video/" + sub.id + "/cancelar?u=" + encodeURIComponent(sub.u)).catch(function () {});
-      throw e;
-    });
-  }
-  function pedir(metodo, dir, cuerpo, tipo) {
-    var h = { "X-Clave": clave }; if (tipo) h["Content-Type"] = tipo;
-    return fetch(dir, { method: metodo, headers: h, body: cuerpo }).then(function (r) {
-      return r.json().catch(function () { return {}; }).then(function (j) {
-        if (!r.ok) { var e = new Error(j.error || "Error " + r.status); e.status = r.status; throw e; }
-        return j;
-      });
-    }, function () { throw new Error("Sin conexión. Revisa internet y reinténtalo."); });
-  }
-  // Portada: un fotograma del primer segundo. Si el navegador no sabe abrir el vídeo (p. ej. HEVC en Windows), se usa una portada genérica.
-  function portadaVideo(f) {
-    return new Promise(function (ok) {
-      var u = URL.createObjectURL(f), v = document.createElement("video"), listo = false;
-      var acabar = function (img, w, h, dur) {
-        if (listo) return; listo = true;
-        lienzo(img, w, h, LADO_MINI, .8).then(function (r) { URL.revokeObjectURL(u); ok({ blob: r.blob, w: r.w, h: r.h, dur: dur || 0 }); });
-      };
-      var generica = function () {
-        var c = document.createElement("canvas"); c.width = 1280; c.height = 720;
-        var x = c.getContext("2d"), g = x.createLinearGradient(0, 0, 1280, 720);
-        g.addColorStop(0, "#0F1B2D"); g.addColorStop(1, "#3B82F6"); x.fillStyle = g; x.fillRect(0, 0, 1280, 720);
-        x.fillStyle = "rgba(255,255,255,.9)"; x.beginPath(); x.moveTo(570, 270); x.lineTo(570, 450); x.lineTo(730, 360); x.closePath(); x.fill();
-        acabar(c, 1280, 720, isFinite(v.duration) ? v.duration : 0);
-      };
-      v.muted = true; v.playsInline = true; v.preload = "auto";
-      v.onloadeddata = function () { v.currentTime = Math.min(1, (v.duration || 2) / 2); };
-      v.onseeked = function () { if (v.videoWidth) acabar(v, v.videoWidth, v.videoHeight, v.duration); else generica(); };
-      v.onerror = generica;
-      setTimeout(generica, 8000);
-      v.src = u;
-    });
-  }
-
-  function enviar(fd, progreso, metodo, dir) {
+  function enviar(fd, progreso) {
     return new Promise(function (ok, mal) {
       var x = new XMLHttpRequest();
-      x.open(metodo || "POST", dir || API);
+      x.open("POST", API);
       x.setRequestHeader("X-Clave", clave);
       x.upload.onprogress = function (e) { if (e.lengthComputable) progreso(e.loaded / e.total * 100); };
       x.onload = function () {

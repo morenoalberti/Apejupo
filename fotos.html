@@ -5,13 +5,13 @@
 <meta name="color-scheme" content="light dark">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Fotos del club · Apejupo Chess Club</title>
-<meta name="description" content="Galería de fotos y vídeos del Apejupo Chess Club: torneos, partidas de los miércoles y encuentros del equipo.">
+<meta name="description" content="Galería de fotos del Apejupo Chess Club: torneos, partidas de los miércoles y encuentros del equipo.">
 <link rel="canonical" href="https://apejupo.com/fotos.html">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Apejupo Chess Club">
 <meta property="og:locale" content="es_ES">
 <meta property="og:title" content="Fotos del club · Apejupo Chess Club">
-<meta property="og:description" content="Galería de fotos y vídeos del Apejupo Chess Club: torneos, partidas de los miércoles y encuentros del equipo.">
+<meta property="og:description" content="Galería de fotos del Apejupo Chess Club: torneos, partidas de los miércoles y encuentros del equipo.">
 <meta property="og:url" content="https://apejupo.com/fotos.html">
 <meta property="og:image" content="https://apejupo.com/assets/og-apejupo.jpg">
 <meta property="og:image:width" content="1200">
@@ -19,7 +19,7 @@
 <meta property="og:image:alt" content="Apejupo Chess Club: ajedrez entre amigos todos los miércoles a las 17:00 h en Málaga">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" type="image/svg+xml" href="assets/icon.svg">
-<link rel="stylesheet" href="css/style.css?v=20261112-video">
+<link rel="stylesheet" href="css/style.css?v=20261112-orden">
 <script defer src="js/analytics.js?v=20261111-analytics"></script>
 </head>
 <body>
@@ -50,10 +50,10 @@
 
   <section class="wrap section fg-sec">
     <div class="fg-drop" id="fg-drop" tabindex="0" role="button" aria-describedby="fg-drop-txt">
-      <input type="file" id="fg-file" accept="image/*,video/*" multiple hidden>
+      <input type="file" id="fg-file" accept="image/*" multiple hidden>
       <span class="fg-drop-ic"><svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"/></svg></span>
-      <strong>Arrastra aquí tus fotos y vídeos</strong>
-      <span id="fg-drop-txt" class="muted">o pulsa para elegirlos · fotos JPG, PNG o WebP (se comprimen solas) · vídeos MP4, MOV o WebM de hasta 300 MB</span>
+      <strong>Arrastra aquí tus fotos</strong>
+      <span id="fg-drop-txt" class="muted">o pulsa para elegirlas · JPG, PNG o WebP · se comprimen solas antes de subir</span>
       <label class="fg-album" for="fg-album">Álbum <input id="fg-album" list="fg-albums" maxlength="60" placeholder="Por ejemplo: Torneo de Navidad 2026" autocomplete="off"></label>
       <datalist id="fg-albums"></datalist>
       <span class="fg-sesion" id="fg-sesion" hidden></span>
@@ -67,20 +67,20 @@
       <button type="button" class="btn-ghost fg-ordenar" id="fg-ordenar" hidden><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 9l-3 3 3 3M9 5l3-3 3 3M15 19l-3 3-3-3M19 9l3 3-3 3M2 12h20M12 2v20"/></svg>Ordenar</button>
     </div>
     <div class="fg-ord-bar" id="fg-ord-bar" hidden>
-      <span>Arrastra las fotos y vídeos para cambiarlos de sitio.</span>
+      <span>Arrastra las fotos para cambiarlas de sitio.</span>
       <span class="fg-acc"><button type="button" class="btn-ghost" id="fg-ord-no">Cancelar</button><button type="button" class="btn" id="fg-ord-si">Guardar orden</button></span>
     </div>
     <div class="fg-grid" id="fg-grid" aria-busy="true"></div>
-    <p class="fg-vacio" id="fg-vacio" hidden>Todavía no hay fotos ni vídeos. ¡Sé el primero en subir uno!</p>
+    <p class="fg-vacio" id="fg-vacio" hidden>Todavía no hay fotos. ¡Sé el primero en subir una!</p>
   </section>
 </main>
 
-<div class="fg-capa" id="fg-capa" aria-hidden="true"><div><span class="fg-drop-ic"><svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"/></svg></span><strong>Suelta aquí para subirlas</strong></div></div>
+<div class="fg-capa" id="fg-capa" aria-hidden="true"><div><span class="fg-drop-ic"><svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"/></svg></span><strong>Suelta las fotos para subirlas</strong></div></div>
 
 <dialog class="fg-dlg fg-clave" id="fg-clave" aria-labelledby="fg-clave-t">
   <form method="dialog" id="fg-clave-f">
     <h2 id="fg-clave-t">Clave del club</h2>
-    <p class="muted">Para subir fotos y vídeos necesitas la clave que se reparte entre los socios. Solo te la pedimos una vez en este dispositivo.</p>
+    <p class="muted">Para subir fotos necesitas la clave que se reparte entre los socios. Solo te la pedimos una vez en este dispositivo.</p>
     <input id="fg-clave-i" type="password" inputmode="numeric" autocomplete="current-password" required aria-label="Clave del club">
     <p class="fg-err" id="fg-clave-e" role="alert"></p>
     <div class="fg-acc"><button type="button" class="btn-ghost" id="fg-clave-x">Cancelar</button><button class="btn" id="fg-clave-ok">Entrar</button></div>
@@ -88,7 +88,7 @@
 </dialog>
 
 <dialog class="fg-visor" id="fg-visor" aria-label="Foto ampliada">
-  <figure><img id="fg-v-img" alt=""><video id="fg-v-vid" controls playsinline preload="metadata" hidden></video><figcaption id="fg-v-cap"></figcaption></figure>
+  <figure><img id="fg-v-img" alt=""><figcaption id="fg-v-cap"></figcaption></figure>
   <button type="button" class="fg-v-b fg-v-prev" id="fg-v-prev" aria-label="Foto anterior"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg></button>
   <button type="button" class="fg-v-b fg-v-next" id="fg-v-next" aria-label="Foto siguiente"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></button>
   <div class="fg-v-top">
@@ -108,6 +108,6 @@
 
 <script src="js/menu.js?v=20261112-fotos"></script>
 <script src="js/util.js?v=20261111-llegar"></script>
-<script src="js/fotos.js?v=20261112-video2"></script>
+<script src="js/fotos.js?v=20261112-orden"></script>
 </body>
 </html>
