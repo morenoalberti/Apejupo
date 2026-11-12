@@ -908,6 +908,9 @@ body.card-dragging .tour-tip { display: none !important; }
 .lv-addrow { justify-content: flex-start; }
 .lv-addrow .lv-tt { flex: 1 0 100%; margin-right: 0; }
 .lv-addrow .lv-tools { margin-left: auto; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+/* La cabecera del torneo queda debajo de la barra del logo durante el scroll. */
+.lv-sticky-header { position: sticky; top: 64px; z-index: 9; margin: -12px -12px 0; padding: 12px 12px 6px; border-radius: 11px 11px 0 0; background: var(--card); }
+.lv-sticky-header .lv-addrow { margin-bottom: 0; }
 .lv-modal .viewer-bar { padding-right: 42px; }
 .lv-controls { display: flex; align-items: center; justify-content: flex-start; gap: 8px; margin-bottom: 4px; }
 .lv-controls #viewer-games { flex: 0 1 320px; min-width: 0; max-width: 100%; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--text); }
