@@ -45,6 +45,7 @@
         '<img src="' + url("t", f.id) + '" alt="' + esc(f.pie || "") + '" loading="lazy" decoding="async" draggable="false" width="' + f.w + '" height="' + f.h + '" onload="this.classList.add(\'ok\')">' +
         (f.album && !filtro ? '<span class="fg-tag">' + esc(f.album) + "</span>" : "") + "</button>" +
         (!ordenando ? '<button type="button" class="fg-dl" aria-label="Descargar la foto" title="Descargar"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg></button>' : "") +
+        (!ordenando && admin ? '<button type="button" class="fg-del" aria-label="Borrar la foto" title="Borrar"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M6 6l1 15h10l1-15"/></svg></button>' : "") +
         (!ordenando && puedeEditar(f) ? '<button type="button" class="fg-ed" aria-label="' + (f.pie ? "Cambiar" : "Escribir") + ' el pie de foto" title="' + (f.pie ? "Cambiar" : "Escribir") + ' el pie"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>' : "") +
         (f.pie ? '<figcaption class="fg-pie">' + esc(f.pie) + "</figcaption>" : "") + "</figure>";
     });
@@ -71,6 +72,8 @@
   grid.addEventListener("click", function (e) {
     if (ordenando) return;
     var ed = e.target.closest(".fg-ed"); if (ed) { editarEnMosaico(ed.closest(".fg-cel")); return; }
+    var del = e.target.closest(".fg-del");
+    if (del) { var fid = del.closest(".fg-cel").getAttribute("data-id"); borrarFoto(fotos.filter(function (x) { return x.id === fid; })[0]); return; }
     var dl = e.target.closest(".fg-dl");
     if (dl) { var id = dl.closest(".fg-cel").getAttribute("data-id"); descargar(dl, url("f", id), "apejupo-" + id + ".webp"); return; }
     var b = e.target.closest(".fg-item"); if (b) abrir(+b.getAttribute("data-i"));
@@ -234,14 +237,22 @@
     if (Math.abs(dx) > 50) abrir(actual + (dx < 0 ? 1 : -1));
   });
   $("fg-v-del").addEventListener("click", function () {
-    var f = vista[actual]; if (!f || !confirm("¿Borrar esta foto de la galería? No se puede deshacer.")) return;
-    fetch(API + "/" + f.id, { method: "DELETE", headers: { "X-Clave": clave } }).then(function (r) {
-      if (!r.ok) return r.json().then(function (j) { throw new Error(j.error); });
-      fotos = fotos.filter(function (g) { return g.id !== f.id; });
-      var i = actual; pintar();
+    var f = vista[actual], i = actual; if (!f) return;
+    borrarFoto(f).then(function (hecho) {
+      if (!hecho || !visor.open) return;
       if (vista.length) abrir(Math.min(i, vista.length - 1)); else cerrar();
-    }).catch(function (e) { alert(e.message || "No se ha podido borrar"); });
+    });
   });
+  // Borrar una foto (solo administración): desde el visor o con la papelera de cada foto del mosaico
+  function borrarFoto(f) {
+    if (!confirm("¿Borrar esta foto de la galería? No se puede deshacer.")) return Promise.resolve(false);
+    return fetch(API + "/" + f.id, { method: "DELETE", headers: { "X-Clave": clave } }).then(function (r) {
+      if (!r.ok) return r.json().catch(function () { return {}; }).then(function (j) { throw new Error(j.error || "No se ha podido borrar"); });
+      fotos = fotos.filter(function (g) { return g.id !== f.id; });
+      pintar();
+      return true;
+    }).catch(function (e) { alert(e.message === "Failed to fetch" ? "Sin conexión. Inténtalo de nuevo." : e.message); return false; });
+  }
 
   // ───── Clave del club ─────
   var dlg = $("fg-clave"), ci = $("fg-clave-i"), ce = $("fg-clave-e"), alEntrar = null;
