@@ -205,25 +205,48 @@ async function fotos(request, env, url) {
 
 // Últimos vídeos del canal de YouTube del club (@clubtrabajosos), leídos de su RSS público. Se guarda una hora en caché.
 const YT_CANAL = "UC8plnnMoRVrig9Q-iP9Q8kw";
-async function videos(request, ctx) {
-  const headers = { ...FOTO_CORS, "Content-Type": "application/json; charset=utf-8", "Cache-Control": "public, max-age=900" };
+// La administración puede cambiar el título que se muestra en la web (se guarda en R2; el de YouTube no se toca).
+const YT_TITULOS = "videos/titulos.json", YT_TITULO_MAX = 150;
+async function titulosVideo(env) {
+  const o = env.FOTOS ? await env.FOTOS.get(YT_TITULOS) : null;
+  try { return o ? await o.json() : {}; } catch (e) { return {}; }
+}
+async function listaYoutube(request, ctx) {
   const cache = typeof caches !== "undefined" ? caches.default : null;
-  const key = new Request(new URL(request.url).origin + "/videos-cache/" + YT_CANAL);
-  if (cache) { const hit = await cache.match(key); if (hit) return hit; }
+  const key = new Request(new URL(request.url).origin + "/videos-cache/v2/" + YT_CANAL);
+  if (cache) { const hit = await cache.match(key); if (hit) return hit.json(); }
+  const r = await fetch("https://www.youtube.com/feeds/videos.xml?channel_id=" + YT_CANAL, { headers: { "User-Agent": "Mozilla/5.0 (compatible; ApejupoChessClub/1.0; +https://apejupo.com)" } });
+  if (!r.ok) throw new Error("YouTube " + r.status);
+  const xml = await r.text();
+  const txt = (s) => s.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, "&").trim();
+  const lista = [...xml.matchAll(/<entry>([\s\S]*?)<\/entry>/g)].map((m) => {
+    const e = m[1], g = (re) => (e.match(re) || [, ""])[1];
+    return { id: g(/<yt:videoId>([\w-]{11})<\/yt:videoId>/), titulo: txt(g(/<title>([\s\S]*?)<\/title>/)), fecha: g(/<published>([^<]+)<\/published>/) };
+  }).filter((v) => v.id);
+  if (cache) ctx.waitUntil(cache.put(key, new Response(JSON.stringify(lista), { headers: { "Cache-Control": "public, max-age=3600" } })));
+  return lista;
+}
+async function videos(request, env, ctx) {
+  const ruta = new URL(request.url).pathname.replace(/\/+$/, "");
+  if (request.method === "POST" && ruta === "/videos/titulo") {
+    if (!env.FOTOS) return fjson({ error: "La galería todavía no está activada" }, 503);
+    const r = await rol(request, env);
+    if (r === "bloqueado") return fjson({ error: BLOQUEO }, 429);
+    if (r !== "admin") return fjson({ error: "Solo la administración puede cambiar el título" }, r ? 403 : 401);
+    let b; try { b = await request.json(); } catch (e) { return fjson({ error: "Datos no válidos" }, 400); }
+    const id = String(b.id || ""), titulo = limpio(b.titulo, YT_TITULO_MAX);
+    if (!/^[\w-]{11}$/.test(id)) return fjson({ error: "Vídeo no válido" }, 400);
+    const t = await titulosVideo(env);
+    if (titulo) t[id] = titulo; else delete t[id]; // vacío = volver al título de YouTube
+    await env.FOTOS.put(YT_TITULOS, JSON.stringify(t), { httpMetadata: { contentType: "application/json" } });
+    return fjson({ ok: true, id, titulo });
+  }
+  if (request.method !== "GET" || ruta !== "/videos") return fjson({ error: "No encontrado" }, 404);
   try {
-    const r = await fetch("https://www.youtube.com/feeds/videos.xml?channel_id=" + YT_CANAL, { headers: { "User-Agent": "Mozilla/5.0 (compatible; ApejupoChessClub/1.0; +https://apejupo.com)" } });
-    if (!r.ok) throw new Error("YouTube " + r.status);
-    const xml = await r.text();
-    const txt = (s) => s.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, "&").trim();
-    const lista = [...xml.matchAll(/<entry>([\s\S]*?)<\/entry>/g)].map((m) => {
-      const e = m[1], g = (re) => (e.match(re) || [, ""])[1];
-      return { id: g(/<yt:videoId>([\w-]{11})<\/yt:videoId>/), titulo: txt(g(/<title>([\s\S]*?)<\/title>/)), fecha: g(/<published>([^<]+)<\/published>/) };
-    }).filter((v) => v.id);
-    const res = new Response(JSON.stringify({ canal: "https://www.youtube.com/@clubtrabajosos", videos: lista }), { headers });
-    if (cache) ctx.waitUntil(cache.put(key, new Response(res.clone().body, { headers: { ...headers, "Cache-Control": "public, max-age=3600" } })));
-    return res;
+    const [lista, t] = await Promise.all([listaYoutube(request, ctx), titulosVideo(env)]);
+    return fjson({ canal: "https://www.youtube.com/@clubtrabajosos", videos: lista.map((v) => ({ ...v, original: v.titulo, titulo: t[v.id] || v.titulo })) });
   } catch (e) {
-    return new Response(JSON.stringify({ error: "No se pudieron leer los vídeos", videos: [] }), { status: 502, headers: { ...headers, "Cache-Control": "no-store" } });
+    return fjson({ error: "No se pudieron leer los vídeos", videos: [] }, 502);
   }
 }
 
@@ -231,7 +254,7 @@ export default {
   async fetch(request, env, ctx) {
     const pathname = new URL(request.url).pathname;
     if (pathname === "/fotos" || pathname.startsWith("/fotos/")) return fotos(request, env, new URL(request.url));
-    if (pathname === "/videos") return request.method === "OPTIONS" ? new Response(null, { headers: FOTO_CORS }) : videos(request, ctx);
+    if (pathname === "/videos" || pathname.startsWith("/videos/")) return request.method === "OPTIONS" ? new Response(null, { headers: FOTO_CORS }) : videos(request, env, ctx);
     if (request.method === "OPTIONS") return new Response(null, { headers: CORS });
     // La lista pública de jugadores de Lichess no permite CORS desde otra web.
     // Solo se admite un ID de torneo; no se aceptan direcciones arbitrarias.

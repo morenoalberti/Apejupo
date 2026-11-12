@@ -1275,7 +1275,10 @@ body.card-dragging .tour-tip { display: none !important; }
 .fg-chip-vid svg { color: #dc2626; }
 .fg-chip-vid[aria-selected="true"] svg { color: currentColor; }
 .fg-vid-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }
-.fg-vid { display: flex; flex-direction: column; gap: 4px; padding: 0 0 12px; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: var(--card); color: var(--text); font: inherit; text-align: left; cursor: pointer; animation: fgentra .35s ease-out both; transition: border-color .2s, box-shadow .2s; }
+.fg-vid-card { position: relative; display: flex; flex-direction: column; }
+.fg-vid-card:hover .fg-ed { opacity: 1; transform: none; }
+.fg-vid-card .fg-pie-form { position: absolute; left: 0; right: 0; bottom: 0; z-index: 3; background: var(--card); border: 1px solid var(--blue); border-radius: 0 0 12px 12px; }
+.fg-vid { flex: 1; display: flex; flex-direction: column; gap: 4px; padding: 0 0 12px; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: var(--card); color: var(--text); font: inherit; text-align: left; cursor: pointer; animation: fgentra .35s ease-out both; transition: border-color .2s, box-shadow .2s; }
 .fg-vid:hover, .fg-vid:focus-visible { border-color: var(--blue); box-shadow: 0 10px 28px rgba(15, 27, 45, .14); outline: none; }
 .fg-vid-img { position: relative; display: block; aspect-ratio: 16 / 9; overflow: hidden; background: var(--line); margin-bottom: 6px; }
 .fg-vid-img img { display: block; width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity .4s, transform .5s; }
@@ -1289,7 +1292,29 @@ body.card-dragging .tour-tip { display: none !important; }
 .fg-vid-actual[hidden] { display: none; }
 .fg-vid-actual { max-width: min(960px, calc((100dvh - 200px) * 16 / 9)); margin: 0 auto 28px; scroll-margin-top: 90px; }
 .fg-yt-marco { width: 100%; aspect-ratio: 16 / 9; border-radius: 14px; overflow: hidden; background: #000; box-shadow: 0 18px 44px rgba(15, 27, 45, .25); }
-.fg-yt-marco iframe { display: block; width: 100%; height: 100%; border: 0; }
+.fg-yt-marco { position: relative; }
+/* el iframe sobresale 70px por arriba y por abajo: ahí pinta YouTube sus rótulos y quedan fuera de la vista */
+.fg-yt-rec { position: absolute; left: 0; right: 0; top: -70px; bottom: -70px; pointer-events: none; }
+.fg-yt-rec iframe, .fg-yt-rec > div { display: block; width: 100%; height: 100%; border: 0; }
+.fg-yt-marco:fullscreen { aspect-ratio: auto; border-radius: 0; }
+.fg-yt-capa { position: absolute; inset: 0; z-index: 1; display: flex; align-items: center; justify-content: center; width: 100%; padding: 0; border: 0; background: #000 center / cover no-repeat; cursor: pointer; }
+.fg-yt-capa .fg-vid-play { position: static; margin: 0; width: 76px; height: 76px; }
+.fg-yt-capa:hover .fg-vid-play { background: #dc2626; transform: scale(1.08); }
+.fg-yt-marco.empezado .fg-yt-capa { background: transparent; }
+.fg-yt-marco.empezado .fg-yt-capa .fg-vid-play { display: none; }
+.fg-yt-marco.empezado:not(.reproduciendo) .fg-yt-capa { background: rgba(0, 0, 0, .35); }
+.fg-yt-marco.empezado:not(.reproduciendo) .fg-yt-capa .fg-vid-play { display: flex; }
+.fg-yt-bar { position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; display: flex; align-items: center; gap: 10px; padding: 26px 12px 10px; background: linear-gradient(to top, rgba(0, 0, 0, .7), transparent); color: #fff; opacity: 0; transition: opacity .25s; pointer-events: none; }
+.fg-yt-marco.empezado:hover .fg-yt-bar, .fg-yt-marco.empezado:not(.reproduciendo) .fg-yt-bar, .fg-yt-marco.empezado:focus-within .fg-yt-bar { opacity: 1; pointer-events: auto; }
+@media (hover: none) { .fg-yt-marco.empezado .fg-yt-bar { opacity: 1; pointer-events: auto; } }
+.fg-yt-b { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; flex: none; border: 0; border-radius: 50%; background: transparent; color: #fff; cursor: pointer; }
+.fg-yt-b:hover, .fg-yt-b:focus-visible { background: rgba(255, 255, 255, .18); outline: none; }
+.fg-yt-pos { flex: 1; min-width: 0; accent-color: #dc2626; cursor: pointer; }
+.fg-yt-tiempo { font-size: .8rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
+#fg-yt-pp .i-pausa, .fg-yt-marco.reproduciendo #fg-yt-pp .i-play { display: none; }
+.fg-yt-marco.reproduciendo #fg-yt-pp .i-pausa { display: inline; }
+#fg-yt-son .i-mudo, .fg-yt-marco.mudo #fg-yt-son .i-son { display: none; }
+.fg-yt-marco.mudo #fg-yt-son .i-mudo { display: inline; }
 .fg-vid-actual-t { margin: 14px 0 2px; font-size: 1.15rem; line-height: 1.35; }
 .fg-vid-actual-f { margin: 0; font-size: .85rem; color: var(--muted); }
 .fg-vid.actual { border-color: var(--blue); box-shadow: 0 0 0 2px var(--blue); }
