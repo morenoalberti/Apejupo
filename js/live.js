@@ -492,7 +492,9 @@
       if (nms[1].innerHTML !== hw) nms[1].innerHTML = hw;
       if (mts[0].innerHTML !== mb) mts[0].innerHTML = mb;
       if (mts[1].innerHTML !== mw) mts[1].innerHTML = mw;
-      var c = fenCache(g), k = c.san.length, bd = b.querySelector(".th-board"), sig = k + "|" + c.fens[k];
+      // Partida terminada: el resultado, grande, en medio del tablero
+      var res = g.over ? { "1-0": "1-0", "0-1": "0-1", "1/2-1/2": "½-½" }[g.tags.Result] || "" : "";
+      var c = fenCache(g), k = c.san.length, bd = b.querySelector(".th-board"), sig = k + "|" + c.fens[k] + "|" + res;
       if (bd.getAttribute("data-s") !== sig) {
         bd.setAttribute("data-s", sig);
         var tab = new Chess(c.fens[k]).board(), ul = c.last[k] ? [c.last[k].from, c.last[k].to] : [], h = "";
@@ -501,7 +503,8 @@
           h += '<div class="sq ' + ((r + f) % 2 ? "dk" : "lt") + (ul.indexOf(s) >= 0 ? " last" : "") + '">' +
             (pz ? pieceHtml(pz.color + pz.type.toUpperCase()) : "") + "</div>";
         }
-        bd.innerHTML = h + thumbArrow(c.last[k]);
+        bd.innerHTML = h + thumbArrow(c.last[k]) + (res ? '<span class="th-res" aria-label="Resultado: ' + res + '">' + res + "</span>" : "");
+        bd.classList.toggle("terminada", !!res);
         paintPieces(bd);
       }
       setThumbBar(id);
