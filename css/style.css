@@ -766,6 +766,10 @@ body.card-dragging .tour-tip { display: none !important; }
 .lv-moves .lv-var { font-size: 12.5px; }
 .lv-moves .fg { font-size: 1em; font-variant-emoji: text; }
 .th-board { position: relative; }
+/* Aviso de una partida: su tablero parpadea unos segundos, sin moverla de sitio */
+.th-board.aviso::after { content: ""; position: absolute; inset: 0; z-index: 3; border: 4px solid #f5e300; border-radius: 3px; background: rgba(245, 227, 0, .18); box-shadow: inset 0 0 16px rgba(245, 227, 0, .7); pointer-events: none; animation: lvaviso .6s ease-in-out 10 both; }
+@keyframes lvaviso { 0%, 100% { opacity: 0; } 50% { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .th-board.aviso::after { animation: none; opacity: 1; } }
 /* Resultado de la partida terminada, en medio del tablero pequeño */
 .th-res { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 2; padding: .12em .5em; border-radius: 10px; background: rgba(15, 27, 45, .86); color: #fff; font-size: clamp(1.25rem, 2.6vw, 1.9rem); font-weight: 800; line-height: 1.15; letter-spacing: .02em; white-space: nowrap; font-variant-numeric: tabular-nums; box-shadow: 0 6px 18px rgba(0, 0, 0, .45); pointer-events: none; }
 .th-board.terminada .sq, .th-board.terminada .th-arrow { opacity: .78; }

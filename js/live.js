@@ -1260,16 +1260,21 @@
     b.innerHTML = voiceOn ? SPK_ON : SPK_OFF;
     b.title = (voiceOn ? "Avisos por voz: activados" : "Avisos por voz: desactivados") + " (pulsa para ajustar)";
   }
-  var voiceFront = false, voiceVol = 100;
-  try { voiceFront = localStorage.getItem("apejupoVoiceFront") === "1"; var vv = localStorage.getItem("apejupoVoiceVol"); if (vv !== null && !isNaN(+vv)) voiceVol = Math.max(0, Math.min(100, +vv)); } catch (_) {}
-  function saveVoice() { try { localStorage.setItem("apejupoVoice", voiceOn ? "1" : "0"); localStorage.setItem("apejupoVoiceFront", voiceFront ? "1" : "0"); localStorage.setItem("apejupoVoiceVol", String(voiceVol)); } catch (_) {} }
+  // Al avisar, la partida no se trae al frente: el cuadrado de su tablero parpadea unos segundos donde esté
+  function parpadeo(id) {
+    var bd = $("lv-grid").querySelector('[data-g="' + id + '"] .th-board'); if (!bd) return;
+    bd.classList.remove("aviso"); void bd.offsetWidth; bd.classList.add("aviso"); // reinicia el parpadeo si ya estaba
+    clearTimeout(bd._aviso); bd._aviso = setTimeout(function () { bd.classList.remove("aviso"); }, 6000);
+  }
+  var voiceVol = 100;
+  try { var vv = localStorage.getItem("apejupoVoiceVol"); if (vv !== null && !isNaN(+vv)) voiceVol = Math.max(0, Math.min(100, +vv)); } catch (_) {}
+  function saveVoice() { try { localStorage.setItem("apejupoVoice", voiceOn ? "1" : "0"); localStorage.removeItem("apejupoVoiceFront"); localStorage.setItem("apejupoVoiceVol", String(voiceVol)); } catch (_) {} }
   var vpop = $("lv-vpop");
-  $("vp-on").checked = voiceOn; $("vp-front").checked = voiceFront; $("vp-vol").value = voiceVol; $("vp-volv").textContent = voiceVol + " %";
+  $("vp-on").checked = voiceOn; $("vp-vol").value = voiceVol; $("vp-volv").textContent = voiceVol + " %";
   $("viewer-voice").addEventListener("click", function (e) { e.stopPropagation(); vpop.hidden = !vpop.hidden; });
   vpop.addEventListener("click", function (e) { e.stopPropagation(); });
   document.addEventListener("click", function () { vpop.hidden = true; });
   $("vp-on").addEventListener("change", function () { voiceOn = this.checked; saveVoice(); applyVoice(); if (!voiceOn && hasTTS) speechSynthesis.cancel(); });
-  $("vp-front").addEventListener("change", function () { voiceFront = this.checked; saveVoice(); });
   $("vp-vol").addEventListener("input", function () { voiceVol = +this.value; $("vp-volv").textContent = voiceVol + " %"; saveVoice(); });
   $("vp-test").addEventListener("click", function () { var o = voiceOn; voiceOn = true; say("Prueba de volumen. Las blancas tienen ventaja clara."); voiceOn = o; });
   applyVoice();
@@ -1299,7 +1304,7 @@
     var announce = prev && newLvl > 0 && ((newSide !== cs && newLvl > 0) || newLvl > cur);
     vlvl[id] = { l: newLvl, s: newSide };
     if (!announce || !voiceOn) return;
-    if (voiceFront) openBig(id);
+    parpadeo(id); // no se trae al frente: solo parpadea su tablero
     var who = newSide > 0 ? "Las blancas" : "Las negras";
     say("Partida " + spokenName(g.tags.White) + " contra " + spokenName(g.tags.Black) + ". " + who + (newLvl === 3 ? " tienen " : " tienen ") + LV_TXT[newLvl] + ".");
   }
