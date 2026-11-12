@@ -1505,8 +1505,9 @@
     function byNearest(a, b) {
       var ao = a.round.ongoing ? 1 : 0, bo = b.round.ongoing ? 1 : 0;
       if (ao !== bo) return bo - ao;
+      // dentro de cada grupo (en directo / hoy), primero el que empieza antes
       var as = a.round.startsAt || 0, bs = b.round.startsAt || 0;
-      return ao ? bs - as : as - bs;
+      return as - bs;
     }
     // Orden manual: el usuario puede arrastrar las tarjetas (U.sortable); ese orden se respeta al pintar (U.applyOrder)
     var OK = "apejupoLiveOrder";
