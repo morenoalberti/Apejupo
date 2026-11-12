@@ -71,30 +71,57 @@
   }
   function ytEstado(e) {
     var m = $("fg-vid-marco"); if (!m) return;
-    var s = e.data; // 1 reproduciendo, 2 pausa, 3 cargando, 0 terminado
-    m.classList.toggle("empezado", s === 1 || s === 2 || s === 3);
-    m.classList.toggle("reproduciendo", s === 1 || s === 3);
+    var s = e.data; // 1 reproduciendo, 2 pausa, 3 cargando, 0 terminado, -1/5 sin empezar
+    if (s === 1 && !cine.open) { yt.pauseVideo(); return; } // se cerró la ventana mientras cargaba
+    // la portada tapa el reproductor hasta que el vídeo está de verdad en marcha
+    if (s === 1) {
+      clearTimeout(ytVigia); sinSubtitulos(); m.classList.add("reproduciendo");
+      if (m.classList.contains("empezado")) m.classList.remove("cargando");
+      else { // primer arranque: la portada aguanta un instante más para tapar el símbolo que YouTube pinta al empezar
+        var id = ytId;
+        setTimeout(function () { if (ytId === id && cine.open) { m.classList.remove("cargando"); m.classList.add("empezado"); } }, 650);
+      }
+    }
+    else if (s === 2 || s === -1 || s === 5) m.classList.remove("reproduciendo");
+    else if (s === 0) m.classList.remove("empezado", "reproduciendo", "cargando");
     $("fg-yt-pp").setAttribute("aria-label", s === 1 ? "Pausa" : "Reproducir");
-    if (s === 1) sinSubtitulos();
     clearInterval(ytReloj); if (s === 1) ytReloj = setInterval(ytPintar, 250);
     ytPintar();
   }
+  var ytVigia = 0, ytListo = false;
   function arrancar() {
-    var v = videos[vidActual]; if (!v) return;
-    $("fg-vid-marco").classList.add("empezado");
+    var v = videos[vidActual], m = $("fg-vid-marco"); if (!v) return;
+    m.classList.add("cargando");
+    // si el navegador no deja arrancar con sonido, se arranca en silencio; y si tampoco, se deja pulsar el vídeo directamente
+    clearTimeout(ytVigia);
+    ytVigia = setTimeout(function () {
+      if (!m.classList.contains("cargando") || !ytListo) return;
+      try { yt.mute(); yt.playVideo(); m.classList.add("mudo"); } catch (e) {}
+      ytVigia = setTimeout(function () { if (m.classList.contains("cargando")) { m.classList.remove("cargando"); m.classList.add("directo"); } }, 4000);
+    }, 5000);
     apiYT().then(function () {
+      if (yt && !ytListo) { ytId = v.id; return; } // aún se está creando: arrancará solo con el vídeo elegido
       if (yt && ytId === v.id) { yt.playVideo(); return; }
       ytId = v.id;
       if (yt) { yt.loadVideoById(v.id); return; }
       yt = new YT.Player("fg-yt-player", {
         host: "https://www.youtube-nocookie.com", videoId: v.id,
         playerVars: { autoplay: 1, controls: 0, rel: 0, iv_load_policy: 3, cc_load_policy: 0, disablekb: 1, fs: 0, playsinline: 1, modestbranding: 1, hl: "es" },
-        events: { onReady: function (e) { sinSubtitulos(); e.target.playVideo(); }, onStateChange: ytEstado, onApiChange: sinSubtitulos }
+        events: {
+          onReady: function (e) {
+            ytListo = true; sinSubtitulos();
+            if (!cine.open) return;
+            if (ytId !== v.id) e.target.loadVideoById(ytId); else e.target.playVideo();
+          },
+          onStateChange: ytEstado, onApiChange: sinSubtitulos
+        }
       });
     });
   }
   function alternar() {
-    if (!yt || !yt.getPlayerState || ytId !== videos[vidActual].id) return arrancar();
+    var m = $("fg-vid-marco");
+    if (m.classList.contains("cargando")) return; // ya está arrancando
+    if (!yt || !ytListo || ytId !== videos[vidActual].id || !m.classList.contains("empezado")) return arrancar();
     yt.getPlayerState() === 1 ? yt.pauseVideo() : yt.playVideo();
   }
   cine.addEventListener("input", function (e) {
@@ -102,10 +129,10 @@
   });
   function ponerVideo(i) {
     var v = videos[i]; vidActual = i;
-    var m = $("fg-vid-marco"); m.classList.remove("empezado", "reproduciendo");
+    var m = $("fg-vid-marco"); m.classList.remove("empezado", "reproduciendo", "cargando", "directo");
     // la portada va en una variable: así no se queda encima del vídeo cuando empieza
     m.style.setProperty("--portada", "url(https://i.ytimg.com/vi/" + v.id + "/hqdefault.jpg)");
-    if (yt && ytId !== v.id) { try { yt.stopVideo(); } catch (e) {} }
+    if (yt && ytListo && ytId !== v.id) { try { yt.stopVideo(); } catch (e) {} }
     $("fg-vid-t").textContent = v.titulo;
     $("fg-vid-f").textContent = v.fecha ? FECHA.format(new Date(v.fecha)) : "";
     $("fg-cine-prev").hidden = i === 0; $("fg-cine-next").hidden = i === videos.length - 1;
@@ -116,11 +143,12 @@
   cine.addEventListener("close", function () {
     document.documentElement.classList.remove("fg-sin-scroll");
     if (document.fullscreenElement) document.exitFullscreen();
+    clearTimeout(ytVigia); $("fg-vid-marco").classList.remove("cargando");
     if (yt && yt.pauseVideo) { try { yt.pauseVideo(); } catch (e) {} }
   });
   cine.addEventListener("click", function (e) {
     if (e.target === cine || e.target.classList.contains("fg-cine-in")) return cerrarCine(); // clic en el fondo oscuro
-    if (e.target.closest("#fg-cine-x")) return cerrarCine();
+    if (e.target.closest("#fg-yt-x")) return cerrarCine();
     if (e.target.closest("#fg-cine-prev")) return ponerVideo(vidActual - 1);
     if (e.target.closest("#fg-cine-next")) return ponerVideo(vidActual + 1);
     if (e.target.closest("#fg-yt-capa, #fg-yt-pp")) return alternar();
