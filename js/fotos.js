@@ -211,6 +211,13 @@
     sesion.hidden = !clave;
     sesion.innerHTML = clave ? (admin ? "Administración" : "Socio") + ' · <button type="button" id="fg-salir">Salir</button>' : "";
   }
+  // Acceso de administración sin botón visible: fotos.html#admin abre la ventana de la clave
+  function accesoAdmin() {
+    if (location.hash !== "#admin") return;
+    history.replaceState(null, "", location.pathname + location.search);
+    if (!admin) pedirClave(null);
+  }
+  addEventListener("hashchange", accesoAdmin);
   function pedirClave(luego) {
     alEntrar = luego; ce.textContent = ""; ci.value = "";
     dlg.showModal(); ci.focus();
@@ -386,4 +393,5 @@
 
   pintarSesion();
   cargar();
+  accesoAdmin();
 })();
