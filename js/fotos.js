@@ -169,6 +169,21 @@
   }
   function cerrar() { if (visor.open) visor.close(); }
 
+  // Descargar: las fotos están en el dominio del Worker y el navegador ignora «download» en enlaces de otro dominio
+  // (abriría la imagen y sacaría al visitante de la galería). Se descarga el archivo y se guarda desde aquí.
+  $("fg-v-dl").addEventListener("click", function (e) {
+    e.preventDefault();
+    var a = this, nombre = a.getAttribute("download");
+    if (a.classList.contains("cargando")) return;
+    a.classList.add("cargando");
+    fetch(a.href).then(function (r) { if (!r.ok) throw new Error(); return r.blob(); }).then(function (b) {
+      var u = URL.createObjectURL(b), t = document.createElement("a");
+      t.href = u; t.download = nombre; document.body.appendChild(t); t.click(); t.remove();
+      setTimeout(function () { URL.revokeObjectURL(u); }, 4000);
+    }).catch(function () { alert("No se ha podido descargar la foto. Inténtalo de nuevo."); })
+      .then(function () { a.classList.remove("cargando"); });
+  });
+
   // Pie de foto: lo escribe quien la sube (puede corregirlo durante 24 h) y la administración puede cambiarlo siempre
   var editando = false;
   function puedeEditar(f) { return !!clave && (admin || Date.now() - f.ts < 24 * 3600 * 1000); }

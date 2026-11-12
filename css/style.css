@@ -1295,6 +1295,7 @@ body.card-dragging .tour-tip { display: none !important; }
 .fg-v-b { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; border-radius: 50%; border: 0; background: rgba(232, 238, 247, .1); color: #fff; cursor: pointer; transition: background .15s; }
 .fg-v-b:hover, .fg-v-b:focus-visible { background: rgba(232, 238, 247, .22); outline: none; }
 .fg-v-b[hidden] { display: none; }
+.fg-v-b.cargando { opacity: .5; cursor: wait; }
 .fg-v-prev, .fg-v-next { position: absolute; top: 50%; transform: translateY(-50%); width: 52px; height: 52px; }
 .fg-v-prev { left: 14px; }
 .fg-v-next { right: 14px; }
