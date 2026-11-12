@@ -44,6 +44,7 @@
       return '<figure class="fg-cel" data-id="' + f.id + '"><button type="button" class="fg-item" data-i="' + i + '" style="aspect-ratio:' + f.w + "/" + f.h + '" aria-label="Ver foto' + (f.pie ? ": " + esc(f.pie) : f.album ? " de " + esc(f.album) : "") + '">' +
         '<img src="' + url("t", f.id) + '" alt="' + esc(f.pie || "") + '" loading="lazy" decoding="async" draggable="false" width="' + f.w + '" height="' + f.h + '" onload="this.classList.add(\'ok\')">' +
         (f.album && !filtro ? '<span class="fg-tag">' + esc(f.album) + "</span>" : "") + "</button>" +
+        (!ordenando && puedeEditar(f) ? '<button type="button" class="fg-ed" aria-label="' + (f.pie ? "Cambiar" : "Escribir") + ' el pie de foto" title="' + (f.pie ? "Cambiar" : "Escribir") + ' el pie"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>' : "") +
         (f.pie ? '<figcaption class="fg-pie">' + esc(f.pie) + "</figcaption>" : "") + "</figure>";
     });
     if (ordenando) { grid.className = "fg-grid ordenando"; grid.innerHTML = celdas.join(""); return; }
@@ -68,8 +69,26 @@
   });
   grid.addEventListener("click", function (e) {
     if (ordenando) return;
+    var ed = e.target.closest(".fg-ed"); if (ed) { editarEnMosaico(ed.closest(".fg-cel")); return; }
     var b = e.target.closest(".fg-item"); if (b) abrir(+b.getAttribute("data-i"));
   });
+
+  // Editar el pie directamente en el mosaico: el lápiz de cada foto cambia el pie por un campo de texto
+  function editarEnMosaico(cel) {
+    var id = cel.getAttribute("data-id"), f = fotos.filter(function (x) { return x.id === id; })[0];
+    if (!f || cel.querySelector(".fg-pie-form")) return;
+    var viejo = cel.querySelector(".fg-pie"); if (viejo) viejo.remove();
+    cel.querySelector(".fg-ed").hidden = true;
+    cel.insertAdjacentHTML("beforeend", '<form class="fg-pie-form"><input maxlength="200" placeholder="Escribe el pie de foto" aria-label="Pie de foto"><span class="fg-acc"><button type="button" class="btn-ghost">Cancelar</button><button class="btn">Guardar</button></span><span class="fg-pie-err" role="alert"></span></form>');
+    var fm = cel.querySelector(".fg-pie-form"), inp = fm.querySelector("input"), ok = fm.querySelector(".btn");
+    inp.value = f.pie || ""; inp.focus(); inp.select();
+    fm.querySelector(".btn-ghost").addEventListener("click", pintar);
+    inp.addEventListener("keydown", function (e) { if (e.key === "Escape") { e.preventDefault(); pintar(); } });
+    fm.addEventListener("submit", function (e) {
+      e.preventDefault(); ok.disabled = true;
+      guardarPie(f, inp.value).catch(function (err) { fm.querySelector(".fg-pie-err").textContent = err.message; ok.disabled = false; });
+    });
+  }
 
   // ───── Ordenar arrastrando (solo administración) ─────
   // Se arrastra con el ratón o con el dedo; las demás fotos se apartan con una pequeña animación.
