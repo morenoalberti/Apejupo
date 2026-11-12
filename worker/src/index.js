@@ -53,7 +53,7 @@ async function fideStats(id) {
 // Las fotos se guardan en el bucket R2 «FOTOS»: f/<id> es la foto y t/<id> la miniatura (con ancho, alto y álbum).
 // Ver la galería es público; subir exige la clave del club (FOTOS_CLAVE) y borrar, la de administración (FOTOS_ADMIN).
 // Las dos claves son secretos del Worker: no están en el repositorio.
-const FOTO_CORS = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS", "Access-Control-Allow-Headers": "X-Clave", "Access-Control-Max-Age": "86400" };
+const FOTO_CORS = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS", "Access-Control-Allow-Headers": "X-Clave, Content-Type", "Access-Control-Max-Age": "86400" };
 const FOTO_MAX = 4 * 1024 * 1024, MINI_MAX = 400 * 1024, INTENTOS_MAX = 8;
 const FOTO_ID = /^[0-9a-z]{9}-[0-9a-f]{8}$/;
 const fjson = (data, status = 200) => new Response(JSON.stringify(data), { status, headers: { ...FOTO_CORS, "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" } });
@@ -94,6 +94,9 @@ async function tipoImagen(file) { // se comprueba el contenido real, no lo que d
 }
 
 const BLOQUEO = "Demasiados intentos. Prueba dentro de 15 minutos.";
+const PIE_MAX = 200, PIE_PLAZO = 24 * 3600 * 1000; // un socio puede escribir o corregir el pie de su foto durante 24 h; la administración, siempre
+const limpio = (v, max) => String(v || "").replace(/\s+/g, " ").trim().slice(0, max);
+function texto(v) { try { return decodeURIComponent(v || ""); } catch (e) { return ""; } }
 
 async function fotos(request, env, url) {
   if (request.method === "OPTIONS") return new Response(null, { headers: FOTO_CORS });
@@ -107,14 +110,32 @@ async function fotos(request, env, url) {
       const l = await env.FOTOS.list({ prefix: "t/", cursor, include: ["customMetadata"] });
       for (const o of l.objects) {
         const m = o.customMetadata || {};
-        let album = "";
-        try { album = decodeURIComponent(m.album || ""); } catch (e) {}
-        out.push({ id: o.key.slice(2), w: +m.w || 4, h: +m.h || 3, album, ts: +m.ts || o.uploaded.getTime() });
+        out.push({ id: o.key.slice(2), w: +m.w || 4, h: +m.h || 3, album: texto(m.album), pie: texto(m.pie), ts: +m.ts || o.uploaded.getTime() });
       }
       cursor = l.truncated ? l.cursor : undefined;
     } while (cursor);
-    out.sort((a, b) => b.ts - a.ts);
+    // Orden elegido por la administración (orden.json). Las fotos que no están en él (las nuevas) van primero, de la más reciente a la más antigua.
+    let orden = [];
+    try { const o = await env.FOTOS.get("orden.json"); if (o) orden = await o.json(); } catch (e) {}
+    const pos = new Map(Array.isArray(orden) ? orden.map((id, i) => [id, i]) : []);
+    out.sort((a, b) => {
+      const pa = pos.has(a.id), pb = pos.has(b.id);
+      if (pa !== pb) return pa ? 1 : -1;
+      return pa ? pos.get(a.id) - pos.get(b.id) : b.ts - a.ts;
+    });
     return fjson({ fotos: out });
+  }
+
+  if (request.method === "POST" && ruta === "/fotos/orden") { // la administración guarda el orden de la galería
+    const r = await rol(request, env);
+    if (r === "bloqueado") return fjson({ error: BLOQUEO }, 429);
+    if (r !== "admin") return fjson({ error: "Solo la administración puede ordenar las fotos" }, r ? 403 : 401);
+    let body;
+    try { body = await request.json(); } catch (e) { return fjson({ error: "Envío no válido" }, 400); }
+    const ids = body && Array.isArray(body.ids) ? body.ids : null;
+    if (!ids || ids.length > 20000 || !ids.every((id) => typeof id === "string" && FOTO_ID.test(id))) return fjson({ error: "Orden no válido" }, 400);
+    await env.FOTOS.put("orden.json", JSON.stringify([...new Set(ids)]), { httpMetadata: { contentType: "application/json" } });
+    return fjson({ ok: true });
   }
 
   const img = /^\/fotos\/([ft])\/([^/]+)$/.exec(ruta);
@@ -144,13 +165,30 @@ async function fotos(request, env, url) {
     if (!tf || !tm) return fjson({ error: "El archivo no es una imagen válida" }, 415);
     const w = parseInt(form.get("w"), 10), h = parseInt(form.get("h"), 10);
     if (!(w > 0 && w <= 8000 && h > 0 && h <= 8000)) return fjson({ error: "Medidas no válidas" }, 400);
-    const album = String(form.get("album") || "").replace(/\s+/g, " ").trim().slice(0, 60);
+    const album = limpio(form.get("album"), 60), pie = limpio(form.get("pie"), PIE_MAX);
     const ts = Date.now();
     const id = ts.toString(36).padStart(9, "0") + "-" + [...crypto.getRandomValues(new Uint8Array(4))].map((b) => b.toString(16).padStart(2, "0")).join("");
     await env.FOTOS.put("f/" + id, await foto.arrayBuffer(), { httpMetadata: { contentType: tf } });
     // la miniatura se guarda al final: una foto solo aparece en la galería cuando está completa
-    await env.FOTOS.put("t/" + id, await mini.arrayBuffer(), { httpMetadata: { contentType: tm }, customMetadata: { w: String(w), h: String(h), album: encodeURIComponent(album), ts: String(ts) } });
-    return fjson({ id, w, h, album, ts }, 201);
+    await env.FOTOS.put("t/" + id, await mini.arrayBuffer(), { httpMetadata: { contentType: tm }, customMetadata: { w: String(w), h: String(h), album: encodeURIComponent(album), pie: encodeURIComponent(pie), ts: String(ts) } });
+    return fjson({ id, w, h, album, pie, ts }, 201);
+  }
+
+  const pieRuta = /^\/fotos\/([^/]+)\/pie$/.exec(ruta);
+  if (request.method === "POST" && pieRuta && FOTO_ID.test(pieRuta[1])) { // escribir o cambiar el pie de foto
+    const r = await rol(request, env);
+    if (r === "bloqueado") return fjson({ error: BLOQUEO }, 429);
+    if (!r) return fjson({ error: "Clave incorrecta" }, 401);
+    let body;
+    try { body = await request.json(); } catch (e) { return fjson({ error: "Envío no válido" }, 400); }
+    const o = await env.FOTOS.get("t/" + pieRuta[1]);
+    if (!o) return fjson({ error: "La foto ya no existe" }, 404);
+    const m = o.customMetadata || {};
+    if (r !== "admin" && Date.now() - (+m.ts || 0) > PIE_PLAZO) return fjson({ error: "Pasadas 24 horas, solo la administración puede cambiar el pie" }, 403);
+    const pie = limpio(body && body.pie, PIE_MAX);
+    // R2 no permite cambiar solo los metadatos: se vuelve a guardar la miniatura (pocos KB) con el pie nuevo
+    await env.FOTOS.put("t/" + pieRuta[1], await o.arrayBuffer(), { httpMetadata: o.httpMetadata, customMetadata: { ...m, pie: encodeURIComponent(pie) } });
+    return fjson({ ok: true, pie });
   }
 
   const del = /^\/fotos\/([^/]+)$/.exec(ruta);

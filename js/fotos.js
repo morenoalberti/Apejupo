@@ -39,20 +39,96 @@
     $("fg-cuenta").textContent = vista.length ? vista.length + (vista.length === 1 ? " foto" : " fotos") : "";
     grid.removeAttribute("aria-busy");
     $("fg-vacio").hidden = fotos.length > 0;
-    grid.innerHTML = vista.map(function (f, i) {
-      return '<button type="button" class="fg-item" data-i="' + i + '" style="aspect-ratio:' + f.w + "/" + f.h + '" aria-label="Ver foto' + (f.album ? " de " + esc(f.album) : "") + '">' +
-        '<img src="' + url("t", f.id) + '" alt="" loading="lazy" decoding="async" width="' + f.w + '" height="' + f.h + '" onload="this.classList.add(\'ok\')">' +
-        (f.album && !filtro ? '<span class="fg-tag">' + esc(f.album) + "</span>" : "") + "</button>";
-    }).join("");
+    $("fg-ordenar").hidden = !admin || vista.length < 2 || ordenando;
+    var celdas = vista.map(function (f, i) {
+      return '<figure class="fg-cel" data-id="' + f.id + '"><button type="button" class="fg-item" data-i="' + i + '" style="aspect-ratio:' + f.w + "/" + f.h + '" aria-label="Ver foto' + (f.pie ? ": " + esc(f.pie) : f.album ? " de " + esc(f.album) : "") + '">' +
+        '<img src="' + url("t", f.id) + '" alt="' + esc(f.pie || "") + '" loading="lazy" decoding="async" draggable="false" width="' + f.w + '" height="' + f.h + '" onload="this.classList.add(\'ok\')">' +
+        (f.album && !filtro ? '<span class="fg-tag">' + esc(f.album) + "</span>" : "") + "</button>" +
+        (f.pie ? '<figcaption class="fg-pie">' + esc(f.pie) + "</figcaption>" : "") + "</figure>";
+    });
+    if (ordenando) { grid.className = "fg-grid ordenando"; grid.innerHTML = celdas.join(""); return; }
+    // Mosaico que se lee de izquierda a derecha: cada foto va a la columna más corta (así el orden elegido es el que se ve)
+    cols = numCols(); grid.className = "fg-grid";
+    var alto = [], html = [];
+    for (var c = 0; c < cols; c++) { alto.push(0); html.push(""); }
+    vista.forEach(function (f, i) {
+      var k = alto.indexOf(Math.min.apply(null, alto));
+      alto[k] += f.h / f.w + (f.pie ? .14 : 0) + .05;
+      html[k] += celdas[i];
+    });
+    grid.innerHTML = html.map(function (h) { return '<div class="fg-col">' + h + "</div>"; }).join("");
   }
+  var cols = 0;
+  function numCols() { var w = grid.clientWidth || innerWidth; return w < 520 ? 2 : w < 760 ? 3 : 4; }
+  addEventListener("resize", function () { if (!ordenando && fotos.length && numCols() !== cols) pintar(); });
 
   chips.addEventListener("click", function (e) {
-    var b = e.target.closest(".fg-chip"); if (!b) return;
+    var b = e.target.closest(".fg-chip"); if (!b || ordenando) return;
     filtro = b.getAttribute("data-a"); pintar();
   });
   grid.addEventListener("click", function (e) {
+    if (ordenando) return;
     var b = e.target.closest(".fg-item"); if (b) abrir(+b.getAttribute("data-i"));
   });
+
+  // ───── Ordenar arrastrando (solo administración) ─────
+  // Se arrastra con el ratón o con el dedo; las demás fotos se apartan con una pequeña animación.
+  var ordenando = false, arr = null;
+  $("fg-ordenar").addEventListener("click", function () { ordenando = true; $("fg-ord-bar").hidden = false; pintar(); });
+  $("fg-ord-no").addEventListener("click", function () { ordenando = false; $("fg-ord-bar").hidden = true; pintar(); });
+  $("fg-ord-si").addEventListener("click", function () {
+    var b = this; b.disabled = true;
+    var nuevos = [].map.call(grid.querySelectorAll(".fg-cel"), function (el) { return el.getAttribute("data-id"); });
+    // con un álbum filtrado, sus fotos se reordenan dentro de los mismos huecos que ocupan en la galería completa
+    var dentro = {}; nuevos.forEach(function (id) { dentro[id] = 1; });
+    var k = 0, porId = {}; fotos.forEach(function (f) { porId[f.id] = f; });
+    var todas = fotos.map(function (f) { return dentro[f.id] ? porId[nuevos[k++]] : f; });
+    fetch(API + "/orden", { method: "POST", headers: { "X-Clave": clave, "Content-Type": "application/json" }, body: JSON.stringify({ ids: todas.map(function (f) { return f.id; }) }) })
+      .then(function (r) { return r.json().then(function (j) { if (!r.ok) throw new Error(j.error || "No se ha podido guardar el orden"); }); })
+      .then(function () { fotos = todas; ordenando = false; $("fg-ord-bar").hidden = true; pintar(); }, function (e) { alert(e.message); })
+      .then(function () { b.disabled = false; });
+  });
+  grid.addEventListener("pointerdown", function (e) {
+    if (!ordenando || e.button > 0) return;
+    var cel = e.target.closest(".fg-cel"); if (!cel) return;
+    e.preventDefault();
+    var r = cel.getBoundingClientRect();
+    arr = { cel: cel, dx: e.clientX - r.left, dy: e.clientY - r.top, x: e.clientX, y: e.clientY };
+    cel.classList.add("arrastrando");
+    try { grid.setPointerCapture(e.pointerId); } catch (er) {}
+  });
+  grid.addEventListener("pointermove", function (e) {
+    if (!arr) return;
+    var cel = arr.cel;
+    cel.style.transform = "translate(" + (e.clientX - arr.x) + "px," + (e.clientY - arr.y) + "px) scale(1.05)";
+    cel.style.visibility = "hidden";
+    var bajo = document.elementFromPoint(e.clientX, e.clientY);
+    cel.style.visibility = "";
+    var obj = bajo && bajo.closest(".fg-grid.ordenando .fg-cel");
+    if (!obj || obj === cel) return;
+    var lista = [].slice.call(grid.children), a = lista.indexOf(cel), b = lista.indexOf(obj);
+    // FLIP: se anotan las posiciones, se mueve en el DOM y las fotos se deslizan a su sitio nuevo
+    var antes = lista.map(function (el) { return el.getBoundingClientRect(); });
+    var r0 = cel.getBoundingClientRect();
+    grid.insertBefore(cel, a < b ? obj.nextSibling : obj);
+    lista.forEach(function (el, i) {
+      if (el === cel) return;
+      var d = el.getBoundingClientRect(), x = antes[i].left - d.left, y = antes[i].top - d.top;
+      if (!x && !y) return;
+      el.style.transition = "none"; el.style.transform = "translate(" + x + "px," + y + "px)";
+      requestAnimationFrame(function () { requestAnimationFrame(function () { el.style.transition = ""; el.style.transform = ""; }); });
+    });
+    var r1 = cel.getBoundingClientRect(); // la foto arrastrada sigue bajo el dedo aunque haya cambiado de hueco
+    arr.x += r1.left - r0.left; arr.y += r1.top - r0.top;
+    cel.style.transform = "translate(" + (e.clientX - arr.x) + "px," + (e.clientY - arr.y) + "px) scale(1.05)";
+  });
+  function soltar() {
+    if (!arr) return;
+    var cel = arr.cel; arr = null;
+    cel.classList.remove("arrastrando"); cel.style.transform = "";
+  }
+  grid.addEventListener("pointerup", soltar);
+  grid.addEventListener("pointercancel", soltar);
 
   // ───── Visor a pantalla completa ─────
   var visor = $("fg-visor"), vimg = $("fg-v-img");
@@ -63,26 +139,56 @@
     vimg.classList.remove("ok");
     vimg.src = url("t", f.id); // la miniatura aparece al momento y la foto grande la sustituye al llegar
     var g = new Image(); g.onload = function () { if (vista[actual] === f) { vimg.src = g.src; vimg.classList.add("ok"); } }; g.src = url("f", f.id);
-    $("fg-v-cap").innerHTML = (f.album ? "<strong>" + esc(f.album) + "</strong> · " : "") + FECHA.format(new Date(f.ts)) + ' <span class="fg-v-n">' + (actual + 1) + " / " + vista.length + "</span>";
+    pintarPie(f);
     $("fg-v-dl").href = url("f", f.id);
     $("fg-v-dl").setAttribute("download", "apejupo-" + f.id + ".webp");
     $("fg-v-del").hidden = !admin;
+    $("fg-v-ed").hidden = !puedeEditar(f);
     var varias = vista.length > 1;
     $("fg-v-prev").hidden = $("fg-v-next").hidden = !varias;
     if (!visor.open) { visor.showModal(); document.documentElement.classList.add("fg-sin-scroll"); }
   }
   function cerrar() { if (visor.open) visor.close(); }
+
+  // Pie de foto: lo escribe quien la sube (puede corregirlo durante 24 h) y la administración puede cambiarlo siempre
+  var editando = false;
+  function puedeEditar(f) { return !!clave && (admin || Date.now() - f.ts < 24 * 3600 * 1000); }
+  function pintarPie(f) {
+    editando = false;
+    $("fg-v-cap").innerHTML = (f.pie ? '<span class="fg-v-pie">' + esc(f.pie) + "</span>" : "") +
+      '<span class="fg-v-meta">' + (f.album ? esc(f.album) + " · " : "") + FECHA.format(new Date(f.ts)) + ' <span class="fg-v-n">' + (actual + 1) + " / " + vista.length + "</span></span>";
+  }
+  function guardarPie(f, pie) {
+    return fetch(API + "/" + f.id + "/pie", { method: "POST", headers: { "X-Clave": clave, "Content-Type": "application/json" }, body: JSON.stringify({ pie: pie }) })
+      .then(function (r) { return r.json().then(function (j) { if (!r.ok) throw new Error(j.error || "No se ha podido guardar"); return j; }); })
+      .then(function (j) { f.pie = j.pie; pintar(); return j.pie; });
+  }
+  $("fg-v-ed").addEventListener("click", function () {
+    var f = vista[actual]; if (!f || editando) return;
+    editando = true;
+    var cap = $("fg-v-cap"), viejo = cap.querySelector(".fg-v-pie");
+    if (viejo) viejo.remove();
+    cap.insertAdjacentHTML("afterbegin", '<form class="fg-v-form"><input maxlength="200" placeholder="Escribe el pie de foto" aria-label="Pie de foto"><button class="btn">Guardar</button></form>');
+    var fm = cap.querySelector("form"), inp = fm.querySelector("input");
+    inp.value = f.pie || ""; inp.focus();
+    fm.addEventListener("submit", function (e) {
+      e.preventDefault(); fm.querySelector("button").disabled = true;
+      guardarPie(f, inp.value).then(function () { if (vista[actual] === f) pintarPie(f); }, function (err) { alert(err.message); fm.querySelector("button").disabled = false; });
+    });
+  });
+  visor.addEventListener("cancel", function (e) { if (editando) { e.preventDefault(); pintarPie(vista[actual]); } }); // Escape cancela la edición sin cerrar el visor
   visor.addEventListener("close", function () { document.documentElement.classList.remove("fg-sin-scroll"); vimg.removeAttribute("src"); actual = -1; });
   $("fg-v-prev").addEventListener("click", function () { abrir(actual - 1); });
   $("fg-v-next").addEventListener("click", function () { abrir(actual + 1); });
   $("fg-v-x").addEventListener("click", cerrar);
-  visor.addEventListener("click", function (e) { if (e.target === visor || e.target.tagName === "FIGURE") cerrar(); });
+  visor.addEventListener("click", function (e) { if (!editando && (e.target === visor || e.target.tagName === "FIGURE")) cerrar(); });
   visor.addEventListener("keydown", function (e) {
+    if (editando) return;
     if (e.key === "ArrowLeft") { e.preventDefault(); abrir(actual - 1); }
     else if (e.key === "ArrowRight") { e.preventDefault(); abrir(actual + 1); }
   });
   var x0 = null;
-  visor.addEventListener("touchstart", function (e) { x0 = e.touches.length === 1 ? e.touches[0].clientX : null; }, { passive: true });
+  visor.addEventListener("touchstart", function (e) { x0 = e.touches.length === 1 && !editando ? e.touches[0].clientX : null; }, { passive: true });
   visor.addEventListener("touchend", function (e) {
     if (x0 === null) return;
     var dx = e.changedTouches[0].clientX - x0; x0 = null;
@@ -101,6 +207,7 @@
   // ───── Clave del club ─────
   var dlg = $("fg-clave"), ci = $("fg-clave-i"), ce = $("fg-clave-e"), alEntrar = null;
   function pintarSesion() {
+    if (fotos.length) pintar(); // muestra u oculta «Ordenar» según la clave
     sesion.hidden = !clave;
     sesion.innerHTML = clave ? (admin ? "Administración" : "Socio") + ' · <button type="button" id="fg-salir">Salir</button>' : "";
   }
@@ -113,18 +220,26 @@
     if (!clave && pendientes.length) { pendientes.forEach(function (p) { p.li.remove(); }); pendientes = []; }
     alEntrar = null;
   });
-  $("fg-clave-f").addEventListener("submit", function (e) {
-    e.preventDefault();
-    var c = ci.value.trim(); if (!c) return;
+  // La clave se comprueba sola en cuanto se termina de escribir (sin pulsar Enter). Se espera un instante tras la última
+  // tecla para no gastar intentos con claves a medias (tras 8 fallos el servidor bloquea 15 minutos).
+  var espera = null, enCurso = "";
+  ci.addEventListener("input", function () {
+    clearTimeout(espera); ce.textContent = "";
+    if (ci.value.trim().length >= 4) espera = setTimeout(comprobar, 450);
+  });
+  $("fg-clave-f").addEventListener("submit", function (e) { e.preventDefault(); clearTimeout(espera); comprobar(); });
+  function comprobar() {
+    var c = ci.value.trim(); if (!c || c === enCurso) return;
+    enCurso = c;
     var b = $("fg-clave-ok"); b.disabled = true; ce.textContent = "";
     fetch(API + "/acceso", { method: "POST", headers: { "X-Clave": c } }).then(function (r) {
       return r.json().then(function (j) { if (!r.ok) throw new Error(j.error || "Clave incorrecta"); return j; });
     }).then(function (j) {
       clave = c; admin = !!j.admin; guardar("fg-clave", c); guardar("fg-admin", admin ? "1" : "");
       pintarSesion(); var f = alEntrar; dlg.close(); if (f) f();
-    }).catch(function (err) { ce.textContent = err.message === "Failed to fetch" ? "No hay conexión con el servidor" : err.message; ci.select(); })
-      .then(function () { b.disabled = false; });
-  });
+    }).catch(function (err) { ce.textContent = err.message === "Failed to fetch" ? "No hay conexión con el servidor" : err.message; })
+      .then(function () { b.disabled = false; enCurso = ""; });
+  }
   sesion.addEventListener("click", function (e) {
     if (e.target.id !== "fg-salir") return;
     e.stopPropagation(); clave = ""; admin = false; guardar("fg-clave", ""); guardar("fg-admin", ""); pintarSesion();
@@ -157,13 +272,26 @@
     nuevos.forEach(function (f) {
       var li = document.createElement("li");
       li.className = "fg-up";
-      li.innerHTML = '<span class="fg-up-img"></span><span class="fg-up-t"><span class="fg-up-n"></span><span class="fg-up-e muted">En espera…</span></span><span class="fg-up-bar"><i></i></span>';
+      li.innerHTML = '<span class="fg-up-img"></span><span class="fg-up-t"><span class="fg-up-n"></span><span class="fg-up-e muted">En espera…</span></span>' +
+        '<button type="button" class="fg-up-x" aria-label="Quitar de la lista" hidden>×</button>' +
+        '<input class="fg-up-pie" maxlength="200" placeholder="Escribe un pie de foto…" aria-label="Pie de foto"><span class="fg-up-bar"><i></i></span>';
       li.querySelector(".fg-up-n").textContent = f.name;
       var prev = URL.createObjectURL(f), im = new Image();
       im.onload = function () { li.querySelector(".fg-up-img").style.backgroundImage = "url(" + prev + ")"; };
       im.src = prev;
       cola.prepend(li);
-      pendientes.push({ f: f, li: li, album: a, prev: prev });
+      var p = { f: f, li: li, album: a, prev: prev };
+      var inp = li.querySelector(".fg-up-pie");
+      // el pie escrito antes de terminar la subida viaja con la foto; si se escribe o corrige después, se guarda al salir del campo o con Enter
+      var guarda = function () {
+        if (!p.foto || inp.value.replace(/\s+/g, " ").trim() === (p.foto.pie || "")) return;
+        estado(p, "Guardando el pie…");
+        guardarPie(p.foto, inp.value).then(function () { estado(p, "Pie guardado ✓", "bien"); }, function (e) { estado(p, e.message, "mal"); });
+      };
+      inp.addEventListener("change", guarda);
+      inp.addEventListener("keydown", function (e) { if (e.key === "Enter") { e.preventDefault(); inp.blur(); } });
+      li.querySelector(".fg-up-x").addEventListener("click", function () { li.classList.add("fuera"); setTimeout(function () { li.remove(); URL.revokeObjectURL(prev); }, 400); });
+      pendientes.push(p);
     });
     if (!clave) pedirClave(siguiente); else siguiente();
   }
@@ -189,11 +317,15 @@
       var fd = new FormData();
       fd.append("foto", r.foto, "foto"); fd.append("mini", r.mini, "mini");
       fd.append("w", r.w); fd.append("h", r.h); fd.append("album", p.album);
+      fd.append("pie", p.li.querySelector(".fg-up-pie").value);
       return enviar(fd, function (pct) { estado(p, "Subiendo… " + Math.round(pct) + " %", "", 8 + pct * .92); });
     }).then(function (j) {
-      estado(p, "Subida", "bien", 100);
+      p.foto = j;
+      estado(p, j.pie ? "Subida con su pie ✓" : "Subida ✓ · añade un pie si quieres", "bien", 100);
+      p.li.querySelector(".fg-up-x").hidden = false;
       fotos.unshift(j); pintar();
-      setTimeout(function () { p.li.classList.add("fuera"); setTimeout(function () { p.li.remove(); URL.revokeObjectURL(p.prev); }, 400); }, 2200);
+      var inp = p.li.querySelector(".fg-up-pie");
+      if (document.activeElement !== inp && inp.value.replace(/\s+/g, " ").trim() !== (j.pie || "")) inp.dispatchEvent(new Event("change"));
     }, function (e) {
       if (e.status === 401) { clave = ""; admin = false; guardar("fg-clave", ""); pintarSesion(); pendientes.unshift(p); pedirClave(siguiente); estado(p, "Esperando la clave…", "", 0); return; }
       estado(p, e.message || "No se ha podido subir", "mal", 100);
