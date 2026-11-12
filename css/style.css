@@ -1283,6 +1283,15 @@ body.card-dragging .tour-tip { display: none !important; }
 .fg-clave input:focus { outline: none; border-color: var(--blue); box-shadow: 0 0 0 3px rgba(59, 130, 246, .25); }
 .fg-clave .fg-err { min-height: 1.3em; margin: 8px 0 4px; color: #dc2626; font-size: .85rem; }
 .fg-acc { display: flex; justify-content: flex-end; gap: 10px; }
+.fg-conf-cab { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+.fg-conf-cab h2 { margin: 0; }
+.fg-conf-ic { flex: none; width: 42px; height: 42px; display: inline-flex; align-items: center; justify-content: center; border-radius: 12px; background: rgba(220, 38, 38, .12); color: #dc2626; }
+.fg-conf-foto { margin: 0 0 12px; border-radius: 10px; overflow: hidden; border: 1px solid var(--line); background: var(--bg); }
+.fg-conf-foto img { display: block; width: 100%; max-height: 220px; object-fit: cover; }
+.fg-conf-foto figcaption { padding: 8px 12px; font-size: .86rem; }
+.fg-conf-foto figcaption:empty { display: none; }
+.fg-btn-rojo { background: #dc2626; }
+.fg-btn-rojo:hover { background: #b91c1c; }
 .fg-acc .btn { border: 0; cursor: pointer; font: inherit; }
 .fg-acc .btn:disabled { opacity: .6; cursor: wait; }
 

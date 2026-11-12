@@ -19,7 +19,7 @@
 <meta property="og:image:alt" content="Apejupo Chess Club: ajedrez entre amigos todos los miércoles a las 17:00 h en Málaga">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" type="image/svg+xml" href="assets/icon.svg">
-<link rel="stylesheet" href="css/style.css?v=20261112-borrar">
+<link rel="stylesheet" href="css/style.css?v=20261112-confirmar">
 <script defer src="js/analytics.js?v=20261111-analytics"></script>
 </head>
 <body>
@@ -87,6 +87,16 @@
   </form>
 </dialog>
 
+<dialog class="fg-dlg fg-clave fg-conf" id="fg-conf" aria-labelledby="fg-conf-t" aria-describedby="fg-conf-d">
+  <div class="fg-conf-cab">
+    <span class="fg-conf-ic"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M6 6l1 15h10l1-15M10 11v6M14 11v6"/></svg></span>
+    <h2 id="fg-conf-t">¿Borrar esta foto?</h2>
+  </div>
+  <figure class="fg-conf-foto"><img id="fg-conf-img" alt=""><figcaption id="fg-conf-pie"></figcaption></figure>
+  <p class="muted" id="fg-conf-d">Desaparecerá de la galería para todos. No se puede deshacer.</p>
+  <div class="fg-acc"><button type="button" class="btn-ghost" id="fg-conf-no">Cancelar</button><button type="button" class="btn fg-btn-rojo" id="fg-conf-si">Sí, borrar</button></div>
+</dialog>
+
 <dialog class="fg-visor" id="fg-visor" aria-label="Foto ampliada">
   <figure><img id="fg-v-img" alt=""><figcaption id="fg-v-cap"></figcaption></figure>
   <button type="button" class="fg-v-b fg-v-prev" id="fg-v-prev" aria-label="Foto anterior"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg></button>
@@ -103,6 +113,6 @@
 
 <script src="js/menu.js?v=20261112-fotos"></script>
 <script src="js/util.js?v=20261111-llegar"></script>
-<script src="js/fotos.js?v=20261112-borrar"></script>
+<script src="js/fotos.js?v=20261112-confirmar"></script>
 </body>
 </html>

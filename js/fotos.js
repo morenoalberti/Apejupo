@@ -245,7 +245,23 @@
   });
   // Borrar una foto (solo administración): desde el visor o con la papelera de cada foto del mosaico
   function borrarFoto(f) {
-    if (!confirm("¿Borrar esta foto de la galería? No se puede deshacer.")) return Promise.resolve(false);
+    return confirmarBorrado(f).then(function (si) { if (si) return borrarYa(f); return false; });
+  }
+  // Ventana propia del club para confirmar (en lugar del aviso del navegador), con la miniatura de la foto
+  function confirmarBorrado(f) {
+    var d = $("fg-conf");
+    $("fg-conf-img").src = url("t", f.id);
+    $("fg-conf-pie").textContent = f.pie || "";
+    return new Promise(function (ok) {
+      var si = false;
+      var fin = function () { d.removeEventListener("close", fin); $("fg-conf-si").onclick = $("fg-conf-no").onclick = null; ok(si); };
+      $("fg-conf-si").onclick = function () { si = true; d.close(); };
+      $("fg-conf-no").onclick = function () { d.close(); };
+      d.addEventListener("close", fin);
+      d.showModal(); $("fg-conf-no").focus(); // por defecto, el botón seguro
+    });
+  }
+  function borrarYa(f) {
     return fetch(API + "/" + f.id, { method: "DELETE", headers: { "X-Clave": clave } }).then(function (r) {
       if (!r.ok) return r.json().catch(function () { return {}; }).then(function (j) { throw new Error(j.error || "No se ha podido borrar"); });
       fotos = fotos.filter(function (g) { return g.id !== f.id; });
