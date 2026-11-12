@@ -1498,7 +1498,12 @@
     function count(n) { window.apejupoLiveN = n; window.apejupoCount && window.apejupoCount(); }
     function paint(live, up) {
       live.sort(byNearest); // también reordena la lista guardada en caché
-      U.applyOrder(live, OK, function (x) { return x.tour.id; });
+      // Los que se están jugando van siempre delante de los que no han empezado; el orden manual (arrastrar)
+      // solo cambia el sitio dentro de cada grupo, nunca pasa uno que no ha empezado por delante de uno en directo.
+      var idDe = function (x) { return x.tour.id; };
+      var enJuego = U.applyOrder(live.filter(function (x) { return x.round.ongoing; }), OK, idDe);
+      var resto = U.applyOrder(live.filter(function (x) { return !x.round.ongoing; }), OK, idDe);
+      live.length = 0; Array.prototype.push.apply(live, enJuego.concat(resto));
       $("live").innerHTML = live.length
         ? live.map(cardHtml).join("")
         : '<p class="muted">Ahora mismo no hay torneos en directo.</p>';
@@ -1523,7 +1528,12 @@
       // Añadir por lotes pequeños conserva las tarjetas y sus imágenes mientras sigue llegando la respuesta.
       function renderPending() {
         renderTimer = null;
-        $("live").insertAdjacentHTML("beforeend", pending.map(cardHtml).join(""));
+        // mientras cargan, también: uno en directo entra delante del primero que aún no ha empezado
+        var box = $("live");
+        pending.forEach(function (x) {
+          var noEmpezado = x.round.ongoing ? Array.prototype.find.call(box.children, function (c) { return c.querySelector(".badge.soon"); }) : null;
+          if (noEmpezado) noEmpezado.insertAdjacentHTML("beforebegin", cardHtml(x)); else box.insertAdjacentHTML("beforeend", cardHtml(x));
+        });
         pending = []; count(live.length);
       }
       function add(it) {
