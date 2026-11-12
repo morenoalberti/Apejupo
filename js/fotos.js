@@ -44,6 +44,7 @@
       return '<figure class="fg-cel" data-id="' + f.id + '"><button type="button" class="fg-item" data-i="' + i + '" style="aspect-ratio:' + f.w + "/" + f.h + '" aria-label="Ver foto' + (f.pie ? ": " + esc(f.pie) : f.album ? " de " + esc(f.album) : "") + '">' +
         '<img src="' + url("t", f.id) + '" alt="' + esc(f.pie || "") + '" loading="lazy" decoding="async" draggable="false" width="' + f.w + '" height="' + f.h + '" onload="this.classList.add(\'ok\')">' +
         (f.album && !filtro ? '<span class="fg-tag">' + esc(f.album) + "</span>" : "") + "</button>" +
+        (!ordenando ? '<button type="button" class="fg-dl" aria-label="Descargar la foto" title="Descargar"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg></button>' : "") +
         (!ordenando && puedeEditar(f) ? '<button type="button" class="fg-ed" aria-label="' + (f.pie ? "Cambiar" : "Escribir") + ' el pie de foto" title="' + (f.pie ? "Cambiar" : "Escribir") + ' el pie"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>' : "") +
         (f.pie ? '<figcaption class="fg-pie">' + esc(f.pie) + "</figcaption>" : "") + "</figure>";
     });
@@ -70,6 +71,8 @@
   grid.addEventListener("click", function (e) {
     if (ordenando) return;
     var ed = e.target.closest(".fg-ed"); if (ed) { editarEnMosaico(ed.closest(".fg-cel")); return; }
+    var dl = e.target.closest(".fg-dl");
+    if (dl) { var id = dl.closest(".fg-cel").getAttribute("data-id"); descargar(dl, url("f", id), "apejupo-" + id + ".webp"); return; }
     var b = e.target.closest(".fg-item"); if (b) abrir(+b.getAttribute("data-i"));
   });
 
@@ -173,16 +176,18 @@
   // (abriría la imagen y sacaría al visitante de la galería). Se descarga el archivo y se guarda desde aquí.
   $("fg-v-dl").addEventListener("click", function (e) {
     e.preventDefault();
-    var a = this, nombre = a.getAttribute("download");
+    descargar(this, this.href, this.getAttribute("download"));
+  });
+  function descargar(a, dir, nombre) {
     if (a.classList.contains("cargando")) return;
     a.classList.add("cargando");
-    fetch(a.href).then(function (r) { if (!r.ok) throw new Error(); return r.blob(); }).then(function (b) {
+    fetch(dir).then(function (r) { if (!r.ok) throw new Error(); return r.blob(); }).then(function (b) {
       var u = URL.createObjectURL(b), t = document.createElement("a");
       t.href = u; t.download = nombre; document.body.appendChild(t); t.click(); t.remove();
       setTimeout(function () { URL.revokeObjectURL(u); }, 4000);
     }).catch(function () { alert("No se ha podido descargar la foto. Inténtalo de nuevo."); })
       .then(function () { a.classList.remove("cargando"); });
-  });
+  }
 
   // Pie de foto: lo escribe quien la sube (puede corregirlo durante 24 h) y la administración puede cambiarlo siempre
   var editando = false;
