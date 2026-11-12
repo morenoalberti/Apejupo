@@ -1288,16 +1288,22 @@ body.card-dragging .tour-tip { display: none !important; }
 .fg-vid:hover .fg-vid-play { background: #dc2626; transform: scale(1.08); }
 .fg-vid-t { padding: 0 14px; font-weight: 600; font-size: .92rem; line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .fg-vid-f { padding: 0 14px; font-size: .8rem; color: var(--muted); }
-.fg-vid-canal { display: table; margin: 22px auto 0; font-weight: 600; }
-.fg-vid-actual[hidden] { display: none; }
-.fg-vid-actual { max-width: min(960px, calc((100dvh - 200px) * 16 / 9)); margin: 0 auto 28px; scroll-margin-top: 90px; }
-.fg-yt-marco { width: 100%; aspect-ratio: 16 / 9; border-radius: 14px; overflow: hidden; background: #000; box-shadow: 0 18px 44px rgba(15, 27, 45, .25); }
+/* Vídeo grande en el centro de la pantalla, sobre la página desenfocada */
+.fg-visor.fg-cine { background: rgba(5, 10, 18, .35); }
+.fg-cine::backdrop { background: rgba(5, 10, 18, .2); -webkit-backdrop-filter: blur(14px) saturate(1.1); backdrop-filter: blur(14px) saturate(1.1); }
+.fg-cine[open] { align-items: center; justify-content: center; }
+.fg-cine-in { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 64px 76px 24px; min-width: 0; }
+.fg-cine .fg-yt-marco { width: min(1400px, 100%, calc((100dvh - 170px) * 16 / 9)); }
+.fg-cine-t { width: min(1400px, 100%, calc((100dvh - 170px) * 16 / 9)); margin: 14px 0 2px; font-size: 1.1rem; line-height: 1.35; color: #fff; text-shadow: 0 1px 8px rgba(0, 0, 0, .6); }
+.fg-cine-f { width: min(1400px, 100%, calc((100dvh - 170px) * 16 / 9)); margin: 0; font-size: .85rem; color: #c9d5e6; }
+@media (max-width: 640px) { .fg-cine-in { padding: 64px 8px 72px; } }
+.fg-yt-marco { width: 100%; aspect-ratio: 16 / 9; border-radius: 14px; overflow: hidden; background: #000; box-shadow: 0 24px 70px rgba(0, 0, 0, .55); }
 .fg-yt-marco { position: relative; }
 /* el iframe sobresale 70px por arriba y por abajo: ahí pinta YouTube sus rótulos y quedan fuera de la vista */
 .fg-yt-rec { position: absolute; left: 0; right: 0; top: -70px; bottom: -70px; pointer-events: none; }
 .fg-yt-rec iframe, .fg-yt-rec > div { display: block; width: 100%; height: 100%; border: 0; }
 .fg-yt-marco:fullscreen { aspect-ratio: auto; border-radius: 0; }
-.fg-yt-capa { position: absolute; inset: 0; z-index: 1; display: flex; align-items: center; justify-content: center; width: 100%; padding: 0; border: 0; background: #000 center / cover no-repeat; cursor: pointer; }
+.fg-yt-capa { position: absolute; inset: 0; z-index: 1; display: flex; align-items: center; justify-content: center; width: 100%; padding: 0; border: 0; background: #000 var(--portada, none) center / cover no-repeat; cursor: pointer; }
 .fg-yt-capa .fg-vid-play { position: static; margin: 0; width: 76px; height: 76px; }
 .fg-yt-capa:hover .fg-vid-play { background: #dc2626; transform: scale(1.08); }
 .fg-yt-marco.empezado .fg-yt-capa { background: transparent; }
@@ -1315,8 +1321,6 @@ body.card-dragging .tour-tip { display: none !important; }
 .fg-yt-marco.reproduciendo #fg-yt-pp .i-pausa { display: inline; }
 #fg-yt-son .i-mudo, .fg-yt-marco.mudo #fg-yt-son .i-son { display: none; }
 .fg-yt-marco.mudo #fg-yt-son .i-mudo { display: inline; }
-.fg-vid-actual-t { margin: 14px 0 2px; font-size: 1.15rem; line-height: 1.35; }
-.fg-vid-actual-f { margin: 0; font-size: .85rem; color: var(--muted); }
 .fg-vid.actual { border-color: var(--blue); box-shadow: 0 0 0 2px var(--blue); }
 .fg-vid.actual .fg-vid-play { background: #dc2626; }
 

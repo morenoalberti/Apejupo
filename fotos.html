@@ -19,7 +19,7 @@
 <meta property="og:image:alt" content="Apejupo Chess Club: ajedrez entre amigos todos los miércoles a las 17:00 h en Málaga">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" type="image/svg+xml" href="assets/icon.svg">
-<link rel="stylesheet" href="css/style.css?v=20261112-reproductor">
+<link rel="stylesheet" href="css/style.css?v=20261112-cine">
 <script defer src="js/analytics.js?v=20261111-analytics"></script>
 </head>
 <body>
@@ -110,10 +110,31 @@
   </div>
 </dialog>
 
+<dialog class="fg-visor fg-cine" id="fg-cine" aria-label="Vídeo">
+  <div class="fg-cine-in">
+    <div class="fg-yt-marco" id="fg-vid-marco">
+      <div class="fg-yt-rec"><div id="fg-yt-player"></div></div>
+      <button type="button" class="fg-yt-capa" id="fg-yt-capa" aria-label="Reproducir"><span class="fg-vid-play"><svg viewBox="0 0 24 24" width="34" height="34" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13l11-6.5z"/></svg></span></button>
+      <div class="fg-yt-bar">
+        <button type="button" class="fg-yt-b" id="fg-yt-pp" aria-label="Reproducir"><svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path class="i-play" d="M8 5.5v13l11-6.5z"/><path class="i-pausa" d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z"/></svg></button>
+        <input type="range" class="fg-yt-pos" id="fg-yt-pos" min="0" max="1000" value="0" aria-label="Avance del vídeo">
+        <span class="fg-yt-tiempo" id="fg-yt-tiempo">0:00</span>
+        <button type="button" class="fg-yt-b" id="fg-yt-son" aria-label="Quitar el sonido"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4z" fill="currentColor"/><path class="i-son" d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/><path class="i-mudo" d="m16 9 6 6M22 9l-6 6"/></svg></button>
+        <button type="button" class="fg-yt-b" id="fg-yt-full" aria-label="Pantalla completa"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
+      </div>
+    </div>
+    <h2 class="fg-cine-t" id="fg-vid-t"></h2>
+    <p class="fg-cine-f" id="fg-vid-f"></p>
+  </div>
+  <button type="button" class="fg-v-b fg-v-prev" id="fg-cine-prev" aria-label="Vídeo anterior"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg></button>
+  <button type="button" class="fg-v-b fg-v-next" id="fg-cine-next" aria-label="Vídeo siguiente"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></button>
+  <div class="fg-v-top"><button type="button" class="fg-v-b" id="fg-cine-x" aria-label="Cerrar"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
+</dialog>
+
 <!-- Sin pie de página: la galería aprovecha todo el espacio. «Dónde estamos» lleva a la sede en la portada. -->
 
 <script src="js/menu.js?v=20261112-fotos"></script>
 <script src="js/util.js?v=20261111-llegar"></script>
-<script src="js/fotos.js?v=20261112-reproductor"></script>
+<script src="js/fotos.js?v=20261112-cine"></script>
 </body>
 </html>
