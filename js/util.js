@@ -485,3 +485,24 @@
   document.addEventListener("mousemove", function (e) { if (cur && tip && !tip.hidden) place(e.clientX, e.clientY); });
   document.addEventListener("scroll", hide, true);
 })();
+
+// Enlaces del menú a una sección de otra página (index.html#noticias, index.html#sede): al llegar, la sección
+// todavía no está en su sitio (la sede se pinta con JS y las noticias se mueven al cargar lo de arriba), así que
+// el navegador se queda arriba del todo. Se vuelve a colocar varias veces mientras la página termina de cargar,
+// y se deja de insistir en cuanto la persona mueve la página.
+(function () {
+  if (!location.hash || location.hash.length < 2) return;
+  var id; try { id = decodeURIComponent(location.hash.slice(1)); } catch (e) { return; }
+  var tocado = false;
+  ["wheel", "touchstart", "keydown", "mousedown"].forEach(function (ev) {
+    addEventListener(ev, function () { tocado = true; }, { once: true, passive: true });
+  });
+  function ir() {
+    if (tocado) return;
+    var el = document.getElementById(id); if (!el) return;
+    var margen = parseFloat(getComputedStyle(document.documentElement).scrollPaddingTop) || 0;
+    if (Math.abs(el.getBoundingClientRect().top - margen) > 4) el.scrollIntoView({ behavior: "instant", block: "start" });
+  }
+  [0, 250, 700, 1500, 2500, 4000].forEach(function (t) { setTimeout(ir, t); });
+  addEventListener("load", ir);
+})();
