@@ -26,15 +26,63 @@
     });
   }
 
-  function pintar() {
+  // ───── Vídeos: pestaña fija con los últimos vídeos del canal de YouTube del club (los lee el Worker del RSS) ─────
+  var VID = "__videos__", CANAL = "https://www.youtube.com/@clubtrabajosos", videos = null, vidCont = $("fg-videos");
+  function cargarVideos() {
+    fetch(API.replace(/\/fotos$/, "/videos")).then(function (r) { return r.ok ? r.json() : Promise.reject(); })
+      .then(function (j) { videos = j.videos || []; }).catch(function () { videos = []; })
+      .then(function () { pintarChips(); if (filtro === VID) pintarVideos(); });
+  }
+  function pintarVideos() {
+    if (videos === null) { $("fg-cuenta").textContent = ""; vidCont.innerHTML = '<p class="fg-vacio">Cargando vídeos…</p>'; return; }
+    $("fg-cuenta").textContent = videos.length ? videos.length + (videos.length === 1 ? " vídeo" : " vídeos") : "";
+    var canal = '<a class="fg-vid-canal" href="' + CANAL + '" target="_blank" rel="noopener">Ver el canal completo en YouTube <span aria-hidden="true">→</span></a>';
+    if (!videos.length) { vidCont.innerHTML = '<p class="fg-vacio">Ahora mismo no se pueden cargar los vídeos.</p>' + canal; return; }
+    if (vidActual >= videos.length) vidActual = -1;
+    vidCont.innerHTML = '<div class="fg-vid-actual" hidden><div class="fg-yt-marco" id="fg-vid-marco"></div><h2 class="fg-vid-actual-t" id="fg-vid-t"></h2><p class="fg-vid-actual-f" id="fg-vid-f"></p></div>' +
+      '<div class="fg-vid-grid">' + videos.map(function (v, i) {
+      return '<button type="button" class="fg-vid" data-v="' + i + '" aria-label="Ver el vídeo: ' + esc(v.titulo) + '">' +
+        '<span class="fg-vid-img"><img src="https://i.ytimg.com/vi/' + v.id + '/hqdefault.jpg" alt="" loading="lazy" decoding="async" onload="this.classList.add(\'ok\')">' +
+        '<span class="fg-vid-play" aria-hidden="true"><svg viewBox="0 0 24 24" width="26" height="26" fill="currentColor"><path d="M8 5.5v13l11-6.5z"/></svg></span></span>' +
+        '<span class="fg-vid-t">' + esc(v.titulo) + "</span>" +
+        (v.fecha ? '<span class="fg-vid-f">' + FECHA.format(new Date(v.fecha)) + "</span>" : "") + "</button>";
+    }).join("") + "</div>" + canal;
+    if (vidActual >= 0) ponerVideo(vidActual, false);
+  }
+  // Se ven todas las miniaturas; al pulsar una, el vídeo se reproduce incrustado en la página, encima de ellas
+  var vidActual = -1;
+  function ponerVideo(i, auto) {
+    var v = videos[i]; vidActual = i;
+    vidCont.querySelector(".fg-vid-actual").hidden = false;
+    $("fg-vid-marco").innerHTML = '<iframe src="https://www.youtube-nocookie.com/embed/' + v.id + "?rel=0" + (auto ? "&autoplay=1" : "") + '" title="' + esc(v.titulo) + '" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe>';
+    $("fg-vid-t").textContent = v.titulo;
+    $("fg-vid-f").textContent = v.fecha ? FECHA.format(new Date(v.fecha)) : "";
+    [].forEach.call(vidCont.querySelectorAll(".fg-vid"), function (b) { b.classList.toggle("actual", +b.getAttribute("data-v") === i); });
+  }
+  vidCont.addEventListener("click", function (e) {
+    var b = e.target.closest(".fg-vid"); if (!b) return;
+    ponerVideo(+b.getAttribute("data-v"), true);
+    vidCont.querySelector(".fg-vid-actual").scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+
+  function pintarChips() {
     var albums = [];
     fotos.forEach(function (f) { if (f.album && albums.indexOf(f.album) < 0) albums.push(f.album); });
-    if (filtro && albums.indexOf(filtro) < 0) filtro = "";
-    chips.innerHTML = albums.length ? [""].concat(albums).map(function (a) {
-      var n = a ? fotos.filter(function (f) { return f.album === a; }).length : fotos.length;
-      return '<button type="button" role="tab" class="fg-chip" aria-selected="' + (a === filtro) + '" data-a="' + esc(a) + '">' + (a ? esc(a) : "Todas") + " <small>" + n + "</small></button>";
-    }).join("") : "";
+    if (filtro && filtro !== VID && albums.indexOf(filtro) < 0) filtro = "";
+    chips.innerHTML = [VID, ""].concat(albums).map(function (a) {
+      var n = a === VID ? (videos ? videos.length : "") : a ? fotos.filter(function (f) { return f.album === a; }).length : fotos.length;
+      var txt = a === VID ? '<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13l11-6.5z"/></svg>Vídeos' : a ? esc(a) : "Todas";
+      return '<button type="button" role="tab" class="fg-chip' + (a === VID ? " fg-chip-vid" : "") + '" aria-selected="' + (a === filtro) + '" data-a="' + esc(a) + '">' + txt + (n !== "" ? " <small>" + n + "</small>" : "") + "</button>";
+    }).join("");
+    return albums;
+  }
+
+  function pintar() {
+    var albums = pintarChips();
     $("fg-albums").innerHTML = albums.map(function (a) { return '<option value="' + esc(a) + '">'; }).join("");
+    var enVid = filtro === VID;
+    grid.hidden = enVid; vidCont.hidden = !enVid;
+    if (enVid) { grid.removeAttribute("aria-busy"); $("fg-vacio").hidden = true; $("fg-ordenar").hidden = true; pintarVideos(); return; }
     vista = filtro ? fotos.filter(function (f) { return f.album === filtro; }) : fotos.slice();
     $("fg-cuenta").textContent = vista.length ? vista.length + (vista.length === 1 ? " foto" : " fotos") : "";
     grid.removeAttribute("aria-busy");
@@ -63,7 +111,7 @@
   }
   var cols = 0;
   function numCols() { var w = grid.clientWidth || innerWidth; return w < 520 ? 2 : w < 760 ? 3 : 4; }
-  addEventListener("resize", function () { if (!ordenando && fotos.length && numCols() !== cols) pintar(); });
+  addEventListener("resize", function () { if (!ordenando && filtro !== VID && fotos.length && numCols() !== cols) pintar(); });
 
   chips.addEventListener("click", function (e) {
     var b = e.target.closest(".fg-chip"); if (!b || ordenando) return;
@@ -458,6 +506,6 @@
   }
 
   pintarSesion();
-  cargar();
+  cargar(); cargarVideos();
   accesoAdmin();
 })();
