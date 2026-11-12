@@ -1276,7 +1276,14 @@ body.card-dragging .tour-tip { display: none !important; }
 .fg-chip-vid[aria-selected="true"] svg { color: currentColor; }
 .fg-vid-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }
 .fg-vid-card { position: relative; display: flex; flex-direction: column; }
-.fg-vid-card:hover .fg-ed { opacity: 1; transform: none; }
+.fg-vid-card:hover .fg-ed, .fg-vid-card:hover .fg-del { opacity: 1; transform: none; }
+.fg-vid-card .fg-del { right: 8px; background: #dc2626; color: #fff; }
+.fg-vid-card .fg-del:hover, .fg-vid-card .fg-del:focus-visible { background: #b91c1c; }
+.fg-vid-card .fg-rest, .fg-vid-card .fg-rest:hover { background: #16a34a; opacity: 1; transform: none; }
+/* vídeo oculto en la web: solo lo ve la administración, atenuado */
+.fg-vid-card.oculto .fg-vid { opacity: .45; filter: grayscale(1); }
+.fg-vid-oculto { position: absolute; z-index: 2; left: 8px; top: 8px; padding: 3px 10px; border-radius: 999px; background: rgba(15, 27, 45, .85); color: #fff; font-size: .72rem; font-weight: 600; }
+.fg-vid-card.oculto .fg-ed { display: none; }
 .fg-vid-card .fg-pie-form { position: absolute; left: 0; right: 0; bottom: 0; z-index: 3; background: var(--card); border: 1px solid var(--blue); border-radius: 0 0 12px 12px; }
 .fg-vid { flex: 1; display: flex; flex-direction: column; gap: 4px; padding: 0 0 12px; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: var(--card); color: var(--text); font: inherit; text-align: left; cursor: pointer; animation: fgentra .35s ease-out both; transition: border-color .2s, box-shadow .2s; }
 .fg-vid:hover, .fg-vid:focus-visible { border-color: var(--blue); box-shadow: 0 10px 28px rgba(15, 27, 45, .14); outline: none; }

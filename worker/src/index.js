@@ -211,6 +211,11 @@ async function titulosVideo(env) {
   const o = env.FOTOS ? await env.FOTOS.get(YT_TITULOS) : null;
   try { return o ? await o.json() : {}; } catch (e) { return {}; }
 }
+const YT_OCULTOS = "videos/ocultos.json";
+async function ocultosVideo(env) {
+  const o = env.FOTOS ? await env.FOTOS.get(YT_OCULTOS) : null;
+  try { const a = o ? await o.json() : []; return Array.isArray(a) ? a : []; } catch (e) { return []; }
+}
 async function listaYoutube(request, ctx) {
   const cache = typeof caches !== "undefined" ? caches.default : null;
   const key = new Request(new URL(request.url).origin + "/videos-cache/v2/" + YT_CANAL);
@@ -241,10 +246,26 @@ async function videos(request, env, ctx) {
     await env.FOTOS.put(YT_TITULOS, JSON.stringify(t), { httpMetadata: { contentType: "application/json" } });
     return fjson({ ok: true, id, titulo });
   }
+  if (request.method === "POST" && ruta === "/videos/oculto") { // «borrar» un vídeo = dejar de mostrarlo en la web (en YouTube sigue)
+    if (!env.FOTOS) return fjson({ error: "La galería todavía no está activada" }, 503);
+    const r = await rol(request, env);
+    if (r === "bloqueado") return fjson({ error: BLOQUEO }, 429);
+    if (r !== "admin") return fjson({ error: "Solo la administración puede borrar vídeos" }, r ? 403 : 401);
+    let b; try { b = await request.json(); } catch (e) { return fjson({ error: "Datos no válidos" }, 400); }
+    const id = String(b.id || "");
+    if (!/^[\w-]{11}$/.test(id)) return fjson({ error: "Vídeo no válido" }, 400);
+    const o = (await ocultosVideo(env)).filter((x) => x !== id);
+    if (b.oculto) o.push(id);
+    await env.FOTOS.put(YT_OCULTOS, JSON.stringify(o), { httpMetadata: { contentType: "application/json" } });
+    return fjson({ ok: true, id, oculto: !!b.oculto });
+  }
   if (request.method !== "GET" || ruta !== "/videos") return fjson({ error: "No encontrado" }, 404);
   try {
-    const [lista, t] = await Promise.all([listaYoutube(request, ctx), titulosVideo(env)]);
-    return fjson({ canal: "https://www.youtube.com/@clubtrabajosos", videos: lista.map((v) => ({ ...v, original: v.titulo, titulo: t[v.id] || v.titulo })) });
+    const [lista, t, o] = await Promise.all([listaYoutube(request, ctx), titulosVideo(env), ocultosVideo(env)]);
+    // los ocultos solo se envían (marcados) a la administración, para que pueda restaurarlos
+    const esAdmin = igual(request.headers.get("X-Clave") || "", env.FOTOS_ADMIN);
+    const todos = lista.map((v) => ({ ...v, original: v.titulo, titulo: t[v.id] || v.titulo, ...(o.includes(v.id) ? { oculto: true } : {}) }));
+    return fjson({ canal: "https://www.youtube.com/@clubtrabajosos", videos: esAdmin ? todos : todos.filter((v) => !v.oculto) });
   } catch (e) {
     return fjson({ error: "No se pudieron leer los vídeos", videos: [] }, 502);
   }

@@ -29,23 +29,35 @@
   // ───── Vídeos: pestaña fija con los últimos vídeos del canal de YouTube del club (los lee el Worker del RSS) ─────
   var VID = "__videos__", CANAL = "https://www.youtube.com/@clubtrabajosos", videos = null, vidCont = $("fg-videos");
   function cargarVideos() {
-    fetch(API.replace(/\/fotos$/, "/videos")).then(function (r) { return r.ok ? r.json() : Promise.reject(); })
+    // con la clave de administración llegan también los vídeos ocultos, para poder restaurarlos
+    fetch(API.replace(/\/fotos$/, "/videos"), admin ? { headers: { "X-Clave": clave } } : {}).then(function (r) { return r.ok ? r.json() : Promise.reject(); })
       .then(function (j) { videos = j.videos || []; }).catch(function () { videos = []; })
       .then(function () { pintarChips(); if (filtro === VID) pintarVideos(); });
   }
   function pintarVideos() {
     if (videos === null) { $("fg-cuenta").textContent = ""; vidCont.innerHTML = '<p class="fg-vacio">Cargando vídeos…</p>'; return; }
-    $("fg-cuenta").textContent = videos.length ? videos.length + (videos.length === 1 ? " vídeo" : " vídeos") : "";
+    var nv = visibles();
+    $("fg-cuenta").textContent = nv ? nv + (nv === 1 ? " vídeo" : " vídeos") : "";
     var canal = ""; // sin enlaces a YouTube: los vídeos se ven como propios de la web
     if (!videos.length) { vidCont.innerHTML = '<p class="fg-vacio">Ahora mismo no se pueden cargar los vídeos.</p>' + canal; return; }
     vidCont.innerHTML = '<div class="fg-vid-grid">' + videos.map(function (v, i) {
-      return '<div class="fg-vid-card" data-v="' + i + '"><button type="button" class="fg-vid" data-v="' + i + '" aria-label="Ver el vídeo: ' + esc(v.titulo) + '">' +
+      return '<div class="fg-vid-card' + (v.oculto ? " oculto" : "") + '" data-v="' + i + '">' + (v.oculto ? '<span class="fg-vid-oculto">Oculto</span>' : "") + '<button type="button" class="fg-vid" data-v="' + i + '" aria-label="Ver el vídeo: ' + esc(v.titulo) + '">' +
         '<span class="fg-vid-img"><img src="https://i.ytimg.com/vi/' + v.id + '/hqdefault.jpg" alt="" loading="lazy" decoding="async" onload="this.classList.add(\'ok\')">' +
         '<span class="fg-vid-play" aria-hidden="true"><svg viewBox="0 0 24 24" width="26" height="26" fill="currentColor"><path d="M8 5.5v13l11-6.5z"/></svg></span></span>' +
         '<span class="fg-vid-t">' + esc(v.titulo) + "</span>" +
         (v.fecha ? '<span class="fg-vid-f">' + FECHA.format(new Date(v.fecha)) + "</span>" : "") + "</button>" +
-        (admin ? '<button type="button" class="fg-ed" aria-label="Cambiar el título del vídeo" title="Cambiar el título"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>' : "") + "</div>";
+        (admin ? '<button type="button" class="fg-ed" aria-label="Cambiar el título del vídeo" title="Cambiar el título"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>' +
+          (v.oculto
+            ? '<button type="button" class="fg-del fg-rest" aria-label="Restaurar el vídeo" title="Restaurar"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg></button>'
+            : '<button type="button" class="fg-del" aria-label="Borrar el vídeo" title="Borrar"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M6 6l1 15h10l1-15"/></svg></button>') : "") + "</div>";
     }).join("") + "</div>" + canal;
+  }
+  function visibles() { return (videos || []).filter(function (v) { return !v.oculto; }).length; }
+  // «Borrar» un vídeo lo oculta en la web (en YouTube sigue); la administración lo sigue viendo atenuado y puede restaurarlo
+  function ocultarVideo(v, oculto) {
+    return fetch(API.replace(/\/fotos$/, "/videos/oculto"), { method: "POST", headers: { "X-Clave": clave, "Content-Type": "application/json" }, body: JSON.stringify({ id: v.id, oculto: oculto }) })
+      .then(function (r) { return r.json().then(function (j) { if (!r.ok) throw new Error(j.error || "No se ha podido guardar"); }); })
+      .then(function () { v.oculto = oculto; pintarChips(); pintarVideos(); }, function (e) { alert(e.message); });
   }
   // Se ven todas las miniaturas; al pulsar una, el vídeo se abre grande en el centro de la pantalla (#fg-cine)
   var vidActual = -1, cine = $("fg-cine");
@@ -190,6 +202,13 @@
   }
   vidCont.addEventListener("click", function (e) {
     var ed = e.target.closest(".fg-ed"); if (ed) { editarTitulo(ed.closest(".fg-vid-card")); return; }
+    var del = e.target.closest(".fg-del");
+    if (del) {
+      var vd = videos[+del.closest(".fg-vid-card").getAttribute("data-v")];
+      if (vd.oculto) { ocultarVideo(vd, false); return; }
+      confirmarBorrado({ img: "https://i.ytimg.com/vi/" + vd.id + "/hqdefault.jpg", pie: vd.titulo }, true).then(function (si) { if (si) ocultarVideo(vd, true); });
+      return;
+    }
     var b = e.target.closest(".fg-vid"); if (b) ponerVideo(+b.getAttribute("data-v"));
   });
 
@@ -198,7 +217,7 @@
     fotos.forEach(function (f) { if (f.album && albums.indexOf(f.album) < 0) albums.push(f.album); });
     if (filtro && filtro !== VID && albums.indexOf(filtro) < 0) filtro = "";
     chips.innerHTML = [VID, ""].concat(albums).map(function (a) {
-      var n = a === VID ? (videos ? videos.length : "") : a ? fotos.filter(function (f) { return f.album === a; }).length : fotos.length;
+      var n = a === VID ? (videos ? visibles() : "") : a ? fotos.filter(function (f) { return f.album === a; }).length : fotos.length;
       var txt = a === VID ? '<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13l11-6.5z"/></svg>Vídeos' : a ? esc(a) : "Todas";
       return '<button type="button" role="tab" class="fg-chip' + (a === VID ? " fg-chip-vid" : "") + '" aria-selected="' + (a === filtro) + '" data-a="' + esc(a) + '">' + txt + (n !== "" ? " <small>" + n + "</small>" : "") + "</button>";
     }).join("");
@@ -424,10 +443,12 @@
     return confirmarBorrado(f).then(function (si) { if (si) return borrarYa(f); return false; });
   }
   // Ventana propia del club para confirmar (en lugar del aviso del navegador), con la miniatura de la foto
-  function confirmarBorrado(f) {
+  function confirmarBorrado(f, vid) { // vid: se está borrando un vídeo (f = {img, pie})
     var d = $("fg-conf");
-    $("fg-conf-img").src = url("t", f.id);
+    $("fg-conf-img").src = vid ? f.img : url("t", f.id);
     $("fg-conf-pie").textContent = f.pie || "";
+    $("fg-conf-t").textContent = vid ? "¿Borrar este vídeo?" : "¿Borrar esta foto?";
+    $("fg-conf-d").textContent = vid ? "Dejará de verse en la web para todos. Como administración podrás restaurarlo." : "Desaparecerá de la galería para todos. No se puede deshacer.";
     return new Promise(function (ok) {
       var si = false;
       var fin = function () { d.removeEventListener("close", fin); $("fg-conf-si").onclick = $("fg-conf-no").onclick = null; ok(si); };
@@ -485,13 +506,13 @@
       return r.json().then(function (j) { if (!r.ok) throw new Error(j.error || "Clave incorrecta"); return j; });
     }).then(function (j) {
       clave = c; admin = !!j.admin; guardar("fg-clave", c); guardar("fg-admin", admin ? "1" : "");
-      pintarSesion(); var f = alEntrar; dlg.close(); if (f) f();
+      pintarSesion(); cargarVideos(); var f = alEntrar; dlg.close(); if (f) f();
     }).catch(function (err) { ce.textContent = err.message === "Failed to fetch" ? "No hay conexión con el servidor" : err.message; })
       .then(function () { b.disabled = false; enCurso = ""; });
   }
   sesion.addEventListener("click", function (e) {
     if (e.target.id !== "fg-salir") return;
-    e.stopPropagation(); clave = ""; admin = false; guardar("fg-clave", ""); guardar("fg-admin", ""); pintarSesion();
+    e.stopPropagation(); clave = ""; admin = false; guardar("fg-clave", ""); guardar("fg-admin", ""); pintarSesion(); cargarVideos();
   });
 
   // ───── Arrastrar y elegir fotos ─────
