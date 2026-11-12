@@ -53,8 +53,12 @@ async function fideStats(id) {
 // Las fotos se guardan en el bucket R2 «FOTOS»: f/<id> es la foto y t/<id> la miniatura (con ancho, alto y álbum).
 // Ver la galería es público; subir exige la clave del club (FOTOS_CLAVE) y borrar, la de administración (FOTOS_ADMIN).
 // Las dos claves son secretos del Worker: no están en el repositorio.
-const FOTO_CORS = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS", "Access-Control-Allow-Headers": "X-Clave, Content-Type", "Access-Control-Max-Age": "86400" };
+const FOTO_CORS = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS", "Access-Control-Allow-Headers": "X-Clave, Content-Type, Range", "Access-Control-Expose-Headers": "Content-Range, Accept-Ranges, Content-Length", "Access-Control-Max-Age": "86400" };
 const FOTO_MAX = 4 * 1024 * 1024, MINI_MAX = 400 * 1024, INTENTOS_MAX = 8;
+// Vídeos: el navegador no puede comprimirlos, así que se suben tal cual en trozos de 8 MB (subida multiparte de R2)
+const VIDEO_MAX = 300 * 1024 * 1024, PARTE_MAX = 10 * 1024 * 1024;
+const VIDEO_TIPOS = { "video/mp4": "mp4", "video/quicktime": "mov", "video/webm": "webm" };
+const nuevoId = (ts) => ts.toString(36).padStart(9, "0") + "-" + [...crypto.getRandomValues(new Uint8Array(4))].map((b) => b.toString(16).padStart(2, "0")).join("");
 const FOTO_ID = /^[0-9a-z]{9}-[0-9a-f]{8}$/;
 const fjson = (data, status = 200) => new Response(JSON.stringify(data), { status, headers: { ...FOTO_CORS, "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" } });
 
@@ -110,7 +114,9 @@ async function fotos(request, env, url) {
       const l = await env.FOTOS.list({ prefix: "t/", cursor, include: ["customMetadata"] });
       for (const o of l.objects) {
         const m = o.customMetadata || {};
-        out.push({ id: o.key.slice(2), w: +m.w || 4, h: +m.h || 3, album: texto(m.album), pie: texto(m.pie), ts: +m.ts || o.uploaded.getTime() });
+        const f = { id: o.key.slice(2), w: +m.w || 4, h: +m.h || 3, album: texto(m.album), pie: texto(m.pie), ts: +m.ts || o.uploaded.getTime() };
+        if (m.tipo === "video") { f.video = true; f.dur = +m.dur || 0; f.ext = m.ext || "mp4"; }
+        out.push(f);
       }
       cursor = l.truncated ? l.cursor : undefined;
     } while (cursor);
@@ -140,9 +146,85 @@ async function fotos(request, env, url) {
 
   const img = /^\/fotos\/([ft])\/([^/]+)$/.exec(ruta);
   if (request.method === "GET" && img && FOTO_ID.test(img[2])) {
-    const o = await env.FOTOS.get(img[1] + "/" + img[2]);
+    // admite peticiones parciales (Range): los vídeos se pueden adelantar sin descargarlos enteros
+    const rango = img[1] === "f" && request.headers.has("Range");
+    const o = await env.FOTOS.get(img[1] + "/" + img[2], rango ? { range: request.headers } : undefined);
     if (!o) return new Response("", { status: 404, headers: FOTO_CORS });
-    return new Response(o.body, { headers: { ...FOTO_CORS, "Content-Type": (o.httpMetadata && o.httpMetadata.contentType) || "image/webp", "Cache-Control": "public, max-age=31536000, immutable", ETag: o.httpEtag } });
+    const h = { ...FOTO_CORS, "Content-Type": (o.httpMetadata && o.httpMetadata.contentType) || "image/webp", "Cache-Control": "public, max-age=31536000, immutable", ETag: o.httpEtag, "Accept-Ranges": "bytes" };
+    if (rango && o.range) {
+      const r = o.range, total = o.size, sufijo = r.suffix !== undefined && r.suffix !== null;
+      const ini = sufijo ? Math.max(0, total - r.suffix) : r.offset || 0;
+      const fin = sufijo || r.length === undefined || r.length === null ? total - 1 : Math.min(total - 1, ini + r.length - 1);
+      return new Response(o.body, { status: 206, headers: { ...h, "Content-Range": `bytes ${ini}-${fin}/${total}`, "Content-Length": String(fin - ini + 1) } });
+    }
+    return new Response(o.body, { headers: { ...h, "Content-Length": String(o.size) } });
+  }
+
+  // ── Subida de vídeos por partes: inicio → partes → fin (o cancelar) ──
+  if (ruta.startsWith("/fotos/video/")) {
+    const r = await rol(request, env);
+    if (r === "bloqueado") return fjson({ error: BLOQUEO }, 429);
+    if (!r) return fjson({ error: "Clave incorrecta" }, 401);
+
+    if (request.method === "POST" && ruta === "/fotos/video/inicio") {
+      let body;
+      try { body = await request.json(); } catch (e) { return fjson({ error: "Envío no válido" }, 400); }
+      const ext = VIDEO_TIPOS[body && body.tipo];
+      if (!ext) return fjson({ error: "Formato de vídeo no admitido (usa MP4, MOV o WebM)" }, 415);
+      if (!(body.size > 0 && body.size <= VIDEO_MAX)) return fjson({ error: "El vídeo pesa más de 300 MB" }, 413);
+      const id = nuevoId(Date.now());
+      const mpu = await env.FOTOS.createMultipartUpload("f/" + id, { httpMetadata: { contentType: body.tipo } });
+      return fjson({ id, u: mpu.uploadId, parte: 8 * 1024 * 1024 });
+    }
+
+    const v = /^\/fotos\/video\/([^/]+)\/(parte|fin|cancelar)$/.exec(ruta);
+    if (!v || !FOTO_ID.test(v[1])) return fjson({ error: "No encontrado" }, 404);
+    const key = "f/" + v[1];
+
+    if (request.method === "PUT" && v[2] === "parte") {
+      const u = url.searchParams.get("u") || "", n = parseInt(url.searchParams.get("n"), 10);
+      if (!u || !(n >= 1 && n <= 100)) return fjson({ error: "Parte no válida" }, 400);
+      if (+request.headers.get("Content-Length") > PARTE_MAX) return fjson({ error: "Parte demasiado grande" }, 413);
+      const datos = await request.arrayBuffer();
+      if (!datos.byteLength || datos.byteLength > PARTE_MAX) return fjson({ error: "Parte no válida" }, 400);
+      try {
+        const p = await env.FOTOS.resumeMultipartUpload(key, u).uploadPart(n, datos);
+        return fjson({ partNumber: p.partNumber, etag: p.etag });
+      } catch (e) { return fjson({ error: "La subida ha caducado. Vuelve a intentarlo." }, 409); }
+    }
+
+    if (request.method === "POST" && v[2] === "cancelar") {
+      const u = url.searchParams.get("u") || "";
+      try { await env.FOTOS.resumeMultipartUpload(key, u).abort(); } catch (e) {}
+      return fjson({ ok: true });
+    }
+
+    if (request.method === "POST" && v[2] === "fin") {
+      let form;
+      try { form = await request.formData(); } catch (e) { return fjson({ error: "Envío no válido" }, 400); }
+      const u = String(form.get("u") || ""), poster = form.get("poster");
+      let partes;
+      try { partes = JSON.parse(form.get("partes")); } catch (e) {}
+      if (!u || !Array.isArray(partes) || !partes.length) return fjson({ error: "Envío no válido" }, 400);
+      if (!poster || typeof poster === "string" || poster.size > MINI_MAX) return fjson({ error: "Falta la portada del vídeo" }, 400);
+      const tm = await tipoImagen(poster);
+      if (!tm) return fjson({ error: "Portada no válida" }, 415);
+      const w = parseInt(form.get("w"), 10), h = parseInt(form.get("h"), 10), dur = Math.round(+form.get("dur") || 0);
+      if (!(w > 0 && w <= 8000 && h > 0 && h <= 8000)) return fjson({ error: "Medidas no válidas" }, 400);
+      let obj;
+      try { obj = await env.FOTOS.resumeMultipartUpload(key, u).complete(partes.map((p) => ({ partNumber: +p.partNumber, etag: String(p.etag) }))); }
+      catch (e) { return fjson({ error: "No se ha podido completar la subida" }, 409); }
+      // se comprueba que de verdad es un vídeo (MP4/MOV llevan «ftyp» en el byte 4; WebM empieza por 1A 45 DF A3)
+      const cab = await env.FOTOS.get(key, { range: { offset: 0, length: 12 } });
+      const b = cab ? new Uint8Array(await cab.arrayBuffer()) : new Uint8Array(0);
+      const esVideo = String.fromCharCode(...b.slice(4, 8)) === "ftyp" || (b[0] === 0x1a && b[1] === 0x45 && b[2] === 0xdf && b[3] === 0xa3);
+      if (!esVideo || obj.size > VIDEO_MAX) { await env.FOTOS.delete(key); return fjson({ error: esVideo ? "El vídeo pesa más de 300 MB" : "El archivo no es un vídeo válido" }, 415); }
+      const ext = VIDEO_TIPOS[obj.httpMetadata && obj.httpMetadata.contentType] || "mp4";
+      const album = limpio(form.get("album"), 60), pie = limpio(form.get("pie"), PIE_MAX), ts = Date.now();
+      await env.FOTOS.put("t/" + v[1], await poster.arrayBuffer(), { httpMetadata: { contentType: tm }, customMetadata: { w: String(w), h: String(h), album: encodeURIComponent(album), pie: encodeURIComponent(pie), ts: String(ts), tipo: "video", dur: String(dur), ext } });
+      return fjson({ id: v[1], w, h, album, pie, ts, video: true, dur, ext }, 201);
+    }
+    return fjson({ error: "No encontrado" }, 404);
   }
 
   if (request.method === "POST" && ruta === "/fotos/acceso") { // comprueba la clave antes de empezar a subir
@@ -167,7 +249,7 @@ async function fotos(request, env, url) {
     if (!(w > 0 && w <= 8000 && h > 0 && h <= 8000)) return fjson({ error: "Medidas no válidas" }, 400);
     const album = limpio(form.get("album"), 60), pie = limpio(form.get("pie"), PIE_MAX);
     const ts = Date.now();
-    const id = ts.toString(36).padStart(9, "0") + "-" + [...crypto.getRandomValues(new Uint8Array(4))].map((b) => b.toString(16).padStart(2, "0")).join("");
+    const id = nuevoId(ts);
     await env.FOTOS.put("f/" + id, await foto.arrayBuffer(), { httpMetadata: { contentType: tf } });
     // la miniatura se guarda al final: una foto solo aparece en la galería cuando está completa
     await env.FOTOS.put("t/" + id, await mini.arrayBuffer(), { httpMetadata: { contentType: tm }, customMetadata: { w: String(w), h: String(h), album: encodeURIComponent(album), pie: encodeURIComponent(pie), ts: String(ts) } });
