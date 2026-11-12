@@ -1274,6 +1274,12 @@ body.card-dragging .tour-tip { display: none !important; }
 .fg-chip-vid { display: inline-flex; align-items: center; gap: 5px; }
 .fg-chip-vid svg { color: #dc2626; }
 .fg-chip-vid[aria-selected="true"] svg { color: currentColor; }
+.fg-vid-barra { display: flex; align-items: center; justify-content: flex-end; gap: 10px; margin: -4px 0 10px; }
+.fg-vid-aviso { font-size: .85rem; color: var(--muted); }
+.fg-vid-act { display: inline-flex; align-items: center; justify-content: center; width: 38px; height: 38px; border-radius: 50%; border: 1px solid var(--line); background: var(--card); color: var(--text); cursor: pointer; transition: border-color .15s, color .15s; }
+.fg-vid-act:hover, .fg-vid-act:focus-visible { border-color: var(--blue); color: var(--blue); outline: none; }
+.fg-vid-act.girando { cursor: progress; }
+.fg-vid-act.girando svg { animation: fggira .8s linear infinite; }
 .fg-vid-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }
 .fg-vid-card { position: relative; display: flex; flex-direction: column; }
 .fg-vid-card:hover .fg-ed, .fg-vid-card:hover .fg-del { opacity: 1; transform: none; }

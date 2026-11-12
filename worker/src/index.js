@@ -216,20 +216,61 @@ async function ocultosVideo(env) {
   const o = env.FOTOS ? await env.FOTOS.get(YT_OCULTOS) : null;
   try { const a = o ? await o.json() : []; return Array.isArray(a) ? a : []; } catch (e) { return []; }
 }
-async function listaYoutube(request, ctx) {
+// La lista se guarda también en R2: el RSS solo da los 15 últimos, así los más antiguos no se pierden cuando el canal crezca.
+const YT_LISTA = "videos/lista.json";
+async function listaGuardada(env) {
+  const o = env.FOTOS ? await env.FOTOS.get(YT_LISTA) : null;
+  try { const a = o ? await o.json() : []; return Array.isArray(a) ? a : []; } catch (e) { return []; }
+}
+// El RSS solo trae los 15 últimos. Con la flecha se mira además la lista completa de subidas del canal (hasta 100)
+// y se añaden los que falten. De cada uno se comprueba que es del canal del club antes de aceptarlo. Si algo falla, no se añade nada.
+async function subidasCompletas(conocidos) {
+  const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36";
+  try {
+    const r = await fetch("https://www.youtube.com/playlist?list=UU" + YT_CANAL.slice(2), { headers: { "User-Agent": UA, "Accept-Language": "es", Cookie: "SOCS=CAI" } });
+    if (!r.ok) return [];
+    const ids = [...new Set([...(await r.text()).matchAll(/"videoId":"([\w-]{11})"/g)].map((m) => m[1]))].filter((id) => !conocidos.has(id)).slice(0, 30);
+    const out = await Promise.all(ids.map(async (id) => {
+      try {
+        const o = await fetch("https://www.youtube.com/oembed?format=json&url=" + encodeURIComponent("https://www.youtube.com/watch?v=" + id), { headers: { "User-Agent": UA } });
+        if (!o.ok) return null;
+        const j = await o.json();
+        if (!/@clubtrabajosos\/?$/i.test(j.author_url || "")) return null; // no es del canal del club
+        return { id, titulo: limpio(j.title, 200), fecha: "" };
+      } catch (e) { return null; }
+    }));
+    return out.filter(Boolean);
+  } catch (e) { return []; }
+}
+// Devuelve { lista, nuevos }. Con forzar se salta la caché de una hora y se pregunta a YouTube ahora mismo.
+async function listaYoutube(request, env, ctx, forzar) {
   const cache = typeof caches !== "undefined" ? caches.default : null;
-  const key = new Request(new URL(request.url).origin + "/videos-cache/v2/" + YT_CANAL);
-  if (cache) { const hit = await cache.match(key); if (hit) return hit.json(); }
-  const r = await fetch("https://www.youtube.com/feeds/videos.xml?channel_id=" + YT_CANAL, { headers: { "User-Agent": "Mozilla/5.0 (compatible; ApejupoChessClub/1.0; +https://apejupo.com)" } });
-  if (!r.ok) throw new Error("YouTube " + r.status);
-  const xml = await r.text();
-  const txt = (s) => s.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, "&").trim();
-  const lista = [...xml.matchAll(/<entry>([\s\S]*?)<\/entry>/g)].map((m) => {
-    const e = m[1], g = (re) => (e.match(re) || [, ""])[1];
-    return { id: g(/<yt:videoId>([\w-]{11})<\/yt:videoId>/), titulo: txt(g(/<title>([\s\S]*?)<\/title>/)), fecha: g(/<published>([^<]+)<\/published>/) };
-  }).filter((v) => v.id);
+  const key = new Request(new URL(request.url).origin + "/videos-cache/v3/" + YT_CANAL);
+  if (cache && !forzar) { const hit = await cache.match(key); if (hit) return { lista: await hit.json(), nuevos: 0 }; }
+  const guardada = await listaGuardada(env);
+  let rss = null;
+  try {
+    const r = await fetch("https://www.youtube.com/feeds/videos.xml?channel_id=" + YT_CANAL, { headers: { "User-Agent": "Mozilla/5.0 (compatible; ApejupoChessClub/1.0; +https://apejupo.com)" } });
+    if (!r.ok) throw new Error("YouTube " + r.status);
+    const xml = await r.text();
+    const txt = (s) => s.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, "&").trim();
+    rss = [...xml.matchAll(/<entry>([\s\S]*?)<\/entry>/g)].map((m) => {
+      const e = m[1], g = (re) => (e.match(re) || [, ""])[1];
+      return { id: g(/<yt:videoId>([\w-]{11})<\/yt:videoId>/), titulo: txt(g(/<title>([\s\S]*?)<\/title>/)), fecha: g(/<published>([^<]+)<\/published>/) };
+    }).filter((v) => v.id);
+  } catch (e) {
+    if (!guardada.length) throw e; // sin YouTube y sin copia: no hay nada que enseñar
+    return { lista: guardada, nuevos: 0 };
+  }
+  // se añaden los que no estaban y se actualizan título y fecha de los que sí
+  const porId = new Map(guardada.map((v) => [v.id, v]));
+  let nuevos = 0;
+  for (const v of rss) { if (!porId.has(v.id)) nuevos++; porId.set(v.id, v); }
+  if (forzar) for (const v of await subidasCompletas(porId)) { nuevos++; porId.set(v.id, v); }
+  const lista = [...porId.values()].sort((x, y) => (y.fecha || "").localeCompare(x.fecha || ""));
+  if (env.FOTOS && JSON.stringify(lista) !== JSON.stringify(guardada)) await env.FOTOS.put(YT_LISTA, JSON.stringify(lista), { httpMetadata: { contentType: "application/json" } });
   if (cache) ctx.waitUntil(cache.put(key, new Response(JSON.stringify(lista), { headers: { "Cache-Control": "public, max-age=3600" } })));
-  return lista;
+  return { lista, nuevos: guardada.length ? nuevos : 0 };
 }
 async function videos(request, env, ctx) {
   const ruta = new URL(request.url).pathname.replace(/\/+$/, "");
@@ -259,13 +300,22 @@ async function videos(request, env, ctx) {
     await env.FOTOS.put(YT_OCULTOS, JSON.stringify(o), { httpMetadata: { contentType: "application/json" } });
     return fjson({ ok: true, id, oculto: !!b.oculto });
   }
-  if (request.method !== "GET" || ruta !== "/videos") return fjson({ error: "No encontrado" }, 404);
+  // La flecha circular de la página: pregunta a YouTube ahora mismo (como mucho una vez cada 30 s) y trae los vídeos que falten
+  const refrescar = request.method === "POST" && ruta === "/videos/actualizar";
+  if (!refrescar && (request.method !== "GET" || ruta !== "/videos")) return fjson({ error: "No encontrado" }, 404);
   try {
-    const [lista, t, o] = await Promise.all([listaYoutube(request, ctx), titulosVideo(env), ocultosVideo(env)]);
+    let forzar = false;
+    const cache = typeof caches !== "undefined" ? caches.default : null;
+    if (refrescar) {
+      const freno = new Request(new URL(request.url).origin + "/videos-freno/" + YT_CANAL);
+      forzar = !(cache && (await cache.match(freno)));
+      if (forzar && cache) ctx.waitUntil(cache.put(freno, new Response("1", { headers: { "Cache-Control": "public, max-age=30" } })));
+    }
+    const [yt, t, o] = await Promise.all([listaYoutube(request, env, ctx, forzar), titulosVideo(env), ocultosVideo(env)]);
     // los ocultos solo se envían (marcados) a la administración, para que pueda restaurarlos
     const esAdmin = igual(request.headers.get("X-Clave") || "", env.FOTOS_ADMIN);
-    const todos = lista.map((v) => ({ ...v, original: v.titulo, titulo: t[v.id] || v.titulo, ...(o.includes(v.id) ? { oculto: true } : {}) }));
-    return fjson({ canal: "https://www.youtube.com/@clubtrabajosos", videos: esAdmin ? todos : todos.filter((v) => !v.oculto) });
+    const todos = yt.lista.map((v) => ({ ...v, original: v.titulo, titulo: t[v.id] || v.titulo, ...(o.includes(v.id) ? { oculto: true } : {}) }));
+    return fjson({ canal: "https://www.youtube.com/@clubtrabajosos", videos: esAdmin ? todos : todos.filter((v) => !v.oculto), nuevos: yt.nuevos });
   } catch (e) {
     return fjson({ error: "No se pudieron leer los vídeos", videos: [] }, 502);
   }

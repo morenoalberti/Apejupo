@@ -39,8 +39,11 @@
     var nv = visibles();
     $("fg-cuenta").textContent = nv ? nv + (nv === 1 ? " vídeo" : " vídeos") : "";
     var canal = ""; // sin enlaces a YouTube: los vídeos se ven como propios de la web
-    if (!videos.length) { vidCont.innerHTML = '<p class="fg-vacio">Ahora mismo no se pueden cargar los vídeos.</p>' + canal; return; }
-    vidCont.innerHTML = '<div class="fg-vid-grid">' + videos.map(function (v, i) {
+    // flecha circular, arriba a la derecha: trae del canal los vídeos que aún no estén en la página
+    var barra = '<div class="fg-vid-barra"><span class="fg-vid-aviso" id="fg-vid-aviso" role="status">' + esc(vidAviso) + '</span>' +
+      '<button type="button" class="fg-vid-act" id="fg-vid-act" aria-label="Buscar vídeos nuevos" title="Buscar vídeos nuevos"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg></button></div>';
+    if (!videos.length) { vidCont.innerHTML = barra + '<p class="fg-vacio">Ahora mismo no se pueden cargar los vídeos.</p>' + canal; return; }
+    vidCont.innerHTML = barra + '<div class="fg-vid-grid">' + videos.map(function (v, i) {
       return '<div class="fg-vid-card' + (v.oculto ? " oculto" : "") + '" data-v="' + i + '">' + (v.oculto ? '<span class="fg-vid-oculto">Oculto</span>' : "") + '<button type="button" class="fg-vid" data-v="' + i + '" aria-label="Ver el vídeo: ' + esc(v.titulo) + '">' +
         '<span class="fg-vid-img"><img src="https://i.ytimg.com/vi/' + v.id + '/hqdefault.jpg" alt="" loading="lazy" decoding="async" onload="this.classList.add(\'ok\')">' +
         '<span class="fg-vid-play" aria-hidden="true"><svg viewBox="0 0 24 24" width="26" height="26" fill="currentColor"><path d="M8 5.5v13l11-6.5z"/></svg></span></span>' +
@@ -51,6 +54,23 @@
             ? '<button type="button" class="fg-del fg-rest" aria-label="Restaurar el vídeo" title="Restaurar"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg></button>'
             : '<button type="button" class="fg-del" aria-label="Borrar el vídeo" title="Borrar"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M6 6l1 15h10l1-15"/></svg></button>') : "") + "</div>";
     }).join("") + "</div>" + canal;
+  }
+  var vidAviso = "", vidAvisoT = 0;
+  function actualizarVideos(b) {
+    if (b.classList.contains("girando")) return;
+    b.classList.add("girando"); var antes = {}; (videos || []).forEach(function (v) { antes[v.id] = 1; });
+    var op = admin ? { headers: { "X-Clave": clave } } : {};
+    fetch(API.replace(/\/fotos$/, "/videos/actualizar"), { method: "POST", headers: op.headers || {} })
+      .then(function (r) { return r.ok ? r.json() : Promise.reject(); })
+      .then(function (j) {
+        var n = (j.videos || []).filter(function (v) { return !antes[v.id]; }).length;
+        videos = j.videos || [];
+        vidAviso = n ? (n === 1 ? "1 vídeo nuevo" : n + " vídeos nuevos") : "No hay vídeos nuevos";
+      }, function () { vidAviso = "No se ha podido actualizar"; })
+      .then(function () {
+        pintarChips(); if (filtro === VID) pintarVideos();
+        clearTimeout(vidAvisoT); vidAvisoT = setTimeout(function () { vidAviso = ""; var a = $("fg-vid-aviso"); if (a) a.textContent = ""; }, 5000);
+      });
   }
   function visibles() { return (videos || []).filter(function (v) { return !v.oculto; }).length; }
   // «Borrar» un vídeo lo oculta en la web (en YouTube sigue); la administración lo sigue viendo atenuado y puede restaurarlo
@@ -202,6 +222,7 @@
   }
   vidCont.addEventListener("click", function (e) {
     var ed = e.target.closest(".fg-ed"); if (ed) { editarTitulo(ed.closest(".fg-vid-card")); return; }
+    var act = e.target.closest("#fg-vid-act"); if (act) { actualizarVideos(act); return; }
     var del = e.target.closest(".fg-del");
     if (del) {
       var vd = videos[+del.closest(".fg-vid-card").getAttribute("data-v")];
