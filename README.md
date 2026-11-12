@@ -42,6 +42,19 @@ PulseMetrics recupera la lista actual de sitios y las estadísticas al abrir el 
 
 El Worker `worker/src/index.js` sirve las fuentes que no permiten lectura directa desde el navegador. `?players=ID` obtiene los jugadores y la clasificación pública de un torneo de Lichess, con CORS y caché de 60 segundos. Solo admite identificadores alfanuméricos de ocho caracteres. Para publicar cambios del Worker: `npx wrangler deploy --config worker/wrangler.toml`.
 
+## Galería de fotos
+
+`fotos.html` permite arrastrar fotos; el navegador las reduce a 2000 px en WebP, crea una miniatura y las envía al Worker, que las guarda en el bucket R2 `apejupo-fotos`. Ver la galería es público; subir pide la clave del club y borrar, la de administración. Las claves son secretos del Worker (`FOTOS_CLAVE` y `FOTOS_ADMIN`) y nunca van en el repositorio; en local se leen de `worker/.dev.vars`.
+
+Puesta en marcha (una sola vez): activar R2 en el panel de Cloudflare y después
+
+```bash
+npx wrangler r2 bucket create apejupo-fotos
+npx wrangler secret put FOTOS_CLAVE --config worker/wrangler.toml
+npx wrangler secret put FOTOS_ADMIN --config worker/wrangler.toml
+npx wrangler deploy --config worker/wrangler.toml
+```
+
 ## Dominio propio (opcional)
 
 Settings → Pages → Custom domain. Un dominio `.es` cuesta unos 8 € al año.

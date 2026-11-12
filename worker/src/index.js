@@ -49,8 +49,126 @@ async function fideStats(id) {
   return j[0] || {};
 }
 
+// ───────── Galería de fotos del club (/fotos) ─────────
+// Las fotos se guardan en el bucket R2 «FOTOS»: f/<id> es la foto y t/<id> la miniatura (con ancho, alto y álbum).
+// Ver la galería es público; subir exige la clave del club (FOTOS_CLAVE) y borrar, la de administración (FOTOS_ADMIN).
+// Las dos claves son secretos del Worker: no están en el repositorio.
+const FOTO_CORS = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS", "Access-Control-Allow-Headers": "X-Clave", "Access-Control-Max-Age": "86400" };
+const FOTO_MAX = 4 * 1024 * 1024, MINI_MAX = 400 * 1024, INTENTOS_MAX = 8;
+const FOTO_ID = /^[0-9a-z]{9}-[0-9a-f]{8}$/;
+const fjson = (data, status = 200) => new Response(JSON.stringify(data), { status, headers: { ...FOTO_CORS, "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" } });
+
+function igual(a, b) { // comparación en tiempo constante
+  if (!a || !b) return false;
+  const x = new TextEncoder().encode(a), y = new TextEncoder().encode(b);
+  let d = x.length ^ y.length;
+  for (let i = 0; i < y.length; i++) d |= (x[i % x.length] || 0) ^ y[i];
+  return d === 0;
+}
+
+// Freno a quien pruebe claves al azar: tras varios fallos desde la misma IP se bloquea 15 minutos.
+async function fallos(request, sumar) {
+  const cache = typeof caches !== "undefined" ? caches.default : null;
+  if (!cache) return 0;
+  const key = new Request("https://apejupo.invalid/fotos-intentos/" + encodeURIComponent(request.headers.get("CF-Connecting-IP") || "local"));
+  const hit = await cache.match(key);
+  let n = hit ? parseInt(await hit.text(), 10) || 0 : 0;
+  if (sumar) { n++; await cache.put(key, new Response(String(n), { headers: { "Cache-Control": "max-age=900" } })); }
+  return n;
+}
+
+async function rol(request, env) {
+  if ((await fallos(request)) >= INTENTOS_MAX) return "bloqueado";
+  const c = request.headers.get("X-Clave") || "";
+  if (igual(c, env.FOTOS_ADMIN)) return "admin";
+  if (igual(c, env.FOTOS_CLAVE)) return "socio";
+  await fallos(request, true);
+  return null;
+}
+
+async function tipoImagen(file) { // se comprueba el contenido real, no lo que diga el navegador
+  const b = new Uint8Array(await file.slice(0, 12).arrayBuffer());
+  if (b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) return "image/jpeg";
+  if (String.fromCharCode(...b.slice(0, 4)) === "RIFF" && String.fromCharCode(...b.slice(8, 12)) === "WEBP") return "image/webp";
+  return null;
+}
+
+const BLOQUEO = "Demasiados intentos. Prueba dentro de 15 minutos.";
+
+async function fotos(request, env, url) {
+  if (request.method === "OPTIONS") return new Response(null, { headers: FOTO_CORS });
+  if (!env.FOTOS) return fjson({ error: "La galería todavía no está activada" }, 503);
+  const ruta = url.pathname.replace(/\/+$/, "");
+
+  if (request.method === "GET" && ruta === "/fotos") { // lista completa, de la más reciente a la más antigua
+    const out = [];
+    let cursor;
+    do {
+      const l = await env.FOTOS.list({ prefix: "t/", cursor, include: ["customMetadata"] });
+      for (const o of l.objects) {
+        const m = o.customMetadata || {};
+        let album = "";
+        try { album = decodeURIComponent(m.album || ""); } catch (e) {}
+        out.push({ id: o.key.slice(2), w: +m.w || 4, h: +m.h || 3, album, ts: +m.ts || o.uploaded.getTime() });
+      }
+      cursor = l.truncated ? l.cursor : undefined;
+    } while (cursor);
+    out.sort((a, b) => b.ts - a.ts);
+    return fjson({ fotos: out });
+  }
+
+  const img = /^\/fotos\/([ft])\/([^/]+)$/.exec(ruta);
+  if (request.method === "GET" && img && FOTO_ID.test(img[2])) {
+    const o = await env.FOTOS.get(img[1] + "/" + img[2]);
+    if (!o) return new Response("", { status: 404, headers: FOTO_CORS });
+    return new Response(o.body, { headers: { ...FOTO_CORS, "Content-Type": (o.httpMetadata && o.httpMetadata.contentType) || "image/webp", "Cache-Control": "public, max-age=31536000, immutable", ETag: o.httpEtag } });
+  }
+
+  if (request.method === "POST" && ruta === "/fotos/acceso") { // comprueba la clave antes de empezar a subir
+    const r = await rol(request, env);
+    if (r === "bloqueado") return fjson({ error: BLOQUEO }, 429);
+    return r ? fjson({ ok: true, admin: r === "admin" }) : fjson({ error: "Clave incorrecta" }, 401);
+  }
+
+  if (request.method === "POST" && ruta === "/fotos") {
+    const r = await rol(request, env);
+    if (r === "bloqueado") return fjson({ error: BLOQUEO }, 429);
+    if (!r) return fjson({ error: "Clave incorrecta" }, 401);
+    if (+request.headers.get("Content-Length") > FOTO_MAX + MINI_MAX + 4096) return fjson({ error: "La foto pesa demasiado" }, 413);
+    let form;
+    try { form = await request.formData(); } catch (e) { return fjson({ error: "Envío no válido" }, 400); }
+    const foto = form.get("foto"), mini = form.get("mini");
+    if (!foto || !mini || typeof foto === "string" || typeof mini === "string") return fjson({ error: "Falta la foto" }, 400);
+    if (foto.size > FOTO_MAX || mini.size > MINI_MAX) return fjson({ error: "La foto pesa demasiado" }, 413);
+    const tf = await tipoImagen(foto), tm = await tipoImagen(mini);
+    if (!tf || !tm) return fjson({ error: "El archivo no es una imagen válida" }, 415);
+    const w = parseInt(form.get("w"), 10), h = parseInt(form.get("h"), 10);
+    if (!(w > 0 && w <= 8000 && h > 0 && h <= 8000)) return fjson({ error: "Medidas no válidas" }, 400);
+    const album = String(form.get("album") || "").replace(/\s+/g, " ").trim().slice(0, 60);
+    const ts = Date.now();
+    const id = ts.toString(36).padStart(9, "0") + "-" + [...crypto.getRandomValues(new Uint8Array(4))].map((b) => b.toString(16).padStart(2, "0")).join("");
+    await env.FOTOS.put("f/" + id, await foto.arrayBuffer(), { httpMetadata: { contentType: tf } });
+    // la miniatura se guarda al final: una foto solo aparece en la galería cuando está completa
+    await env.FOTOS.put("t/" + id, await mini.arrayBuffer(), { httpMetadata: { contentType: tm }, customMetadata: { w: String(w), h: String(h), album: encodeURIComponent(album), ts: String(ts) } });
+    return fjson({ id, w, h, album, ts }, 201);
+  }
+
+  const del = /^\/fotos\/([^/]+)$/.exec(ruta);
+  if (request.method === "DELETE" && del && FOTO_ID.test(del[1])) {
+    const r = await rol(request, env);
+    if (r === "bloqueado") return fjson({ error: BLOQUEO }, 429);
+    if (r !== "admin") return fjson({ error: "Solo la administración puede borrar fotos" }, r ? 403 : 401);
+    await env.FOTOS.delete(["t/" + del[1], "f/" + del[1]]);
+    return fjson({ ok: true });
+  }
+
+  return fjson({ error: "No encontrado" }, 404);
+}
+
 export default {
   async fetch(request, env, ctx) {
+    const pathname = new URL(request.url).pathname;
+    if (pathname === "/fotos" || pathname.startsWith("/fotos/")) return fotos(request, env, new URL(request.url));
     if (request.method === "OPTIONS") return new Response(null, { headers: CORS });
     // La lista pública de jugadores de Lichess no permite CORS desde otra web.
     // Solo se admite un ID de torneo; no se aceptan direcciones arbitrarias.

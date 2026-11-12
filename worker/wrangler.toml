@@ -1,3 +1,11 @@
 name = "apejupo-eventos"
 main = "src/index.js"
 compatibility_date = "2026-01-01"
+
+# Galería de fotos del club (fotos.html). Las claves van aparte, como secretos del Worker:
+#   npx wrangler secret put FOTOS_CLAVE --config worker/wrangler.toml   (clave del club, para subir)
+#   npx wrangler secret put FOTOS_ADMIN --config worker/wrangler.toml   (clave de administración, para borrar)
+# En local (npx wrangler dev) se leen de worker/.dev.vars, que no se sube al repositorio.
+[[r2_buckets]]
+binding = "FOTOS"
+bucket_name = "apejupo-fotos"
