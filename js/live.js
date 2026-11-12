@@ -1082,9 +1082,19 @@
 
   // ---------- Rondas, clasificación, emparejamientos y avisos ----------
   var tourId = null, tourRounds = [];
+  // Número de una ronda: el que lleve su nombre («Round 3», «Ronda 3») o, si no lleva, su posición en el torneo
+  function numRonda(r) { var m = /(\d+)/.exec(r.name || ""); return m ? +m[1] : tourRounds.indexOf(r) + 1; }
   function standTitle() {
-    // Lichess entrega la clasificación actual del torneo, no una instantánea de una ronda pasada.
-    return "Clasificación provisional del torneo";
+    // Si se juega la ronda 4 → «después de la ronda 3»; con todas terminadas → «final»
+    var rs = tourRounds, hechas = rs.filter(function (r) { return r.finished; });
+    if (rs.length && hechas.length === rs.length) return "Clasificación final";
+    if (!hechas.length) return "Clasificación provisional";
+    return "Clasificación provisional después de la ronda " + numRonda(hechas[hechas.length - 1]);
+  }
+  // Lichess da la clasificación al momento: si hay una ronda en juego, ya cuenta las partidas de esa ronda que han terminado
+  function standNota() {
+    var enJuego = tourRounds.filter(function (r) { return r.ongoing && !r.finished; })[0];
+    return enJuego ? '<p class="lv-ffoot">Incluye las partidas de la ronda ' + numRonda(enJuego) + " que ya han terminado.</p>" : "";
   }
   function es2(n) { return U.ronda(n); }
   // PGN de cada ronda: las ya terminadas no cambian, así que se guardan y se precargan en segundo plano
@@ -1177,7 +1187,7 @@
           "</td><td>" + (p.rating || "—") + "</td><td><b>" + fmtPts(p.score || 0) + "</b></td><td>" + (p.played || 0) + "</td><td>" +
           ((p.performances && p.performances.standard) || "—") + "</td></tr>";
       });
-      openPanel(standTitle(), h + "</table>" + (ps.calc ? '<p class="lv-ffoot">Puntos calculados con las partidas retransmitidas en Lichess; si el torneo tiene más tableros, pueden faltar puntos.</p>' : ""), true);
+      openPanel(standTitle(), h + "</table>" + standNota() + (ps.calc ? '<p class="lv-ffoot">Puntos calculados con las partidas retransmitidas en Lichess; si el torneo tiene más tableros, pueden faltar puntos.</p>' : ""), true);
     }).catch(function () { openPanel(standTitle(), '<p class="muted" style="padding:16px">Lichess no ha podido proporcionar la clasificación. Vuelve a intentarlo en unos instantes o <a target="_blank" rel="noopener" href="https://lichess.org/broadcast/' + encodeURIComponent(tourId) + '/players">consulta los jugadores en Lichess</a>.</p>'); });
   });
   $("viewer-pair").addEventListener("click", function () {
