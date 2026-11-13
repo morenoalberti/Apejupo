@@ -143,6 +143,11 @@ function render() {
   $('to-round').innerHTML = rounds.map(r => `<option value="${r}">Ronda ${r}</option>`).join('');
   $('to-round').hidden = !rounds.length;
   if (rounds.includes(viewedRound)) $('to-round').value = viewedRound;
+  // Como la página de partida de Lichess: mientras juegas, solo el tablero y lo de tu partida.
+  const g = t.game, focus = !!g && !g.result && (g.white === t.me || g.black === t.me);
+  document.body.classList.toggle('to-focus', focus);
+  $('to-focus-title').textContent = t.title;
+  $('to-focus-format').textContent = `${t.minutes} + ${t.increment} · ${formatLabel(t)}`;
   renderPodium(); renderMatches(); renderGame(); renderControls(); renderBoards(); updateClocks();
   // Quien está jugando el torneo no necesita las reglas ni el acceso del organizador.
   const playingNow = !!mine?.active && ['playing', 'between'].includes(t.status);
@@ -385,7 +390,9 @@ function updateClocks() {
     const left = t.endsAt - now, s = Math.ceil(left / 1000);
     $('to-countdown').querySelector('strong').textContent = s >= 3600 ? `${Math.floor(s / 3600)}:${String(Math.floor(s % 3600 / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}` : clock(left);
     $('to-countdown').classList.toggle('urgent', left < 60000);
+    $('to-focus-clock').textContent = $('to-countdown').querySelector('strong').textContent;
   }
+  $('to-focus-info').querySelector('.to-focus-clock').hidden = !counting;
   if (!$('to-registration').hidden && !canJoin(t)) render();
   const g = t.game; if (!g) return;
   for (const id of ['to-player-top', 'to-player-bottom']) {

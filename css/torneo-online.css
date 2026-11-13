@@ -225,3 +225,17 @@
 @media (max-width: 760px) { .to-boards-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; } }
 .to-board.can-move .to-square:has(canvas) { cursor: grab; }
 body.to-grabbing, body.to-grabbing * { cursor: grabbing !important; }
+/* Modo partida, como la página de partida de Lichess: mientras juegas se ocultan los controles del torneo. */
+.to-focus-info { display: none; }
+body.to-focus .to-focus-info { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 14px 16px; }
+.to-focus-info > div:first-child { display: flex; flex-direction: column; min-width: 0; }
+.to-focus-info strong { overflow-wrap: anywhere; }
+.to-focus-info .muted { font-size: .8rem; }
+.to-focus-clock { display: flex; flex-direction: column; align-items: flex-end; line-height: 1.15; flex: none; }
+.to-focus-clock span { font-size: .66rem; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.to-focus-clock strong { font-family: ui-monospace, Consolas, monospace; font-variant-numeric: tabular-nums; font-size: 1.25rem; }
+body.to-focus .to-hero, body.to-focus #to-share, body.to-focus .to-tournament-bar, body.to-focus #to-host,
+body.to-focus #to-membership, body.to-focus .to-matches-panel, body.to-focus #to-tiebreak, body.to-focus #to-notice,
+body.to-focus #to-podium { display: none !important; }
+body.to-focus .to-content { padding-top: 16px; }
+body.to-focus .to-room-bar { margin-bottom: 12px; }
