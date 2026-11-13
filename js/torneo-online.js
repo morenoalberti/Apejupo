@@ -144,8 +144,11 @@ function render() {
   $('to-round').hidden = !rounds.length;
   if (rounds.includes(viewedRound)) $('to-round').value = viewedRound;
   // Como la página de partida de Lichess: mientras juegas, solo el tablero y lo de tu partida.
-  const g = t.game, focus = !!g && !g.result && (g.white === t.me || g.black === t.me);
+  // Cuenta tu partida en marcha aunque estés mirando otro tablero.
+  const focus = !!t.me && t.games.some(x => !x.result && !x.bye && (x.white === t.me || x.black === t.me));
   document.body.classList.toggle('to-focus', focus);
+  // Con el torneo en juego no se muestra «Compartir torneo».
+  $('to-share').hidden = ['playing', 'between'].includes(t.status);
   $('to-focus-title').textContent = t.title;
   $('to-focus-format').textContent = `${t.minutes} + ${t.increment} · ${formatLabel(t)}`;
   renderPodium(); renderMatches(); renderGame(); renderControls(); renderBoards(); updateClocks();
