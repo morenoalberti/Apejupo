@@ -53,6 +53,22 @@ function setKeyMode(required) {
 async function checkKeyMode() {
   try { setKeyMode((await (await request('/api/tournaments')).json()).keyRequired !== false); } catch {}
 }
+const svg = d => `<svg viewBox="0 0 24 24" aria-hidden="true">${d}</svg>`;
+const icons = {
+  clock: svg('<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2M9 2h6"/>'),
+  format: svg('<path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0zM7 6H4v2a4 4 0 0 0 4 4M17 6h3v2a4 4 0 0 1-4 4"/>'),
+  people: svg('<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>'),
+  calendar: svg('<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>')
+};
+const emptyLobby = `<div class="to-empty"><div class="to-empty-art" aria-hidden="true"><svg viewBox="0 0 64 64"><path d="M32 5v10M27 10h10M22 27c0-6 4-11 10-11s10 5 10 11c0 5-3 8-4 12H26c-1-4-4-7-4-12zM24 39h16l3 9H21zM17 48h30v7H17z"/></svg></div><strong>El próximo torneo puede ser el nuestro</strong><p>Todavía no hay torneos. Cuando la organización abra uno, aparecerá aquí.</p><button class="btn" type="button" data-create>Organizar torneo</button></div>`;
+function eventCard(t) {
+  const trash = read(hostKey(t.id)) ? `<button class="to-delete" type="button" data-delete="${t.id}" aria-label="Borrar el torneo ${esc(t.title)}" title="Borrar torneo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M5 7l1 13h12l1-13M9 7V4h6v3"/></svg></button>` : '';
+  const full = Math.min(100, Math.round(t.count / t.capacity * 100));
+  return `<article class="to-event ${t.status}">${trash}<div class="to-event-top"><span class="to-status ${t.status}">${esc(statuses[t.status])}</span><span class="to-event-clock">${icons.clock}${t.minutes} + ${t.increment}</span></div>`
+    + `<h3>${esc(t.title)}</h3><ul class="to-event-meta"><li>${icons.format}${formatLabel(t)}</li><li>${icons.calendar}${t.startsAt ? esc(date(t.startsAt)) : 'Inicio a cargo del organizador'}</li></ul>`
+    + `<div class="to-event-fill"><span>${icons.people}${t.count}/${t.capacity} jugadores</span><i><b style="width:${full}%"></b></i></div>`
+    + `<a class="btn" href="jugar-torneo.html?id=${t.id}">${t.status === 'waiting' ? 'Entrar e inscribirme' : 'Ver torneo'}</a></article>`;
+}
 async function loadLobby() {
   if (!API) {
     $('to-events').innerHTML = '<div class="to-empty"><strong>Estamos preparando los próximos torneos</strong>Las inscripciones estarán disponibles aquí cuando abramos esta sección.</div>';
@@ -63,9 +79,7 @@ async function loadLobby() {
     const { tournaments, keyRequired } = await (await request('/api/tournaments')).json();
     setKeyMode(keyRequired !== false);
     lobby = new Map(tournaments.map(t => [t.id, t]));
-    // La papelera solo aparece en los torneos que organizas desde este navegador.
-    const trash = t => read(hostKey(t.id)) ? `<button class="to-delete" type="button" data-delete="${t.id}" aria-label="Borrar el torneo ${esc(t.title)}" title="Borrar torneo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M5 7l1 13h12l1-13M9 7V4h6v3"/></svg></button>` : '';
-    $('to-events').innerHTML = tournaments.length ? tournaments.map(t => `<article class="to-event">${trash(t)}<span class="to-status ${t.status}">${esc(statuses[t.status])}</span><h3>${esc(t.title)}</h3><p class="muted">${t.minutes} + ${t.increment} · ${formatLabel(t)} · ${t.count}/${t.capacity} jugadores</p><p>${t.startsAt ? esc(date(t.startsAt)) : 'Inicio a cargo del organizador'}</p><a class="btn" href="jugar-torneo.html?id=${t.id}">${t.status === 'waiting' ? 'Entrar e inscribirme' : 'Ver torneo'}</a></article>`).join('') : '<div class="to-empty"><strong>El próximo torneo puede ser el nuestro</strong>Todavía no hay torneos. Cuando la organización abra uno, aparecerá aquí.</div>';
+    $('to-events').innerHTML = tournaments.length ? tournaments.map(eventCard).join('') : emptyLobby;
     message('');
   } catch {
     $('to-events').innerHTML = '<div class="to-empty"><strong>No podemos consultar los torneos ahora</strong>Vuelve a pulsar Actualizar en unos momentos.</div>';
@@ -612,6 +626,7 @@ setInterval(() => { updateClocks(); updateMiniClocks(); }, 100);
 document.addEventListener('pointerdown', () => { try { audio ||= new AudioContext(); audio.resume(); } catch {} }, { once: true });
 
 $('to-events').addEventListener('click', async event => {
+  if (event.target.closest('[data-create]')) { $('to-create-open').click(); return; }
   const button = event.target.closest('[data-delete]'); if (!button) return;
   const id = button.dataset.delete, t = lobby.get(id); if (!t) return;
   const n = t.count, players = n === 1 ? 'Hay 1 jugador inscrito' : `Hay ${n} jugadores inscritos`;
