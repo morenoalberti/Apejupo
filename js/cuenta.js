@@ -30,9 +30,11 @@ export async function refresh() {
 function renderChip() {
   const chip = document.getElementById('cuenta-chip'); if (!chip) return;
   const user = currentUser();
-  chip.innerHTML = user ? `<span class="cu-avatar" aria-hidden="true">${esc(user.nick[0].toUpperCase())}</span><span>${esc(user.nick)}</span>` : 'Entrar';
+  // Con sesión: redondel (donde irá la foto, de momento la inicial) y el nick; un punto naranja si falta confirmar el correo.
+  chip.innerHTML = user ? `<span class="cu-avatar" aria-hidden="true">${esc(user.nick[0].toUpperCase())}${user.verified ? '' : '<i class="cu-pending"></i>'}</span><span class="cu-nick">${esc(user.nick)}</span>` : 'Entrar';
   chip.href = 'cuenta.html'; chip.classList.toggle('in', !!user);
-  chip.setAttribute('aria-label', user ? `Tu cuenta: ${user.nick}` : 'Entrar o crear una cuenta');
+  chip.setAttribute('aria-label', user ? `Tu cuenta: ${user.nick}${user.verified ? '' : ' (correo sin confirmar)'}` : 'Entrar o crear una cuenta');
+  chip.title = user && !user.verified ? 'Confirma tu correo para jugar torneos con tu cuenta' : '';
 }
 
 // Ventana de entrar / crear cuenta / recuperar contraseña.
@@ -65,6 +67,7 @@ function show(text, error = false, extra = '') {
 // En pruebas locales el servidor devuelve el enlace del correo para poder seguirlo sin buzón.
 const devLink = body => body.enlace ? `<br><a href="${esc(body.enlace.replace(/^https?:\/\/[^/]+\//, ''))}">Abrir el enlace del correo (solo en pruebas locales)</a>` : '';
 function tab(name) {
+  dialog.querySelector('.cu-tabs').hidden = false;
   for (const f of dialog.querySelectorAll('[data-cu-form]')) f.hidden = f.dataset.cuForm !== name;
   for (const b of dialog.querySelectorAll('.cu-tabs [data-cu-tab]')) b.setAttribute('aria-selected', String(b.dataset.cuTab === (name === 'recuperar' ? 'entrar' : name)));
   dialog.querySelector('#cu-title').textContent = { entrar: 'Entrar', registro: 'Crear cuenta', recuperar: 'Recuperar contraseña' }[name];
@@ -85,7 +88,7 @@ export function openAuth(name = 'entrar') {
 }
 let lastLogin = '';
 async function resend() {
-  try { const body = await api('reenviar', { login: lastLogin }); show('Si la cuenta está pendiente de confirmar, te hemos enviado otro correo.', false, devLink(body)); }
+  try { const body = await api('reenviar', { login: lastLogin || currentUser()?.email || '' }, { auth: true }); show('Te hemos enviado otro correo de confirmación. Puede tardar un par de minutos.', false, devLink(body) + ' <button type="button" class="btn cu-submit" data-cu-close>Entendido</button>'); }
   catch (e) { show(e.message, true); }
 }
 async function submit(event) {
@@ -101,7 +104,12 @@ async function submit(event) {
     } else if (kind === 'registro') {
       const body = await api('registro', { nick: data.nick, email: data.email, password: data.password });
       lastLogin = data.email; form.reset();
-      show(`Cuenta creada. Te hemos enviado un correo a ${data.email}: abre el enlace para activarla y después entra.`, false, devLink(body));
+      // Ya has entrado: la cabecera muestra tu nick. Falta confirmar el correo para jugar con la cuenta.
+      setAccount(body.session, body.user);
+      for (const f of dialog.querySelectorAll('[data-cu-form]')) f.hidden = true;
+      dialog.querySelector('.cu-tabs').hidden = true;
+      show(`¡Bienvenido, ${body.user.nick}! Ya has entrado con tu cuenta. Último paso: te hemos enviado un correo a ${data.email}. Abre el enlace que contiene para confirmar tu dirección y poder jugar torneos con tu nick. Si no lo ves en unos minutos, mira en «Spam» o «Promociones».`, false,
+        devLink(body) + ' <button type="button" class="cu-link" data-cu-resend>Reenviar el correo</button> <button type="button" class="btn cu-submit" data-cu-close>Entendido</button>');
     } else {
       const body = await api('recuperar', { email: data.email });
       show('Si ese correo tiene cuenta, te llegará un enlace en unos minutos. Revisa también el correo no deseado.', false, devLink(body));

@@ -50,7 +50,8 @@ export async function verifyPassword(password, stored) {
 }
 
 async function sendMail(env, to, subject, text) {
-  if (!env.RESEND_API_KEY) { console.log(`[correo local] Para ${to} · ${subject}\n${text}`); return; }
+  // Sin clave, o con direcciones de prueba (@example.com, .test), el correo solo se escribe en la consola.
+  if (!env.RESEND_API_KEY || /@(example\.(com|org|net)|[^@]+\.test)$/i.test(to)) { console.log(`[correo local] Para ${to} · ${subject}\n${text}`); return; }
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST', headers: { Authorization: 'Bearer ' + env.RESEND_API_KEY, 'Content-Type': 'application/json' },
     body: JSON.stringify({ from: env.CORREO_REMITENTE || 'Apejupo Chess Club <cuentas@apejupo.com>', to: [to], subject, text })
@@ -97,6 +98,12 @@ export class AccountStore extends DurableObject {
     this.sql.exec('DELETE FROM tokens WHERE hash = ?', hash);
     return row.user_id;
   }
+  async openSession(user, now) {
+    const session = randomToken();
+    this.sql.exec('DELETE FROM sessions WHERE expires_at <= ?', now);
+    this.sql.exec('INSERT INTO sessions (hash, user_id, expires_at) VALUES (?, ?, ?)', await sha256(session), user.id, now + SESSION_MS);
+    return session;
+  }
   async sendVerification(user, now) {
     const token = await this.mailToken(user, 'verify', VERIFY_MS, now), link = `${this.env.SITE_URL || 'https://apejupo.com'}/cuenta.html?confirmar=${token}`;
     await sendMail(this.env, user.email, 'Confirma tu cuenta de Apejupo', `Hola, ${user.nick}:\n\nPara activar tu cuenta en Apejupo Chess Club, abre este enlace (caduca en 24 horas):\n\n${link}\n\nSi no has creado tú esta cuenta, ignora este correo.`);
@@ -115,7 +122,9 @@ export class AccountStore extends DurableObject {
           const user = { id: randomToken(12), nick, email, created_at: now };
           this.sql.exec('INSERT INTO users (id, nick, nick_key, email, pass, verified, created_at) VALUES (?, ?, ?, ?, ?, 0, ?)', user.id, nick, nickKey(nick), email, await hashPassword(b.password), now);
           const link = await this.sendVerification(user, now);
-          return json({ ok: true, ...(dev ? { enlace: link } : {}) }, 201);
+          // Como en Lichess, al crear la cuenta ya se entra; para jugar con ella hay que confirmar el correo.
+          const session = await this.openSession(user, now);
+          return json({ ok: true, session, user: publicUser({ ...user, verified: 0 }), ...(dev ? { enlace: link } : {}) }, 201);
         }
         case '/entrar': {
           const login = String(b.login || '').trim(), key = login.includes('@') ? login.toLowerCase() : nickKey(login);
@@ -124,16 +133,12 @@ export class AccountStore extends DurableObject {
           // Mismo mensaje si el usuario no existe o la contraseña falla: no se desvela qué cuentas hay.
           const good = user ? await verifyPassword(String(b.password || ''), user.pass) : (await hashPassword('x'), false);
           requireThat(good, 'Nick o contraseña incorrectos.', 401);
-          requireThat(user.verified, 'Confirma tu cuenta con el enlace que te enviamos por correo. Si no te llegó, pide otro.', 403);
           this.clearLimit('entrar:' + key);
-          const session = randomToken();
-          this.sql.exec('DELETE FROM sessions WHERE expires_at <= ?', now);
-          this.sql.exec('INSERT INTO sessions (hash, user_id, expires_at) VALUES (?, ?, ?)', await sha256(session), user.id, now + SESSION_MS);
-          return json({ session, user: publicUser(user) });
+          return json({ session: await this.openSession(user, now), user: publicUser(user) });
         }
         case '/reenviar': {
           this.limit('reenviar:' + ip, 5, 3600000, now);
-          const user = this.one('SELECT * FROM users WHERE email = ? OR nick_key = ?', String(b.login || '').trim().toLowerCase(), nickKey(b.login));
+          const user = (await this.user(b.session, now)) || this.one('SELECT * FROM users WHERE email = ? OR nick_key = ?', String(b.login || '').trim().toLowerCase(), nickKey(b.login));
           let link = null;
           if (user && !user.verified) { this.limit('reenviar:' + user.id, 3, 3600000, now); link = await this.sendVerification(user, now); }
           return json({ ok: true, ...(dev && link ? { enlace: link } : {}) });
@@ -185,7 +190,7 @@ export class AccountStore extends DurableObject {
         // Uso interno de las salas de torneo: quién es esta sesión y si un nombre está reservado.
         case '/sesion': {
           const user = await this.user(b.session, now);
-          return json({ user: user && user.verified ? { id: user.id, nick: user.nick } : null });
+          return json({ user: user && user.verified ? { id: user.id, nick: user.nick } : null, unverified: !!user && !user.verified });
         }
         case '/nick': return json({ taken: !!this.one('SELECT 1 AS x FROM users WHERE nick_key = ?', nickKey(b.name)) });
         default: throw new GameError('No encontrado.', 404);

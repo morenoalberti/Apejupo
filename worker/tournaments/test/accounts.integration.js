@@ -26,10 +26,13 @@ test('cuentas: registro, confirmación, entrada, torneo, recuperación y borrado
   assert.equal((await call('/api/cuentas/registro', { nick: 'Admin', email, password })).status, 400);
   const created = await call('/api/cuentas/registro', { nick, email, password });
   assert.equal(created.status, 201); assert.match(created.body.enlace, /cuenta\.html\?confirmar=[a-f0-9]{64}$/);
+  // Al crear la cuenta ya se entra, pero sin confirmar el correo no se juega con ella.
+  assert.match(created.body.session, /^[a-f0-9]{64}$/); assert.equal(created.body.user.verified, false);
+  assert.equal((await call('/api/cuentas/yo', {}, created.body.session)).body.user.nick, nick);
   assert.equal((await call('/api/cuentas/registro', { nick: nick.toUpperCase(), email: 'otro' + email, password })).status, 409);
   assert.equal((await call('/api/cuentas/registro', { nick: nick + 'x', email: email.toUpperCase(), password })).status, 409);
-  // Sin confirmar no se entra; un enlace falso no vale; el bueno, una sola vez.
-  assert.equal((await call('/api/cuentas/entrar', { login: nick, password })).status, 403);
+  // Sin confirmar se puede entrar (verified: false); un enlace falso no vale; el bueno, una sola vez.
+  assert.equal((await call('/api/cuentas/entrar', { login: nick, password })).body.user.verified, false);
   assert.equal((await call('/api/cuentas/confirmar', { token: token() })).status, 400);
   const confirmToken = linkToken(created.body.enlace);
   assert.equal((await call('/api/cuentas/confirmar', { token: confirmToken })).body.nick, nick);
@@ -50,6 +53,11 @@ test('cuentas: registro, confirmación, entrada, torneo, recuperación y borrado
   const t = await fetch(BASE + '/api/tournaments', { method: 'POST', headers: { Origin: ORIGIN, 'Content-Type': 'application/json', Authorization: 'Bearer ' + key }, body: JSON.stringify({ title: 'Prueba de cuentas', minutes: 5, increment: 3, rounds: 3, capacity: 8, hostToken }) });
   const { id } = await t.json();
   try {
+    // Con la cuenta sin confirmar no se puede jugar con ella.
+    const pending = await call('/api/cuentas/registro', { nick: 'Pend_' + tail, email: `pend.${tail}@example.com`, password });
+    const blocked = await call(`/api/tournaments/${id}/join`, { name: 'x', token: token() }, pending.body.session);
+    assert.equal(blocked.status, 403); assert.match(blocked.body.error, /Confirma tu correo/);
+    await call('/api/cuentas/borrar', { password }, pending.body.session);
     assert.equal((await call(`/api/tournaments/${id}/join`, { name: nick.toLowerCase(), token: token() })).status, 409);
     const first = await call(`/api/tournaments/${id}/join`, { name: 'lo que sea', token: token() }, session);
     assert.equal(first.status, 201);

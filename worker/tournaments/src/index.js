@@ -320,7 +320,8 @@ export default {
         // Con sesión, el jugador se inscribe con el nick de su cuenta; sin ella, su alias no puede ser el nick de otra cuenta.
         const b = await body(request), session = bearer(request); delete b.account;
         if (session) {
-          const { user } = await (await askAccounts('sesion', { session })).json();
+          const { user, unverified } = await (await askAccounts('sesion', { session })).json();
+          requireThat(!unverified, 'Confirma tu correo para jugar con tu cuenta: abre el enlace que te enviamos. Si no te llegó, pide otro desde «Mi cuenta».', 403);
           requireThat(user, 'Tu sesión ha caducado. Vuelve a entrar.', 401);
           b.account = user;
         } else {

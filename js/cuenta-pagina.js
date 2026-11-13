@@ -1,6 +1,6 @@
 // Página «Mi cuenta»: confirmar la cuenta y poner contraseña nueva (enlaces del correo), ver tus datos,
 // salir y borrar la cuenta.
-import { api, currentUser, logout, openAuth, refresh } from './cuenta.js?v=20261113-cuentas2';
+import { api, currentUser, logout, openAuth, refresh } from './cuenta.js?v=20261113-cuentas3';
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -16,6 +16,7 @@ function renderAccount() {
   view('dentro');
   $('cu-nick-big').textContent = user.nick; $('cu-initial').textContent = user.nick[0].toUpperCase();
   $('cu-email-fact').textContent = user.email;
+  $('cu-verify').hidden = !!user.verified;
   $('cu-since').textContent = user.createdAt ? new Date(user.createdAt).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' }) : '—';
 }
 
@@ -65,3 +66,8 @@ $('cu-delete-form').addEventListener('submit', async event => {
   finally { button.disabled = false; }
 });
 $('cu-delete-cancel').addEventListener('click', () => { $('cu-delete-form').hidden = true; $('cu-delete-pass').value = ''; note('cu-delete-msg', ''); });
+$('cu-resend').addEventListener('click', async event => {
+  const button = event.currentTarget; button.disabled = true;
+  try { await api('reenviar', { login: currentUser()?.email || '' }, { auth: true }); button.textContent = 'Correo enviado: revisa tu bandeja'; }
+  catch (e) { button.textContent = e.message; button.disabled = false; }
+});

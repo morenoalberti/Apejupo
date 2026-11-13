@@ -1,5 +1,5 @@
 import { Chess } from '../assets/chess/chess.js';
-import { session, currentUser, openAuth } from './cuenta.js?v=20261113-cuentas2';
+import { session, currentUser, openAuth } from './cuenta.js?v=20261113-cuentas3';
 
 const $ = id => document.getElementById(id);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -228,7 +228,7 @@ function renderJoin() {
   $('to-change-name').hidden = !quick || !!user;
   $('to-join-account').hidden = !!user;
   $('to-joinkey-row').hidden = !state.locked; $('to-joinkey').required = !!state.locked;
-  $('to-join-hint').textContent = state.locked ? 'Este torneo tiene clave: pídesela al organizador.' : user ? 'Te inscribes con tu cuenta: podrás seguir desde cualquier dispositivo.' : 'Un clic y entras. Tu nombre se recuerda en este navegador.';
+  $('to-join-hint').textContent = state.locked ? 'Este torneo tiene clave: pídesela al organizador.' : user ? (user.verified ? 'Te inscribes con tu cuenta: podrás seguir desde cualquier dispositivo.' : 'Confirma tu correo (abre el enlace que te enviamos) para jugar con tu cuenta.') : 'Un clic y entras. Tu nombre se recuerda en este navegador.';
   $('to-join-title').textContent = arena(state) && state.status === 'playing' ? '¡El arena está en marcha!' : 'Juega este torneo';
 }
 function liveGames() { return (state?.games || []).filter(g => !g.result && !g.bye && g.fen); }
