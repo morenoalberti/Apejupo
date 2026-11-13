@@ -312,8 +312,9 @@ function renderGame() {
   $('to-game-panel').hidden = !g;
   if (!g) return;
   const own = !!myColor();
-  // En tu propia partida sobra la franja del título: el tablero ya está orientado hacia ti.
-  $('to-game-heading').hidden = own && !g.result;
+  // En tu propia partida sobra la franja del título (el tablero ya está orientado hacia ti),
+  // y con la partida terminada también: solo el tablero con el resultado.
+  $('to-game-heading').hidden = own || !!g.result;
   $('to-board-title').textContent = arena(state) ? (own ? 'Tu partida' : 'Viendo partida') : `${own ? 'Tu partida' : 'Viendo partida'} · Ronda ${g.round}`;
   const top = flipped ? 'w' : 'b', bottom = flipped ? 'b' : 'w';
   $('to-player-top').dataset.color = top; $('to-player-bottom').dataset.color = bottom;
