@@ -189,7 +189,7 @@ test('cancelación protege contra acciones posteriores', () => {
 });
 
 test('arena: validación, emparejamiento continuo de libres y fin por tiempo', async () => {
-  const { pairArena, ARENA_PAUSE_MS } = await import('../src/core.js');
+  const { pairArena, ARENA_PAUSE_MS, arenaPairingsCloseAt } = await import('../src/core.js');
   assert.throws(() => tournament(0, { format: 'arena', duration: 7 }), /duración/);
   assert.throws(() => tournament(0, { format: 'arena', duration: 20, minutes: 10 }), /triple/);
   const t = tournament(5, { format: 'arena', duration: 60, rounds: undefined });
@@ -219,14 +219,19 @@ test('arena: validación, emparejamiento continuo de libres y fin por tiempo', a
   act(t, idle, false, { type: 'pause' }, NOW + 70000);
   assert.equal(pairArena(t, NOW + 80000, new Set(ids)), false);
   act(t, idle, false, { type: 'resume' }, NOW + 80000);
-  // Al cumplirse el tiempo no hay partidas nuevas; las que siguen terminan y cuentan.
+  // Como en Lichess: con 10 minutos por jugador se deja de emparejar 2 minutos antes del final.
   const end = t.endsAt;
+  assert.equal(arenaPairingsCloseAt(t), end - 120000);
+  assert.equal(pairArena(t, end - 120000, new Set(ids)), false);
+  // Al cumplirse el tiempo la clasificación se congela: lo que acaba después se juega, pero no cuenta.
   for (const x of t.games.filter(x => !x.result)) x.lastAt = end - 1000; // partida viva al acabar el tiempo
-  assert.equal(pairArena(t, end, new Set(ids)), false);
+  const before = standings(t).map(p => [p.id, p.points, p.played]);
   advance(t, end);
   assert.equal(t.status, 'playing');
   for (const x of t.games.filter(x => !x.result)) act(t, x.black, false, { type: 'resign', game: x.id }, end + 1000);
   assert.equal(t.status, 'finished');
+  assert.deepEqual(standings(t).map(p => [p.id, p.points, p.played]), before);
+  assert.ok(snapshot(t, null, false, null, end + 2000).games.some(x => x.late));
   assert.ok(t.games.filter(x => !x.bye).every(x => x.result));
   assert.equal(snapshot(t, null, false, null, end + 2000).format, 'arena');
 });
@@ -267,4 +272,20 @@ test('arena: berserk (mitad de tiempo, sin incremento, medio punto extra) y entr
   assert.throws(() => joinTournament(swiss, 'Tardío', 'secret-late', NOW), /cerradas/);
   const view = snapshot(t, null, false, null, NOW + 70000);
   assert.ok(view.standings[0].sheet);
+});
+
+test('arena 1+0: se deja de emparejar 30 s antes y la bandera caída a tiempo cuenta', async () => {
+  const { pairArena, arenaPairingsCloseAt } = await import('../src/core.js');
+  const t = tournament(2, { format: 'arena', duration: 3, minutes: 1, increment: 0 });
+  startTournament(t, NOW);
+  const ids = t.players.map(p => p.id);
+  assert.equal(arenaPairingsCloseAt(t), t.endsAt - 30000);
+  assert.equal(pairArena(t, t.endsAt - 31000, new Set(ids)), true);
+  const g = t.games[0];
+  // Las blancas no mueven: su bandera cae 1 s antes del final, aunque el servidor lo detecte después.
+  g.lastAt = t.endsAt - 61000;
+  advance(t, t.endsAt + 5000);
+  assert.equal(g.result, '0-1');
+  assert.equal(t.status, 'finished');
+  assert.equal(standings(t).find(p => p.id === g.black).points, 1);
 });

@@ -19,6 +19,10 @@ export const ARENA_PAUSE_MS = 10000;
 export const ARENA_DURATIONS = [3, 5, 10, 15, 20, 30, 45, 60, 90, 120];
 export const isArena = t => t.format === 'arena';
 export const BERSERK_BONUS = .5;
+// Como en Lichess: se deja de emparejar cuando queda menos de la mitad del tiempo base de una partida
+// (entre 30 s y 2 min), y las partidas que acaban después del tiempo se juegan pero no cuentan.
+export const arenaPairingsCloseAt = t => t.endsAt - Math.max(30, Math.min(t.minutes * 30, 120)) * 1000;
+const countsForArena = (t, g) => !isArena(t) || !t.endsAt || g.bye || !g.result || g.finishedAt <= t.endsAt;
 export const BERSERK_MIN_PLIES = 13; // al menos 7 jugadas de blancas para cobrar el extra
 const berserkBonus = (g, color) => !!(color === 'w' ? g.berserkW : g.berserkB) && g.moves.length >= BERSERK_MIN_PLIES;
 export function createTournament(input, id, hostHash, now = Date.now()) {
@@ -47,7 +51,8 @@ export function standings(t) {
   const rows = t.players.map(p => ({ id: p.id, name: p.name, seed: p.seed, active: p.active,
     points: 0, wins: 0, buchholz: 0, sonneborn: 0, played: 0, byes: 0, opponents: [], colors: [], sheet: [] }));
   const map = new Map(rows.map(p => [p.id, p]));
-  for (const g of t.games) {
+  const counted = t.games.filter(g => countsForArena(t, g));
+  for (const g of counted) {
     const white = map.get(g.white), black = map.get(g.black);
     if (!white) continue;
     if (g.bye) { white.points += 1; white.byes++; white.sheet.push({ s: 1, bye: true }); continue; }
@@ -64,7 +69,7 @@ export function standings(t) {
     white.sheet.push({ s: a, berserk: !!g.berserkW, bonus: bonusW });
     black.sheet.push({ s: 1 - a, berserk: !!g.berserkB, bonus: bonusB });
   }
-  for (const g of t.games) {
+  for (const g of counted) {
     if (!g.result || g.bye) continue;
     const a = map.get(g.white), b = map.get(g.black);
     const score = g.result === '1-0' ? 1 : g.result === '0-1' ? 0 : .5;
@@ -87,7 +92,7 @@ export function arenaReadyAt(t, id) {
   return Math.max(t.endsAt - t.duration * 60000, g ? g.finishedAt + ARENA_PAUSE_MS : 0);
 }
 export function pairArena(t, now = Date.now(), online = null) {
-  if (!isArena(t) || t.status !== 'playing' || now >= t.endsAt) return false;
+  if (!isArena(t) || t.status !== 'playing' || now >= arenaPairingsCloseAt(t)) return false;
   const ranked = standings(t), free = ranked
     .filter(p => p.active && !p.paused && (!online || online.has(p.id)))
     .map(p => ({ p, ready: arenaReadyAt(t, p.id) }))
@@ -205,7 +210,7 @@ function finishTournament(t, now) {
 }
 export function afterResults(t, now) {
   if (isArena(t)) {
-    // Al cumplirse el tiempo no empiezan partidas nuevas; las que siguen en juego terminan y cuentan.
+    // Al cumplirse el tiempo la clasificación queda congelada; las partidas en juego se terminan, pero no cuentan.
     if (t.status === 'playing' && (now >= t.endsAt || t.players.filter(p => p.active).length < 2) && !t.games.some(g => !g.result)) finishTournament(t, now);
     return;
   }
@@ -244,11 +249,13 @@ export function expireGames(t, now = Date.now()) {
   for (const g of t.games) {
     if (g.result) continue;
     const key = g.turn === 'w' ? 'whiteMs' : 'blackMs';
-    if (now < g.lastAt + g[key]) continue;
+    const flagAt = g.lastAt + g[key];
+    if (now < flagAt) continue;
     const other = g.turn === 'w' ? 'b' : 'w';
     g[key] = 0;
     const possible = canPossiblyMate(chessFor(g), other);
     endGame(g, possible ? (g.turn === 'w' ? '0-1' : '1-0') : '1/2-1/2', possible ? 'Tiempo agotado' : 'Tiempo agotado; rival sin material para dar mate', now);
+    g.finishedAt = Math.min(now, flagAt); // la bandera cae cuando se agota el reloj, aunque se detecte un poco después
     changed = true;
   }
   if (changed) afterResults(t, now);
@@ -272,7 +279,7 @@ export function nextAlarm(t, now = Date.now()) {
   if (isArena(t) && t.status === 'playing') {
     times.push(t.endsAt);
     // Despertar cuando termine la pausa de quien acaba de jugar. Solo instantes futuros: si no, la alarma se repetiría sin parar.
-    for (const p of t.players) { const ready = arenaReadyAt(t, p.id); if (p.active && ready > now && ready < t.endsAt) times.push(ready); }
+    for (const p of t.players) { const ready = arenaReadyAt(t, p.id); if (p.active && ready > now && ready < arenaPairingsCloseAt(t)) times.push(ready); }
   }
   for (const g of t.games) if (!g.result) times.push(g.lastAt + (g.turn === 'w' ? g.whiteMs : g.blackMs));
   return Math.min(...times);
@@ -347,6 +354,7 @@ export function act(t, playerId, host, action, now = Date.now()) {
 
 export function summary(t) {
   return { id: t.id, title: t.title, status: t.status, format: t.format || 'swiss', duration: t.duration || null, endsAt: t.endsAt || null,
+    pairingsCloseAt: isArena(t) && t.endsAt ? arenaPairingsCloseAt(t) : null,
     minutes: t.minutes, increment: t.increment,
     rounds: t.rounds, round: t.round, capacity: t.capacity, count: t.players.length, startsAt: t.startsAt, createdAt: t.createdAt };
 }
@@ -364,6 +372,7 @@ export function snapshot(t, playerId, host, selectedGame, now = Date.now()) {
     finishedAt: t.finishedAt, notice: t.notice, me: playerId || null, host: !!host,
     standings: standings(t).map(({ opponents, colors, seed, ...p }) => p),
     games: t.games.map(g => ({ id: g.id, round: g.round, white: g.white, black: g.black, result: g.result, reason: g.reason, bye: g.bye,
+      late: !countsForArena(t, g),
       berserkW: !!g.berserkW, berserkB: !!g.berserkB, ...(g.result || g.bye ? {} : { fen: g.fen, lastMove: g.lastMove || null, turn: g.turn, whiteMs: g.whiteMs, blackMs: g.blackMs, lastAt: g.lastAt }) })), game };
 }
 export function exportPgn(t, gameId) {

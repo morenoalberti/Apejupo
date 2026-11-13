@@ -291,10 +291,11 @@ function renderGame() {
   const bz = color => (color === 'w' ? g.berserkW : g.berserkB) ? ' ⚡ Berserk' : '';
   $('to-player-top').querySelector('span').textContent = `${top === 'w' ? '♔' : '♚'} ${name(top === 'w' ? g.white : g.black)}${bz(top)}`;
   $('to-player-bottom').querySelector('span').textContent = `${bottom === 'w' ? '♔' : '♚'} ${name(bottom === 'w' ? g.white : g.black)}${bz(bottom)}`;
-  let status = g.result ? `${g.result.replace('1/2-1/2', '½–½')} · ${g.reason}` : pending ? 'Turno de tu rival' : !connected ? 'Recuperando conexión. Tu reloj sigue corriendo.' : canMove() ? 'Tu turno' : own ? 'Turno de tu rival' : `Juegan ${g.turn === 'w' ? 'blancas' : 'negras'}`;
+  const late = arena(state) && state.endsAt && (g.result ? state.games.find(x => x.id === g.id)?.late : Date.now() + offset >= state.endsAt);
+  let status = late ? (g.result ? `${g.result.replace('1/2-1/2', '½–½')} · ${g.reason} · No cuenta: terminó después del tiempo` : 'Tiempo del torneo cumplido: esta partida ya no cuenta') : g.result ? `${g.result.replace('1/2-1/2', '½–½')} · ${g.reason}` : pending ? 'Turno de tu rival' : !connected ? 'Recuperando conexión. Tu reloj sigue corriendo.' : canMove() ? 'Tu turno' : own ? 'Turno de tu rival' : `Juegan ${g.turn === 'w' ? 'blancas' : 'negras'}`;
   $('to-game-status').textContent = status; $('to-game-status').classList.toggle('my-turn', canMove());
   // En tu partida no hace falta «Tu turno» / «Turno de tu rival»: lo indica el reloj en verde.
-  $('to-game-status').hidden = own && !g.result && connected;
+  $('to-game-status').hidden = own && !g.result && connected && !late;
   $('to-replay').hidden = !g.result;
   if (g.result && !replay) {
     const c = new Chess(); replay = [c.fen()];
@@ -394,7 +395,7 @@ function updateClocks() {
   const now = Date.now() + offset, t = state;
   const me = t.standings.find(p => p.id === t.me);
   $('to-phase').textContent = t.status === 'waiting' ? t.startsAt ? `Empieza el ${date(t.startsAt)}` : 'Esperando al organizador'
-    : arena(t) && t.status === 'playing' ? (now < t.endsAt ? (me?.active && !me.playing && !me.paused ? 'Buscando rival…' : '') : 'Tiempo cumplido: terminando las partidas en juego')
+    : arena(t) && t.status === 'playing' ? (now >= t.endsAt ? 'Tiempo cumplido: las partidas en juego se terminan, pero ya no cuentan' : t.pairingsCloseAt && now >= t.pairingsCloseAt ? (me?.active && !me.playing ? 'Ya no hay emparejamientos nuevos' : '') : me?.active && !me.playing && !me.paused ? 'Buscando rival…' : '')
     : t.status === 'between' ? `Siguiente ronda en ${Math.max(0, Math.ceil((t.nextRoundAt - now) / 1000))} s` : t.status === 'playing' ? `Ronda ${t.round} de ${t.rounds}` : t.status === 'finished' ? 'Clasificación final' : 'Torneo cancelado';
   // Cuenta atrás grande del arena, como en Lichess.
   const counting = arena(t) && t.status === 'playing' && now < t.endsAt;
