@@ -1,6 +1,7 @@
 import { Chess } from 'chess.js';
 
-export const MAX_PLAYERS = 32;
+// Comprobado con la prueba de carga: 128 jugadores y 32 espectadores sin retrasos apreciables.
+export const MAX_PLAYERS = 128;
 export const BREAK_MS = 30000;
 export const RETENTION_MS = 30 * 86400000;
 const INITIAL_FEN = new Chess().fen();
@@ -46,7 +47,7 @@ export function createTournament(input, id, hostHash, now = Date.now()) {
     requireThat(ARENA_DURATIONS.includes(duration), 'Elige una duración válida.');
     requireThat(duration >= minutes * 3, 'La duración debe dar para varias partidas: al menos el triple de los minutos por jugador.');
   } else requireThat(Number.isInteger(rounds) && rounds >= 1 && rounds <= 9, 'Elige entre 1 y 9 rondas.');
-  requireThat(Number.isInteger(capacity) && capacity >= 2 && capacity <= MAX_PLAYERS, 'El límite es de 2 a 32 jugadores.');
+  requireThat(Number.isInteger(capacity) && capacity >= 2 && capacity <= MAX_PLAYERS, `El límite es de 2 a ${MAX_PLAYERS} jugadores.`);
   let startsAt = input.startsAt ? Number(input.startsAt) : null;
   requireThat(!startsAt || (Number.isFinite(startsAt) && startsAt > now + 60000 && startsAt < now + 14 * 86400000), 'La fecha de inicio debe estar entre un minuto y 14 días en el futuro.');
   return { id, title, hostHash, format, duration, endsAt: null, minutes, increment, rounds, capacity, startsAt, createdAt: now,
@@ -374,22 +375,40 @@ export function summary(t) {
     minutes: t.minutes, increment: t.increment,
     rounds: t.rounds, round: t.round, capacity: t.capacity, count: t.players.length, startsAt: t.startsAt, createdAt: t.createdAt, locked: !!t.joinKey };
 }
-export function snapshot(t, playerId, host, selectedGame, now = Date.now()) {
-  const ownGame = [...t.games].reverse().find(g => !g.bye && (isArena(t) || g.round === t.round) && (g.white === playerId || g.black === playerId));
-  const selected = t.games.find(g => g.id === selectedGame && !g.bye) || ownGame || [...t.games].reverse().find(g => !g.bye);
-  let legal = [];
-  if (selected && !selected.result) {
-    const chess = chessFor(selected), cached = engines.get(selected);
-    if (!cached.legal) cached.legal = chess.moves({ verbose: true }).map(m => ({ from: m.from, to: m.to, promotion: m.promotion || null }));
-    legal = cached.legal;
-  }
-  const game = selected ? { ...selected, legal } : null;
+// Jugadas legales de una partida en curso, calculadas una sola vez por posición.
+function legalFor(g) {
+  if (!g || g.result || g.bye) return [];
+  const chess = chessFor(g), cached = engines.get(g);
+  if (!cached.legal) cached.legal = chess.moves({ verbose: true }).map(m => ({ from: m.from, to: m.to, promotion: m.promotion || null }));
+  return cached.legal;
+}
+// La partida que ve cada conexión: la elegida, si no la propia y si no la última del torneo.
+export function selectedGame(t, playerId, gameId) {
+  const own = playerId ? [...t.games].reverse().find(g => !g.bye && (isArena(t) || g.round === t.round) && (g.white === playerId || g.black === playerId)) : null;
+  return t.games.find(g => g.id === gameId && !g.bye) || own || [...t.games].reverse().find(g => !g.bye) || null;
+}
+export function gameDetail(g) { return g ? { ...g, legal: legalFor(g) } : null; }
+// Parte común del estado: igual para todos, se calcula una vez por envío (como Lichess, que no
+// recalcula la clasificación para cada espectador).
+export function sharedSnapshot(t, now = Date.now()) {
   return { type: 'state', ...summary(t), revision: t.revision, serverNow: now, nextRoundAt: t.nextRoundAt,
-    finishedAt: t.finishedAt, notice: t.notice, me: playerId || null, host: !!host, ...(host ? { joinKey: t.joinKey || '' } : {}),
+    finishedAt: t.finishedAt, notice: t.notice,
     standings: standings(t).map(({ opponents, colors, seed, ...p }) => p),
     games: t.games.map(g => ({ id: g.id, round: g.round, white: g.white, black: g.black, result: g.result, reason: g.reason, bye: g.bye,
       late: !countsForArena(t, g),
-      berserkW: !!g.berserkW, berserkB: !!g.berserkB, ...(g.result || g.bye ? {} : { fen: g.fen, lastMove: g.lastMove || null, turn: g.turn, whiteMs: g.whiteMs, blackMs: g.blackMs, lastAt: g.lastAt }) })), game };
+      berserkW: !!g.berserkW, berserkB: !!g.berserkB, ...(g.result || g.bye ? {} : { fen: g.fen, lastMove: g.lastMove || null, turn: g.turn, whiteMs: g.whiteMs, blackMs: g.blackMs, lastAt: g.lastAt, ply: g.moves.length }) })) };
+}
+// Parte de cada conexión: quién es, si organiza y su tablero.
+export function personalPart(t, playerId, host, gameId) {
+  return { me: playerId || null, host: !!host, ...(host ? { joinKey: t.joinKey || '' } : {}), game: gameDetail(selectedGame(t, playerId, gameId)) };
+}
+export function snapshot(t, playerId, host, gameId, now = Date.now()) {
+  return { ...sharedSnapshot(t, now), ...personalPart(t, playerId, host, gameId) };
+}
+// Una jugada sin final de partida viaja sola, en unos cientos de bytes, en lugar del torneo entero.
+export function moveMessage(t, g, now = Date.now()) {
+  return { type: 'move', revision: t.revision, serverNow: now, game: { id: g.id, ply: g.moves.length, san: g.moves[g.moves.length - 1],
+    fen: g.fen, lastMove: g.lastMove || null, turn: g.turn, whiteMs: g.whiteMs, blackMs: g.blackMs, lastAt: g.lastAt, offer: g.offer || null, legal: legalFor(g) } };
 }
 export function exportPgn(t, gameId) {
   const games = t.games.filter(g => !g.bye && (!gameId || g.id === gameId));

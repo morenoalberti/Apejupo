@@ -90,6 +90,23 @@ async function loadLobby() {
   } finally { $('to-refresh').disabled = false; }
 }
 
+// Jugada suelta: el servidor ya no manda el torneo entero con cada jugada, solo lo que cambia.
+function applyMove(m) {
+  const d = m.game, row = state.games.find(g => g.id === d.id), g = state.game;
+  offset = m.serverNow - Date.now();
+  if (m.revision > state.revision) state.revision = m.revision;
+  const clock = { fen: d.fen, lastMove: d.lastMove, turn: d.turn, whiteMs: d.whiteMs, blackMs: d.blackMs, lastAt: d.lastAt };
+  if (row && !row.result && !(row.ply >= d.ply)) Object.assign(row, clock, { ply: d.ply });
+  if (g && g.id === d.id && !g.result) {
+    pending = false;
+    if (d.ply === g.moves.length + 1) {
+      g.moves.push(d.san); Object.assign(g, clock, { offer: d.offer, legal: d.legal });
+      if (optimistic && optimistic.game === d.id && d.ply >= optimistic.ply) optimistic = null;
+      if (!drag) selected = null; boardKey = '';
+    } else if (d.ply > g.moves.length + 1) { send({ type: 'watch', game: g.id }); return; } // se perdió algo: pedir el tablero completo
+  }
+  render();
+}
 function connect() {
   clearTimeout(reconnectTimer); clearInterval(heartbeat);
   setConnection(retry ? 'Reconectando…' : 'Conectando…');
@@ -109,6 +126,7 @@ function connect() {
     if (event.data === 'pong') return;
     let next; try { next = JSON.parse(event.data); } catch { return; }
     if (next.type === 'error') { pending = false; optimistic = null; boardKey = ''; message(next.message, true); if (state) renderGame(); return; }
+    if (next.type === 'move') { if (state) applyMove(next); return; }
     if (next.type !== 'state') return;
     if (state && next.revision < state.revision) return;
     const oldGame = state?.game, oldMe = state?.me;

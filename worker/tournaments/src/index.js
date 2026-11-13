@@ -1,8 +1,13 @@
 import { DurableObject } from 'cloudflare:workers';
-import { GameError, requireThat, createTournament, joinTournament, act, advance, pairArena, nextAlarm, snapshot, summary, exportPgn, RETENTION_MS } from './core.js';
+import { GameError, requireThat, isArena, createTournament, joinTournament, act, advance, pairArena, nextAlarm, snapshot, sharedSnapshot, personalPart, moveMessage, summary, exportPgn, RETENTION_MS } from './core.js';
 
 // El navegador manda "ping" cada 30 s; sin señal en este margen, el jugador no se considera presente.
 const PRESENCE_MS = 75000;
+// El estado completo se manda como mucho una vez por este intervalo: si hay varios cambios seguidos
+// (resultados, inscripciones, emparejamientos) se agrupan en un solo envío, como hace Lichess.
+const BROADCAST_MS = 300;
+// Jugadores, espectadores y pestañas de tableros conectados a la vez a un mismo torneo.
+const MAX_SOCKETS = 400;
 const keyRequired = env => env.TORNEOS_SIN_CLAVE !== '1';
 
 const TOKEN = /^[a-f0-9]{64}$/;
@@ -57,7 +62,8 @@ export class TournamentDirectory extends DurableObject {
         }
         if (request.method === 'POST') {
           const b = await body(request);
-          requireThat(events.length < 30, 'Se ha alcanzado el límite de torneos de este mes. Contacta con la organización.', 429);
+          // En pruebas locales se puede subir con TORNEOS_MAX_MES en .dev.vars; publicado son 30.
+          requireThat(events.length < (Number(this.env.TORNEOS_MAX_MES) || 30), 'Se ha alcanzado el límite de torneos de este mes. Contacta con la organización.', 429);
           requireThat(TOKEN.test(b.hostToken), 'Identificación del organizador no válida.');
           const id = randomHex(), hostHash = await hash(b.hostToken);
           const t = createTournament(b, id, hostHash, now);
@@ -111,8 +117,31 @@ export class TournamentRoom extends DurableObject {
     ws.send(JSON.stringify(snapshot(this.t, c.playerId, c.host, a.game)));
   }
   broadcast() {
+    if (this.flushTimer) return;
+    const wait = (this.lastFlush || 0) + BROADCAST_MS - Date.now();
+    if (wait <= 0) { this.flush(); return; }
+    this.flushTimer = setTimeout(() => { this.flushTimer = null; this.flush(); }, wait);
+  }
+  // La parte común se calcula y se convierte a texto una sola vez; a cada conexión solo se le añade lo suyo.
+  flush() {
+    this.lastFlush = Date.now();
+    if (!this.t) return;
+    const shared = JSON.stringify(sharedSnapshot(this.t, this.lastFlush)).slice(0, -1), players = new Map(this.t.players.map(p => [p.hash, p.id])), details = new Map();
     for (const ws of this.ctx.getWebSockets()) {
-      try { this.send(ws); } catch { try { ws.close(1011, 'Reconecta para recuperar la partida.'); } catch {} }
+      try {
+        const a = ws.deserializeAttachment() || {};
+        const host = !!a.hostHash && a.hostHash === this.t.hostHash, playerId = players.get(a.playerHash) || null;
+        const key = `${playerId}|${host}|${a.game}`;
+        let personal = details.get(key);
+        if (!personal) { personal = JSON.stringify(personalPart(this.t, playerId, host, a.game)).slice(1); details.set(key, personal); }
+        ws.send(shared + ',' + personal);
+      } catch { try { ws.close(1011, 'Reconecta para recuperar la partida.'); } catch {} }
+    }
+  }
+  sendMove(g) {
+    const message = JSON.stringify(moveMessage(this.t, g));
+    for (const ws of this.ctx.getWebSockets()) {
+      try { ws.send(message); } catch { try { ws.close(1011, 'Reconecta para recuperar la partida.'); } catch {} }
     }
   }
   // Jugadores con la página abierta: en el modo arena solo se empareja a quien está presente.
@@ -130,9 +159,11 @@ export class TournamentRoom extends DurableObject {
     }
     return ids;
   }
+  // Solo el arena empareja sobre la marcha; en el suizo no hace falta repasar quién está conectado.
+  pair(now = Date.now()) { return isArena(this.t) && this.t.status === 'playing' && pairArena(this.t, now, this.online(now)); }
   progress(now = Date.now()) {
     const advanced = advance(this.t, now);
-    return pairArena(this.t, now, this.online(now)) || advanced;
+    return this.pair(now) || advanced;
   }
   async checkTime() {
     requireThat(this.t, 'No se encuentra el torneo.', 404);
@@ -151,7 +182,7 @@ export class TournamentRoom extends DurableObject {
         if (url.pathname === '/summary') return json(summary(this.t));
         if (url.pathname === '/socket') {
           requireThat(request.headers.get('Upgrade')?.toLowerCase() === 'websocket', 'Se necesita una conexión WebSocket.', 426);
-          requireThat(this.ctx.getWebSockets().length < 160, 'La sala está llena. Inténtalo más tarde.', 429);
+          requireThat(this.ctx.getWebSockets().length < MAX_SOCKETS, 'La sala está llena. Inténtalo más tarde.', 429);
           const pair = new WebSocketPair(), [client, server] = Object.values(pair);
           this.ctx.acceptWebSocket(server);
           server.serializeAttachment({ playerHash: null, hostHash: null, game: null, window: Date.now(), count: 0, seenAt: Date.now() });
@@ -209,7 +240,7 @@ export class TournamentRoom extends DurableObject {
           a.hostHash = TOKEN.test(b.hostToken) ? await hash(b.hostToken) : null;
           ws.serializeAttachment(a);
           // Quien entra (o vuelve) puede completar una pareja en el modo arena.
-          if (pairArena(this.t, now, this.online(now))) { await this.save(); this.broadcast(); }
+          if (this.pair(now)) { await this.save(); this.broadcast(); }
           else this.send(ws);
           return;
         }
@@ -218,9 +249,12 @@ export class TournamentRoom extends DurableObject {
           a.game = b.game; ws.serializeAttachment(a); this.send(ws); return;
         }
         const c = this.capabilities(a.playerHash, a.hostHash);
+        const moved = b.type === 'move' ? this.t.games.find(g => g.id === b.game) : null;
         act(this.t, c.playerId, c.host, b, now);
-        pairArena(this.t, now, this.online(now));
-        await this.save(); this.broadcast();
+        const paired = this.pair(now);
+        await this.save();
+        // Una jugada normal solo viaja como jugada; si cierra la partida o empareja a alguien, va el estado completo.
+        if (moved && !moved.result && !paired) this.sendMove(moved); else this.broadcast();
       } catch (error) {
         try { ws.send(JSON.stringify({ type: 'error', message: error instanceof GameError ? error.message : 'No se pudo guardar la acción. Reconecta antes de continuar.' })); this.send(ws); } catch {}
       }

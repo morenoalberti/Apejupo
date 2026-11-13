@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Chess } from 'chess.js';
-import { createTournament, joinTournament, startTournament, act, advance, standings, snapshot, canPossiblyMate, nextAlarm, exportPgn, BREAK_MS } from '../src/core.js';
+import { createTournament, joinTournament, startTournament, act, advance, standings, snapshot, sharedSnapshot, personalPart, moveMessage, canPossiblyMate, nextAlarm, exportPgn, BREAK_MS } from '../src/core.js';
 
 const NOW = 1800000000000;
 function tournament(count = 2, options = {}) {
@@ -18,7 +18,8 @@ function play(t, san, now) {
 }
 
 test('validación de torneos, inscripción, capacidad, duplicados e identidad', () => {
-  assert.throws(() => tournament(0, { capacity: 33 }), /32/);
+  assert.throws(() => tournament(0, { capacity: 129 }), /128/);
+  assert.equal(tournament(0, { capacity: 128 }).capacity, 128);
   assert.throws(() => tournament(0, { minutes: 4 }), /ritmo/);
   assert.throws(() => tournament(0, { startsAt: NOW - 1 }), /fecha/);
   const t = tournament(1, { capacity: 2 });
@@ -306,4 +307,34 @@ test('clave de inscripción: se pide al apuntarse, solo la ve el organizador y s
   assert.equal(snapshot(t, null, false, null, NOW).locked, false);
   joinTournament(t, 'Bea', 'secret-b', NOW);
   assert.equal(t.players.length, 2);
+});
+
+test('estado repartido: parte común + parte de cada uno, y jugadas como mensaje pequeño', () => {
+  const t = tournament(8); startTournament(t, NOW);
+  const g = play(t, 'e4', NOW + 1000);
+  const me = g.black, joined = JSON.stringify(sharedSnapshot(t, NOW + 2000)).slice(0, -1) + ',' + JSON.stringify(personalPart(t, me, false, null)).slice(1);
+  assert.deepEqual(JSON.parse(joined), snapshot(t, me, false, null, NOW + 2000));
+  assert.equal(JSON.parse(joined).game.id, g.id);
+  assert.equal(sharedSnapshot(t, NOW).games.find(x => x.id === g.id).ply, 1);
+  const m = moveMessage(t, g, NOW + 2000);
+  assert.equal(m.type, 'move'); assert.equal(m.game.ply, 1); assert.equal(m.game.san, 'e4'); assert.equal(m.game.turn, 'b');
+  assert.ok(m.game.legal.some(x => x.from === 'e7' && x.to === 'e5'));
+  assert.ok(JSON.stringify(m).length < JSON.stringify(snapshot(t, me, false, null)).length / 2);
+  // El organizador recibe la clave; los demás, no.
+  assert.ok('joinKey' in personalPart(t, null, true, null)); assert.ok(!('joinKey' in personalPart(t, me, false, null)));
+});
+
+test('suizo de 128 jugadores durante 7 rondas: 64 tableros y sin rivales repetidos', () => {
+  const t = tournament(128, { capacity: 128, rounds: 7 }); startTournament(t, NOW); let now = NOW;
+  const seen = new Set();
+  for (let r = 1; r <= 7; r++) {
+    const games = t.games.filter(g => g.round === r);
+    assert.equal(games.length, 64);
+    for (const g of games) {
+      const pair = [g.white, g.black].sort().join('|'); assert.ok(!seen.has(pair), 'rival repetido'); seen.add(pair);
+      act(t, g.white, false, { type: 'resign', game: g.id }, now += 10);
+    }
+    if (r < 7) { advance(t, now += BREAK_MS + 1); }
+  }
+  assert.equal(t.status, 'finished');
 });

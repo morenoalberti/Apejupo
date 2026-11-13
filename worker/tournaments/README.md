@@ -29,7 +29,7 @@ Con `TORNEOS_SIN_CLAVE="1"` en `.dev.vars`, el servidor local no pide la clave p
 ## Funciones
 
 - Listado público, creación protegida por clave de organización, inicio manual o programado.
-- Entre 2 y 32 jugadores; inscripción por nombre o alias, sin cuentas ni correo. La identidad es una credencial aleatoria de 256 bits guardada en el navegador; el servidor solo conserva su SHA-256.
+- Entre 2 y 128 jugadores; inscripción por nombre o alias, sin cuentas ni correo. La identidad es una credencial aleatoria de 256 bits guardada en el navegador; el servidor solo conserva su SHA-256.
 - Sistema suizo de club, entre 1 y 9 rondas, ajustado a los inscritos. Aproxima puntuaciones y colores, busca emparejamientos sin repeticiones y reparte descansos. Si las retiradas obligan a repetir un enfrentamiento, lo comunica. No es un emparejador homologado FIDE.
 - Ritmos 1, 2, 3, 5, 10 y 15 minutos; incrementos de 0, 2, 3, 5 y 10 segundos. Arena de 3 minutos a 2 horas.
 - Jugadas validadas por chess.js 1.4.0 en el servidor. Jaque mate, ahogado, material insuficiente, enroque, captura al paso, promoción a las cuatro piezas y tablas automáticas por triple repetición o 50 movimientos.
@@ -51,7 +51,7 @@ No hay cuentas verificadas, clasificación Elo, premios, chat ni detección auto
 - Tokens por WebSocket en el primer mensaje, nunca en la URL. Orígenes permitidos explícitos, peticiones de hasta 4 KB y mensajes de hasta 2 KB. Límite de 24 acciones por conexión cada 5 segundos.
 - Las partidas terminadas caducan a los 30 días; el directorio solo lista torneos creados en los últimos 30 días. Los torneos en espera también caducan. No se guardan IP sin procesar en el estado de las salas.
 
-Los 32 participantes son el límite inicial del producto, no una garantía del plan gratuito. Las pruebas locales no miden cuotas, ubicación de usuarios ni latencia de Cloudflare. Antes de abrir un torneo público se necesita validar el consumo en la cuenta y dejar margen respecto a sus cuotas.
+El límite de 128 jugadores (y 400 conexiones por torneo, entre jugadores, espectadores y pestañas de tableros) sale de una prueba de carga local con suizos de 32 a 512 jugadores. Como en Lichess, una jugada normal viaja sola (unos 1,1 KB) a todas las conexiones; el estado completo solo se manda al cambiar algo de fondo (resultados, emparejamientos, inscripciones), se agrupa en un envío cada 300 ms como mucho y su parte común se calcula una sola vez. Con 128 jugadores y 32 espectadores, una jugada llega a todos en unos 50 ms y el cambio de ronda tarda menos de 1 s (más los 30 s de descanso). Con 256 cada jugada cuesta unos 25-30 ms de servidor, la mitad en guardar el torneo entero: para pasar de 128 habría que guardar cada partida por separado. Las pruebas locales no miden cuotas ni latencia de Cloudflare: antes de un torneo grande conviene revisar el consumo en la cuenta.
 
 ## Verificación
 

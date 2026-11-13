@@ -30,6 +30,12 @@ async function connect(id, credentials = {}) {
     if (String(data) === 'pong') return;
     const message = JSON.parse(String(data));
     if (message.type === 'error') client.errors.push(message.message);
+    // Las jugadas llegan sueltas: se aplican sobre el tablero que se está viendo, como en el navegador.
+    if (message.type === 'move') {
+      const d = message.game, g = client.state?.game;
+      if (g && g.id === d.id && d.ply === g.moves.length + 1) { g.moves.push(d.san); Object.assign(g, { fen: d.fen, turn: d.turn, whiteMs: d.whiteMs, blackMs: d.blackMs, lastAt: d.lastAt, legal: d.legal }); }
+      message.type = 'state'; Object.assign(message, client.state, { game: client.state?.game });
+    }
     if (message.type !== 'state') return;
     client.state = message;
     for (const waiter of [...client.waiters]) if (waiter.predicate(message)) { client.waiters.splice(client.waiters.indexOf(waiter), 1); waiter.resolve(message); }
