@@ -163,10 +163,7 @@
 .to-game-status.my-turn { color: #15803d; font-weight: 700; }
 .to-game-actions { display: flex; justify-content: center; flex-wrap: wrap; gap: 8px; }
 .to-draw-offer { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 8px; padding: 12px 0; }
-.to-moves { margin-top: 16px; font-size: .85rem; border-top: 1px solid var(--line); padding-top: 12px; }
 .to-main summary { cursor: pointer; font-weight: 600; }
-.to-moves ol { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px 22px; padding-left: 28px; max-height: 160px; overflow: auto; }
-.to-moves li { padding-left: 3px; }
 .to-replay { margin-top: 12px; }
 .to-replay input { width: 100%; padding: 0; min-height: 30px; accent-color: var(--blue); }
 .to-replay .to-actions { justify-content: center; }
@@ -232,7 +229,6 @@
   .to-game-panel { padding: 9px; }
   .to-player { font-size: .85rem; }
   .to-player .to-clock { font-size: 1.2rem; }
-  .to-moves ol { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .to-sidebar { display: flex; flex-direction: column; }
   .to-panel { padding: 16px; }
   .to-dialog { padding: 20px; }
