@@ -8,6 +8,8 @@ const BASE = 'http://127.0.0.1:8789';
 const ORIGIN = 'http://127.0.0.1:8087';
 const key = (await readFile(new URL('../.dev.vars', import.meta.url), 'utf8')).match(/^TORNEOS_CLAVE\s*=\s*"?([^"\r\n]+)"?/m)?.[1];
 assert.ok(key, 'Configura una clave local en .dev.vars antes de ejecutar la prueba.');
+// Con TORNEOS_SIN_CLAVE="1" (solo pruebas locales) el servidor no comprueba la clave.
+const keyOff = /^TORNEOS_SIN_CLAVE\s*=\s*"?1"?/m.test(await readFile(new URL('../.dev.vars', import.meta.url), 'utf8'));
 const token = () => randomBytes(32).toString('hex');
 async function api(path, options = {}) {
   return fetch(BASE + '/api/tournaments' + path, { ...options, headers: { Origin: ORIGIN, 'Content-Type': 'application/json', ...options.headers } });
@@ -89,8 +91,10 @@ test('32 jugadores, 16 partidas WebSocket, espectador, reconexión, autorizació
     assert.ok(!JSON.stringify(spectator.state).includes(credentials[0].token));
     const pgn = await api('/' + id + '/pgn'); assert.equal(pgn.status, 200); assert.match(await pgn.text(), /\[Event "Prueba de carga/);
     const wrongOrigin = await fetch(BASE + '/api/tournaments', { headers: { Origin: 'https://untrusted.invalid' } }); assert.equal(wrongOrigin.status, 403);
-    assert.equal((await api('', { method: 'POST', headers: { Authorization: 'Bearer wrong' }, body: '{}' })).status, 403);
-    assert.equal((await api('/' + id + '/recover', { method: 'POST', headers: { Authorization: 'Bearer wrong' }, body: JSON.stringify({ hostToken: token() }) })).status, 403);
+    if (!keyOff) {
+      assert.equal((await api('', { method: 'POST', headers: { Authorization: 'Bearer wrong' }, body: '{}' })).status, 403);
+      assert.equal((await api('/' + id + '/recover', { method: 'POST', headers: { Authorization: 'Bearer wrong' }, body: JSON.stringify({ hostToken: token() }) })).status, 403);
+    }
     assert.equal((await api('/' + id + '/join', { method: 'POST', body: JSON.stringify({ name: 'x'.repeat(5000) }) })).status, 413);
     const publicState = await (await api('/' + id)).json();
     await mkdir(new URL('../../../build/', import.meta.url), { recursive: true });

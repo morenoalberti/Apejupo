@@ -18,6 +18,9 @@ export function cleanName(value, max = 28) {
 export const ARENA_PAUSE_MS = 10000;
 export const ARENA_DURATIONS = [20, 30, 45, 60, 90, 120];
 export const isArena = t => t.format === 'arena';
+export const BERSERK_BONUS = .5;
+export const BERSERK_MIN_PLIES = 13; // al menos 7 jugadas de blancas para cobrar el extra
+const berserkBonus = (g, color) => !!(color === 'w' ? g.berserkW : g.berserkB) && g.moves.length >= BERSERK_MIN_PLIES;
 export function createTournament(input, id, hostHash, now = Date.now()) {
   const title = cleanName(input.title, 70);
   const format = input.format === 'arena' ? 'arena' : 'swiss';
@@ -42,12 +45,12 @@ export function createTournament(input, id, hostHash, now = Date.now()) {
 
 export function standings(t) {
   const rows = t.players.map(p => ({ id: p.id, name: p.name, seed: p.seed, active: p.active,
-    points: 0, wins: 0, buchholz: 0, sonneborn: 0, played: 0, byes: 0, opponents: [], colors: [] }));
+    points: 0, wins: 0, buchholz: 0, sonneborn: 0, played: 0, byes: 0, opponents: [], colors: [], sheet: [] }));
   const map = new Map(rows.map(p => [p.id, p]));
   for (const g of t.games) {
     const white = map.get(g.white), black = map.get(g.black);
     if (!white) continue;
-    if (g.bye) { white.points += 1; white.byes++; continue; }
+    if (g.bye) { white.points += 1; white.byes++; white.sheet.push({ s: 1, bye: true }); continue; }
     white.colors.push('w'); black.colors.push('b');
     white.opponents.push(black.id); black.opponents.push(white.id);
     if (!g.result) continue;
@@ -55,6 +58,11 @@ export function standings(t) {
     const a = g.result === '1-0' ? 1 : g.result === '0-1' ? 0 : .5;
     white.points += a; black.points += 1 - a;
     if (a === 1) white.wins++; if (a === 0) black.wins++;
+    // Berserk: medio punto extra a quien gana tras jugar con la mitad del tiempo.
+    const bonusW = a === 1 && berserkBonus(g, 'w'), bonusB = a === 0 && berserkBonus(g, 'b');
+    if (bonusW) white.points += BERSERK_BONUS; if (bonusB) black.points += BERSERK_BONUS;
+    white.sheet.push({ s: a, berserk: !!g.berserkW, bonus: bonusW });
+    black.sheet.push({ s: 1 - a, berserk: !!g.berserkB, bonus: bonusB });
   }
   for (const g of t.games) {
     if (!g.result || g.bye) continue;
@@ -144,9 +152,10 @@ export function pairRound(t) {
 }
 
 export function joinTournament(t, name, playerHash, now = Date.now()) {
-  requireThat(t.status === 'waiting', 'Las inscripciones están cerradas.');
   const existing = t.players.find(p => p.hash === playerHash);
   if (existing) return existing;
+  // Como en Lichess, en el arena se puede entrar con el torneo ya empezado mientras quede tiempo.
+  requireThat(t.status === 'waiting' || (isArena(t) && t.status === 'playing' && now < t.endsAt), 'Las inscripciones están cerradas.');
   name = cleanName(name);
   requireThat(name.length >= 2, 'Escribe un nombre de al menos 2 caracteres.');
   requireThat(!t.players.some(p => p.name.toLocaleLowerCase('es') === name.toLocaleLowerCase('es')), 'Ya hay un jugador con ese nombre. Añade un apellido.');
@@ -299,7 +308,14 @@ export function act(t, playerId, host, action, now = Date.now()) {
   requireThat(!g.result, 'La partida ya ha terminado.');
   requireThat(g.white === p.id || g.black === p.id, 'Solo pueden jugar los participantes de esta partida.', 403);
   const color = g.white === p.id ? 'w' : 'b';
-  if (action.type === 'resign') endGame(g, color === 'w' ? '0-1' : '1-0', 'Abandono', now);
+  if (action.type === 'berserk') {
+    // Como en Lichess: antes de tu primera jugada, juegas con la mitad del tiempo y sin incremento.
+    const flag = color === 'w' ? 'berserkW' : 'berserkB', key = color === 'w' ? 'whiteMs' : 'blackMs';
+    requireThat(isArena(t), 'Berserk solo existe en el modo arena.');
+    requireThat(!g[flag], 'Ya has activado Berserk.');
+    requireThat(g.moves.length < (color === 'w' ? 1 : 2), 'Berserk solo se puede activar antes de tu primera jugada.');
+    g[flag] = true; g[key] = Math.max(1000, g[key] - t.minutes * 30000);
+  } else if (action.type === 'resign') endGame(g, color === 'w' ? '0-1' : '1-0', 'Abandono', now);
   else if (action.type === 'offer-draw') { requireThat(g.offer !== p.id, 'Ya has ofrecido tablas.'); g.offer = p.id; }
   else if (action.type === 'decline-draw') { requireThat(g.offer && g.offer !== p.id, 'No hay una oferta de tablas del rival.'); g.offer = null; }
   else if (action.type === 'accept-draw') {
@@ -315,7 +331,7 @@ export function act(t, playerId, host, action, now = Date.now()) {
     requireThat(remaining > 0, 'Se ha agotado tu tiempo.');
     const chess = chessFor(g);
     let move; try { move = chess.move({ from: action.from, to: action.to, promotion: action.promotion || 'q' }); } catch { throw new GameError('Esa jugada no es legal.'); }
-    g[key] = remaining + t.increment * 1000;
+    g[key] = remaining + ((color === 'w' ? g.berserkW : g.berserkB) ? 0 : t.increment * 1000);
     g.lastAt = now; g.moves.push(move.san); g.turn = chess.turn(); g.fen = chess.fen();
     g.lastMove = { from: move.from, to: move.to };
     engines.set(g, { length: g.moves.length, chess });
@@ -347,7 +363,8 @@ export function snapshot(t, playerId, host, selectedGame, now = Date.now()) {
   return { type: 'state', ...summary(t), revision: t.revision, serverNow: now, nextRoundAt: t.nextRoundAt,
     finishedAt: t.finishedAt, notice: t.notice, me: playerId || null, host: !!host,
     standings: standings(t).map(({ opponents, colors, seed, ...p }) => p),
-    games: t.games.map(g => ({ id: g.id, round: g.round, white: g.white, black: g.black, result: g.result, reason: g.reason, bye: g.bye })), game };
+    games: t.games.map(g => ({ id: g.id, round: g.round, white: g.white, black: g.black, result: g.result, reason: g.reason, bye: g.bye,
+      berserkW: !!g.berserkW, berserkB: !!g.berserkB, ...(g.result || g.bye ? {} : { fen: g.fen, lastMove: g.lastMove || null }) })), game };
 }
 export function exportPgn(t, gameId) {
   const games = t.games.filter(g => !g.bye && (!gameId || g.id === gameId));

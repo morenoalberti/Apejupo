@@ -238,3 +238,33 @@ test('arena sin partidas en juego termina justo al cumplirse el tiempo', () => {
   assert.equal(advance(t, t.endsAt), true);
   assert.equal(t.status, 'finished');
 });
+
+test('arena: berserk (mitad de tiempo, sin incremento, medio punto extra) y entrada tardía', async () => {
+  const { pairArena, BERSERK_BONUS } = await import('../src/core.js');
+  const t = tournament(2, { format: 'arena', duration: 30, minutes: 5, increment: 3 });
+  startTournament(t, NOW);
+  const ids = t.players.map(p => p.id);
+  pairArena(t, NOW, new Set(ids));
+  const g = t.games[0];
+  // Solo en arena, una vez y antes de la primera jugada propia.
+  act(t, g.white, false, { type: 'berserk', game: g.id }, NOW + 1000);
+  assert.equal(g.whiteMs, 150000);
+  assert.throws(() => act(t, g.white, false, { type: 'berserk', game: g.id }, NOW + 1500), /Ya has/);
+  // Mate rápido del pastor (7 jugadas de blancas): sin incremento para quien hizo berserk.
+  const sans = ['e4', 'e5', 'Bc4', 'Nc6', 'Qh5', 'a6', 'a3', 'a5', 'a4', 'b6', 'b3', 'Ra7', 'Qxf7#'];
+  for (const [i, san] of sans.entries()) play(t, san, NOW + 2000 + i * 1000);
+  assert.ok(g.whiteMs < 150000);
+  assert.equal(g.result, '1-0');
+  const rows = standings(t), w = rows.find(r => r.id === g.white);
+  assert.equal(w.points, 1 + BERSERK_BONUS);
+  assert.deepEqual(w.sheet[0], { s: 1, berserk: true, bonus: true });
+  // Con el arena en marcha se puede entrar; en suizo, no.
+  joinTournament(t, 'Tardío', 'secret-late', NOW + 60000);
+  assert.equal(t.players.length, 3);
+  assert.throws(() => joinTournament(t, 'Muy tarde', 'secret-x', t.endsAt), /cerradas/);
+  const swiss = tournament(2); startTournament(swiss, NOW);
+  assert.throws(() => act(swiss, swiss.games[0].white, false, { type: 'berserk', game: swiss.games[0].id }, NOW), /arena/);
+  assert.throws(() => joinTournament(swiss, 'Tardío', 'secret-late', NOW), /cerradas/);
+  const view = snapshot(t, null, false, null, NOW + 70000);
+  assert.ok(view.standings[0].sheet);
+});

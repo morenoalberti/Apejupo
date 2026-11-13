@@ -8,7 +8,7 @@
 <meta name="description" content="Juega torneos abiertos de ajedrez en Apejupo: inscríbete, disputa tus partidas y sigue la clasificación en directo.">
 <link rel="icon" type="image/svg+xml" href="assets/icon.svg">
 <link rel="stylesheet" href="css/style.css?v=20261112-torneo">
-<link rel="stylesheet" href="css/torneo-online.css?v=20261112-torneo">
+<link rel="stylesheet" href="css/torneo-online.css?v=20261113-arena">
 <script defer src="js/analytics.js?v=20261111-analytics"></script>
 </head>
 <body>
@@ -44,11 +44,12 @@
     </section>
     <section id="to-room" aria-label="Sala del torneo" hidden>
       <div class="to-room-bar"><a href="jugar-torneo.html" class="to-back">← Todos los torneos</a><div class="to-actions"><span id="to-connection" class="to-connection" role="status">Conectando…</span><button id="to-share" class="btn-ghost" type="button">Compartir torneo</button></div></div>
-      <div class="to-tournament-bar"><div id="to-summary" class="to-tags"></div><p id="to-phase" class="to-phase" role="status"></p></div>
+      <div class="to-tournament-bar"><div id="to-summary" class="to-tags"></div><div class="to-actions"><p id="to-phase" class="to-phase" role="status"></p><div id="to-countdown" class="to-countdown" hidden><span>Termina en</span><strong></strong></div></div></div>
       <p id="to-notice" class="to-note" hidden></p>
-      <div id="to-registration" class="to-panel" hidden>
-        <div><h2>Reserva tu sitio en el tablero</h2><p class="muted">Usa un nombre o alias reconocible. Tu inscripción se recuerda en este navegador.</p></div>
-        <form id="to-join-form" class="to-join-form"><label for="to-name">Nombre del jugador</label><div><input id="to-name" name="name" minlength="2" maxlength="28" required autocomplete="nickname" placeholder="Tu nombre"><button class="btn" type="submit">Inscribirme</button></div><p class="to-small muted">Tu nombre o alias y tus partidas serán públicos durante un máximo de 30 días tras el torneo. <a href="privacidad.html">Privacidad</a></p></form>
+      <section id="to-podium" class="to-podium" aria-label="Podio del torneo" hidden></section>
+      <div id="to-registration" class="to-join" hidden>
+        <div><h2 id="to-join-title">Juega este torneo</h2><p class="muted" id="to-join-hint">Un clic y entras. Tu nombre se recuerda en este navegador.</p></div>
+        <form id="to-join-form" class="to-join-form"><div id="to-name-row"><label for="to-name">Tu nombre o alias</label><input id="to-name" name="name" minlength="2" maxlength="28" required autocomplete="nickname" placeholder="Tu nombre"></div><button class="btn to-join-btn" type="submit"><svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M7 4.5v15a1 1 0 0 0 1.5.86l12.5-7.5a1 1 0 0 0 0-1.72L8.5 3.64A1 1 0 0 0 7 4.5z"/></svg><span id="to-join-label">Unirse</span></button><button id="to-change-name" class="to-link" type="button" hidden>Cambiar nombre</button><p class="to-small muted">Tu nombre o alias y tus partidas serán públicos durante un máximo de 30 días tras el torneo. <a href="privacidad.html">Privacidad</a></p></form>
       </div>
       <div id="to-membership" class="to-membership" hidden><span id="to-membership-text"></span><button id="to-pause" class="btn-ghost" type="button" hidden>Pausa</button><button id="to-withdraw" class="btn-ghost" type="button">Retirarme</button></div>
       <div id="to-host" class="to-host" hidden><span>Organización del torneo</span><div class="to-actions"><button id="to-start" class="btn" type="button">Empezar torneo</button><button id="to-cancel" class="btn-ghost" type="button">Cancelar torneo</button></div></div>
@@ -60,7 +61,7 @@
             <div id="to-board" class="to-board" role="group" aria-label="Tablero de la partida"></div>
             <div id="to-player-bottom" class="to-player"><span></span><strong class="to-clock"></strong></div>
             <p id="to-game-status" class="to-game-status" role="status"></p>
-            <div id="to-game-actions" class="to-game-actions"><button id="to-offer" type="button" class="btn-ghost">Ofrecer tablas</button><button id="to-resign" type="button" class="btn-ghost">Abandonar partida</button></div>
+            <div id="to-game-actions" class="to-game-actions"><button id="to-berserk" type="button" class="btn to-berserk" hidden title="Juega con la mitad del tiempo y sin incremento. Si ganas, ½ punto extra."><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg>Berserk</button><button id="to-offer" type="button" class="btn-ghost">Ofrecer tablas</button><button id="to-resign" type="button" class="btn-ghost">Abandonar partida</button></div>
             <div id="to-draw-offer" class="to-draw-offer" hidden><span>Tu rival ofrece tablas.</span><button id="to-accept" class="btn" type="button">Aceptar</button><button id="to-decline" class="btn-ghost" type="button">Seguir jugando</button></div>
             <details class="to-moves"><summary>Jugadas de la partida</summary><ol id="to-moves-list"></ol></details>
             <div class="to-replay" id="to-replay" hidden><label for="to-replay-range">Revisar posición <span id="to-replay-number"></span></label><input type="range" id="to-replay-range" min="0" value="0" step="1"><div class="to-actions"><button id="to-replay-prev" class="btn-ghost" type="button" aria-label="Jugada anterior">← Anterior</button><button id="to-replay-next" class="btn-ghost" type="button" aria-label="Jugada siguiente">Siguiente →</button><button id="to-pgn" class="btn-ghost" type="button">Descargar PGN</button></div></div>
@@ -69,7 +70,7 @@
         </div>
         <aside class="to-sidebar">
           <section class="to-panel" aria-labelledby="to-standings-title"><div class="to-section-head"><h2 id="to-standings-title">Inscritos</h2><span id="to-player-count" class="to-count"></span></div><div class="to-table-wrap"><table class="to-standings"><thead><tr><th scope="col">#</th><th scope="col">Jugador</th><th scope="col">Pts</th><th scope="col" id="to-extra-col"><abbr title="Buchholz: suma de puntos de los rivales">BH</abbr></th></tr></thead><tbody id="to-standings"></tbody></table></div><p id="to-tiebreak" class="to-small muted">Desempates: Buchholz, Sonneborn-Berger, victorias y número de sorteo.</p><button id="to-all-pgn" class="btn-ghost" type="button" hidden>Descargar partidas del torneo</button></section>
-          <details class="to-panel to-rules"><summary>Cómo se juega</summary><p>Sistema suizo de club: rivales con puntuación parecida, intentando evitar repeticiones y equilibrar colores. No es un torneo homologado.</p><p>Victoria: 1 punto. Tablas: ½ punto. Derrota: 0. Si hay un número impar, un jugador descansa y suma 1 punto; se intenta repartir los descansos.</p><p>Entre rondas hay 30 segundos. Si no estás conectado, tu reloj sigue corriendo. Puedes volver a entrar desde este mismo navegador.</p><p>Modo arena: el torneo dura un tiempo fijo. Al terminar tu partida, tras 10 segundos se te empareja con otro jugador libre, y así hasta que se acaba el tiempo. Solo se empareja a quien tiene la página abierta; usa «Pausa» para descansar. Las partidas en juego al acabar el tiempo se terminan y cuentan.</p><p>Las tablas por triple repetición y 50 movimientos se aplican automáticamente. Juega sin ayuda de motores: esta versión no certifica la ausencia de trampas.</p><p>Las partidas se conservan durante 30 días. Puedes descargarlas al terminar.</p></details>
+          <details class="to-panel to-rules"><summary>Cómo se juega</summary><p>Sistema suizo de club: rivales con puntuación parecida, intentando evitar repeticiones y equilibrar colores. No es un torneo homologado.</p><p>Victoria: 1 punto. Tablas: ½ punto. Derrota: 0. Si hay un número impar, un jugador descansa y suma 1 punto; se intenta repartir los descansos.</p><p>Entre rondas hay 30 segundos. Si no estás conectado, tu reloj sigue corriendo. Puedes volver a entrar desde este mismo navegador.</p><p>Modo arena: el torneo dura un tiempo fijo. Al terminar tu partida, tras 10 segundos se te empareja con otro jugador libre, y así hasta que se acaba el tiempo. Solo se empareja a quien tiene la página abierta; usa «Pausa» para descansar. Las partidas en juego al acabar el tiempo se terminan y cuentan.</p><p>Berserk (solo arena): antes de tu primera jugada puedes jugar con la mitad del tiempo y sin incremento. Si ganas con al menos 7 jugadas, sumas ½ punto extra. En el arena puedes unirte aunque el torneo ya haya empezado.</p><p>Las tablas por triple repetición y 50 movimientos se aplican automáticamente. Juega sin ayuda de motores: esta versión no certifica la ausencia de trampas.</p><p>Las partidas se conservan durante 30 días. Puedes descargarlas al terminar.</p></details>
           <details id="to-recover" class="to-panel"><summary>Acceso del organizador</summary><form id="to-recover-form"><div id="to-recover-key-field"><label for="to-recover-key">Clave de organización</label><input id="to-recover-key" type="password" required autocomplete="current-password"></div><button class="btn-ghost" type="submit">Recuperar controles</button></form></details>
         </aside>
       </div>
@@ -83,6 +84,6 @@
 <script src="js/menu.js?v=20261112-torneo"></script>
 <script src="js/util.js?v=20261112-seccion"></script>
 <script src="js/torneo-config.js?v=20261112-torneo"></script>
-<script type="module" src="js/torneo-online.js?v=20261112-torneo"></script>
+<script type="module" src="js/torneo-online.js?v=20261113-arena3"></script>
 </body>
 </html>

@@ -99,7 +99,7 @@ function connect() {
     render();
     if (next.me && (changedRound || oldMe !== next.me)) {
       const mine = next.games.find(g => !g.bye && (arena(next) ? !g.result : g.round === next.round) && (g.white === next.me || g.black === next.me));
-      if (mine && mine.id !== next.game?.id) watch(mine.id);
+      if (mine && mine.id !== next.game?.id) { watch(mine.id); if (!mine.result) newGameAlert(); }
     }
   };
   ws.onclose = event => {
@@ -121,25 +121,73 @@ function connect() {
 function render() {
   const t = state;
   $('to-title').textContent = t.title; document.title = t.title + ' · Torneo Apejupo';
-  $('to-subtitle').textContent = t.status === 'waiting' ? 'Las inscripciones están abiertas. Reserva tu sitio en el tablero.' : 'Sigue tus partidas, los tableros y la clasificación en directo.';
+  $('to-subtitle').textContent = canJoin(t) && arena(t) && t.status === 'playing' && !t.standings.some(p => p.id === t.me) ? 'El arena está en marcha: únete y empieza a jugar ya.' : t.status === 'waiting' ? 'Las inscripciones están abiertas. Reserva tu sitio en el tablero.' : 'Sigue tus partidas, los tableros y la clasificación en directo.';
   $('to-summary').innerHTML = `<span class="to-status ${t.status}">${esc(statuses[t.status])}</span><span>${t.minutes} + ${t.increment}</span><span>${formatLabel(t)}</span><span>${arena(t) ? 'Emparejamiento continuo' : 'Suizo de club'}</span>`;
   $('to-notice').hidden = !t.notice; $('to-notice').textContent = t.notice;
   const mine = t.standings.find(p => p.id === t.me), registering = t.status === 'waiting';
-  $('to-registration').hidden = !registering || !!mine || t.count >= t.capacity;
+  $('to-registration').hidden = !canJoin(t) || !!mine || t.count >= t.capacity;
+  renderJoin();
   $('to-membership').hidden = !mine;
   $('to-membership-text').textContent = mine ? `Juegas como ${mine.name}${mine.active ? mine.paused ? ' · En pausa: no se te empareja' : '' : ' · Retirado del torneo'}` : '';
   $('to-standings-title').textContent = registering ? 'Inscritos' : 'Clasificación';
   $('to-player-count').textContent = `${t.count}/${t.capacity}`;
   $('to-extra-col').innerHTML = arena(t) ? '<abbr title="Partidas jugadas">PJ</abbr>' : '<abbr title="Buchholz: suma de puntos de los rivales">BH</abbr>';
   const tag = p => !p.active ? ' <small>retirado</small>' : arena(t) && t.status === 'playing' ? p.playing ? ' <small>jugando</small>' : p.paused ? ' <small>en pausa</small>' : '' : '';
-  $('to-standings').innerHTML = t.standings.map((p, i) => `<tr class="${p.id === t.me ? 'me ' : ''}${t.status === 'finished' && i === 0 ? 'winner' : ''}"><td>${i + 1}</td><td>${esc(p.name)}${p.id === t.me ? ' <small>(tú)</small>' : ''}${tag(p)}${registering && t.host ? `<button class="to-remove" type="button" data-remove="${p.id}" aria-label="Retirar a ${esc(p.name)}">×</button>` : ''}</td><td><strong>${formatPoints(p.points)}</strong></td><td>${arena(t) ? p.played : formatPoints(p.buchholz)}</td></tr>`).join('') || '<tr><td colspan="4" class="muted">Aún no hay inscritos.</td></tr>';
+  $('to-standings').innerHTML = t.standings.map((p, i) => `<tr class="${p.id === t.me ? 'me ' : ''}${t.status === 'finished' && i === 0 ? 'winner' : ''}"><td>${i + 1}</td><td>${esc(p.name)}${p.id === t.me ? ' <small>(tú)</small>' : ''}${tag(p)}${sheet(p)}${registering && t.host ? `<button class="to-remove" type="button" data-remove="${p.id}" aria-label="Retirar a ${esc(p.name)}">×</button>` : ''}</td><td><strong>${formatPoints(p.points)}</strong></td><td>${arena(t) ? p.played : formatPoints(p.buchholz)}</td></tr>`).join('') || '<tr><td colspan="4" class="muted">Aún no hay inscritos.</td></tr>';
   $('to-tiebreak').hidden = registering;
   $('to-tiebreak').textContent = arena(t) ? 'Desempates: victorias, menos partidas jugadas y número de sorteo.' : 'Desempates: Buchholz, Sonneborn-Berger, victorias y número de sorteo.';
   const rounds = arena(t) ? [] : [...new Set(t.games.map(g => g.round))];
   $('to-round').innerHTML = rounds.map(r => `<option value="${r}">Ronda ${r}</option>`).join('');
   $('to-round').hidden = !rounds.length;
   if (rounds.includes(viewedRound)) $('to-round').value = viewedRound;
-  renderMatches(); renderGame(); renderControls(); updateClocks();
+  renderPodium(); renderMatches(); renderGame(); renderControls(); updateClocks();
+}
+function canJoin(t) { return t.status === 'waiting' || (arena(t) && t.status === 'playing' && Date.now() + offset < t.endsAt); }
+// Hoja de resultados, como en Lichess: una cifra por partida; resaltadas las ganadas con Berserk.
+function sheet(p) {
+  if (!p.sheet?.length) return '';
+  const label = r => (r.bye ? 'Descanso' : r.s === 1 ? 'Victoria' : r.s === 0 ? 'Derrota' : 'Tablas') + (r.berserk ? ' con Berserk' : '') + (r.bonus ? ' (+½)' : '');
+  return `<span class="to-sheet">${p.sheet.map(r => `<i class="${r.s === 1 ? 'w' : r.s === 0 ? 'l' : 'd'}${r.bonus ? ' b' : ''}" title="${label(r)}">${r.s === .5 ? '½' : r.s}</i>`).join('')}</span>`;
+}
+function renderPodium() {
+  const t = state, show = t.status === 'finished' && t.standings.length >= 2;
+  $('to-podium').hidden = !show;
+  if (!show) return;
+  const top = t.standings.slice(0, 3), order = [1, 0, 2].filter(i => top[i]);
+  $('to-podium').innerHTML = order.map(i => { const p = top[i]; return `<div class="to-step p${i + 1}${p.id === t.me ? ' me' : ''}"><span class="to-medal">${i + 1}</span><strong>${esc(p.name)}</strong><span>${formatPoints(p.points) || '0'} ${p.points === 1 ? 'punto' : 'puntos'}</span><small>${p.played} ${p.played === 1 ? 'partida' : 'partidas'} · ${p.wins} ${p.wins === 1 ? 'victoria' : 'victorias'}</small><div class="to-plinth"></div></div>`; }).join('');
+}
+let editingName = false;
+function renderJoin() {
+  const remembered = read('apejupoTorneoNombre'), quick = remembered.length >= 2 && !editingName;
+  $('to-name-row').hidden = quick; $('to-name').required = !quick;
+  if (quick) $('to-name').value = remembered;
+  $('to-join-label').textContent = quick ? `Unirse como ${remembered}` : 'Unirse';
+  $('to-change-name').hidden = !quick;
+  $('to-join-title').textContent = arena(state) && state.status === 'playing' ? '¡El arena está en marcha!' : 'Juega este torneo';
+}
+function miniBoard(g) {
+  const pieces = fenPieces(g.fen), cells = [];
+  for (let i = 0; i < 64; i++) {
+    const row = Math.floor(i / 8), col = i % 8, sq = 'abcdefgh'[col] + (8 - row), piece = pieces[sq];
+    const last = g.lastMove && (sq === g.lastMove.from || sq === g.lastMove.to);
+    cells.push(`<i class="${(row + col) % 2 ? 'dk' : ''}${last ? ' lm' : ''}">${piece ? `<img src="assets/pieces/${piece}.png" alt="">` : ''}</i>`);
+  }
+  return `<span class="to-mini" aria-hidden="true">${cells.join('')}</span>`;
+}
+let audio = null;
+// Aviso de partida nueva: sonido corto y el tablero a la vista, como en Lichess.
+function newGameAlert() {
+  try {
+    audio ||= new AudioContext();
+    const o = audio.createOscillator(), v = audio.createGain();
+    o.frequency.value = 660; v.gain.setValueAtTime(.12, audio.currentTime); v.gain.exponentialRampToValueAtTime(.001, audio.currentTime + .35);
+    o.connect(v).connect(audio.destination); o.start(); o.stop(audio.currentTime + .35);
+  } catch {}
+  requestAnimationFrame(() => {
+    $('to-game-panel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    $('to-game-panel').classList.remove('to-flash'); void $('to-game-panel').offsetWidth; $('to-game-panel').classList.add('to-flash');
+  });
+  if (document.hidden) { const title = document.title; document.title = '♟ ¡Tu partida empieza!'; addEventListener('visibilitychange', () => { document.title = title; }, { once: true }); }
 }
 function formatPoints(n) { return Number.isInteger(n) ? String(n) : n % 1 === .5 ? (Math.floor(n) || '') + '½' : String(n); }
 function renderMatches() {
@@ -147,7 +195,10 @@ function renderMatches() {
   const list = arena(state) ? [...state.games].reverse().sort((a, b) => !!a.result - !!b.result) : state.games.filter(g => g.round === viewedRound);
   $('to-matches').innerHTML = list.map(g => g.bye
     ? `<div class="to-match bye"><span>${esc(name(g.white))}</span><strong>Descanso · +1</strong></div>`
-    : `<button type="button" data-watch="${g.id}" class="to-match ${g.id === state.game?.id ? 'selected' : ''} ${g.white === state.me || g.black === state.me ? 'mine' : ''}"><span>♔ ${esc(name(g.white))}</span><strong>${g.result ? esc(g.result.replace('1/2-1/2', '½–½')) : 'en juego'}</strong><span>${esc(name(g.black))} ♚</span></button>`).join('') || '<p class="muted">Los tableros aparecerán al comenzar la primera ronda.</p>';
+    : !g.result && g.fen
+      ? `<button type="button" data-watch="${g.id}" class="to-live ${g.id === state.game?.id ? 'selected' : ''} ${g.white === state.me || g.black === state.me ? 'mine' : ''}" aria-label="Ver ${esc(name(g.white))} contra ${esc(name(g.black))}, en juego"><span class="to-live-name">${g.berserkB ? '<b class="to-bz" title="Berserk">⚡</b>' : ''}${esc(name(g.black))}</span>${miniBoard(g)}<span class="to-live-name">${g.berserkW ? '<b class="to-bz" title="Berserk">⚡</b>' : ''}${esc(name(g.white))}</span></button>`
+      : `<button type="button" data-watch="${g.id}" class="to-match ${g.id === state.game?.id ? 'selected' : ''} ${g.white === state.me || g.black === state.me ? 'mine' : ''}"><span>♔ ${esc(name(g.white))}${g.berserkW ? ' ⚡' : ''}</span><strong>${g.result ? esc(g.result.replace('1/2-1/2', '½–½')) : 'en juego'}</strong><span>${g.berserkB ? '⚡ ' : ''}${esc(name(g.black))} ♚</span></button>`).join('') || '<p class="muted">Los tableros aparecerán al comenzar la primera ronda.</p>';
+  $('to-matches').classList.toggle('has-live', list.some(g => !g.result && g.fen));
 }
 function renderControls() {
   if (!state) return;
@@ -166,6 +217,9 @@ function renderControls() {
   $('to-offer').disabled = !connected || g?.offer === t.me || pending;
   $('to-offer').textContent = g?.offer === t.me ? 'Tablas ofrecidas' : 'Ofrecer tablas';
   $('to-resign').disabled = !connected || pending;
+  const color = g && (g.white === t.me ? 'w' : g.black === t.me ? 'b' : null), berserked = color && (color === 'w' ? g.berserkW : g.berserkB);
+  $('to-berserk').hidden = !arena(t) || !color || !!g.result || !!berserked || g.moves.length >= (color === 'w' ? 1 : 2);
+  $('to-berserk').disabled = !connected || pending;
   $('to-draw-offer').hidden = !g || !!g.result || !ownGame || !g.offer || g.offer === t.me;
   $('to-accept').disabled = !connected; $('to-decline').disabled = !connected;
   $('to-all-pgn').hidden = !ended || !t.games.some(g => !g.bye);
@@ -192,8 +246,9 @@ function renderGame() {
   $('to-board-title').textContent = arena(state) ? (own ? 'Tu partida' : 'Viendo partida') : `${own ? 'Tu partida' : 'Viendo partida'} · Ronda ${g.round}`;
   const top = flipped ? 'w' : 'b', bottom = flipped ? 'b' : 'w';
   $('to-player-top').dataset.color = top; $('to-player-bottom').dataset.color = bottom;
-  $('to-player-top').querySelector('span').textContent = `${top === 'w' ? '♔' : '♚'} ${name(top === 'w' ? g.white : g.black)}`;
-  $('to-player-bottom').querySelector('span').textContent = `${bottom === 'w' ? '♔' : '♚'} ${name(bottom === 'w' ? g.white : g.black)}`;
+  const bz = color => (color === 'w' ? g.berserkW : g.berserkB) ? ' ⚡ Berserk' : '';
+  $('to-player-top').querySelector('span').textContent = `${top === 'w' ? '♔' : '♚'} ${name(top === 'w' ? g.white : g.black)}${bz(top)}`;
+  $('to-player-bottom').querySelector('span').textContent = `${bottom === 'w' ? '♔' : '♚'} ${name(bottom === 'w' ? g.white : g.black)}${bz(bottom)}`;
   let status = g.result ? `${g.result.replace('1/2-1/2', '½–½')} · ${g.reason}` : pending ? 'Confirmando tu jugada…' : !connected ? 'Recuperando conexión. Tu reloj sigue corriendo.' : canMove() ? 'Tu turno' : own ? 'Turno de tu rival' : `Juegan ${g.turn === 'w' ? 'blancas' : 'negras'}`;
   $('to-game-status').textContent = status; $('to-game-status').classList.toggle('my-turn', canMove());
   $('to-replay').hidden = !g.result;
@@ -257,8 +312,17 @@ function updateClocks() {
   const now = Date.now() + offset, t = state;
   const me = t.standings.find(p => p.id === t.me);
   $('to-phase').textContent = t.status === 'waiting' ? t.startsAt ? `Empieza el ${date(t.startsAt)}` : 'Esperando al organizador'
-    : arena(t) && t.status === 'playing' ? (now < t.endsAt ? `Quedan ${clock(t.endsAt - now)}${me?.active && !me.playing && !me.paused ? ' · Buscando rival…' : ''}` : 'Tiempo cumplido: terminando las partidas en juego')
+    : arena(t) && t.status === 'playing' ? (now < t.endsAt ? (me?.active && !me.playing && !me.paused ? 'Buscando rival…' : '') : 'Tiempo cumplido: terminando las partidas en juego')
     : t.status === 'between' ? `Siguiente ronda en ${Math.max(0, Math.ceil((t.nextRoundAt - now) / 1000))} s` : t.status === 'playing' ? `Ronda ${t.round} de ${t.rounds}` : t.status === 'finished' ? 'Clasificación final' : 'Torneo cancelado';
+  // Cuenta atrás grande del arena, como en Lichess.
+  const counting = arena(t) && t.status === 'playing' && now < t.endsAt;
+  $('to-countdown').hidden = !counting;
+  if (counting) {
+    const left = t.endsAt - now, s = Math.ceil(left / 1000);
+    $('to-countdown').querySelector('strong').textContent = s >= 3600 ? `${Math.floor(s / 3600)}:${String(Math.floor(s % 3600 / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}` : clock(left);
+    $('to-countdown').classList.toggle('urgent', left < 60000);
+  }
+  if (!$('to-registration').hidden && !canJoin(t)) render();
   const g = t.game; if (!g) return;
   for (const id of ['to-player-top', 'to-player-bottom']) {
     const el = $(id), color = el.dataset.color, running = !g.result && g.turn === color;
@@ -318,8 +382,13 @@ $('to-join-form').addEventListener('submit', async event => {
   try {
     const id = read(playerKey()) || token(); write(playerKey(), id); write('apejupoTorneoNombre', $('to-name').value.trim());
     await request(`/api/tournaments/${roomId}/join`, { method: 'POST', body: JSON.stringify({ name: $('to-name').value, token: id }) });
-    hello(); message('Inscripción completada. Mantén esta página abierta para el inicio.');
-  } catch (e) { message(e.message, true); }
+    editingName = false; hello();
+    message(arena(state) && state.status === 'playing' ? '¡Dentro! Te emparejamos con el próximo jugador libre.' : 'Inscripción completada. Mantén esta página abierta para el inicio.');
+  } catch (e) {
+    message(e.message, true);
+    // Si el nombre recordado ya está cogido, se muestra el campo para escribir otro.
+    if (/nombre/.test(e.message)) { editingName = true; renderJoin(); $('to-name').focus(); }
+  }
   finally { button.disabled = !connected; }
 });
 $('to-recover-form').addEventListener('submit', async event => {
@@ -379,6 +448,8 @@ $('to-promotion-options').addEventListener('click', event => {
   if (state.game.id === promotion.game && state.game.moves.length === promotion.ply && canMove()) move(promotion.from, promotion.to, piece);
   promotion = null;
 });
+$('to-change-name').addEventListener('click', () => { editingName = true; renderJoin(); $('to-name').select(); $('to-name').focus(); });
+$('to-berserk').addEventListener('click', () => send({ type: 'berserk', game: state.game.id }));
 $('to-offer').addEventListener('click', () => send({ type: 'offer-draw', game: state.game.id }));
 $('to-accept').addEventListener('click', () => send({ type: 'accept-draw', game: state.game.id }));
 $('to-decline').addEventListener('click', () => send({ type: 'decline-draw', game: state.game.id }));
@@ -412,3 +483,5 @@ if (roomId) {
   else { connect(); checkKeyMode(); }
 } else loadLobby();
 setInterval(updateClocks, 200);
+// Los navegadores solo permiten sonido tras un gesto del usuario: se prepara con el primer clic.
+document.addEventListener('pointerdown', () => { try { audio ||= new AudioContext(); audio.resume(); } catch {} }, { once: true });
