@@ -176,6 +176,8 @@ function render() {
   $('to-focus-pause').disabled = !connected;
   // Con el torneo en juego no se muestra «Compartir torneo».
   $('to-share').hidden = ['playing', 'between'].includes(t.status);
+  // Los invitados que entran con el enlace no ven la lista de torneos: solo el organizador.
+  $('to-back').hidden = !t.host;
   $('to-focus-title').textContent = t.title;
   $('to-focus-format').textContent = `${t.minutes} + ${t.increment} · ${formatLabel(t)}`;
   renderPodium(); renderMatches(); renderGame(); renderControls(); renderBoards(); updateClocks();

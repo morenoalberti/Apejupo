@@ -8,7 +8,7 @@
 <meta name="description" content="Juega torneos abiertos de ajedrez en Apejupo: inscríbete, disputa tus partidas y sigue la clasificación en directo.">
 <link rel="icon" type="image/svg+xml" href="assets/icon.svg">
 <link rel="stylesheet" href="css/style.css?v=20261112-torneo">
-<link rel="stylesheet" href="css/torneo-online.css?v=20261113-sinayuda">
+<link rel="stylesheet" href="css/torneo-online.css?v=20261113-volver">
 <script defer src="js/analytics.js?v=20261111-analytics"></script>
 </head>
 <body>
@@ -43,7 +43,7 @@
       <div class="to-how"><article><div class="to-how-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M22 11h-6"/></svg><span>01</span></div><h3>Elige y apúntate</h3><p>Entra en un torneo abierto y escribe tu nombre para participar.</p></article><article><div class="to-how-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg><span>02</span></div><h3>Juega cada ronda</h3><p>Los emparejamientos son automáticos. Tu tablero te espera aquí.</p></article><article><div class="to-how-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3v18h18"/><path d="m7 15 4-4 3 3 6-7"/></svg><span>03</span></div><h3>Sigue tu progreso</h3><p>Consulta los resultados, la clasificación y las partidas terminadas.</p></article></div>
     </section>
     <section id="to-room" aria-label="Sala del torneo" hidden>
-      <div class="to-room-bar"><a href="jugar-torneo.html" class="to-back">← Todos los torneos</a><div class="to-actions"><span id="to-connection" class="to-connection" role="status">Conectando…</span><button id="to-boards-open" class="btn to-boards-open" type="button" hidden><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg><span id="to-boards-label">Ver tableros</span></button><button id="to-share" class="btn-ghost" type="button">Compartir torneo</button></div></div>
+      <div class="to-room-bar"><a href="jugar-torneo.html" id="to-back" class="to-back" hidden>← Todos los torneos</a><div class="to-actions"><span id="to-connection" class="to-connection" role="status">Conectando…</span><button id="to-boards-open" class="btn to-boards-open" type="button" hidden><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg><span id="to-boards-label">Ver tableros</span></button><button id="to-share" class="btn-ghost" type="button">Compartir torneo</button></div></div>
       <div class="to-tournament-bar"><div id="to-summary" class="to-tags"></div><div class="to-actions"><p id="to-phase" class="to-phase" role="status"></p><div id="to-countdown" class="to-countdown" hidden><span>Termina en</span><strong></strong></div></div></div>
       <p id="to-notice" class="to-note" hidden></p>
       <section id="to-podium" class="to-podium" aria-label="Podio del torneo" hidden></section>
@@ -84,6 +84,6 @@
 <script src="js/menu.js?v=20261112-torneo"></script>
 <script src="js/util.js?v=20261112-seccion"></script>
 <script src="js/torneo-config.js?v=20261112-torneo"></script>
-<script type="module" src="js/torneo-online.js?v=20261113-sinayuda"></script>
+<script type="module" src="js/torneo-online.js?v=20261113-volver"></script>
 </body>
 </html>
