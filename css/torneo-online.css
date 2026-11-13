@@ -20,7 +20,12 @@
 .to-main button:disabled, .to-dialog button:disabled { opacity: .5; cursor: default; }
 .to-main button:focus-visible, .to-main a:focus-visible, .to-dialog button:focus-visible { outline: 3px solid var(--blue); outline-offset: 3px; }
 .to-events { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
-.to-event { border: 1px solid var(--line); border-radius: 16px; background: var(--card); padding: 22px; display: flex; flex-direction: column; align-items: flex-start; gap: 15px; }
+.to-event { position: relative; border: 1px solid var(--line); border-radius: 16px; background: var(--card); padding: 22px; display: flex; flex-direction: column; align-items: flex-start; gap: 15px; }
+.to-delete { position: absolute; right: 16px; bottom: 16px; width: 44px; height: 44px; display: grid; place-items: center; border: 1px solid rgba(239, 68, 68, .45); border-radius: 12px; background: rgba(239, 68, 68, .12); color: #ef4444; cursor: pointer; transition: background .15s, color .15s; }
+.to-delete:hover, .to-delete:focus-visible { background: #ef4444; color: #fff; }
+.to-delete:disabled { opacity: .5; cursor: wait; }
+.to-delete svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.to-confirm-dialog .btn.danger { background: #dc2626; border-color: #dc2626; color: #fff; }
 .to-event:hover { border-color: var(--blue); }
 .to-event h3 { font-size: 1.2rem; line-height: 1.4; margin: 0; overflow-wrap: anywhere; }
 .to-event p { margin: 0; font-size: .9rem; }

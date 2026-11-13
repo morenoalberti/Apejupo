@@ -10,7 +10,7 @@ const images = new Map();
 let state = null, socket = null, reconnectTimer = null, heartbeat = null, retry = 0, lastReceived = 0;
 let connected = false, pending = false, offset = 0, selected = null, flipped = false, manualFlip = false;
 let boardKey = '', lastRound = null, viewedRound = null, replay = null, replayPly = null, promotion = null;
-let confirmResolve = null, dropped = null;
+let confirmResolve = null, dropped = null, lobby = new Map();
 // Jugada propia mostrada al instante, antes de que la confirme el servidor (como en Lichess).
 let optimistic = null, rendered = { game: null, fen: null }, skipSlide = false, drag = null;
 
@@ -62,7 +62,10 @@ async function loadLobby() {
   try {
     const { tournaments, keyRequired } = await (await request('/api/tournaments')).json();
     setKeyMode(keyRequired !== false);
-    $('to-events').innerHTML = tournaments.length ? tournaments.map(t => `<article class="to-event"><span class="to-status ${t.status}">${esc(statuses[t.status])}</span><h3>${esc(t.title)}</h3><p class="muted">${t.minutes} + ${t.increment} · ${formatLabel(t)} · ${t.count}/${t.capacity} jugadores</p><p>${t.startsAt ? esc(date(t.startsAt)) : 'Inicio a cargo del organizador'}</p><a class="btn" href="jugar-torneo.html?id=${t.id}">${t.status === 'waiting' ? 'Entrar e inscribirme' : 'Ver torneo'}</a></article>`).join('') : '<div class="to-empty"><strong>El próximo torneo puede ser el nuestro</strong>Todavía no hay torneos. Cuando la organización abra uno, aparecerá aquí.</div>';
+    lobby = new Map(tournaments.map(t => [t.id, t]));
+    // La papelera solo aparece en los torneos que organizas desde este navegador.
+    const trash = t => read(hostKey(t.id)) ? `<button class="to-delete" type="button" data-delete="${t.id}" aria-label="Borrar el torneo ${esc(t.title)}" title="Borrar torneo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M5 7l1 13h12l1-13M9 7V4h6v3"/></svg></button>` : '';
+    $('to-events').innerHTML = tournaments.length ? tournaments.map(t => `<article class="to-event">${trash(t)}<span class="to-status ${t.status}">${esc(statuses[t.status])}</span><h3>${esc(t.title)}</h3><p class="muted">${t.minutes} + ${t.increment} · ${formatLabel(t)} · ${t.count}/${t.capacity} jugadores</p><p>${t.startsAt ? esc(date(t.startsAt)) : 'Inicio a cargo del organizador'}</p><a class="btn" href="jugar-torneo.html?id=${t.id}">${t.status === 'waiting' ? 'Entrar e inscribirme' : 'Ver torneo'}</a></article>`).join('') : '<div class="to-empty"><strong>El próximo torneo puede ser el nuestro</strong>Todavía no hay torneos. Cuando la organización abra uno, aparecerá aquí.</div>';
     message('');
   } catch {
     $('to-events').innerHTML = '<div class="to-empty"><strong>No podemos consultar los torneos ahora</strong>Vuelve a pulsar Actualizar en unos momentos.</div>';
@@ -109,6 +112,7 @@ function connect() {
     if (socket !== ws) return;
     clearInterval(heartbeat); pending = false;
     setConnection('Reconectando…');
+    if (event.reason === 'El organizador ha borrado el torneo.') { setConnection('Torneo borrado'); message('El organizador ha borrado este torneo.', true); return; }
     if (event.reason === 'El torneo ha caducado.') { setConnection('Torneo archivado'); message('Este torneo ha caducado y ya no está disponible.'); return; }
     reconnectTimer = setTimeout(async () => {
       try {
@@ -417,8 +421,9 @@ function updateClocks() {
     el.classList.toggle('running', running); el.classList.toggle('urgent', running && remaining < 20000);
   }
 }
-function confirmAction(title, text, label = 'Confirmar') {
+function confirmAction(title, text, label = 'Confirmar', danger = false) {
   $('to-confirm-title').textContent = title; $('to-confirm-text').textContent = text; $('to-confirm-yes').textContent = label;
+  $('to-confirm-yes').classList.toggle('danger', danger);
   $('to-confirm-dialog').showModal();
   return new Promise(resolve => { confirmResolve = resolve; });
 }
@@ -605,3 +610,19 @@ if (roomId) {
 setInterval(() => { updateClocks(); updateMiniClocks(); }, 100);
 // Los navegadores solo permiten sonido tras un gesto del usuario: se prepara con el primer clic.
 document.addEventListener('pointerdown', () => { try { audio ||= new AudioContext(); audio.resume(); } catch {} }, { once: true });
+
+$('to-events').addEventListener('click', async event => {
+  const button = event.target.closest('[data-delete]'); if (!button) return;
+  const id = button.dataset.delete, t = lobby.get(id); if (!t) return;
+  const n = t.count, players = n === 1 ? 'Hay 1 jugador inscrito' : `Hay ${n} jugadores inscritos`;
+  const text = (n ? `${players} en «${t.title}». ` : `Vas a borrar «${t.title}». `)
+    + (['playing', 'between'].includes(t.status) ? 'El torneo está en juego y se perderán las partidas. ' : '')
+    + 'Desaparecerá para todos y no se puede deshacer.';
+  if (!await confirmAction(n ? 'Hay jugadores inscritos' : 'Borrar torneo', text, 'Borrar torneo', true)) return;
+  button.disabled = true;
+  try {
+    await request(`/api/tournaments/${id}/delete`, { method: 'POST', body: JSON.stringify({ hostToken: read(hostKey(id)) }) });
+    try { localStorage.removeItem(hostKey(id)); } catch {}
+    await loadLobby(); message('Torneo borrado.');
+  } catch (error) { button.disabled = false; message(error.message, true); }
+});

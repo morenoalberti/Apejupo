@@ -168,6 +168,13 @@ export class TournamentRoom extends DurableObject {
           requireThat(TOKEN.test(b.hostToken), 'Identificación no válida.');
           this.t.hostHash = await hash(b.hostToken); await this.save(); this.broadcast(); return json({ ok: true });
         }
+        if (url.pathname === '/delete') {
+          // Solo el organizador. Se avisa a quien tenga la sala abierta y desaparece de la lista.
+          requireThat(TOKEN.test(b.hostToken) && (await hash(b.hostToken)) === this.t.hostHash, 'Solo el organizador puede borrar el torneo.', 403);
+          for (const ws of this.ctx.getWebSockets()) { try { ws.close(1000, 'El organizador ha borrado el torneo.'); } catch {} }
+          await this.ctx.storage.deleteAll(); this.t = null;
+          return json({ ok: true });
+        }
         if (url.pathname === '/join') {
           requireThat(TOKEN.test(b.token), 'Identificación no válida.');
           const playerHash = await hash(b.token);
@@ -246,7 +253,7 @@ export default {
       requireThat(['GET', 'POST'].includes(request.method), 'Método no permitido.', 405);
       const path = url.pathname.replace(/\/+$/, '') || '/';
       const directory = env.DIRECTORY.getByName('public');
-      const room = /^\/api\/tournaments\/([a-f0-9]{24})(?:\/(join|socket|pgn|recover))?$/.exec(path);
+      const room = /^\/api\/tournaments\/([a-f0-9]{24})(?:\/(join|socket|pgn|recover|delete))?$/.exec(path);
       if (path === '/api/tournaments' && request.method === 'GET') return withCors(await directory.fetch('https://directory/'));
       if ((path === '/api/tournaments' && request.method === 'POST') || (room?.[2] === 'recover' && request.method === 'POST')) {
         const authorization = await directory.fetch('https://directory/authorize', { method: 'POST', body: JSON.stringify({ key: bearer(request), ip: request.headers.get('CF-Connecting-IP') || 'local' }) });
@@ -257,7 +264,7 @@ export default {
       }
       requireThat(room && ROOM_ID.test(room[1]), 'No encontrado.', 404);
       const suffix = room[2] || '';
-      requireThat(!['join', 'recover'].includes(suffix) || request.method === 'POST', 'Método no permitido.', 405);
+      requireThat(!['join', 'recover', 'delete'].includes(suffix) || request.method === 'POST', 'Método no permitido.', 405);
       requireThat(!['socket', 'pgn', ''].includes(suffix) || request.method === 'GET', 'Método no permitido.', 405);
       if (suffix === 'socket') requireThat(origin && allowed.includes(origin), 'Conexión no autorizada.', 403);
       const target = new URL('https://room/' + suffix); target.search = url.search;
