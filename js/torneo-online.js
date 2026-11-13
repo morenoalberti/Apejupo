@@ -1,5 +1,5 @@
 import { Chess } from '../assets/chess/chess.js';
-import { session, currentUser, openAuth } from './cuenta.js?v=20261113-cuentas3';
+import { session, currentUser, openAuth } from './cuenta.js?v=20261113-cuentas5';
 
 const $ = id => document.getElementById(id);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));

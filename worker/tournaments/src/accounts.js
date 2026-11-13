@@ -59,7 +59,10 @@ async function sendMail(env, to, subject, text) {
   requireThat(res.ok, 'No se pudo enviar el correo. Inténtalo en unos minutos.', 503);
 }
 const json = (body, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' } });
-const publicUser = u => ({ id: u.id, nick: u.nick, email: u.email, verified: !!u.verified, createdAt: u.created_at });
+const publicUser = u => ({ id: u.id, nick: u.nick, email: u.email, verified: !!u.verified, createdAt: u.created_at, photo: u.photo_at || null });
+// Foto de perfil: la web la reduce a 192×192 en JPEG antes de subirla; aquí solo se aceptan JPEG pequeños.
+export const PHOTO_MAX = 64 * 1024;
+const isJpeg = bytes => bytes.length > 4 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
 
 export class AccountStore extends DurableObject {
   constructor(ctx, env) {
@@ -68,7 +71,8 @@ export class AccountStore extends DurableObject {
     this.sql.exec(`CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY, nick TEXT NOT NULL, nick_key TEXT NOT NULL UNIQUE, email TEXT NOT NULL UNIQUE, pass TEXT NOT NULL, verified INTEGER NOT NULL DEFAULT 0, created_at INTEGER NOT NULL);
       CREATE TABLE IF NOT EXISTS sessions (hash TEXT PRIMARY KEY, user_id TEXT NOT NULL, expires_at INTEGER NOT NULL);
       CREATE TABLE IF NOT EXISTS tokens (hash TEXT PRIMARY KEY, user_id TEXT NOT NULL, kind TEXT NOT NULL, expires_at INTEGER NOT NULL);
-      CREATE TABLE IF NOT EXISTS attempts (key TEXT PRIMARY KEY, count INTEGER NOT NULL, until INTEGER NOT NULL);`);
+      CREATE TABLE IF NOT EXISTS attempts (key TEXT PRIMARY KEY, count INTEGER NOT NULL, until INTEGER NOT NULL);
+      CREATE TABLE IF NOT EXISTS photos (user_id TEXT PRIMARY KEY, data BLOB NOT NULL, updated_at INTEGER NOT NULL);`);
   }
   one(query, ...args) { return this.sql.exec(query, ...args).toArray()[0] || null; }
   // Freno a la fuerza bruta: como mucho «max» intentos por clave en la ventana indicada.
@@ -82,8 +86,7 @@ export class AccountStore extends DurableObject {
   clearLimit(key) { this.sql.exec('DELETE FROM attempts WHERE key = ?', key); }
   async user(session, now) {
     if (!/^[a-f0-9]{64}$/.test(String(session || ''))) return null;
-    const row = this.one('SELECT u.* FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.hash = ? AND s.expires_at > ?', await sha256(session), now);
-    return row;
+    return this.one('SELECT u.*, p.updated_at AS photo_at FROM sessions s JOIN users u ON u.id = s.user_id LEFT JOIN photos p ON p.user_id = u.id WHERE s.hash = ? AND s.expires_at > ?', await sha256(session), now);
   }
   async mailToken(user, kind, ttl, now) {
     this.sql.exec('DELETE FROM tokens WHERE user_id = ? AND kind = ?', user.id, kind);
@@ -111,7 +114,25 @@ export class AccountStore extends DurableObject {
   }
   async fetch(request) {
     try {
-      const url = new URL(request.url), now = Date.now(), b = request.method === 'POST' ? await request.json() : {};
+      const url = new URL(request.url), now = Date.now();
+      // Fotos: llegan como bytes (no JSON) y se sirven como imagen.
+      const shown = /^\/foto\/([a-f0-9]{24})$/.exec(url.pathname);
+      if (shown) {
+        const row = this.one('SELECT data FROM photos WHERE user_id = ?', shown[1]);
+        if (!row) return new Response('Sin foto', { status: 404 });
+        return new Response(row.data, { headers: { 'Content-Type': 'image/jpeg', 'Cache-Control': 'public, max-age=31536000, immutable', 'X-Content-Type-Options': 'nosniff' } });
+      }
+      if (url.pathname === '/foto-subir') {
+        const user = await this.user(request.headers.get('X-Sesion'), now);
+        requireThat(user, 'Tu sesión ha caducado. Vuelve a entrar.', 401);
+        this.limit('foto:' + user.id, 20, 3600000, now);
+        const bytes = new Uint8Array(await request.arrayBuffer());
+        requireThat(bytes.length <= PHOTO_MAX, 'La foto es demasiado grande.', 413);
+        requireThat(isJpeg(bytes), 'La foto no es válida. Prueba con otra imagen.');
+        this.sql.exec('INSERT OR REPLACE INTO photos (user_id, data, updated_at) VALUES (?, ?, ?)', user.id, bytes.buffer, now);
+        return json({ user: publicUser({ ...user, photo_at: now }) });
+      }
+      const b = request.method === 'POST' ? await request.json() : {};
       const ip = String(b.ip || 'local').slice(0, 64), dev = this.env.CUENTAS_DESARROLLO === '1';
       switch (url.pathname) {
         case '/registro': {
@@ -129,7 +150,7 @@ export class AccountStore extends DurableObject {
         case '/entrar': {
           const login = String(b.login || '').trim(), key = login.includes('@') ? login.toLowerCase() : nickKey(login);
           this.limit('entrar:' + ip, 20, 900000, now); this.limit('entrar:' + key, 10, 900000, now);
-          const user = this.one('SELECT * FROM users WHERE ' + (login.includes('@') ? 'email' : 'nick_key') + ' = ?', key);
+          const user = this.one('SELECT u.*, p.updated_at AS photo_at FROM users u LEFT JOIN photos p ON p.user_id = u.id WHERE u.' + (login.includes('@') ? 'email' : 'nick_key') + ' = ?', key);
           // Mismo mensaje si el usuario no existe o la contraseña falla: no se desvela qué cuentas hay.
           const good = user ? await verifyPassword(String(b.password || ''), user.pass) : (await hashPassword('x'), false);
           requireThat(good, 'Nick o contraseña incorrectos.', 401);
@@ -174,6 +195,12 @@ export class AccountStore extends DurableObject {
           requireThat(user, 'Tu sesión ha caducado. Vuelve a entrar.', 401);
           return json({ user: publicUser(user) });
         }
+        case '/foto-quitar': {
+          const user = await this.user(b.session, now);
+          requireThat(user, 'Tu sesión ha caducado. Vuelve a entrar.', 401);
+          this.sql.exec('DELETE FROM photos WHERE user_id = ?', user.id);
+          return json({ user: publicUser({ ...user, photo_at: null }) });
+        }
         case '/salir': {
           if (/^[a-f0-9]{64}$/.test(String(b.session || ''))) this.sql.exec('DELETE FROM sessions WHERE hash = ?', await sha256(b.session));
           return json({ ok: true });
@@ -183,7 +210,7 @@ export class AccountStore extends DurableObject {
           requireThat(user, 'Tu sesión ha caducado. Vuelve a entrar.', 401);
           this.limit('borrar:' + user.id, 5, 900000, now);
           requireThat(await verifyPassword(String(b.password || ''), user.pass), 'La contraseña no es correcta.', 403);
-          for (const table of ['sessions', 'tokens']) this.sql.exec(`DELETE FROM ${table} WHERE user_id = ?`, user.id);
+          for (const table of ['sessions', 'tokens', 'photos']) this.sql.exec(`DELETE FROM ${table} WHERE user_id = ?`, user.id);
           this.sql.exec('DELETE FROM users WHERE id = ?', user.id);
           return json({ ok: true });
         }

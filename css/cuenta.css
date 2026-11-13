@@ -53,3 +53,31 @@
 .cu-notice .cu-link { display: inline; margin: 0; padding: 0; }
 .cu-tabs[hidden] { display: none !important; }
 @media (max-width: 520px) { .cuenta-chip .cu-nick { max-width: 90px; overflow: hidden; text-overflow: ellipsis; } }
+
+/* Menú de la cuenta (al pulsar tu foto) */
+.cu-menu { position: fixed; z-index: 60; width: 270px; padding: 6px; border: 1px solid #2a3654; border-radius: 12px; background: var(--navy, #0f1b2d); color: #e8eef7; box-shadow: 0 16px 40px #0009; }
+.cu-menu-head { display: flex; align-items: center; gap: 10px; padding: 10px 10px 12px; margin-bottom: 4px; border-bottom: 1px solid #2a3654; }
+.cu-menu-head .cu-avatar { width: 38px; height: 38px; font-size: 1.1rem; flex: none; }
+.cu-menu-head div { min-width: 0; display: grid; }
+.cu-menu-head b { overflow: hidden; text-overflow: ellipsis; }
+.cu-menu-head small { color: #93a4bd; font-size: .8rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cu-menu > a, .cu-menu > button { display: flex; align-items: center; gap: 10px; width: 100%; padding: 9px 10px; border: 0; border-radius: 8px; background: none; color: inherit; font: inherit; font-size: .92rem; text-align: left; text-decoration: none; cursor: pointer; }
+.cu-menu > a:hover, .cu-menu > button:hover { background: #1b2a45; }
+.cu-menu svg { width: 18px; height: 18px; flex: none; fill: none; stroke: #8fa3bf; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.cu-menu .cu-menu-danger { color: #f87171; }
+.cu-menu .cu-menu-danger svg { stroke: #f87171; }
+.cu-menu-warn { margin: 4px 4px 6px; padding: 8px 10px; border-radius: 8px; background: #f973161f; border: 1px solid #f9731655; font-size: .82rem; line-height: 1.4; }
+.cu-menu-warn button { display: block; margin-top: 4px; padding: 0; border: 0; background: none; color: #fdba74; font: inherit; text-decoration: underline; cursor: pointer; }
+.cu-h { margin: 0 0 4px; font-size: 1.15rem; }
+.cu-danger-btn { background: #dc2626 !important; color: #fff !important; }
+.cu-danger-btn:hover { background: #b91c1c !important; }
+
+/* Foto de perfil dentro del redondel */
+.cu-avatar { overflow: visible; }
+.cu-avatar img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; display: block; }
+.cu-avatar.has-photo { background: #1b2a45; }
+.cu-photo-btn { position: relative; flex: none; padding: 0; border: 0; background: none; border-radius: 50%; cursor: pointer; }
+.cu-photo-btn .cu-avatar { width: 46px; height: 46px; font-size: 1.25rem; }
+.cu-photo-cam { position: absolute; right: -3px; bottom: -3px; width: 20px; height: 20px; display: grid; place-items: center; border-radius: 50%; background: #3b82f6; box-shadow: 0 0 0 2px var(--navy, #0f1b2d); }
+.cu-menu .cu-photo-cam svg { width: 12px; height: 12px; stroke: #fff; }
+.cu-photo-btn:hover .cu-avatar { filter: brightness(1.1); }

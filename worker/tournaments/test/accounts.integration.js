@@ -48,6 +48,20 @@ test('cuentas: registro, confirmación, entrada, torneo, recuperación y borrado
   assert.equal((await call('/api/cuentas/yo', {}, session)).body.user.email, email);
   assert.equal((await call('/api/cuentas/yo', {}, token())).status, 401);
 
+  // Foto de perfil: solo JPEG pequeños, con sesión; se ve sin sesión y se puede quitar.
+  const jpeg = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0, 16, 74, 70, 73, 70, 0, 1, 1, 0, 0, 1, 0, 1, 0, 0, 0xff, 0xd9]);
+  const upload = (data, s2 = session) => fetch(BASE + '/api/cuentas/foto', { method: 'POST', headers: { Origin: ORIGIN, 'Content-Type': 'image/jpeg', Authorization: 'Bearer ' + s2 }, body: data });
+  assert.equal((await upload(jpeg, token())).status, 401);
+  assert.equal((await upload(new TextEncoder().encode('<svg onload=alert(1)>'))).status, 400);
+  assert.equal((await upload(new Uint8Array(70 * 1024).fill(0xff))).status, 413);
+  const up = await upload(jpeg); assert.equal(up.status, 200);
+  const me1 = (await up.json()).user; assert.ok(me1.photo);
+  const pic = await fetch(`${BASE}/api/cuentas/foto/${me1.id}?v=${me1.photo}`, { headers: { Origin: ORIGIN } });
+  assert.equal(pic.status, 200); assert.equal(pic.headers.get('content-type'), 'image/jpeg'); assert.equal((await pic.arrayBuffer()).byteLength, jpeg.length);
+  assert.equal((await call('/api/cuentas/yo', {}, session)).body.user.photo, me1.photo);
+  assert.equal((await call('/api/cuentas/foto-quitar', {}, session)).body.user.photo, null);
+  assert.equal((await fetch(`${BASE}/api/cuentas/foto/${me1.id}`, { headers: { Origin: ORIGIN } })).status, 404);
+
   // Torneo: con sesión se inscribe con su nick; sin sesión nadie puede usar ese nick como alias.
   const hostToken = token();
   const t = await fetch(BASE + '/api/tournaments', { method: 'POST', headers: { Origin: ORIGIN, 'Content-Type': 'application/json', Authorization: 'Bearer ' + key }, body: JSON.stringify({ title: 'Prueba de cuentas', minutes: 5, increment: 3, rounds: 3, capacity: 8, hostToken }) });

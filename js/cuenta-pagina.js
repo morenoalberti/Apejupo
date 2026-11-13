@@ -1,6 +1,6 @@
 // Página «Mi cuenta»: confirmar la cuenta y poner contraseña nueva (enlaces del correo), ver tus datos,
 // salir y borrar la cuenta.
-import { api, currentUser, logout, openAuth, refresh } from './cuenta.js?v=20261113-cuentas3';
+import { api, currentUser, logout, openAuth, refresh } from './cuenta.js?v=20261113-cuentas5';
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -13,6 +13,8 @@ const cleanUrl = () => history.replaceState(null, '', 'cuenta.html');
 function renderAccount() {
   const user = currentUser();
   if (!user) { view('fuera'); return; }
+  // Con la sesión abierta no hace falta esta página: se vuelve a la portada (tus opciones están en el menú de tu foto).
+  location.replace('index.html'); return;
   view('dentro');
   $('cu-nick-big').textContent = user.nick; $('cu-initial').textContent = user.nick[0].toUpperCase();
   $('cu-email-fact').textContent = user.email;

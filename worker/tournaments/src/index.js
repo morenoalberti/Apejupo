@@ -295,7 +295,16 @@ export default {
       const directory = env.DIRECTORY.getByName('public');
       const accounts = env.ACCOUNTS.getByName('cuentas');
       const askAccounts = async (action, data) => accounts.fetch('https://cuentas/' + action, { method: 'POST', body: JSON.stringify(data) });
-      const account = /^\/api\/cuentas\/(registro|entrar|reenviar|confirmar|recuperar|restablecer|yo|salir|borrar)$/.exec(path);
+      // Fotos de perfil: se ven sin sesión (GET) y se suben como bytes JPEG con la sesión (POST).
+      const photo = /^\/api\/cuentas\/foto\/([a-f0-9]{24})$/.exec(path);
+      if (photo && request.method === 'GET') return withCors(await accounts.fetch('https://cuentas/foto/' + photo[1]));
+      if (path === '/api/cuentas/foto' && request.method === 'POST') {
+        requireThat(Number(request.headers.get('Content-Length') || 0) <= 64 * 1024, 'La foto es demasiado grande.', 413);
+        const bytes = await request.arrayBuffer();
+        requireThat(bytes.byteLength <= 64 * 1024, 'La foto es demasiado grande.', 413);
+        return withCors(await accounts.fetch('https://cuentas/foto-subir', { method: 'POST', headers: { 'X-Sesion': bearer(request) }, body: bytes }));
+      }
+      const account = /^\/api\/cuentas\/(registro|entrar|reenviar|confirmar|recuperar|restablecer|yo|salir|borrar|foto-quitar)$/.exec(path);
       if (account) {
         requireThat(request.method === 'POST', 'Método no permitido.', 405);
         const b = await body(request);
