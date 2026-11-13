@@ -16,6 +16,13 @@ export function cleanName(value, max = 28) {
   return String(value || '').normalize('NFKC').replace(/[\p{Cc}\p{Cf}<>]/gu, '').replace(/\s+/g, ' ').trim().slice(0, max);
 }
 export const ARENA_PAUSE_MS = 10000;
+// Clave de inscripción opcional: quien entra con el enlace la necesita para apuntarse (ver y seguir el torneo es libre).
+export function cleanJoinKey(value) {
+  const key = cleanName(value, 40);
+  requireThat(!key || (key.length >= 4 && key.length <= 20), 'La clave del torneo debe tener entre 4 y 20 caracteres.');
+  return key;
+}
+const sameKey = (a, b) => a.toLocaleLowerCase('es') === b.toLocaleLowerCase('es');
 export const ARENA_DURATIONS = [3, 5, 10, 15, 20, 30, 45, 60, 90, 120];
 export const isArena = t => t.format === 'arena';
 export const BERSERK_BONUS = .5;
@@ -29,7 +36,7 @@ export function createTournament(input, id, hostHash, now = Date.now()) {
   const title = cleanName(input.title, 70);
   const format = input.format === 'arena' ? 'arena' : 'swiss';
   const minutes = Number(input.minutes), increment = Number(input.increment);
-  const capacity = Number(input.capacity);
+  const capacity = Number(input.capacity), joinKey = cleanJoinKey(input.joinKey);
   const rounds = format === 'arena' ? 0 : Number(input.rounds);
   const duration = format === 'arena' ? Number(input.duration) : null;
   requireThat(title.length >= 4, 'El nombre del torneo debe tener al menos 4 caracteres.');
@@ -44,7 +51,7 @@ export function createTournament(input, id, hostHash, now = Date.now()) {
   requireThat(!startsAt || (Number.isFinite(startsAt) && startsAt > now + 60000 && startsAt < now + 14 * 86400000), 'La fecha de inicio debe estar entre un minuto y 14 días en el futuro.');
   return { id, title, hostHash, format, duration, endsAt: null, minutes, increment, rounds, capacity, startsAt, createdAt: now,
     expiresAt: now + RETENTION_MS, status: 'waiting', round: 0, nextRoundAt: null,
-    players: [], games: [], revision: 0, finishedAt: null, notice: '' };
+    players: [], games: [], revision: 0, finishedAt: null, notice: '', joinKey };
 }
 
 export function standings(t) {
@@ -156,9 +163,13 @@ export function pairRound(t) {
   throw new GameError('No se pudieron generar los emparejamientos.');
 }
 
-export function joinTournament(t, name, playerHash, now = Date.now()) {
+export function joinTournament(t, name, playerHash, now = Date.now(), key = '') {
   const existing = t.players.find(p => p.hash === playerHash);
   if (existing) return existing;
+  if (t.joinKey) {
+    requireThat(cleanName(key, 40), 'Este torneo tiene clave. Escríbela para inscribirte.', 403);
+    requireThat(sameKey(cleanName(key, 40), t.joinKey), 'La clave del torneo no es correcta.', 403);
+  }
   // Como en Lichess, en el arena se puede entrar con el torneo ya empezado mientras quede tiempo.
   requireThat(t.status === 'waiting' || (isArena(t) && t.status === 'playing' && now < t.endsAt), 'Las inscripciones están cerradas.');
   name = cleanName(name);
@@ -294,6 +305,11 @@ export function act(t, playerId, host, action, now = Date.now()) {
     for (const g of t.games) if (!g.result) endGame(g, '1/2-1/2', 'Torneo cancelado', now);
     t.status = 'cancelled'; t.finishedAt = now; t.nextRoundAt = null; t.notice = 'El organizador ha cancelado el torneo.'; return;
   }
+  if (action.type === 'join-key') {
+    requireThat(host, 'Solo el organizador puede cambiar la clave.', 403);
+    requireThat(!['finished', 'cancelled'].includes(t.status), 'El torneo ya ha terminado.');
+    t.joinKey = cleanJoinKey(action.key); return;
+  }
   if (action.type === 'remove') {
     requireThat(host && t.status === 'waiting', 'Solo se pueden retirar inscritos antes del inicio.', 403);
     t.players = t.players.filter(p => p.id !== action.playerId); return;
@@ -356,7 +372,7 @@ export function summary(t) {
   return { id: t.id, title: t.title, status: t.status, format: t.format || 'swiss', duration: t.duration || null, endsAt: t.endsAt || null,
     pairingsCloseAt: isArena(t) && t.endsAt ? arenaPairingsCloseAt(t) : null,
     minutes: t.minutes, increment: t.increment,
-    rounds: t.rounds, round: t.round, capacity: t.capacity, count: t.players.length, startsAt: t.startsAt, createdAt: t.createdAt };
+    rounds: t.rounds, round: t.round, capacity: t.capacity, count: t.players.length, startsAt: t.startsAt, createdAt: t.createdAt, locked: !!t.joinKey };
 }
 export function snapshot(t, playerId, host, selectedGame, now = Date.now()) {
   const ownGame = [...t.games].reverse().find(g => !g.bye && (isArena(t) || g.round === t.round) && (g.white === playerId || g.black === playerId));
@@ -369,7 +385,7 @@ export function snapshot(t, playerId, host, selectedGame, now = Date.now()) {
   }
   const game = selected ? { ...selected, legal } : null;
   return { type: 'state', ...summary(t), revision: t.revision, serverNow: now, nextRoundAt: t.nextRoundAt,
-    finishedAt: t.finishedAt, notice: t.notice, me: playerId || null, host: !!host,
+    finishedAt: t.finishedAt, notice: t.notice, me: playerId || null, host: !!host, ...(host ? { joinKey: t.joinKey || '' } : {}),
     standings: standings(t).map(({ opponents, colors, seed, ...p }) => p),
     games: t.games.map(g => ({ id: g.id, round: g.round, white: g.white, black: g.black, result: g.result, reason: g.reason, bye: g.bye,
       late: !countsForArena(t, g),

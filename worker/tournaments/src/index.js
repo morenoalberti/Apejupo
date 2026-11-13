@@ -177,8 +177,13 @@ export class TournamentRoom extends DurableObject {
         }
         if (url.pathname === '/join') {
           requireThat(TOKEN.test(b.token), 'Identificación no válida.');
-          const playerHash = await hash(b.token);
-          const p = joinTournament(this.t, b.name, playerHash);
+          const playerHash = await hash(b.token), now = Date.now();
+          // Freno a quien prueba claves a ciegas: 10 fallos y espera 10 minutos.
+          if (!this.keyFails || this.keyFails.until <= now) this.keyFails = { count: 0, until: now + 600000 };
+          requireThat(this.keyFails.count < 10, 'Demasiados intentos con la clave. Espera unos minutos.', 429);
+          let p;
+          try { p = joinTournament(this.t, b.name, playerHash, now, b.joinKey); }
+          catch (error) { if (/clave/.test(error.message)) this.keyFails.count++; throw error; }
           await this.save(); this.broadcast();
           return json({ playerId: p.id }, 201);
         }

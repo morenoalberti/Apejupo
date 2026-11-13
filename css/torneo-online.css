@@ -121,6 +121,12 @@
 .to-main input, .to-main select, .to-dialog input, .to-dialog select { font: inherit; background: var(--bg); color: var(--text); border: 1px solid var(--line); border-radius: 8px; min-height: 42px; padding: 8px 10px; min-width: 0; }
 .to-main input:focus, .to-main select:focus, .to-dialog input:focus, .to-dialog select:focus { outline: 2px solid var(--blue); outline-offset: 1px; }
 .to-join-form { flex: 0 1 360px; }
+.to-lock { width: 15px; height: 15px; margin-right: 6px; vertical-align: -2px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+#to-joinkey-row { margin-bottom: 10px; }
+#to-joinkey-row label { display: inline-flex; align-items: center; color: #e5b766; font-weight: 600; }
+.to-host-key { flex: 1; display: inline-flex; align-items: center; color: var(--muted); }
+.to-host-key strong { margin-left: 4px; color: var(--text); letter-spacing: .04em; }
+#to-joinkey-form input { width: 100%; margin-bottom: 14px; }
 .to-join-form label { margin-top: 0; }
 #to-name-row input { width: 100%; }
 .to-join-form input { width: 100%; }

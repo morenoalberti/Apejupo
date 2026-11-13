@@ -289,3 +289,21 @@ test('arena 1+0: se deja de emparejar 30 s antes y la bandera caída a tiempo cu
   assert.equal(t.status, 'finished');
   assert.equal(standings(t).find(p => p.id === g.black).points, 1);
 });
+
+test('clave de inscripción: se pide al apuntarse, solo la ve el organizador y se puede cambiar', () => {
+  assert.throws(() => tournament(0, { joinKey: 'abc' }), /entre 4 y 20/);
+  const t = tournament(0, { joinKey: 'Apejupo26' });
+  assert.throws(() => joinTournament(t, 'Ana', 'secret-a', NOW), /tiene clave/);
+  assert.throws(() => joinTournament(t, 'Ana', 'secret-a', NOW, 'otra'), /no es correcta/);
+  const ana = joinTournament(t, 'Ana', 'secret-a', NOW, ' apejupo26 ');
+  // Quien ya está inscrito vuelve a entrar sin clave.
+  assert.equal(joinTournament(t, 'Ana', 'secret-a', NOW), ana);
+  assert.equal(snapshot(t, ana.id, false, null, NOW).joinKey, undefined);
+  assert.equal(snapshot(t, ana.id, false, null, NOW).locked, true);
+  assert.equal(snapshot(t, null, true, null, NOW).joinKey, 'Apejupo26');
+  assert.throws(() => act(t, ana.id, false, { type: 'join-key', key: 'nueva' }, NOW), /organizador/);
+  act(t, null, true, { type: 'join-key', key: '' }, NOW);
+  assert.equal(snapshot(t, null, false, null, NOW).locked, false);
+  joinTournament(t, 'Bea', 'secret-b', NOW);
+  assert.equal(t.players.length, 2);
+});

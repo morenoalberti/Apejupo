@@ -58,6 +58,7 @@ const icons = {
   clock: svg('<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2M9 2h6"/>'),
   format: svg('<path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0zM7 6H4v2a4 4 0 0 0 4 4M17 6h3v2a4 4 0 0 1-4 4"/>'),
   people: svg('<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>'),
+  lock: svg('<rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>'),
   calendar: svg('<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>')
 };
 const emptyLobby = `<div class="to-empty"><div class="to-empty-art" aria-hidden="true"><svg viewBox="0 0 64 64"><path d="M32 5v10M27 10h10M22 27c0-6 4-11 10-11s10 5 10 11c0 5-3 8-4 12H26c-1-4-4-7-4-12zM24 39h16l3 9H21zM17 48h30v7H17z"/></svg></div><strong>El próximo torneo puede ser el nuestro</strong><p>Todavía no hay torneos. Cuando la organización abra uno, aparecerá aquí.</p><button class="btn" type="button" data-create>Organizar torneo</button></div>`;
@@ -65,7 +66,7 @@ function eventCard(t) {
   const trash = read(hostKey(t.id)) ? `<button class="to-delete" type="button" data-delete="${t.id}" aria-label="Borrar el torneo ${esc(t.title)}" title="Borrar torneo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M5 7l1 13h12l1-13M9 7V4h6v3"/></svg></button>` : '';
   const full = Math.min(100, Math.round(t.count / t.capacity * 100));
   return `<article class="to-event ${t.status}">${trash}<div class="to-event-top"><span class="to-status ${t.status}">${esc(statuses[t.status])}</span><span class="to-event-clock">${icons.clock}${t.minutes} + ${t.increment}</span></div>`
-    + `<h3>${esc(t.title)}</h3><ul class="to-event-meta"><li>${icons.format}${formatLabel(t)}</li><li>${icons.calendar}${t.startsAt ? esc(date(t.startsAt)) : 'Inicio a cargo del organizador'}</li></ul>`
+    + `<h3>${esc(t.title)}</h3><ul class="to-event-meta"><li>${icons.format}${formatLabel(t)}</li>${t.locked ? `<li>${icons.lock}Inscripción con clave</li>` : ''}<li>${icons.calendar}${t.startsAt ? esc(date(t.startsAt)) : 'Inicio a cargo del organizador'}</li></ul>`
     + `<div class="to-event-fill"><span>${icons.people}${t.count}/${t.capacity} jugadores</span><i><b style="width:${full}%"></b></i></div>`
     + `<a class="btn" href="jugar-torneo.html?id=${t.id}">${t.status === 'waiting' ? 'Entrar e inscribirme' : 'Ver torneo'}</a></article>`;
 }
@@ -203,6 +204,8 @@ function renderJoin() {
   if (quick) $('to-name').value = remembered;
   $('to-join-label').textContent = quick ? `Unirse como ${remembered}` : 'Unirse';
   $('to-change-name').hidden = !quick;
+  $('to-joinkey-row').hidden = !state.locked; $('to-joinkey').required = !!state.locked;
+  $('to-join-hint').textContent = state.locked ? 'Este torneo tiene clave: pídesela al organizador.' : 'Un clic y entras. Tu nombre se recuerda en este navegador.';
   $('to-join-title').textContent = arena(state) && state.status === 'playing' ? '¡El arena está en marcha!' : 'Juega este torneo';
 }
 function liveGames() { return (state?.games || []).filter(g => !g.result && !g.bye && g.fen); }
@@ -265,6 +268,8 @@ function renderControls() {
   $('to-host').hidden = !t.host || ended;
   $('to-start').hidden = t.status !== 'waiting'; $('to-start').disabled = !connected || t.count < 2;
   $('to-cancel').disabled = !connected;
+  $('to-host-key').innerHTML = t.joinKey ? `<svg class="to-lock" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>Clave: <strong>${esc(t.joinKey)}</strong>` : 'Sin clave: cualquiera con el enlace puede inscribirse';
+  $('to-key-edit').textContent = t.joinKey ? 'Cambiar clave' : 'Poner clave'; $('to-key-edit').disabled = !connected;
   $('to-pause').hidden = !arena(t) || !mine?.active || ended;
   $('to-pause').textContent = mine?.paused ? 'Volver a jugar' : 'Pausa'; $('to-pause').disabled = !connected;
   $('to-withdraw').hidden = !mine?.active || ended; $('to-withdraw').textContent = t.status === 'waiting' ? 'Cancelar inscripción' : 'Retirarme del torneo';
@@ -477,7 +482,7 @@ $('to-create-form').addEventListener('submit', async event => {
     if (time && !day) throw new Error('Elige también el día de inicio.');
     const startsAt = day ? new Date(`${day}T${time}`).getTime() : null;
     const isArena = data.get('format') === 'arena';
-    const res = await (await request('/api/tournaments', { method: 'POST', key: data.get('key'), body: JSON.stringify({ title: data.get('title'), format: data.get('format'), minutes: Number(data.get('minutes')), increment: Number(data.get('increment')), rounds: isArena ? null : Number(data.get('rounds')), duration: isArena ? Number(data.get('duration')) : null, capacity: Number(data.get('capacity')), startsAt, hostToken }) })).json();
+    const res = await (await request('/api/tournaments', { method: 'POST', key: data.get('key'), body: JSON.stringify({ title: data.get('title'), format: data.get('format'), minutes: Number(data.get('minutes')), increment: Number(data.get('increment')), rounds: isArena ? null : Number(data.get('rounds')), duration: isArena ? Number(data.get('duration')) : null, capacity: Number(data.get('capacity')), startsAt, joinKey: data.get('joinKey') || '', hostToken }) })).json();
     write(hostKey(res.id), hostToken); $('to-key').value = ''; location.href = 'jugar-torneo.html?id=' + res.id;
   } catch (e) { $('to-create-error').hidden = false; $('to-create-error').textContent = e.message; }
   finally { button.disabled = false; }
@@ -486,13 +491,15 @@ $('to-join-form').addEventListener('submit', async event => {
   event.preventDefault(); const button = event.currentTarget.querySelector('button'); button.disabled = true;
   try {
     const id = read(playerKey()) || token(); write(playerKey(), id); write('apejupoTorneoNombre', $('to-name').value.trim());
-    await request(`/api/tournaments/${roomId}/join`, { method: 'POST', body: JSON.stringify({ name: $('to-name').value, token: id }) });
+    await request(`/api/tournaments/${roomId}/join`, { method: 'POST', body: JSON.stringify({ name: $('to-name').value, token: id, joinKey: $('to-joinkey').value }) });
+    $('to-joinkey').value = '';
     editingName = false; hello();
     message(arena(state) && state.status === 'playing' ? '¡Dentro! Te emparejamos con el próximo jugador libre.' : 'Inscripción completada. Mantén esta página abierta para el inicio.');
   } catch (e) {
     message(e.message, true);
     // Si el nombre recordado ya está cogido, se muestra el campo para escribir otro.
     if (/nombre/.test(e.message)) { editingName = true; renderJoin(); $('to-name').focus(); }
+    else if (/clave/.test(e.message)) { $('to-joinkey').select(); $('to-joinkey').focus(); }
   }
   finally { button.disabled = !connected; }
 });
@@ -641,3 +648,13 @@ $('to-events').addEventListener('click', async event => {
     await loadLobby(); message('Torneo borrado.');
   } catch (error) { button.disabled = false; message(error.message, true); }
 });
+
+$('to-key-edit').addEventListener('click', () => { $('to-joinkey-input').value = state?.joinKey || ''; $('to-joinkey-remove').hidden = !state?.joinKey; $('to-joinkey-dialog').showModal(); $('to-joinkey-input').focus(); });
+$('to-joinkey-form').addEventListener('submit', event => {
+  event.preventDefault();
+  const key = $('to-joinkey-input').value.trim();
+  if (key.length < 4) { $('to-joinkey-input').setCustomValidity('La clave debe tener al menos 4 caracteres.'); $('to-joinkey-input').reportValidity(); return; }
+  if (send({ type: 'join-key', key })) { $('to-joinkey-dialog').close(); message('Clave guardada. Pásasela a quien quieras que se inscriba.'); }
+});
+$('to-joinkey-input').addEventListener('input', () => $('to-joinkey-input').setCustomValidity(''));
+$('to-joinkey-remove').addEventListener('click', () => { if (send({ type: 'join-key', key: '' })) { $('to-joinkey-dialog').close(); message('Clave quitada: cualquiera con el enlace puede inscribirse.'); } });
