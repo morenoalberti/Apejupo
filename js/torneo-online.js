@@ -10,7 +10,7 @@ const images = new Map();
 let state = null, socket = null, reconnectTimer = null, heartbeat = null, retry = 0, lastReceived = 0;
 let connected = false, pending = false, offset = 0, selected = null, flipped = false, manualFlip = false;
 let boardKey = '', lastRound = null, viewedRound = null, replay = null, replayPly = null, promotion = null;
-let confirmResolve = null, dragStart = null, ignoreClick = false;
+let confirmResolve = null, dropped = null;
 // Jugada propia mostrada al instante, antes de que la confirme el servidor (como en Lichess).
 let optimistic = null, rendered = { game: null, fen: null }, skipSlide = false, drag = null;
 
@@ -491,42 +491,46 @@ $('to-matches').addEventListener('click', event => { const id = event.target.clo
 $('to-round').addEventListener('change', () => { viewedRound = Number($('to-round').value); renderMatches(); });
 $('to-flip').addEventListener('click', () => { flipped = !flipped; manualFlip = true; boardKey = ''; renderGame(); updateClocks(); });
 $('to-board').addEventListener('click', event => {
-  if (ignoreClick) { ignoreClick = false; return; }
   const sq = event.target.closest('[data-square]')?.dataset.square;
+  // El navegador lanza un clic al soltar la pieza: ese ya se ha procesado al soltar.
+  if (dropped && performance.now() - dropped.at < 500 && (!sq || sq === dropped.square)) { dropped = null; return; }
   if (sq) squareClick(sq);
 });
+// Arrastre como en Lichess: al pulsar una pieza propia, se pega al puntero en ese instante
+// (ratón, lápiz o dedo); en su casilla queda una sombra y se marcan los destinos posibles.
 $('to-board').addEventListener('pointerdown', event => {
   if (event.button > 0 || !canMove()) return;
   const square = event.target.closest('[data-square]')?.dataset.square;
-  dragStart = square && state.game.legal.some(m => m.from === square) ? { square, x: event.clientX, y: event.clientY } : null;
+  if (!square || !state.game.legal.some(m => m.from === square)) return;
+  const canvas = $('to-board').querySelector(`[data-square="${square}"] canvas`);
+  if (!canvas) return;
+  event.preventDefault(); // sin selección de texto ni arrastre nativo del navegador
+  const size = $('to-board').getBoundingClientRect().width / 8, ghost = document.createElement('img');
+  ghost.src = 'assets/pieces/' + canvas.dataset.piece + '.png'; ghost.className = 'to-ghost'; ghost.alt = '';
+  ghost.style.width = ghost.style.height = size + 'px';
+  document.body.append(ghost); document.body.classList.add('to-grabbing');
+  drag = { from: square, ghost, size, wasSelected: selected === square, x: event.clientX, y: event.clientY, moved: false };
+  moveGhost(event);
+  selected = square; boardKey = ''; renderBoard();
 });
-document.addEventListener('pointermove', event => {
-  if (!dragStart) return;
-  if (!drag) {
-    if (Math.hypot(event.clientX - dragStart.x, event.clientY - dragStart.y) < 4) return;
-    const canvas = $('to-board').querySelector(`[data-square="${dragStart.square}"] canvas`);
-    if (!canvas) { dragStart = null; return; }
-    const size = $('to-board').clientWidth / 8, ghost = document.createElement('img');
-    ghost.src = 'assets/pieces/' + canvas.dataset.piece + '.png'; ghost.className = 'to-ghost'; ghost.alt = '';
-    ghost.style.width = ghost.style.height = size + 'px';
-    document.body.append(ghost);
-    drag = { from: dragStart.square, ghost, size };
-    selected = dragStart.square; boardKey = ''; renderBoard();
-  }
+function moveGhost(event) {
   drag.ghost.style.transform = `translate(${event.clientX - drag.size / 2}px, ${event.clientY - drag.size / 2}px)`;
+  if (Math.hypot(event.clientX - drag.x, event.clientY - drag.y) > 3) drag.moved = true;
   const over = document.elementFromPoint(event.clientX, event.clientY)?.closest('#to-board [data-square]')?.dataset.square;
   for (const el of $('to-board').querySelectorAll('.hover')) el.classList.remove('hover');
-  if (over) $('to-board').querySelector(`[data-square="${over}"]`)?.classList.add('hover');
-});
+  if (over && over !== drag.from) $('to-board').querySelector(`[data-square="${over}"]`)?.classList.add('hover');
+}
+document.addEventListener('pointermove', event => { if (drag) { event.preventDefault(); moveGhost(event); } }, { passive: false });
 function endDrag(event) {
-  const start = dragStart; dragStart = null;
   if (!drag) return;
-  const { from, ghost } = drag; drag = null; ghost.remove();
-  ignoreClick = true; setTimeout(() => { ignoreClick = false; }, 0);
+  const { from, ghost, wasSelected, moved } = drag; drag = null; ghost.remove();
+  document.body.classList.remove('to-grabbing');
   const to = event && document.elementFromPoint(event.clientX, event.clientY)?.closest('#to-board [data-square]')?.dataset.square;
-  if (to && to !== from && state.game.legal.some(m => m.from === from && m.to === to)) { selected = from; skipSlide = true; squareClick(to); }
-  else { selected = to === from ? from : null; boardKey = ''; renderBoard(); }
-  void start;
+  dropped = { square: to, at: performance.now() };
+  if (to && to !== from && state.game.legal.some(m => m.from === from && m.to === to)) { selected = from; skipSlide = true; squareClick(to); return; }
+  // Soltar en la misma casilla sin mover: selecciona la pieza (o la deselecciona si ya lo estaba).
+  selected = to === from && !(wasSelected && !moved) ? from : null;
+  boardKey = ''; renderBoard();
 }
 document.addEventListener('pointerup', endDrag);
 document.addEventListener('pointercancel', () => endDrag(null));

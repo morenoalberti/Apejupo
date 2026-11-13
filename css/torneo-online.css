@@ -223,3 +223,5 @@
 .to-live.big strong { font-family: ui-monospace, Consolas, monospace; font-variant-numeric: tabular-nums; font-size: .8rem; padding: 1px 6px; border-radius: 4px; background: var(--card); flex: none; }
 .to-live.big strong.running { background: #21754f; color: #fff; }
 @media (max-width: 760px) { .to-boards-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; } }
+.to-board.can-move .to-square:has(canvas) { cursor: grab; }
+body.to-grabbing, body.to-grabbing * { cursor: grabbing !important; }
