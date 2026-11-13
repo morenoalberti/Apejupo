@@ -8,7 +8,7 @@
 <meta name="description" content="Juega torneos abiertos de ajedrez en Apejupo: inscríbete, disputa tus partidas y sigue la clasificación en directo.">
 <link rel="icon" type="image/svg+xml" href="assets/icon.svg">
 <link rel="stylesheet" href="css/style.css?v=20261112-torneo">
-<link rel="stylesheet" href="css/torneo-online.css?v=20261113-partida">
+<link rel="stylesheet" href="css/torneo-online.css?v=20261113-partida3">
 <script defer src="js/analytics.js?v=20261111-analytics"></script>
 </head>
 <body>
@@ -69,7 +69,7 @@
           <section class="to-panel to-matches-panel" aria-labelledby="to-matches-title"><div class="to-section-head"><h2 id="to-matches-title">Tableros</h2><select id="to-round" aria-label="Ver ronda"></select></div><div id="to-matches" class="to-matches"><p class="muted">Los tableros aparecerán al comenzar la primera ronda.</p></div></section>
         </div>
         <aside class="to-sidebar">
-          <section id="to-focus-info" class="to-panel to-focus-info" aria-label="Torneo en curso"><div><strong id="to-focus-title"></strong><span id="to-focus-format" class="muted"></span></div><div class="to-focus-clock"><span>Termina en</span><strong id="to-focus-clock"></strong></div></section>
+          <section id="to-focus-info" class="to-panel to-focus-info" aria-label="Torneo en curso"><div><strong id="to-focus-title"></strong><span id="to-focus-format" class="muted"></span></div><div class="to-focus-clock"><span>Termina en</span><strong id="to-focus-clock"></strong></div><div id="to-focus-next" class="to-focus-next" hidden><span id="to-focus-status" role="status"></span><button id="to-focus-pause" class="btn-ghost" type="button" hidden>Pausa</button></div></section>
           <section class="to-panel" aria-labelledby="to-standings-title"><div class="to-section-head"><h2 id="to-standings-title">Inscritos</h2><span id="to-player-count" class="to-count"></span></div><div class="to-table-wrap"><table class="to-standings"><thead><tr><th scope="col">#</th><th scope="col">Jugador</th><th scope="col">Pts</th><th scope="col" id="to-extra-col"><abbr title="Buchholz: suma de puntos de los rivales">BH</abbr></th></tr></thead><tbody id="to-standings"></tbody></table></div><p id="to-tiebreak" class="to-small muted">Desempates: Buchholz, Sonneborn-Berger, victorias y número de sorteo.</p><button id="to-all-pgn" class="btn-ghost" type="button" hidden>Descargar partidas del torneo</button></section>
           <details id="to-rules" class="to-panel to-rules"><summary>Cómo se juega</summary><p>Sistema suizo de club: rivales con puntuación parecida, intentando evitar repeticiones y equilibrar colores. No es un torneo homologado.</p><p>Victoria: 1 punto. Tablas: ½ punto. Derrota: 0. Si hay un número impar, un jugador descansa y suma 1 punto; se intenta repartir los descansos.</p><p>Entre rondas hay 30 segundos. Si no estás conectado, tu reloj sigue corriendo. Puedes volver a entrar desde este mismo navegador.</p><p>Modo arena: el torneo dura un tiempo fijo. Al terminar tu partida, tras 10 segundos se te empareja con otro jugador libre, y así hasta que se acaba el tiempo. Solo se empareja a quien tiene la página abierta; usa «Pausa» para descansar. Las partidas en juego al acabar el tiempo se terminan y cuentan.</p><p>Berserk (solo arena): antes de tu primera jugada puedes jugar con la mitad del tiempo y sin incremento. Si ganas con al menos 7 jugadas, sumas ½ punto extra. En el arena puedes unirte aunque el torneo ya haya empezado.</p><p>Las tablas por triple repetición y 50 movimientos se aplican automáticamente. Juega sin ayuda de motores: esta versión no certifica la ausencia de trampas.</p><p>Las partidas se conservan durante 30 días. Puedes descargarlas al terminar.</p></details>
           <details id="to-recover" class="to-panel"><summary>Acceso del organizador</summary><form id="to-recover-form"><div id="to-recover-key-field"><label for="to-recover-key">Clave de organización</label><input id="to-recover-key" type="password" required autocomplete="current-password"></div><button class="btn-ghost" type="submit">Recuperar controles</button></form></details>
@@ -86,6 +86,6 @@
 <script src="js/menu.js?v=20261112-torneo"></script>
 <script src="js/util.js?v=20261112-seccion"></script>
 <script src="js/torneo-config.js?v=20261112-torneo"></script>
-<script type="module" src="js/torneo-online.js?v=20261113-partida2"></script>
+<script type="module" src="js/torneo-online.js?v=20261113-partida3"></script>
 </body>
 </html>

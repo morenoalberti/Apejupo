@@ -239,3 +239,6 @@ body.to-focus #to-membership, body.to-focus .to-matches-panel, body.to-focus #to
 body.to-focus #to-podium { display: none !important; }
 body.to-focus .to-content { padding-top: 16px; }
 body.to-focus .to-room-bar { margin-bottom: 12px; }
+body.to-focus .to-focus-info { flex-wrap: wrap; }
+.to-focus-next { flex: 1 1 100%; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding-top: 10px; border-top: 1px solid var(--line); font-size: .88rem; font-weight: 600; }
+.to-focus-next button { font-size: .82rem !important; }

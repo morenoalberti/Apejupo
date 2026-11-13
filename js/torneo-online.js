@@ -145,8 +145,16 @@ function render() {
   if (rounds.includes(viewedRound)) $('to-round').value = viewedRound;
   // Como la página de partida de Lichess: mientras juegas, solo el tablero y lo de tu partida.
   // Cuenta tu partida en marcha aunque estés mirando otro tablero.
-  const focus = !!t.me && t.games.some(x => !x.result && !x.bye && (x.white === t.me || x.black === t.me));
+  // Al terminar tu partida no cambia la pantalla: sigues viendo tu tablero con el resultado
+  // hasta que te emparejan otra vez y la nueva partida aparece sola, como en Lichess.
+  const ownActive = !!t.me && t.games.some(x => !x.result && !x.bye && (x.white === t.me || x.black === t.me));
+  const ownView = !!t.game && (t.game.white === t.me || t.game.black === t.me);
+  const focus = ownActive || (!!mine?.active && ownView && ['playing', 'between'].includes(t.status));
   document.body.classList.toggle('to-focus', focus);
+  $('to-focus-next').hidden = !focus || ownActive;
+  $('to-focus-pause').hidden = !arena(t) || ownActive;
+  $('to-focus-pause').textContent = mine?.paused ? 'Volver a jugar' : 'Pausa';
+  $('to-focus-pause').disabled = !connected;
   // Con el torneo en juego no se muestra «Compartir torneo».
   $('to-share').hidden = ['playing', 'between'].includes(t.status);
   $('to-focus-title').textContent = t.title;
@@ -397,6 +405,7 @@ function updateClocks() {
   }
   $('to-focus-info').querySelector('.to-focus-clock').hidden = !counting;
   if (!$('to-registration').hidden && !canJoin(t)) render();
+  if (!$('to-focus-next').hidden) $('to-focus-status').textContent = me?.paused ? 'En pausa: no se te empareja' : $('to-phase').textContent || 'Partida terminada';
   const g = t.game; if (!g) return;
   for (const id of ['to-player-top', 'to-player-bottom']) {
     const el = $(id), color = el.dataset.color, running = !g.result && g.turn === color;
@@ -483,6 +492,7 @@ $('to-cancel').addEventListener('click', async () => {
 $('to-withdraw').addEventListener('click', async () => {
   if (await confirmAction(state.status === 'waiting' ? 'Cancelar inscripción' : 'Retirarte del torneo', state.status === 'waiting' ? 'Se liberará tu plaza. Podrás volver a inscribirte mientras haya sitio.' : arena(state) ? 'Perderás tu partida en curso y no se te emparejará más. Si solo quieres descansar, usa «Pausa».' : 'Perderás tu partida en curso y no participarás en las siguientes rondas.', 'Retirarme')) send({ type: 'withdraw' });
 });
+$('to-focus-pause').addEventListener('click', () => $('to-pause').click());
 $('to-pause').addEventListener('click', () => {
   const mine = state.standings.find(p => p.id === state.me);
   if (send({ type: mine?.paused ? 'resume' : 'pause' })) message(mine?.paused ? 'Vuelves a estar disponible: se te emparejará con el próximo jugador libre.' : 'En pausa: no se te emparejará hasta que vuelvas. Si estás jugando, termina tu partida.');
