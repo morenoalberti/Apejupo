@@ -364,7 +364,7 @@ export function snapshot(t, playerId, host, selectedGame, now = Date.now()) {
     finishedAt: t.finishedAt, notice: t.notice, me: playerId || null, host: !!host,
     standings: standings(t).map(({ opponents, colors, seed, ...p }) => p),
     games: t.games.map(g => ({ id: g.id, round: g.round, white: g.white, black: g.black, result: g.result, reason: g.reason, bye: g.bye,
-      berserkW: !!g.berserkW, berserkB: !!g.berserkB, ...(g.result || g.bye ? {} : { fen: g.fen, lastMove: g.lastMove || null }) })), game };
+      berserkW: !!g.berserkW, berserkB: !!g.berserkB, ...(g.result || g.bye ? {} : { fen: g.fen, lastMove: g.lastMove || null, turn: g.turn, whiteMs: g.whiteMs, blackMs: g.blackMs, lastAt: g.lastAt }) })), game };
 }
 export function exportPgn(t, gameId) {
   const games = t.games.filter(g => !g.bye && (!gameId || g.id === gameId));

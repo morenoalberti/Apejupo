@@ -11,6 +11,8 @@ let state = null, socket = null, reconnectTimer = null, heartbeat = null, retry 
 let connected = false, pending = false, offset = 0, selected = null, flipped = false, manualFlip = false;
 let boardKey = '', lastRound = null, viewedRound = null, replay = null, replayPly = null, promotion = null;
 let confirmResolve = null, dragStart = null, ignoreClick = false;
+// Jugada propia mostrada al instante, antes de que la confirme el servidor (como en Lichess).
+let optimistic = null, rendered = { game: null, fen: null }, skipSlide = false, drag = null;
 
 function read(key) { try { return localStorage.getItem(key) || ''; } catch { return ''; } }
 function write(key, value) {
@@ -85,12 +87,13 @@ function connect() {
     lastReceived = Date.now();
     if (event.data === 'pong') return;
     let next; try { next = JSON.parse(event.data); } catch { return; }
-    if (next.type === 'error') { pending = false; message(next.message, true); return; }
+    if (next.type === 'error') { pending = false; optimistic = null; boardKey = ''; message(next.message, true); if (state) renderGame(); return; }
     if (next.type !== 'state') return;
     if (state && next.revision < state.revision) return;
     const oldGame = state?.game, oldMe = state?.me;
     offset = next.serverNow - Date.now(); pending = false; state = next;
-    if (oldGame?.id !== next.game?.id || oldGame?.fen !== next.game?.fen) { selected = null; boardKey = ''; }
+    if (optimistic && (next.game?.id !== optimistic.game || next.game.moves.length >= optimistic.ply)) optimistic = null;
+    if (oldGame?.id !== next.game?.id || oldGame?.fen !== next.game?.fen) { if (!drag) selected = null; boardKey = ''; }
     if (oldGame?.id !== next.game?.id || oldGame?.result !== next.game?.result) { replay = null; replayPly = null; }
     if (!manualFlip && next.me && next.game && (oldGame?.id !== next.game.id || oldMe !== next.me)) flipped = next.game.black === next.me;
     const changedRound = lastRound !== next.round; lastRound = next.round;
@@ -140,7 +143,10 @@ function render() {
   $('to-round').innerHTML = rounds.map(r => `<option value="${r}">Ronda ${r}</option>`).join('');
   $('to-round').hidden = !rounds.length;
   if (rounds.includes(viewedRound)) $('to-round').value = viewedRound;
-  renderPodium(); renderMatches(); renderGame(); renderControls(); updateClocks();
+  renderPodium(); renderMatches(); renderGame(); renderControls(); renderBoards(); updateClocks();
+  // Quien está jugando el torneo no necesita las reglas ni el acceso del organizador.
+  const playingNow = !!mine?.active && ['playing', 'between'].includes(t.status);
+  $('to-rules').hidden = playingNow; $('to-recover').hidden = playingNow || t.host;
 }
 function canJoin(t) { return t.status === 'waiting' || (arena(t) && t.status === 'playing' && Date.now() + offset < t.endsAt); }
 // Hoja de resultados, como en Lichess: una cifra por partida; resaltadas las ganadas con Berserk.
@@ -164,6 +170,25 @@ function renderJoin() {
   $('to-join-label').textContent = quick ? `Unirse como ${remembered}` : 'Unirse';
   $('to-change-name').hidden = !quick;
   $('to-join-title').textContent = arena(state) && state.status === 'playing' ? '¡El arena está en marcha!' : 'Juega este torneo';
+}
+function liveGames() { return (state?.games || []).filter(g => !g.result && !g.bye && g.fen); }
+function renderBoards() {
+  const live = liveGames();
+  $('to-boards-open').hidden = !live.length;
+  $('to-boards-label').textContent = `Ver tableros (${live.length})`;
+  if (!$('to-boards-dialog').open) return;
+  $('to-boards-grid').innerHTML = live.map(g => `<button type="button" class="to-live big ${g.white === state.me || g.black === state.me ? 'mine' : ''}" data-watch="${g.id}" aria-label="Ver ${esc(name(g.white))} contra ${esc(name(g.black))}"><span class="to-live-name"><span>${g.berserkB ? '<b class="to-bz">⚡</b>' : ''}${esc(name(g.black))}</span><strong data-clock="${g.id}:b"></strong></span>${miniBoard(g)}<span class="to-live-name"><span>${g.berserkW ? '<b class="to-bz">⚡</b>' : ''}${esc(name(g.white))}</span><strong data-clock="${g.id}:w"></strong></span></button>`).join('') || '<p class="muted">No hay partidas en juego ahora mismo.</p>';
+  updateMiniClocks();
+}
+function updateMiniClocks() {
+  if (!$('to-boards-dialog').open) return;
+  const now = Date.now() + offset;
+  for (const el of $('to-boards-grid').querySelectorAll('[data-clock]')) {
+    const [id, color] = el.dataset.clock.split(':'), g = state.games.find(x => x.id === id);
+    if (!g || g.result) continue;
+    const running = g.turn === color, ms = (color === 'w' ? g.whiteMs : g.blackMs) - (running ? Math.max(0, now - g.lastAt) : 0);
+    el.textContent = clock(ms); el.classList.toggle('running', running);
+  }
 }
 function miniBoard(g) {
   const pieces = fenPieces(g.fen), cells = [];
@@ -211,7 +236,6 @@ function renderControls() {
   $('to-withdraw').hidden = !mine?.active || ended; $('to-withdraw').textContent = t.status === 'waiting' ? 'Cancelar inscripción' : 'Retirarme del torneo';
   $('to-withdraw').disabled = !connected;
   $('to-join-form').querySelector('button').disabled = !connected;
-  $('to-recover').hidden = t.host;
   const g = t.game, ownGame = g && (g.white === t.me || g.black === t.me);
   $('to-game-actions').hidden = !g || !ownGame || !!g.result;
   $('to-offer').disabled = !connected || g?.offer === t.me || pending;
@@ -243,13 +267,15 @@ function renderGame() {
   $('to-game-panel').hidden = !g;
   if (!g) return;
   const own = !!myColor();
+  // En tu propia partida sobra la franja del título: el tablero ya está orientado hacia ti.
+  $('to-game-heading').hidden = own && !g.result;
   $('to-board-title').textContent = arena(state) ? (own ? 'Tu partida' : 'Viendo partida') : `${own ? 'Tu partida' : 'Viendo partida'} · Ronda ${g.round}`;
   const top = flipped ? 'w' : 'b', bottom = flipped ? 'b' : 'w';
   $('to-player-top').dataset.color = top; $('to-player-bottom').dataset.color = bottom;
   const bz = color => (color === 'w' ? g.berserkW : g.berserkB) ? ' ⚡ Berserk' : '';
   $('to-player-top').querySelector('span').textContent = `${top === 'w' ? '♔' : '♚'} ${name(top === 'w' ? g.white : g.black)}${bz(top)}`;
   $('to-player-bottom').querySelector('span').textContent = `${bottom === 'w' ? '♔' : '♚'} ${name(bottom === 'w' ? g.white : g.black)}${bz(bottom)}`;
-  let status = g.result ? `${g.result.replace('1/2-1/2', '½–½')} · ${g.reason}` : pending ? 'Confirmando tu jugada…' : !connected ? 'Recuperando conexión. Tu reloj sigue corriendo.' : canMove() ? 'Tu turno' : own ? 'Turno de tu rival' : `Juegan ${g.turn === 'w' ? 'blancas' : 'negras'}`;
+  let status = g.result ? `${g.result.replace('1/2-1/2', '½–½')} · ${g.reason}` : pending ? 'Turno de tu rival' : !connected ? 'Recuperando conexión. Tu reloj sigue corriendo.' : canMove() ? 'Tu turno' : own ? 'Turno de tu rival' : `Juegan ${g.turn === 'w' ? 'blancas' : 'negras'}`;
   $('to-game-status').textContent = status; $('to-game-status').classList.toggle('my-turn', canMove());
   $('to-replay').hidden = !g.result;
   if (g.result && !replay) {
@@ -267,13 +293,18 @@ function renderGame() {
 }
 function renderBoard() {
   const g = state?.game; if (!g) return;
-  const fen = g.result && replay ? replay[replayPly] : g.fen;
-  const key = [g.id, fen, flipped, selected, canMove(), g.lastMove?.from, g.lastMove?.to].join('|');
+  const shown = optimistic?.game === g.id ? optimistic : null;
+  const fen = g.result && replay ? replay[replayPly] : shown ? shown.fen : g.fen;
+  const lastMove = shown ? shown.lastMove : g.lastMove;
+  const key = [g.id, fen, flipped, selected, canMove(), lastMove?.from, lastMove?.to].join('|');
   if (boardKey === key) return; boardKey = key;
+  // Deslizar la pieza que se acaba de mover, en lugar de que salte de casilla.
+  const slideMove = !skipSlide && rendered.game === g.id && rendered.fen && rendered.fen !== fen && lastMove ? lastMove : null;
+  const prevFen = rendered.fen; rendered = { game: g.id, fen }; skipSlide = false;
   const activeSquare = document.activeElement?.closest('#to-board [data-square]')?.dataset.square;
   const pieces = fenPieces(fen), order = Array.from({ length: 64 }, (_, i) => flipped ? 63 - i : i);
   const targets = selected ? g.legal.filter(m => m.from === selected).map(m => m.to) : [];
-  const last = !g.result || replayPly === g.moves.length ? g.lastMove : null;
+  const last = !g.result || replayPly === g.moves.length ? lastMove : null;
   $('to-board').innerHTML = order.map((index, i) => {
     const row = Math.floor(index / 8), col = index % 8, sq = 'abcdefgh'[col] + (8 - row), piece = pieces[sq];
     const desc = piece ? `${pieceNames[piece[1].toLowerCase()]} de ${piece[0] === 'w' ? 'blancas' : 'negras'}` : 'vacía';
@@ -281,6 +312,36 @@ function renderBoard() {
   }).join('');
   for (const canvas of $('to-board').querySelectorAll('canvas')) paint(canvas, canvas.dataset.piece);
   if (activeSquare) $('to-board').querySelector(`[data-square="${activeSquare}"]`)?.focus({ preventScroll: true });
+  $('to-board').classList.toggle('can-move', canMove());
+  if (drag) $('to-board').querySelector(`[data-square="${drag.from}"] canvas`)?.classList.add('to-dragging');
+  if (slideMove && !g.result) {
+    const before = fenPieces(prevFen);
+    // Solo si la pieza estaba en la casilla de origen: evita animar al cambiar de partida o revisar.
+    if (before[slideMove.from]) {
+      slide(slideMove.from, slideMove.to);
+      const piece = before[slideMove.from];
+      if (piece[1] === 'K' && Math.abs(slideMove.from.charCodeAt(0) - slideMove.to.charCodeAt(0)) === 2) {
+        const rank = slideMove.from[1], short = slideMove.to[0] === 'g';
+        slide((short ? 'h' : 'a') + rank, (short ? 'f' : 'd') + rank);
+      }
+    }
+  }
+}
+function squareXY(sq) {
+  let x = sq.charCodeAt(0) - 97, y = 8 - Number(sq[1]);
+  if (flipped) { x = 7 - x; y = 7 - y; }
+  return { x, y };
+}
+function slide(from, to) {
+  const canvas = $('to-board').querySelector(`[data-square="${to}"] canvas`); if (!canvas) return;
+  const a = squareXY(from), b = squareXY(to), size = $('to-board').clientWidth / 8, cell = canvas.parentElement;
+  cell.style.zIndex = 3;
+  canvas.style.transition = 'none';
+  canvas.style.transform = `translate(${(a.x - b.x) * size}px, ${(a.y - b.y) * size}px)`;
+  canvas.getBoundingClientRect();
+  canvas.style.transition = 'transform 180ms cubic-bezier(.25,.8,.35,1)';
+  canvas.style.transform = '';
+  canvas.addEventListener('transitionend', () => { cell.style.zIndex = ''; }, { once: true });
 }
 function squareClick(square) {
   if (!canMove()) return;
@@ -301,7 +362,10 @@ function squareClick(square) {
 }
 function move(from, to, promotion = 'q') {
   const g = state.game;
-  if (send({ type: 'move', game: g.id, from, to, promotion, ply: g.moves.length })) { pending = true; selected = null; boardKey = ''; renderGame(); renderControls(); }
+  if (!send({ type: 'move', game: g.id, from, to, promotion, ply: g.moves.length })) return;
+  // Se dibuja la jugada ya; si el servidor la rechaza, vuelve la posición confirmada.
+  try { const c = new Chess(g.fen); c.move({ from, to, promotion }); optimistic = { game: g.id, ply: g.moves.length + 1, fen: c.fen(), lastMove: { from, to } }; } catch { optimistic = null; }
+  pending = true; selected = null; boardKey = ''; renderGame(); renderControls();
 }
 function clock(ms) {
   const seconds = Math.ceil(Math.max(0, ms) / 1000);
@@ -417,6 +481,12 @@ $('to-standings').addEventListener('click', async event => {
   const id = event.target.closest('[data-remove]')?.dataset.remove;
   if (id && await confirmAction('Retirar inscripción', `¿Retirar a ${name(id)} de este torneo?`, 'Retirar')) send({ type: 'remove', playerId: id });
 });
+$('to-boards-open').addEventListener('click', () => { $('to-boards-dialog').showModal(); renderBoards(); });
+$('to-boards-grid').addEventListener('click', event => {
+  const id = event.target.closest('[data-watch]')?.dataset.watch; if (!id) return;
+  $('to-boards-dialog').close(); watch(id);
+  requestAnimationFrame(() => $('to-game-panel').scrollIntoView({ behavior: 'smooth', block: 'start' }));
+});
 $('to-matches').addEventListener('click', event => { const id = event.target.closest('[data-watch]')?.dataset.watch; if (id) watch(id); });
 $('to-round').addEventListener('change', () => { viewedRound = Number($('to-round').value); renderMatches(); });
 $('to-flip').addEventListener('click', () => { flipped = !flipped; manualFlip = true; boardKey = ''; renderGame(); updateClocks(); });
@@ -426,17 +496,40 @@ $('to-board').addEventListener('click', event => {
   if (sq) squareClick(sq);
 });
 $('to-board').addEventListener('pointerdown', event => {
-  if (event.pointerType !== 'mouse' || !canMove()) return;
+  if (event.button > 0 || !canMove()) return;
   const square = event.target.closest('[data-square]')?.dataset.square;
   dragStart = square && state.game.legal.some(m => m.from === square) ? { square, x: event.clientX, y: event.clientY } : null;
 });
-document.addEventListener('pointerup', event => {
+document.addEventListener('pointermove', event => {
   if (!dragStart) return;
-  const from = dragStart; dragStart = null;
-  if (Math.hypot(event.clientX - from.x, event.clientY - from.y) < 8) return;
-  const to = document.elementFromPoint(event.clientX, event.clientY)?.closest('#to-board [data-square]')?.dataset.square;
-  if (to) { selected = from.square; squareClick(to); ignoreClick = true; setTimeout(() => { ignoreClick = false; }, 0); }
+  if (!drag) {
+    if (Math.hypot(event.clientX - dragStart.x, event.clientY - dragStart.y) < 4) return;
+    const canvas = $('to-board').querySelector(`[data-square="${dragStart.square}"] canvas`);
+    if (!canvas) { dragStart = null; return; }
+    const size = $('to-board').clientWidth / 8, ghost = document.createElement('img');
+    ghost.src = 'assets/pieces/' + canvas.dataset.piece + '.png'; ghost.className = 'to-ghost'; ghost.alt = '';
+    ghost.style.width = ghost.style.height = size + 'px';
+    document.body.append(ghost);
+    drag = { from: dragStart.square, ghost, size };
+    selected = dragStart.square; boardKey = ''; renderBoard();
+  }
+  drag.ghost.style.transform = `translate(${event.clientX - drag.size / 2}px, ${event.clientY - drag.size / 2}px)`;
+  const over = document.elementFromPoint(event.clientX, event.clientY)?.closest('#to-board [data-square]')?.dataset.square;
+  for (const el of $('to-board').querySelectorAll('.hover')) el.classList.remove('hover');
+  if (over) $('to-board').querySelector(`[data-square="${over}"]`)?.classList.add('hover');
 });
+function endDrag(event) {
+  const start = dragStart; dragStart = null;
+  if (!drag) return;
+  const { from, ghost } = drag; drag = null; ghost.remove();
+  ignoreClick = true; setTimeout(() => { ignoreClick = false; }, 0);
+  const to = event && document.elementFromPoint(event.clientX, event.clientY)?.closest('#to-board [data-square]')?.dataset.square;
+  if (to && to !== from && state.game.legal.some(m => m.from === from && m.to === to)) { selected = from; skipSlide = true; squareClick(to); }
+  else { selected = to === from ? from : null; boardKey = ''; renderBoard(); }
+  void start;
+}
+document.addEventListener('pointerup', endDrag);
+document.addEventListener('pointercancel', () => endDrag(null));
 $('to-board').addEventListener('keydown', event => {
   const buttons = [...$('to-board').querySelectorAll('button')], index = buttons.indexOf(event.target), delta = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -8, ArrowDown: 8 }[event.key];
   if (delta !== undefined && index >= 0) { event.preventDefault(); const next = buttons[Math.max(0, Math.min(63, index + delta))]; buttons.forEach(b => b.tabIndex = -1); next.tabIndex = 0; next.focus(); }
@@ -482,6 +575,6 @@ if (roomId) {
   else if (!API) { message('Los torneos todavía no están disponibles.'); setConnection('No disponible'); }
   else { connect(); checkKeyMode(); }
 } else loadLobby();
-setInterval(updateClocks, 200);
+setInterval(() => { updateClocks(); updateMiniClocks(); }, 100);
 // Los navegadores solo permiten sonido tras un gesto del usuario: se prepara con el primer clic.
 document.addEventListener('pointerdown', () => { try { audio ||= new AudioContext(); audio.resume(); } catch {} }, { once: true });

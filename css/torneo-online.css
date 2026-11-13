@@ -208,3 +208,18 @@
   .to-panel { padding: 16px; }
   .to-dialog { padding: 20px; }
 }
+/* Movimiento fluido: pieza arrastrada que sigue al puntero y casilla de destino. */
+.to-board.can-move { touch-action: none; }
+.to-square canvas.to-dragging { opacity: .25; }
+.to-square.hover { box-shadow: inset 0 0 0 4px #ffffff99; }
+.to-ghost { position: fixed; left: 0; top: 0; z-index: 1000; pointer-events: none; will-change: transform; filter: drop-shadow(0 6px 8px #0006); }
+/* Ventana con todos los tableros en juego. */
+.to-boards-open { display: inline-flex; align-items: center; gap: 7px; }
+.to-boards-dialog { width: min(1180px, calc(100vw - 24px)); }
+.to-boards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 14px; }
+.to-live.big { font-size: .82rem !important; padding: 8px; }
+.to-live.big .to-live-name { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.to-live.big .to-live-name > span { overflow: hidden; text-overflow: ellipsis; }
+.to-live.big strong { font-family: ui-monospace, Consolas, monospace; font-variant-numeric: tabular-nums; font-size: .8rem; padding: 1px 6px; border-radius: 4px; background: var(--card); flex: none; }
+.to-live.big strong.running { background: #21754f; color: #fff; }
+@media (max-width: 760px) { .to-boards-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; } }
