@@ -8,7 +8,7 @@
 <meta name="description" content="Juega torneos abiertos de ajedrez en Apejupo: inscríbete, disputa tus partidas y sigue la clasificación en directo.">
 <link rel="icon" type="image/svg+xml" href="assets/icon.svg">
 <link rel="stylesheet" href="css/style.css?v=20261112-torneo">
-<link rel="stylesheet" href="css/torneo-online.css?v=20261113-marca">
+<link rel="stylesheet" href="css/torneo-online.css?v=20261113-final">
 <script defer src="js/analytics.js?v=20261111-analytics"></script>
 </head>
 <body>
@@ -63,7 +63,7 @@
             <p id="to-game-status" class="to-game-status" role="status"></p>
             <div id="to-game-actions" class="to-game-actions"><button id="to-berserk" type="button" class="btn to-berserk" hidden title="Juega con la mitad del tiempo y sin incremento. Si ganas, ½ punto extra."><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg>Berserk</button><button id="to-offer" type="button" class="btn-ghost to-icon-btn"><span class="to-half" aria-hidden="true">½</span><span id="to-offer-label">Ofrecer tablas</span></button><button id="to-resign" type="button" class="btn-ghost to-icon-btn"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 21V4"/><path d="M5 4h11l-2 4 2 4H5"/></svg><span>Abandonar partida</span></button></div>
             <div id="to-draw-offer" class="to-draw-offer" hidden><span>Tu rival ofrece tablas.</span><button id="to-accept" class="btn" type="button">Aceptar</button><button id="to-decline" class="btn-ghost" type="button">Seguir jugando</button></div>
-            <details class="to-moves"><summary>Jugadas de la partida</summary><ol id="to-moves-list"></ol></details>
+            <details id="to-moves" class="to-moves"><summary>Jugadas de la partida</summary><ol id="to-moves-list"></ol></details>
             <div class="to-replay" id="to-replay" hidden><label for="to-replay-range">Revisar posición <span id="to-replay-number"></span></label><input type="range" id="to-replay-range" min="0" value="0" step="1"><div class="to-actions"><button id="to-replay-prev" class="btn-ghost" type="button" aria-label="Jugada anterior">← Anterior</button><button id="to-replay-next" class="btn-ghost" type="button" aria-label="Jugada siguiente">Siguiente →</button><button id="to-pgn" class="btn-ghost" type="button">Descargar PGN</button></div></div>
           </section>
           <section class="to-panel to-matches-panel" aria-labelledby="to-matches-title"><div class="to-section-head"><h2 id="to-matches-title">Tableros</h2><select id="to-round" aria-label="Ver ronda"></select></div><div id="to-matches" class="to-matches"><p class="muted">Los tableros aparecerán al comenzar la primera ronda.</p></div></section>
@@ -84,6 +84,6 @@
 <script src="js/menu.js?v=20261112-torneo"></script>
 <script src="js/util.js?v=20261112-seccion"></script>
 <script src="js/torneo-config.js?v=20261112-torneo"></script>
-<script type="module" src="js/torneo-online.js?v=20261113-marca"></script>
+<script type="module" src="js/torneo-online.js?v=20261113-final"></script>
 </body>
 </html>

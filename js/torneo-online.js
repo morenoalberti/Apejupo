@@ -319,8 +319,10 @@ function renderGame() {
   if (g.result) $('to-board').dataset.result = g.result.replace('1/2-1/2', '½–½'); else delete $('to-board').dataset.result;
   $('to-game-status').textContent = status; $('to-game-status').classList.toggle('my-turn', canMove());
   // En tu partida no hace falta «Tu turno» / «Turno de tu rival»: lo indica el reloj en verde.
-  $('to-game-status').hidden = own && !g.result && connected && !late;
-  $('to-replay').hidden = !g.result;
+  // Con la partida terminada basta la marca de agua: fuera el texto del resultado, las jugadas y el repaso.
+  $('to-game-status').hidden = g.result ? !late : own && connected && !late;
+  $('to-moves').hidden = !!g.result;
+  $('to-replay').hidden = true;
   if (g.result && !replay) {
     const c = new Chess(); replay = [c.fen()];
     for (const san of g.moves) { c.move(san); replay.push(c.fen()); }
