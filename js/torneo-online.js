@@ -255,7 +255,7 @@ function renderControls() {
   const g = t.game, ownGame = g && (g.white === t.me || g.black === t.me);
   $('to-game-actions').hidden = !g || !ownGame || !!g.result;
   $('to-offer').disabled = !connected || g?.offer === t.me || pending;
-  $('to-offer').textContent = g?.offer === t.me ? 'Tablas ofrecidas' : 'Ofrecer tablas';
+  $('to-offer-label').textContent = g?.offer === t.me ? 'Tablas ofrecidas' : 'Ofrecer tablas';
   $('to-resign').disabled = !connected || pending;
   const color = g && (g.white === t.me ? 'w' : g.black === t.me ? 'b' : null), berserked = color && (color === 'w' ? g.berserkW : g.berserkB);
   $('to-berserk').hidden = !arena(t) || !color || !!g.result || !!berserked || g.moves.length >= (color === 'w' ? 1 : 2);
@@ -293,6 +293,8 @@ function renderGame() {
   $('to-player-bottom').querySelector('span').textContent = `${bottom === 'w' ? '♔' : '♚'} ${name(bottom === 'w' ? g.white : g.black)}${bz(bottom)}`;
   let status = g.result ? `${g.result.replace('1/2-1/2', '½–½')} · ${g.reason}` : pending ? 'Turno de tu rival' : !connected ? 'Recuperando conexión. Tu reloj sigue corriendo.' : canMove() ? 'Tu turno' : own ? 'Turno de tu rival' : `Juegan ${g.turn === 'w' ? 'blancas' : 'negras'}`;
   $('to-game-status').textContent = status; $('to-game-status').classList.toggle('my-turn', canMove());
+  // En tu partida no hace falta «Tu turno» / «Turno de tu rival»: lo indica el reloj en verde.
+  $('to-game-status').hidden = own && !g.result && connected;
   $('to-replay').hidden = !g.result;
   if (g.result && !replay) {
     const c = new Chess(); replay = [c.fen()];
