@@ -84,7 +84,9 @@
 
 /* Cabecera de lado a lado, como en Lichess: logo pegado a la izquierda, menús en medio y tu cuenta pegada al borde derecho */
 .site-header .bar { max-width: none; width: 100%; box-sizing: border-box; padding-left: 24px; padding-right: 24px; }
-.site-header .bar > .cuenta-chip { margin-left: auto; }
-@media (max-width: 820px) { .site-header .bar { padding-left: 16px; padding-right: 16px; } .site-header .bar > .cuenta-chip { margin-left: 0; } }
+/* Menús a la derecha, junto a tu foto, con un espacio entre ambos */
+.site-header .bar > nav { margin-left: auto; }
+.site-header .bar > .cuenta-chip { margin-left: 28px; }
+@media (max-width: 820px) { .site-header .bar { padding-left: 16px; padding-right: 16px; } .site-header .bar > nav { margin-left: 0; } .site-header .bar > .cuenta-chip { margin-left: 0; } }
 /* Móvil estrecho: solo la foto (el nick está en el menú al pulsarla), para que la cabecera quepa siempre */
 @media (max-width: 480px) { .cuenta-chip.in { padding: 3px; } .cuenta-chip.in .cu-nick { display: none; } }
