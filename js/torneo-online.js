@@ -649,7 +649,7 @@ $('to-events').addEventListener('click', async event => {
   try {
     await request(`/api/tournaments/${id}/delete`, { method: 'POST', body: JSON.stringify({ hostToken: read(hostKey(id)) }) });
     try { localStorage.removeItem(hostKey(id)); } catch {}
-    await loadLobby(); message('Torneo borrado.');
+    message(''); await loadLobby();
   } catch (error) { button.disabled = false; message(error.message, true); }
 });
 
