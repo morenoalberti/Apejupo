@@ -1,0 +1,48 @@
+/* Cuentas de jugador: botón de la cabecera, ventana de entrar/registrarse y página «Mi cuenta». */
+.cu-dialog [hidden], .cu-page [hidden] { display: none !important; }
+.cuenta-chip { flex: none; display: inline-flex; align-items: center; gap: 8px; padding: 6px 14px; border: 1px solid #ffffff33; border-radius: 999px; color: #e8eef7; text-decoration: none; font-size: .9rem; font-weight: 600; white-space: nowrap; }
+.cuenta-chip:hover { border-color: #e5b766; color: #fff; }
+.cuenta-chip.in { padding: 4px 12px 4px 4px; }
+.cu-avatar { width: 26px; height: 26px; display: grid; place-items: center; border-radius: 50%; background: linear-gradient(135deg, #e5b766, #b8862f); color: #0b1422; font-weight: 800; font-size: .85rem; }
+
+.cu-dialog { width: min(420px, calc(100vw - 32px)); padding: 0; border: 1px solid var(--line); border-radius: 16px; background: var(--card); color: var(--text); box-shadow: 0 24px 60px #0008; }
+.cu-dialog::backdrop { background: #0b1422b3; backdrop-filter: blur(2px); }
+.cu-box { position: relative; padding: 22px 24px 24px; }
+.cu-close { position: absolute; top: 10px; right: 10px; width: 34px; height: 34px; border: 0; border-radius: 8px; background: transparent; color: var(--muted); font-size: 1.4rem; line-height: 1; cursor: pointer; }
+.cu-close:hover { background: var(--bg); color: var(--text); }
+.cu-tabs { display: flex; gap: 4px; margin: 0 40px 18px 0; padding: 4px; border-radius: 10px; background: var(--bg); }
+.cu-tabs button { flex: 1; padding: 8px 10px; border: 0; border-radius: 7px; background: transparent; color: var(--muted); font: inherit; font-weight: 600; cursor: pointer; }
+.cu-tabs button[aria-selected="true"] { background: var(--card); color: var(--text); box-shadow: 0 1px 3px #0003; }
+.cu-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+.cu-dialog form, .cu-page form { display: grid; gap: 6px; }
+.cu-dialog label, .cu-page label { font-weight: 600; font-size: .9rem; margin-top: 6px; }
+.cu-dialog input:not([type="checkbox"]), .cu-page input:not([type="checkbox"]) { width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--text); font: inherit; }
+.cu-dialog input:focus, .cu-page input:focus { outline: 2px solid var(--blue); outline-offset: 1px; }
+.cu-dialog small, .cu-page small { font-size: .8rem; line-height: 1.4; }
+.cu-dialog p, .cu-page form p { margin: 0 0 4px; font-size: .9rem; }
+.cu-check { display: flex; align-items: center; gap: 8px; font-weight: 400 !important; }
+.cu-submit { margin-top: 12px; padding: 11px 16px; border: 0; border-radius: 8px; font: inherit; font-weight: 700; cursor: pointer; }
+.cu-submit:disabled { opacity: .55; cursor: default; }
+.cu-link { justify-self: center; margin-top: 6px; padding: 4px; border: 0; background: none; color: var(--blue); font: inherit; font-size: .88rem; cursor: pointer; text-decoration: underline; }
+.cu-msg { margin-top: 14px; padding: 10px 12px; border-radius: 8px; background: #22a66a1f; border: 1px solid #22a66a55; font-size: .9rem; line-height: 1.45; }
+.cu-msg.error { background: #dc26261a; border-color: #dc262666; }
+.cu-msg .cu-link { display: block; margin: 6px 0 0; padding: 0; text-align: left; }
+
+/* Página «Mi cuenta» */
+.cu-page { width: min(560px, 100%); margin: 0 auto; padding: 40px 16px 64px; box-sizing: border-box; }
+.cu-card { padding: 26px; border: 1px solid var(--line); border-radius: 16px; background: var(--card); box-shadow: 0 10px 30px #0b14221a; }
+.cu-card h1 { margin: 0 0 6px; font-size: 1.6rem; }
+.cu-profile { display: flex; align-items: center; gap: 14px; margin-bottom: 18px; }
+.cu-profile .cu-avatar { width: 56px; height: 56px; font-size: 1.6rem; }
+.cu-facts { display: grid; grid-template-columns: auto 1fr; gap: 8px 16px; margin: 0 0 22px; font-size: .95rem; }
+.cu-facts dt { color: var(--muted); }
+.cu-facts dd { margin: 0; overflow-wrap: anywhere; }
+.cu-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.cu-actions .btn-ghost, .cu-page .btn-ghost { padding: 9px 14px; border: 1px solid var(--line); border-radius: 8px; background: transparent; color: var(--text); font: inherit; cursor: pointer; text-decoration: none; }
+.cu-danger { color: #dc2626 !important; border-color: #dc262666 !important; }
+.cu-danger-zone { margin-top: 26px; padding-top: 18px; border-top: 1px solid var(--line); }
+.cu-danger-zone h2 { margin: 0 0 6px; font-size: 1rem; }
+@media (max-width: 760px) {
+  .cuenta-chip { padding: 5px 10px; font-size: .85rem; }
+  .cu-card { padding: 20px; }
+}

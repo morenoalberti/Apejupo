@@ -56,7 +56,7 @@ export function createTournament(input, id, hostHash, now = Date.now()) {
 }
 
 export function standings(t) {
-  const rows = t.players.map(p => ({ id: p.id, name: p.name, seed: p.seed, active: p.active,
+  const rows = t.players.map(p => ({ id: p.id, name: p.name, seed: p.seed, active: p.active, registered: !!p.accountId,
     points: 0, wins: 0, buchholz: 0, sonneborn: 0, played: 0, byes: 0, opponents: [], colors: [], sheet: [] }));
   const map = new Map(rows.map(p => [p.id, p]));
   const counted = t.games.filter(g => countsForArena(t, g));
@@ -164,20 +164,24 @@ export function pairRound(t) {
   throw new GameError('No se pudieron generar los emparejamientos.');
 }
 
-export function joinTournament(t, name, playerHash, now = Date.now(), key = '') {
+// «account» solo lo pone el servidor tras comprobar la sesión: { id, nick } de una cuenta confirmada.
+export function joinTournament(t, name, playerHash, now = Date.now(), key = '', account = null) {
   const existing = t.players.find(p => p.hash === playerHash);
   if (existing) return existing;
+  // Con cuenta, el jugador recupera su plaza desde cualquier dispositivo: pasa a este navegador.
+  const mine = account && t.players.find(p => p.accountId === account.id);
+  if (mine) { mine.hash = playerHash; return mine; }
   if (t.joinKey) {
     requireThat(cleanName(key, 40), 'Este torneo tiene clave. Escríbela para inscribirte.', 403);
     requireThat(sameKey(cleanName(key, 40), t.joinKey), 'La clave del torneo no es correcta.', 403);
   }
   // Como en Lichess, en el arena se puede entrar con el torneo ya empezado mientras quede tiempo.
   requireThat(t.status === 'waiting' || (isArena(t) && t.status === 'playing' && now < t.endsAt), 'Las inscripciones están cerradas.');
-  name = cleanName(name);
+  name = account ? account.nick : cleanName(name);
   requireThat(name.length >= 2, 'Escribe un nombre de al menos 2 caracteres.');
   requireThat(!t.players.some(p => p.name.toLocaleLowerCase('es') === name.toLocaleLowerCase('es')), 'Ya hay un jugador con ese nombre. Añade un apellido.');
   requireThat(t.players.length < t.capacity, 'El torneo está completo.');
-  const p = { id: crypto.randomUUID(), hash: playerHash, name, active: true, seed: t.players.length + 1, joinedAt: now };
+  const p = { id: crypto.randomUUID(), hash: playerHash, name, active: true, seed: t.players.length + 1, joinedAt: now, ...(account ? { accountId: account.id } : {}) };
   t.players.push(p);
   return p;
 }

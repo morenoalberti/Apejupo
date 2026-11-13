@@ -77,3 +77,19 @@ Las pruebas crean torneos y jugadores de prueba únicamente en el almacenamiento
 No ejecutar despliegues sin la autorización del usuario. Faltaría configurar una clave de organización real como secreto, desplegar este servicio con sus migraciones SQLite y poner la URL obtenida en `js/torneo-config.js`. Después, comprobar conexiones, persistencia, alarmas y consumo en Cloudflare antes de abrir inscripciones. La web actual se despliega al subir `main`: no hacer push de este trabajo mientras siga en revisión.
 
 Referencias: [WebSockets y hibernación](https://developers.cloudflare.com/durable-objects/best-practices/websockets/), [alarmas](https://developers.cloudflare.com/durable-objects/api/alarms/), [cuotas](https://developers.cloudflare.com/durable-objects/platform/pricing/), [chess.js](https://jhlywa.github.io/chess.js/).
+
+## Cuentas de jugador
+
+Opcionales, al estilo Lichess: nick + contraseña, con el correo para confirmar la cuenta y recuperar la contraseña (`src/accounts.js`, Durable Object `AccountStore` con SQLite).
+
+- Contraseñas con PBKDF2-SHA256 (100.000 iteraciones y sal); sesiones (90 días) y enlaces de correo (24 h para confirmar, 1 h para recuperar) guardados solo como huella SHA-256.
+- Sin confirmar el correo no se puede entrar. Al recuperar la contraseña se cierran todas las sesiones.
+- Frenos: 5 registros por IP y hora, 20 intentos de entrada por IP y 10 por cuenta cada 15 minutos, 3 correos por cuenta y hora.
+- Mismo mensaje si el nick no existe o la contraseña falla, y misma respuesta al pedir recuperación exista o no el correo.
+- En un torneo, con la sesión abierta se juega con el nick de la cuenta y se recupera la plaza desde cualquier dispositivo; sin sesión, el alias no puede coincidir con el nick de una cuenta.
+- Rutas: `POST /api/cuentas/{registro,entrar,reenviar,confirmar,recuperar,restablecer,yo,salir,borrar}`; la sesión va en `Authorization: Bearer`.
+- Web: `js/cuenta.js` (botón de cabecera y ventana de entrar/registrarse), `cuenta.html` + `js/cuenta-pagina.js` (enlaces del correo, datos, salir y borrar la cuenta).
+
+Antes de publicar: crear la cuenta de Resend, verificar el dominio apejupo.com (registros DNS que indica Resend) y guardar la clave con `npx wrangler secret put RESEND_API_KEY`. El remitente es `cuentas@apejupo.com` (se cambia con la variable `CORREO_REMITENTE`). Sin esa clave los correos solo se escriben en la consola. En local, `CUENTAS_DESARROLLO="1"` en `.dev.vars` devuelve el enlace del correo en la respuesta y relaja los frenos; nunca debe estar en producción.
+
+Pruebas: `node --test test/accounts.integration.js` (con el servidor local en marcha).

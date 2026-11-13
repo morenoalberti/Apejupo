@@ -278,3 +278,5 @@ body.to-focus .to-focus-info { flex-wrap: wrap; }
 .to-icon-btn { display: inline-flex; align-items: center; gap: 7px; }
 .to-half { font-weight: 800; font-size: 1.1rem; line-height: 1; }
 body.to-focus .to-game-actions { padding-top: 12px; border-top: 1px solid var(--line); margin-top: 4px; }
+
+.to-registered { display: inline-grid; place-items: center; width: 15px; height: 15px; margin-left: 4px; border-radius: 50%; background: var(--to-accent); color: #0b1422; font-size: .62rem; font-weight: 800; vertical-align: 1px; }

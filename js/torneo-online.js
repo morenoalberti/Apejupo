@@ -1,4 +1,5 @@
 import { Chess } from '../assets/chess/chess.js';
+import { session, currentUser, openAuth } from './cuenta.js?v=20261113-cuentas2';
 
 const $ = id => document.getElementById(id);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -175,7 +176,7 @@ function render() {
   $('to-standings-title').textContent = registering ? 'Inscritos' : 'Clasificación';
   $('to-player-count').textContent = `${t.count}/${t.capacity}`;
   $('to-extra-col').innerHTML = arena(t) ? '<abbr title="Partidas jugadas">PJ</abbr>' : '<abbr title="Buchholz: suma de puntos de los rivales">BH</abbr>';
-  const tag = p => !p.active ? ' <small>retirado</small>' : arena(t) && t.status === 'playing' ? p.playing ? ' <small>jugando</small>' : p.paused ? ' <small>en pausa</small>' : '' : '';
+  const tag = p => (p.registered ? ' <span class="to-registered" title="Cuenta registrada">✓</span>' : '') + (!p.active ? ' <small>retirado</small>' : arena(t) && t.status === 'playing' ? p.playing ? ' <small>jugando</small>' : p.paused ? ' <small>en pausa</small>' : '' : '');
   $('to-standings').innerHTML = t.standings.map((p, i) => `<tr class="${p.id === t.me ? 'me ' : ''}${t.status === 'finished' && i === 0 ? 'winner' : ''}"><td>${i + 1}</td><td>${esc(p.name)}${p.id === t.me ? ' <small>(tú)</small>' : ''}${tag(p)}${sheet(p)}${registering && t.host ? `<button class="to-remove" type="button" data-remove="${p.id}" aria-label="Retirar a ${esc(p.name)}">×</button>` : ''}</td><td><strong>${formatPoints(p.points)}</strong></td><td>${arena(t) ? p.played : formatPoints(p.buchholz)}</td></tr>`).join('') || '<tr><td colspan="4" class="muted">Aún no hay inscritos.</td></tr>';
   $('to-tiebreak').hidden = registering;
   $('to-tiebreak').textContent = arena(t) ? 'Desempates: victorias, menos partidas jugadas y número de sorteo.' : 'Desempates: Buchholz, Sonneborn-Berger, victorias y número de sorteo.';
@@ -219,13 +220,15 @@ function renderPodium() {
 }
 let editingName = false;
 function renderJoin() {
-  const remembered = read('apejupoTorneoNombre'), quick = remembered.length >= 2 && !editingName;
+  // Con la sesión abierta se juega con el nick de la cuenta; sin ella, con un alias como siempre.
+  const user = currentUser(), remembered = read('apejupoTorneoNombre'), quick = !!user || (remembered.length >= 2 && !editingName);
   $('to-name-row').hidden = quick; $('to-name').required = !quick;
-  if (quick) $('to-name').value = remembered;
-  $('to-join-label').textContent = quick ? `Unirse como ${remembered}` : 'Unirse';
-  $('to-change-name').hidden = !quick;
+  if (quick) $('to-name').value = user ? user.nick : remembered;
+  $('to-join-label').textContent = quick ? `Unirse como ${user ? user.nick : remembered}` : 'Unirse';
+  $('to-change-name').hidden = !quick || !!user;
+  $('to-join-account').hidden = !!user;
   $('to-joinkey-row').hidden = !state.locked; $('to-joinkey').required = !!state.locked;
-  $('to-join-hint').textContent = state.locked ? 'Este torneo tiene clave: pídesela al organizador.' : 'Un clic y entras. Tu nombre se recuerda en este navegador.';
+  $('to-join-hint').textContent = state.locked ? 'Este torneo tiene clave: pídesela al organizador.' : user ? 'Te inscribes con tu cuenta: podrás seguir desde cualquier dispositivo.' : 'Un clic y entras. Tu nombre se recuerda en este navegador.';
   $('to-join-title').textContent = arena(state) && state.status === 'playing' ? '¡El arena está en marcha!' : 'Juega este torneo';
 }
 function liveGames() { return (state?.games || []).filter(g => !g.result && !g.bye && g.fen); }
@@ -514,11 +517,14 @@ $('to-create-form').addEventListener('submit', async event => {
   } catch (e) { $('to-create-error').hidden = false; $('to-create-error').textContent = e.message; }
   finally { button.disabled = false; }
 });
+$('to-join-account').addEventListener('click', () => openAuth('entrar'));
+addEventListener('apejupo:cuenta', () => { if (state) render(); });
 $('to-join-form').addEventListener('submit', async event => {
   event.preventDefault(); const button = event.currentTarget.querySelector('button'); button.disabled = true;
   try {
-    const id = read(playerKey()) || token(); write(playerKey(), id); write('apejupoTorneoNombre', $('to-name').value.trim());
-    await request(`/api/tournaments/${roomId}/join`, { method: 'POST', body: JSON.stringify({ name: $('to-name').value, token: id, joinKey: $('to-joinkey').value }) });
+    const id = read(playerKey()) || token(), user = currentUser(); write(playerKey(), id);
+    if (!user) write('apejupoTorneoNombre', $('to-name').value.trim());
+    await request(`/api/tournaments/${roomId}/join`, { method: 'POST', key: user ? session() : '', body: JSON.stringify({ name: $('to-name').value, token: id, joinKey: $('to-joinkey').value }) });
     $('to-joinkey').value = '';
     editingName = false; hello();
     message(arena(state) && state.status === 'playing' ? '¡Dentro! Te emparejamos con el próximo jugador libre.' : 'Inscripción completada. Mantén esta página abierta para el inicio.');

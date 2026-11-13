@@ -1,4 +1,5 @@
 import { DurableObject } from 'cloudflare:workers';
+export { AccountStore } from './accounts.js';
 import { GameError, requireThat, isArena, createTournament, joinTournament, act, advance, pairArena, nextAlarm, snapshot, sharedSnapshot, personalPart, moveMessage, summary, exportPgn, RETENTION_MS } from './core.js';
 
 // El navegador manda "ping" cada 30 s; sin señal en este margen, el jugador no se considera presente.
@@ -213,7 +214,7 @@ export class TournamentRoom extends DurableObject {
           if (!this.keyFails || this.keyFails.until <= now) this.keyFails = { count: 0, until: now + 600000 };
           requireThat(this.keyFails.count < 10, 'Demasiados intentos con la clave. Espera unos minutos.', 429);
           let p;
-          try { p = joinTournament(this.t, b.name, playerHash, now, b.joinKey); }
+          try { p = joinTournament(this.t, b.name, playerHash, now, b.joinKey, b.account || null); }
           catch (error) { if (/clave/.test(error.message)) this.keyFails.count++; throw error; }
           await this.save(); this.broadcast();
           return json({ playerId: p.id }, 201);
@@ -292,6 +293,15 @@ export default {
       requireThat(['GET', 'POST'].includes(request.method), 'Método no permitido.', 405);
       const path = url.pathname.replace(/\/+$/, '') || '/';
       const directory = env.DIRECTORY.getByName('public');
+      const accounts = env.ACCOUNTS.getByName('cuentas');
+      const askAccounts = async (action, data) => accounts.fetch('https://cuentas/' + action, { method: 'POST', body: JSON.stringify(data) });
+      const account = /^\/api\/cuentas\/(registro|entrar|reenviar|confirmar|recuperar|restablecer|yo|salir|borrar)$/.exec(path);
+      if (account) {
+        requireThat(request.method === 'POST', 'Método no permitido.', 405);
+        const b = await body(request);
+        // La sesión viaja en la cabecera Authorization; la IP solo sirve para frenar intentos repetidos.
+        return withCors(await askAccounts(account[1], { ...b, session: bearer(request), ip: request.headers.get('CF-Connecting-IP') || 'local' }));
+      }
       const room = /^\/api\/tournaments\/([a-f0-9]{24})(?:\/(join|socket|pgn|recover|delete))?$/.exec(path);
       if (path === '/api/tournaments' && request.method === 'GET') return withCors(await directory.fetch('https://directory/'));
       if ((path === '/api/tournaments' && request.method === 'POST') || (room?.[2] === 'recover' && request.method === 'POST')) {
@@ -306,6 +316,19 @@ export default {
       requireThat(!['join', 'recover', 'delete'].includes(suffix) || request.method === 'POST', 'Método no permitido.', 405);
       requireThat(!['socket', 'pgn', ''].includes(suffix) || request.method === 'GET', 'Método no permitido.', 405);
       if (suffix === 'socket') requireThat(origin && allowed.includes(origin), 'Conexión no autorizada.', 403);
+      if (suffix === 'join') {
+        // Con sesión, el jugador se inscribe con el nick de su cuenta; sin ella, su alias no puede ser el nick de otra cuenta.
+        const b = await body(request), session = bearer(request); delete b.account;
+        if (session) {
+          const { user } = await (await askAccounts('sesion', { session })).json();
+          requireThat(user, 'Tu sesión ha caducado. Vuelve a entrar.', 401);
+          b.account = user;
+        } else {
+          const { taken } = await (await askAccounts('nick', { name: b.name })).json();
+          requireThat(!taken, 'Ese nombre es el nick de una cuenta registrada. Entra con tu cuenta o elige otro nombre.', 409);
+        }
+        return withCors(await env.TOURNAMENTS.getByName(room[1]).fetch('https://room/join', { method: 'POST', body: JSON.stringify(b) }));
+      }
       const target = new URL('https://room/' + suffix); target.search = url.search;
       return withCors(await env.TOURNAMENTS.getByName(room[1]).fetch(new Request(target, request)));
     } catch (error) { return withCors(failure(error)); }
