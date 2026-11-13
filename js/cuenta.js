@@ -144,7 +144,6 @@ function openMenu(chip) {
     + (user.verified ? '' : '<div class="cu-menu-warn">Correo sin confirmar: abre el enlace que te enviamos para jugar torneos con tu nick. <button type="button" data-cu-act="reenviar">Reenviar el correo</button></div>')
     + `<button type="button" role="menuitem" data-cu-act="foto">${ICON('<rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"/>')}${user.photo ? 'Cambiar foto' : 'Subir una foto'}</button>`
     + (user.photo ? `<button type="button" role="menuitem" data-cu-act="quitar-foto">${ICON('<circle cx="12" cy="12" r="9"/><path d="M8 12h8"/>')}Quitar la foto</button>` : '')
-    + `<a role="menuitem" href="jugar-torneo.html">${ICON('<path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0zM17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/>')}Jugar torneos</a>`
     + `<button type="button" role="menuitem" data-cu-act="salir">${ICON('<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/>')}Salir</button>`
     + `<button type="button" role="menuitem" class="cu-menu-danger" data-cu-act="borrar">${ICON('<path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/>')}Borrar mi cuenta</button>`;
   document.body.append(menu);
