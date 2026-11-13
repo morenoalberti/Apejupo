@@ -1421,3 +1421,21 @@ body.card-dragging .tour-tip { display: none !important; }
 @keyframes fgaparece { from { opacity: 0; } }
 @keyframes fgbrillo { to { background-position: -200% 0; } }
 @media (prefers-reduced-motion: reduce) { .fg-cel, .fg-up, .fg-visor[open], .fg-grid[aria-busy="true"] { animation: none; } }
+
+/* Combo «Añadir» de la retransmisión: lista propia con bandera y título de cada jugador */
+.lv-pick { position: relative; flex: 0 1 460px; min-width: 0; }
+.lv-pick-b { display: flex; align-items: center; gap: 8px; width: 100%; padding: 6px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--text); font: inherit; font-size: .9rem; text-align: left; cursor: pointer; }
+.lv-pick-b > span { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.lv-pick-b > svg { flex: none; opacity: .7; }
+.lv-pick-b:disabled { opacity: .6; cursor: default; }
+.lv-pick-l { position: absolute; z-index: 40; top: calc(100% + 4px); left: 0; right: 0; max-height: min(60vh, 420px); overflow-y: auto; padding: 6px; border: 1px solid var(--line); border-radius: 10px; background: var(--card); box-shadow: 0 14px 34px rgba(0, 0, 0, .35); }
+.lv-pick-l[hidden] { display: none; }
+.lv-pick-l button { display: flex; align-items: center; flex-wrap: wrap; gap: 2px 6px; width: 100%; padding: 7px 9px; border: 0; border-radius: 7px; background: none; color: var(--text); font: inherit; font-size: .88rem; text-align: left; cursor: pointer; }
+.lv-pick-l button:hover, .lv-pick-l button:focus-visible { background: var(--bg); outline: none; }
+.lv-pick-l button[aria-selected="true"] { box-shadow: inset 3px 0 0 var(--blue); }
+.lv-pick-p { display: inline-flex; align-items: center; white-space: nowrap; }
+.lv-pick .lv-flag { width: 20px; height: 14px; object-fit: cover; margin-right: 5px; vertical-align: -2px; }
+.lv-pick-tt { font-style: normal; font-weight: 700; color: var(--amber, #f59e0b); margin-right: 4px; font-size: .82em; }
+.lv-pick-vs { opacity: .55; }
+.lv-pick-r { margin-left: auto; padding-left: 8px; font-weight: 700; }
+@media (max-width: 760px) { .lv-pick { flex: 1 1 100%; } }

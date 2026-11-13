@@ -1309,12 +1309,39 @@
     say("Partida " + spokenName(g.tags.White) + " contra " + spokenName(g.tags.Black) + ". " + who + (newLvl === 3 ? " tienen " : " tienen ") + LV_TXT[newLvl] + ".");
   }
 
-  // Combo con las partidas en juego que no tienen miniatura
-  var more = $("viewer-more");
+  // Combo con las partidas en juego que no tienen miniatura. Es una lista propia (no un <select>) para poder
+  // enseñar la bandera y el título de cada jugador: Windows no pinta banderas dentro de un desplegable normal.
+  // El <select> oculto guarda la partida elegida, como antes.
+  var more = $("viewer-more"), pickB = $("viewer-pick-b"), pickL = $("viewer-pick-l");
+  function pickSide(g, col) {
+    var w = col === "w", t = g.tags[w ? "WhiteTitle" : "BlackTitle"];
+    return '<span class="lv-pick-p">' + nameFlag(g, col) + (t ? '<em class="lv-pick-tt">' + esc(t) + "</em>" : "") + esc(g.tags[w ? "White" : "Black"]) + "</span>";
+  }
+  function pickHtml(g) {
+    var r = g.over ? { "1-0": "1-0", "0-1": "0-1", "1/2-1/2": "½-½" }[g.tags.Result] : "";
+    return pickSide(g, "w") + '<span class="lv-pick-vs">–</span>' + pickSide(g, "b") + (r ? '<span class="lv-pick-r">' + r + "</span>" : "");
+  }
+  function pickShow() {
+    var g = games[more.value];
+    pickB.querySelector("span").innerHTML = g ? pickHtml(g) : '<span class="muted">No hay más partidas</span>';
+    Array.prototype.forEach.call(pickL.children, function (o) { o.setAttribute("aria-selected", String(o.getAttribute("data-id") === more.value)); });
+  }
+  function pickOpen(o) { pickL.hidden = !o; pickB.setAttribute("aria-expanded", String(o)); if (o) { var sel = pickL.querySelector('[aria-selected="true"]') || pickL.firstElementChild; if (sel) sel.focus(); } }
+  pickB.addEventListener("click", function (e) { e.stopPropagation(); if (!pickB.disabled) pickOpen(pickL.hidden); });
+  pickL.addEventListener("click", function (e) {
+    var o = e.target.closest("[data-id]"); if (!o) return;
+    more.value = o.getAttribute("data-id"); pickShow(); pickOpen(false); pickB.focus();
+  });
+  pickL.addEventListener("keydown", function (e) {
+    var items = Array.prototype.slice.call(pickL.children), i = items.indexOf(document.activeElement);
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") { e.preventDefault(); var n = items[Math.max(0, Math.min(items.length - 1, i + (e.key === "ArrowDown" ? 1 : -1)))]; if (n) n.focus(); }
+    if (e.key === "Escape") { pickOpen(false); pickB.focus(); }
+  });
+  document.addEventListener("click", function (e) { if (!pickL.hidden && !$("viewer-pick").contains(e.target)) pickOpen(false); });
   function fillMore() {
     var shown = sortedIds(), key = [];
     var rest = order.filter(function (id) { return shown.indexOf(id) < 0 && games[id]; });
-    rest.forEach(function (id) { key.push(id + optLabel(games[id])); });
+    rest.forEach(function (id) { key.push(id + pickHtml(games[id])); });
     key = key.join("|");
     if (more.getAttribute("data-k") === key) return;
     more.setAttribute("data-k", key);
@@ -1323,8 +1350,11 @@
       ? rest.map(function (id) { return '<option value="' + esc(id) + '">' + esc(optLabel(games[id])) + "</option>"; }).join("")
       : "<option value=\"\">No hay más partidas</option>";
     if (keep && rest.indexOf(keep) >= 0) more.value = keep;
+    pickL.innerHTML = rest.map(function (id) { return '<button type="button" role="option" data-id="' + esc(id) + '">' + pickHtml(games[id]) + "</button>"; }).join("");
+    pickShow();
     $("viewer-add").disabled = !rest.length;
-    more.disabled = !rest.length;
+    more.disabled = !rest.length; pickB.disabled = !rest.length;
+    if (!rest.length) pickOpen(false);
   }
   $("viewer-add").addEventListener("click", function () {
     if (!more.value) return;
