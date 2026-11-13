@@ -16,7 +16,7 @@ export function cleanName(value, max = 28) {
   return String(value || '').normalize('NFKC').replace(/[\p{Cc}\p{Cf}<>]/gu, '').replace(/\s+/g, ' ').trim().slice(0, max);
 }
 export const ARENA_PAUSE_MS = 10000;
-export const ARENA_DURATIONS = [20, 30, 45, 60, 90, 120];
+export const ARENA_DURATIONS = [3, 5, 10, 15, 20, 30, 45, 60, 90, 120];
 export const isArena = t => t.format === 'arena';
 export const BERSERK_BONUS = .5;
 export const BERSERK_MIN_PLIES = 13; // al menos 7 jugadas de blancas para cobrar el extra
@@ -29,7 +29,7 @@ export function createTournament(input, id, hostHash, now = Date.now()) {
   const rounds = format === 'arena' ? 0 : Number(input.rounds);
   const duration = format === 'arena' ? Number(input.duration) : null;
   requireThat(title.length >= 4, 'El nombre del torneo debe tener al menos 4 caracteres.');
-  requireThat([3, 5, 10, 15].includes(minutes), 'Elige un ritmo válido.');
+  requireThat([1, 2, 3, 5, 10, 15].includes(minutes), 'Elige un ritmo válido.');
   requireThat([0, 2, 3, 5, 10].includes(increment), 'Elige un incremento válido.');
   if (format === 'arena') {
     requireThat(ARENA_DURATIONS.includes(duration), 'Elige una duración válida.');

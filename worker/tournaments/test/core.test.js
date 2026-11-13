@@ -19,7 +19,7 @@ function play(t, san, now) {
 
 test('validación de torneos, inscripción, capacidad, duplicados e identidad', () => {
   assert.throws(() => tournament(0, { capacity: 33 }), /32/);
-  assert.throws(() => tournament(0, { minutes: 1 }), /ritmo/);
+  assert.throws(() => tournament(0, { minutes: 4 }), /ritmo/);
   assert.throws(() => tournament(0, { startsAt: NOW - 1 }), /fecha/);
   const t = tournament(1, { capacity: 2 });
   assert.equal(joinTournament(t, 'Otro nombre', 'secret-0').id, t.players[0].id);

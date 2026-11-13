@@ -31,7 +31,7 @@ Con `TORNEOS_SIN_CLAVE="1"` en `.dev.vars`, el servidor local no pide la clave p
 - Listado público, creación protegida por clave de organización, inicio manual o programado.
 - Entre 2 y 32 jugadores; inscripción por nombre o alias, sin cuentas ni correo. La identidad es una credencial aleatoria de 256 bits guardada en el navegador; el servidor solo conserva su SHA-256.
 - Sistema suizo de club, entre 1 y 9 rondas, ajustado a los inscritos. Aproxima puntuaciones y colores, busca emparejamientos sin repeticiones y reparte descansos. Si las retiradas obligan a repetir un enfrentamiento, lo comunica. No es un emparejador homologado FIDE.
-- Ritmos 3, 5, 10 y 15 minutos; incrementos de 0, 2, 3, 5 y 10 segundos.
+- Ritmos 1, 2, 3, 5, 10 y 15 minutos; incrementos de 0, 2, 3, 5 y 10 segundos. Arena de 3 minutos a 2 horas.
 - Jugadas validadas por chess.js 1.4.0 en el servidor. Jaque mate, ahogado, material insuficiente, enroque, captura al paso, promoción a las cuatro piezas y tablas automáticas por triple repetición o 50 movimientos.
 - Relojes controlados por el servidor. Una alarma agenda el próximo vencimiento; no necesita jugadores conectados ni un proceso ejecutándose cada segundo.
 - Tablas ofrecidas/aceptadas/rechazadas, abandono y retirada de futuras rondas.
