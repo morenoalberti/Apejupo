@@ -262,14 +262,19 @@
   }
 
   // Punto rojo junto a «Torneos Live» cuando hay torneos en directo. Se consulta Lichess como mucho cada 5 minutos por visitante.
-  var liveA = document.querySelector('.site-header nav > a[href="torneos-live.html"]');
+  // «Torneos Live» va dentro del menú «Torneos»: el punto sale en el enlace y también en el botón del menú, que es lo que se ve.
+  var liveA = document.querySelector('.site-header nav a[href="torneos-live.html"]');
   if (liveA) {
     var LK = "apejupoHayDirecto", pon = function (n) {
       if (!n || liveA.querySelector(".nav-dot")) return;
+      var grupo = liveA.closest(".menu"), boton = grupo && grupo.querySelector(".menu-b");
       // Delante del texto («● Torneos Live»), como las etiquetas de «en directo»; en el móvil queda entre el icono y el texto
-      var txt = Array.prototype.filter.call(liveA.childNodes, function (c) { return c.nodeType === 3 && c.nodeValue.trim(); })[0];
-      var dot = document.createElement("span"); dot.className = "nav-dot"; dot.title = "Hay torneos en directo";
-      liveA.insertBefore(dot, txt || liveA.firstChild);
+      [liveA, boton].forEach(function (el) {
+        if (!el) return;
+        var txt = Array.prototype.filter.call(el.childNodes, function (c) { return c.nodeType === 3 && c.nodeValue.trim(); })[0];
+        var dot = document.createElement("span"); dot.className = "nav-dot"; dot.title = "Hay torneos en directo";
+        el.insertBefore(dot, txt || el.firstChild);
+      });
       liveA.insertAdjacentHTML("beforeend", '<span class="vh">(hay ' + n + ' en directo)</span>');
     };
     var ld = null; try { ld = JSON.parse(localStorage.getItem(LK)); } catch (_) {}
