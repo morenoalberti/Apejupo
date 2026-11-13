@@ -315,6 +315,8 @@ function renderGame() {
   $('to-player-bottom').querySelector('span').textContent = `${bottom === 'w' ? '♔' : '♚'} ${name(bottom === 'w' ? g.white : g.black)}${bz(bottom)}`;
   const late = arena(state) && state.endsAt && (g.result ? state.games.find(x => x.id === g.id)?.late : Date.now() + offset >= state.endsAt);
   let status = late ? (g.result ? `${g.result.replace('1/2-1/2', '½–½')} · ${g.reason} · No cuenta: terminó después del tiempo` : 'Tiempo del torneo cumplido: esta partida ya no cuenta') : g.result ? `${g.result.replace('1/2-1/2', '½–½')} · ${g.reason}` : pending ? 'Turno de tu rival' : !connected ? 'Recuperando conexión. Tu reloj sigue corriendo.' : canMove() ? 'Tu turno' : own ? 'Turno de tu rival' : `Juegan ${g.turn === 'w' ? 'blancas' : 'negras'}`;
+  // Con la partida terminada, el resultado se ve en grande sobre el tablero, como una marca de agua.
+  if (g.result) $('to-board').dataset.result = g.result.replace('1/2-1/2', '½–½'); else delete $('to-board').dataset.result;
   $('to-game-status').textContent = status; $('to-game-status').classList.toggle('my-turn', canMove());
   // En tu partida no hace falta «Tu turno» / «Turno de tu rival»: lo indica el reloj en verde.
   $('to-game-status').hidden = own && !g.result && connected && !late;
