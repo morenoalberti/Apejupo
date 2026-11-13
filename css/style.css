@@ -1439,3 +1439,8 @@ body.card-dragging .tour-tip { display: none !important; }
 .lv-pick-vs { opacity: .55; }
 .lv-pick-r { margin-left: auto; padding-left: 8px; font-weight: 700; }
 @media (max-width: 760px) { .lv-pick { flex: 1 1 100%; } }
+
+/* Emparejamientos: encabezado de cada ronda / encuentro por equipos */
+.lv-ptab.pairs tr.grp td { padding: 14px 10px 6px; text-align: left; font-size: .85rem; color: var(--muted); background: none; border-bottom: 1px solid var(--line); cursor: default; }
+.lv-ptab.pairs tr.grp td b { color: var(--text); }
+.lv-ptab.pairs tr.grp .sc { margin: 0 4px; padding: 1px 7px; border-radius: 5px; background: var(--bg); color: var(--text); font-weight: 700; white-space: nowrap; }

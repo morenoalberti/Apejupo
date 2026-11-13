@@ -1195,11 +1195,29 @@
   });
   $("viewer-pair").addEventListener("click", function () {
     var h = '<table class="lv-ptab pairs"><tr><th>Tab.</th><th class="l">Blancas</th><th></th><th class="l">Negras</th></tr>';
+    // Las partidas se agrupan por ronda y, en las ligas por equipos, por encuentro (los tableros empiezan en 1 en cada uno).
+    // Cada grupo lleva un encabezado: «Ronda 4 · Equipo A 2½ – 1½ Equipo B».
+    var groups = [], byKey = {}, fallback = (/Ronda (\d+)/.exec($("viewer-info").textContent) || [])[1] || "";
     order.forEach(function (id) {
       var g = games[id]; if (!g) return;
-      var t = g.tags, bd = /\.(\d+)$/.exec(t.Round || ""), res = g.over ? ({ "1-0": "1-0", "0-1": "0-1", "1/2-1/2": "½-½" }[t.Result] || "–") : '<span class="liveDot" title="En juego"></span>';
-      function pl(ti, nm, el) { return (ti ? '<em class="ttl">' + esc(ti) + "</em> " : "") + esc(nm) + (el ? ' <small>' + esc(el) + "</small>" : ""); }
-      h += '<tr data-g="' + esc(id) + '"><td>' + (bd ? bd[1] : "") + '</td><td class="l">' + nameFlag(g, "w") + pl(t.WhiteTitle, t.White, t.WhiteElo) + '</td><td class="rs">' + res + '</td><td class="l">' + nameFlag(g, "b") + pl(t.BlackTitle, t.Black, t.BlackElo) + "</td></tr>";
+      var t = g.tags, rnd = (/^(\d+)/.exec(t.Round || "") || [])[1] || fallback, teams = t.WhiteTeam && t.BlackTeam ? [t.WhiteTeam, t.BlackTeam].sort() : null;
+      var key = rnd + "|" + (teams ? teams.join("|") : "");
+      if (!byKey[key]) { byKey[key] = { rnd: rnd, team: teams && t.WhiteTeam, rival: teams && t.BlackTeam, pts: [0, 0], live: 0, ids: [] }; groups.push(byKey[key]); }
+      var G = byKey[key]; G.ids.push(id);
+      var sc = { "1-0": [1, 0], "0-1": [0, 1], "1/2-1/2": [.5, .5] }[t.Result];
+      if (g.over && sc) { var home = t.WhiteTeam === G.team; G.pts[0] += home ? sc[0] : sc[1]; G.pts[1] += home ? sc[1] : sc[0]; } else if (!g.over) G.live++;
+    });
+    groups.forEach(function (G) {
+      if (G.rnd || G.team) {
+        var num = function (n) { return Math.floor(n) ? Math.floor(n) + (n % 1 ? "½" : "") : (n % 1 ? "½" : "0"); };
+        h += '<tr class="grp"><td colspan="4">' + (G.rnd ? "<b>Ronda " + esc(G.rnd) + "</b>" : "") +
+          (G.team ? (G.rnd ? " · " : "") + esc(G.team) + ' <span class="sc">' + num(G.pts[0]) + " – " + num(G.pts[1]) + "</span> " + esc(G.rival) + (G.live ? ' <small>(' + G.live + " en juego)</small>" : "") : "") + "</td></tr>";
+      }
+      G.ids.forEach(function (id) {
+        var g = games[id], t = g.tags, bd = /\.(\d+)$/.exec(t.Round || ""), res = g.over ? ({ "1-0": "1-0", "0-1": "0-1", "1/2-1/2": "½-½" }[t.Result] || "–") : '<span class="liveDot" title="En juego"></span>';
+        function pl(ti, nm, el) { return (ti ? '<em class="ttl">' + esc(ti) + "</em> " : "") + esc(nm) + (el ? ' <small>' + esc(el) + "</small>" : ""); }
+        h += '<tr data-g="' + esc(id) + '"><td>' + (bd ? bd[1] : "") + '</td><td class="l">' + nameFlag(g, "w") + pl(t.WhiteTitle, t.White, t.WhiteElo) + '</td><td class="rs">' + res + '</td><td class="l">' + nameFlag(g, "b") + pl(t.BlackTitle, t.Black, t.BlackElo) + "</td></tr>";
+      });
     });
     openPanel("Emparejamientos · " + $("viewer-title").textContent, h + '</table><p class="lv-ffoot">Pulsa una partida para abrirla.</p>', true);
   });
