@@ -191,9 +191,6 @@
 .to-standings tr.winner { color: #a57320; font-weight: 700; }
 .to-standings .to-remove { border: 0; background: none; color: var(--muted); float: right; padding: 0 3px; }
 .to-small { font-size: .72rem; margin-bottom: 0; }
-.to-rules p { font-size: .84rem; color: var(--muted); }
-#to-recover form input { width: 100%; }
-#to-recover form button { margin-top: 12px; }
 .to-dialog { width: min(540px, calc(100vw - 28px)); border: 1px solid var(--line); border-radius: 16px; background: var(--card); color: var(--text); padding: 24px; max-height: 92dvh; overflow: auto; box-shadow: 0 24px 80px #0006; }
 .to-dialog::backdrop { background: #07101fbb; backdrop-filter: blur(3px); }
 .to-dialog h2 { font-size: 1.25rem; margin: 0; }

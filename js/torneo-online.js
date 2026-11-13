@@ -46,7 +46,7 @@ function hello() { send({ type: 'hello', token: read(playerKey()), hostToken: re
 
 // En pruebas locales el servidor puede no pedir clave de organización: entonces se ocultan sus campos.
 function setKeyMode(required) {
-  for (const [field, input] of [['to-key-field', 'to-key'], ['to-recover-key-field', 'to-recover-key']]) {
+  for (const [field, input] of [['to-key-field', 'to-key']]) {
     $(field).hidden = !required; $(input).disabled = !required; $(input).required = required;
   }
 }
@@ -179,9 +179,6 @@ function render() {
   $('to-focus-title').textContent = t.title;
   $('to-focus-format').textContent = `${t.minutes} + ${t.increment} · ${formatLabel(t)}`;
   renderPodium(); renderMatches(); renderGame(); renderControls(); renderBoards(); updateClocks();
-  // Quien está jugando el torneo no necesita las reglas ni el acceso del organizador.
-  const playingNow = !!mine?.active && ['playing', 'between'].includes(t.status);
-  $('to-rules').hidden = playingNow; $('to-recover').hidden = playingNow || t.host;
 }
 function canJoin(t) { return t.status === 'waiting' || (arena(t) && t.status === 'playing' && Date.now() + offset < t.endsAt); }
 // Hoja de resultados, como en Lichess: una cifra por partida; resaltadas las ganadas con Berserk.
@@ -502,15 +499,6 @@ $('to-join-form').addEventListener('submit', async event => {
     else if (/clave/.test(e.message)) { $('to-joinkey').select(); $('to-joinkey').focus(); }
   }
   finally { button.disabled = !connected; }
-});
-$('to-recover-form').addEventListener('submit', async event => {
-  event.preventDefault(); const button = event.currentTarget.querySelector('button'); button.disabled = true;
-  try {
-    const hostToken = token(); write(hostKey(roomId), hostToken);
-    await request(`/api/tournaments/${roomId}/recover`, { method: 'POST', key: $('to-recover-key').value, body: JSON.stringify({ hostToken }) });
-    $('to-recover-key').value = ''; hello(); message('Controles de organización recuperados.');
-  } catch (e) { message(e.message, true); }
-  finally { button.disabled = false; }
 });
 $('to-start').addEventListener('click', async () => {
   if (await confirmAction('Empezar torneo', arena(state) ? `Se cerrarán las inscripciones y empezará la cuenta atrás de ${duration(state.duration)}. Se emparejará a los jugadores que tengan la página abierta.` : `Se cerrarán las inscripciones y arrancarán los relojes de ${state.count} jugadores. Las rondas se ajustarán al número de inscritos.`, 'Empezar')) { message(''); send({ type: 'start' }); }
