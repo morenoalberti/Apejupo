@@ -4,6 +4,9 @@ const $ = id => document.getElementById(id);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const API = (window.APEJUPO_TORNEOS_API || '').replace(/\/$/, '');
 const roomId = new URL(location.href).searchParams.get('id');
+// «Ver tableros» se abre en otra pestaña: solo la cuadrícula en directo, entrando como espectador.
+const boardsMode = new URL(location.href).searchParams.get('vista') === 'tableros';
+let zoomed = null;
 const statuses = { waiting: 'Inscripción abierta', playing: 'En juego', between: 'Entre rondas', finished: 'Finalizado', cancelled: 'Cancelado' };
 const pieceNames = { k: 'rey', q: 'dama', r: 'torre', b: 'alfil', n: 'caballo', p: 'peón' };
 const images = new Map();
@@ -25,7 +28,7 @@ const hostKey = id => 'apejupoTorneoOrganizador:' + id;
 function message(text, error = false) { $('to-message').hidden = !text; $('to-message').textContent = text; $('to-message').classList.toggle('error', error); }
 function setConnection(text, online = false) {
   connected = online;
-  $('to-connection').textContent = text; $('to-connection').classList.toggle('online', online);
+  for (const id of ['to-connection', 'to-boards-conn']) { $(id).textContent = text; $(id).classList.toggle('online', online); }
   if (state) { boardKey = ''; renderGame(); renderControls(); }
 }
 async function request(path, { key, ...options } = {}) {
@@ -42,7 +45,7 @@ function send(action) {
   if (!socket || socket.readyState !== WebSocket.OPEN || !connected) { message('Espera a recuperar la conexión antes de continuar.', true); return false; }
   socket.send(JSON.stringify(action)); return true;
 }
-function hello() { send({ type: 'hello', token: read(playerKey()), hostToken: read(hostKey(roomId)) }); }
+function hello() { send(boardsMode ? { type: 'hello' } : { type: 'hello', token: read(playerKey()), hostToken: read(hostKey(roomId)) }); }
 
 // En pruebas locales el servidor puede no pedir clave de organización: entonces se ocultan sus campos.
 function setKeyMode(required) {
@@ -212,12 +215,16 @@ function renderBoards() {
   const live = liveGames();
   $('to-boards-open').hidden = !live.length;
   $('to-boards-label').textContent = `Ver tableros (${live.length})`;
-  if (!$('to-boards-dialog').open) return;
-  $('to-boards-grid').innerHTML = live.map(g => `<button type="button" class="to-live big ${g.white === state.me || g.black === state.me ? 'mine' : ''}" data-watch="${g.id}" aria-label="Ver ${esc(name(g.white))} contra ${esc(name(g.black))}"><span class="to-live-name"><span>${g.berserkB ? '<b class="to-bz">⚡</b>' : ''}${esc(name(g.black))}</span><strong data-clock="${g.id}:b"></strong></span>${miniBoard(g)}<span class="to-live-name"><span>${g.berserkW ? '<b class="to-bz">⚡</b>' : ''}${esc(name(g.white))}</span><strong data-clock="${g.id}:w"></strong></span></button>`).join('') || '<p class="muted">No hay partidas en juego ahora mismo.</p>';
+  if (!boardsMode) return;
+  document.title = `Tableros · ${state.title}`;
+  $('to-boards-sub').textContent = `${state.title} · ${live.length === 1 ? '1 partida' : `${live.length} partidas`} en juego`;
+  if (!live.some(g => g.id === zoomed)) zoomed = null;
+  $('to-boards-grid').classList.toggle('has-zoom', !!zoomed);
+  $('to-boards-grid').innerHTML = live.map(g => `<button type="button" class="to-live big ${g.id === zoomed ? 'zoom' : ''}" aria-pressed="${g.id === zoomed}" data-watch="${g.id}" aria-label="Ver ${esc(name(g.white))} contra ${esc(name(g.black))}"><span class="to-live-name"><span>${g.berserkB ? '<b class="to-bz">⚡</b>' : ''}${esc(name(g.black))}</span><strong data-clock="${g.id}:b"></strong></span>${miniBoard(g)}<span class="to-live-name"><span>${g.berserkW ? '<b class="to-bz">⚡</b>' : ''}${esc(name(g.white))}</span><strong data-clock="${g.id}:w"></strong></span></button>`).join('') || `<p class="muted to-boards-empty">${['finished', 'cancelled'].includes(state.status) ? 'El torneo ha terminado.' : 'No hay partidas en juego ahora mismo. Los tableros aparecerán aquí en cuanto empiecen.'}</p>`;
   updateMiniClocks();
 }
 function updateMiniClocks() {
-  if (!$('to-boards-dialog').open) return;
+  if (!boardsMode) return;
   const now = Date.now() + offset;
   for (const el of $('to-boards-grid').querySelectorAll('[data-clock]')) {
     const [id, color] = el.dataset.clock.split(':'), g = state.games.find(x => x.id === id);
@@ -522,11 +529,14 @@ $('to-standings').addEventListener('click', async event => {
   const id = event.target.closest('[data-remove]')?.dataset.remove;
   if (id && await confirmAction('Retirar inscripción', `¿Retirar a ${name(id)} de este torneo?`, 'Retirar')) send({ type: 'remove', playerId: id });
 });
-$('to-boards-open').addEventListener('click', () => { $('to-boards-dialog').showModal(); renderBoards(); });
+$('to-boards-open').addEventListener('click', () => {
+  const url = new URL(location.href); url.search = new URLSearchParams({ id: roomId, vista: 'tableros' });
+  window.open(url, 'apejupo-tableros-' + roomId);
+});
 $('to-boards-grid').addEventListener('click', event => {
   const id = event.target.closest('[data-watch]')?.dataset.watch; if (!id) return;
-  $('to-boards-dialog').close(); watch(id);
-  requestAnimationFrame(() => $('to-game-panel').scrollIntoView({ behavior: 'smooth', block: 'start' }));
+  zoomed = zoomed === id ? null : id; renderBoards();
+  if (zoomed) requestAnimationFrame(() => $('to-boards-grid').querySelector('.zoom')?.scrollIntoView({ behavior: 'smooth', block: 'center' }));
 });
 $('to-matches').addEventListener('click', event => { const id = event.target.closest('[data-watch]')?.dataset.watch; if (id) watch(id); });
 $('to-round').addEventListener('change', () => { viewedRound = Number($('to-round').value); renderMatches(); });
@@ -615,7 +625,8 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden && ro
 
 $('to-name').value = read('apejupoTorneoNombre');
 if (roomId) {
-  $('to-lobby').hidden = true; $('to-room').hidden = false;
+  $('to-lobby').hidden = true; $('to-room').hidden = boardsMode; $('to-boards-page').hidden = !boardsMode;
+  document.body.classList.toggle('to-boards-mode', boardsMode);
   if (!/^[a-f0-9]{24}$/.test(roomId)) message('El enlace del torneo no es válido.', true);
   else if (!API) { message('Los torneos todavía no están disponibles.'); setConnection('No disponible'); }
   else { connect(); checkKeyMode(); }

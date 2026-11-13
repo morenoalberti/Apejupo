@@ -241,7 +241,14 @@
 .to-ghost { position: fixed; left: 0; top: 0; z-index: 1000; pointer-events: none; will-change: transform; filter: drop-shadow(0 6px 8px #0006); }
 /* Ventana con todos los tableros en juego. */
 .to-boards-open { display: inline-flex; align-items: center; gap: 7px; }
-.to-boards-dialog { width: min(1180px, calc(100vw - 24px)); }
+body.to-boards-mode .to-hero { display: none; }
+body.to-boards-mode .to-content { padding-top: 22px; }
+.to-boards-page .to-section-head { margin-bottom: 16px; }
+.to-boards-page .to-boards-grid { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
+.to-boards-page > .to-small { margin-top: 14px; text-align: center; }
+.to-boards-empty { grid-column: 1 / -1; text-align: center; padding: 40px 12px; }
+.to-live.zoom { grid-column: 1 / -1; order: -1; justify-self: center; width: min(620px, 100%); font-size: 1rem !important; padding: 10px; border-color: var(--blue); }
+.to-live.zoom strong { font-size: 1.05rem !important; padding: 3px 9px !important; }
 .to-boards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 14px; }
 .to-live.big { font-size: .82rem !important; padding: 8px; }
 .to-live.big .to-live-name { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
