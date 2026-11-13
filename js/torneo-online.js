@@ -42,6 +42,15 @@ function send(action) {
 }
 function hello() { send({ type: 'hello', token: read(playerKey()), hostToken: read(hostKey(roomId)) }); }
 
+// En pruebas locales el servidor puede no pedir clave de organización: entonces se ocultan sus campos.
+function setKeyMode(required) {
+  for (const [field, input] of [['to-key-field', 'to-key'], ['to-recover-key-field', 'to-recover-key']]) {
+    $(field).hidden = !required; $(input).disabled = !required; $(input).required = required;
+  }
+}
+async function checkKeyMode() {
+  try { setKeyMode((await (await request('/api/tournaments')).json()).keyRequired !== false); } catch {}
+}
 async function loadLobby() {
   if (!API) {
     $('to-events').innerHTML = '<div class="to-empty"><strong>Estamos preparando los próximos torneos</strong>Las inscripciones estarán disponibles aquí cuando abramos esta sección.</div>';
@@ -49,7 +58,8 @@ async function loadLobby() {
   }
   $('to-refresh').disabled = true;
   try {
-    const { tournaments } = await (await request('/api/tournaments')).json();
+    const { tournaments, keyRequired } = await (await request('/api/tournaments')).json();
+    setKeyMode(keyRequired !== false);
     $('to-events').innerHTML = tournaments.length ? tournaments.map(t => `<article class="to-event"><span class="to-status ${t.status}">${esc(statuses[t.status])}</span><h3>${esc(t.title)}</h3><p class="muted">${t.minutes} + ${t.increment} · ${formatLabel(t)} · ${t.count}/${t.capacity} jugadores</p><p>${t.startsAt ? esc(date(t.startsAt)) : 'Inicio a cargo del organizador'}</p><a class="btn" href="jugar-torneo.html?id=${t.id}">${t.status === 'waiting' ? 'Entrar e inscribirme' : 'Ver torneo'}</a></article>`).join('') : '<div class="to-empty"><strong>El próximo torneo puede ser el nuestro</strong>Todavía no hay torneos. Cuando la organización abra uno, aparecerá aquí.</div>';
     message('');
   } catch {
@@ -399,6 +409,6 @@ if (roomId) {
   $('to-lobby').hidden = true; $('to-room').hidden = false;
   if (!/^[a-f0-9]{24}$/.test(roomId)) message('El enlace del torneo no es válido.', true);
   else if (!API) { message('Los torneos todavía no están disponibles.'); setConnection('No disponible'); }
-  else connect();
+  else { connect(); checkKeyMode(); }
 } else loadLobby();
 setInterval(updateClocks, 200);

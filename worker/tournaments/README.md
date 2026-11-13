@@ -22,6 +22,10 @@ npm run dev
 
 Abrir `http://127.0.0.1:8087/jugar-torneo.html`. La clave del ejemplo solo sirve para el servidor local. `.dev.vars` está excluido de Git. No reutilizarla al publicar. La configuración también permite la web en el puerto 8080.
 
+## Clave de organización durante las pruebas
+
+Con `TORNEOS_SIN_CLAVE="1"` en `.dev.vars`, el servidor local no pide la clave para crear torneos ni para recuperar los controles, y la web oculta esos campos. Es solo para pruebas: no configurar esa variable al publicar. Sin ella, la clave es obligatoria.
+
 ## Funciones
 
 - Listado público, creación protegida por clave de organización, inicio manual o programado.

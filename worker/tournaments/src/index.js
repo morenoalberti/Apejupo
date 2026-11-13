@@ -3,6 +3,7 @@ import { GameError, requireThat, createTournament, joinTournament, act, advance,
 
 // El navegador manda "ping" cada 30 s; sin señal en este margen, el jugador no se considera presente.
 const PRESENCE_MS = 75000;
+const keyRequired = env => env.TORNEOS_SIN_CLAVE !== '1';
 
 const TOKEN = /^[a-f0-9]{64}$/;
 const ROOM_ID = /^[a-f0-9]{24}$/;
@@ -29,6 +30,8 @@ export class TournamentDirectory extends DurableObject {
         const url = new URL(request.url), now = Date.now();
         let events = (await this.ctx.storage.get('events') || []).filter(e => now - e.createdAt < RETENTION_MS);
         if (url.pathname === '/authorize') {
+          // Solo para pruebas locales (.dev.vars). Sin esa variable, la clave es obligatoria.
+          if (!keyRequired(this.env)) return json({ ok: true });
           requireThat(this.env.TORNEOS_CLAVE, 'La organización de torneos aún no está configurada.', 503);
           const { key, ip } = await body(request), rateKey = 'attempts:' + (await hash(String(ip || 'unknown'))).slice(0, 24);
           let rate = await this.ctx.storage.get(rateKey) || { count: 0, until: now + 900000 };
@@ -50,7 +53,7 @@ export class TournamentDirectory extends DurableObject {
               return r.ok ? await r.json() : null;
             } catch { return null; }
           }));
-          return json({ tournaments: results.filter(Boolean).sort((a, b) => b.createdAt - a.createdAt) });
+          return json({ tournaments: results.filter(Boolean).sort((a, b) => b.createdAt - a.createdAt), keyRequired: keyRequired(this.env) });
         }
         if (request.method === 'POST') {
           const b = await body(request);
