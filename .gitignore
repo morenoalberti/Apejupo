@@ -7,3 +7,5 @@ build/
 .wrangler/
 worker/node_modules/
 .dev.vars
+worker/tournaments/node_modules/
+worker/tournaments/.wrangler/

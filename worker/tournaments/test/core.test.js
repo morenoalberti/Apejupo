@@ -1,0 +1,240 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { Chess } from 'chess.js';
+import { createTournament, joinTournament, startTournament, act, advance, standings, snapshot, canPossiblyMate, nextAlarm, exportPgn, BREAK_MS } from '../src/core.js';
+
+const NOW = 1800000000000;
+function tournament(count = 2, options = {}) {
+  const t = createTournament({ title: 'Abierto de prueba', minutes: 5, increment: 3, rounds: 5, capacity: 32, ...options }, 'a'.repeat(24), 'host-secret', NOW);
+  for (let i = 0; i < count; i++) joinTournament(t, 'Jugador ' + (i + 1), 'secret-' + i, NOW);
+  return t;
+}
+function play(t, san, now) {
+  const g = t.games.find(g => !g.result), c = new Chess();
+  for (const move of g.moves) c.move(move);
+  const move = c.move(san);
+  act(t, g.turn === 'w' ? g.white : g.black, false, { type: 'move', game: g.id, from: move.from, to: move.to, promotion: move.promotion, ply: g.moves.length }, now);
+  return g;
+}
+
+test('validación de torneos, inscripción, capacidad, duplicados e identidad', () => {
+  assert.throws(() => tournament(0, { capacity: 33 }), /32/);
+  assert.throws(() => tournament(0, { minutes: 1 }), /ritmo/);
+  assert.throws(() => tournament(0, { startsAt: NOW - 1 }), /fecha/);
+  const t = tournament(1, { capacity: 2 });
+  assert.equal(joinTournament(t, 'Otro nombre', 'secret-0').id, t.players[0].id);
+  assert.throws(() => joinTournament(t, 'JUGADOR 1', 'other'), /ese nombre/);
+  joinTournament(t, '<Jugador> 2\u202e', 'secret-2');
+  assert.equal(t.players[1].name, 'Jugador 2');
+  assert.throws(() => joinTournament(t, 'Tercero', 'secret-3'), /completo/);
+});
+
+test('solo el organizador inicia, el sorteo no cambia plazas y se ajustan rondas', () => {
+  const t = tournament();
+  assert.throws(() => act(t, t.players[0].id, false, { type: 'start' }, NOW), /organizador/);
+  startTournament(t, NOW);
+  assert.equal(t.status, 'playing'); assert.equal(t.rounds, 1); assert.equal(t.games.length, 1);
+  assert.equal(new Set(t.players.map(p => p.seed)).size, 2);
+  assert.throws(() => joinTournament(t, 'Tercero', 'secret-3'), /cerradas/);
+});
+
+test('validación en servidor: turnos, movimiento ilegal, espectador y repetición de un mensaje', () => {
+  const t = tournament(); startTournament(t, NOW); const g = t.games[0];
+  const action = { type: 'move', game: g.id, from: 'e2', to: 'e4', ply: 0 };
+  assert.throws(() => act(t, null, false, action, NOW + 10), /inscribirte/);
+  assert.throws(() => act(t, g.black, false, action, NOW + 10), /rival/);
+  assert.throws(() => act(t, g.white, false, { ...action, to: 'e5' }, NOW + 10), /legal/);
+  act(t, g.white, false, action, NOW + 2000);
+  assert.equal(g.whiteMs, 301000); assert.equal(g.blackMs, 300000);
+  assert.equal(g.moves[0], 'e4'); assert.equal(g.turn, 'b');
+  assert.throws(() => act(t, g.black, false, { ...action, from: 'e7', to: 'e5' }, NOW + 3000), /posición/);
+  act(t, g.black, false, { ...action, from: 'e7', to: 'e5', ply: 1 }, NOW + 4000);
+  assert.equal(g.blackMs, 301000);
+});
+
+test('jaque mate, clasificación, PGN y secretos excluidos de la vista pública', () => {
+  const t = tournament(); startTournament(t, NOW);
+  for (const [i, san] of ['f3', 'e5', 'g4', 'Qh4#'].entries()) play(t, san, NOW + (i + 1) * 1000);
+  const g = t.games[0]; assert.equal(g.result, '0-1'); assert.equal(g.reason, 'Jaque mate');
+  assert.equal(t.status, 'finished'); assert.equal(standings(t)[0].id, g.black);
+  const view = snapshot(t, null, false, g.id, NOW + 5000);
+  assert.deepEqual(view.game.legal, []);
+  assert.ok(!JSON.stringify(view).includes('secret'));
+  const pgn = exportPgn(t, g.id), chess = new Chess(); chess.loadPgn(pgn);
+  assert.equal(chess.isCheckmate(), true); assert.match(pgn, /\[Result "0-1"\]/);
+});
+
+test('no se exporta una partida en juego', () => {
+  const t = tournament(); startTournament(t, NOW);
+  assert.throws(() => exportPgn(t), /terminado/);
+});
+
+test('el reloj vence sin navegador conectado y no se aplica dos veces', () => {
+  const t = tournament(); startTournament(t, NOW); const g = t.games[0];
+  assert.equal(nextAlarm(t), NOW + 300000);
+  assert.equal(advance(t, NOW + 300000), true); assert.equal(g.result, '0-1');
+  assert.equal(g.whiteMs, 0); assert.equal(t.status, 'finished');
+  const before = JSON.stringify(t); assert.equal(advance(t, NOW + 300001), false); assert.equal(JSON.stringify(t), before);
+});
+
+test('un intento de mover fuera de tiempo no modifica la posición ni la caché del motor', () => {
+  const t = tournament(); startTournament(t, NOW); const g = t.games[0];
+  const before = snapshot(t, g.white, false, g.id, NOW).game;
+  assert.throws(() => act(t, g.white, false, { type: 'move', game: g.id, from: 'e2', to: 'e4', ply: 0 }, NOW + 300001), /tiempo/);
+  const after = snapshot(t, g.white, false, g.id, NOW).game;
+  assert.equal(after.fen, before.fen); assert.deepEqual(after.legal, before.legal); assert.deepEqual(after.moves, []);
+});
+
+test('material posible para ganar por tiempo: rey solo, pieza menor y alfiles del mismo color', () => {
+  const queen = new Chess('7k/8/8/8/8/8/1Q6/K7 w - - 0 1');
+  assert.equal(canPossiblyMate(queen, 'b'), false); assert.equal(canPossiblyMate(queen, 'w'), true);
+  const knight = new Chess('7k/8/8/8/8/8/1N6/K7 w - - 0 1');
+  assert.equal(canPossiblyMate(knight, 'w'), false);
+  const bishops = new Chess('7k/8/8/8/8/4b3/1B6/K7 w - - 0 1');
+  assert.equal(canPossiblyMate(bishops, 'w'), false); assert.equal(canPossiblyMate(bishops, 'b'), false);
+  const pawn = new Chess('7k/6p1/8/8/8/8/1N6/K7 w - - 0 1');
+  assert.equal(canPossiblyMate(pawn, 'w'), true);
+});
+
+test('promoción a caballo, enroque y captura al paso validados desde partidas reales', () => {
+  const cases = [
+    ['a4', 'h5', 'a5', 'h4', 'a6', 'h3', 'axb7', 'hxg2', 'bxa8=N'],
+    ['e4', 'e5', 'Nf3', 'Nc6', 'Bc4', 'Nf6', 'O-O'],
+    ['e4', 'a6', 'e5', 'd5', 'exd6'],
+  ];
+  for (const line of cases) {
+    const t = tournament(); startTournament(t, NOW);
+    for (const [i, san] of line.entries()) play(t, san, NOW + (i + 1) * 1000);
+    const expected = new Chess(); for (const san of line) expected.move(san);
+    assert.equal(t.games[0].fen, expected.fen());
+    if (line[0] === 'a4') assert.equal(expected.get('a8').type, 'n');
+  }
+});
+
+test('tablas ofrecidas solo aceptables por el rival y reloj sigue corriendo', () => {
+  const t = tournament(); startTournament(t, NOW); const g = t.games[0];
+  act(t, g.white, false, { type: 'offer-draw', game: g.id }, NOW + 1000);
+  assert.throws(() => act(t, g.white, false, { type: 'accept-draw', game: g.id }, NOW + 2000), /rival/);
+  act(t, g.black, false, { type: 'accept-draw', game: g.id }, NOW + 2500);
+  assert.equal(g.result, '1/2-1/2'); assert.equal(g.whiteMs, 297500);
+  assert.equal(standings(t)[0].points, .5);
+});
+
+test('triple repetición se conserva al reconstruir el estado persistido', () => {
+  let t = tournament(); startTournament(t, NOW);
+  for (const [i, san] of ['Nf3', 'Nf6', 'Ng1', 'Ng8', 'Nf3', 'Nf6', 'Ng1', 'Ng8'].entries()) {
+    t = structuredClone(t); play(t, san, NOW + (i + 1) * 1000);
+  }
+  assert.equal(t.games[0].result, '1/2-1/2'); assert.match(t.games[0].reason, /repetición/);
+});
+
+test('suizo de 32 jugadores durante 5 rondas: 16 tableros y sin rivales repetidos', () => {
+  const t = tournament(32); startTournament(t, NOW); let now = NOW;
+  const opponents = new Set();
+  for (let round = 1; round <= 5; round++) {
+    const games = t.games.filter(g => g.round === round);
+    assert.equal(games.length, 16);
+    const participants = games.flatMap(g => [g.white, g.black]); assert.equal(new Set(participants).size, 32);
+    for (const [i, g] of games.entries()) {
+      const key = [g.white, g.black].sort().join(':'); assert.ok(!opponents.has(key)); opponents.add(key);
+      if (i % 3 === 0) {
+        act(t, g.white, false, { type: 'offer-draw', game: g.id }, ++now);
+        act(t, g.black, false, { type: 'accept-draw', game: g.id }, ++now);
+      } else act(t, i % 2 ? g.white : g.black, false, { type: 'resign', game: g.id }, ++now);
+    }
+    if (round < 5) { assert.equal(t.status, 'between'); now += BREAK_MS; advance(t, now); assert.equal(t.round, round + 1); }
+  }
+  assert.equal(t.status, 'finished'); assert.equal(t.games.length, 80);
+  assert.equal(standings(t).reduce((n, p) => n + p.points, 0), 80);
+});
+
+test('número impar: descansos repartidos y sin repetir rivales', () => {
+  const t = tournament(5, { rounds: 5 }); startTournament(t, NOW); let now = NOW;
+  const byes = new Set(), opponents = new Set();
+  for (let round = 1; round <= 5; round++) {
+    const games = t.games.filter(g => g.round === round), bye = games.find(g => g.bye);
+    assert.ok(!byes.has(bye.white)); byes.add(bye.white);
+    for (const g of games.filter(g => !g.bye)) {
+      const key = [g.white, g.black].sort().join(':'); assert.ok(!opponents.has(key)); opponents.add(key);
+      act(t, g.white, false, { type: 'resign', game: g.id }, ++now);
+    }
+    if (round < 5) { now += BREAK_MS; advance(t, now); }
+  }
+  assert.equal(t.status, 'finished'); assert.equal(byes.size, 5);
+});
+
+test('retirada pierde la partida actual y excluye de las siguientes rondas', () => {
+  const t = tournament(4, { rounds: 3 }); startTournament(t, NOW); const id = t.games[0].white;
+  act(t, id, false, { type: 'withdraw' }, NOW + 1000);
+  for (const g of t.games.filter(g => !g.result)) act(t, g.white, false, { type: 'resign', game: g.id }, NOW + 2000);
+  advance(t, NOW + 2000 + BREAK_MS);
+  assert.ok(!t.games.filter(g => g.round === 2).some(g => g.white === id || g.black === id));
+  assert.equal(t.players.find(p => p.id === id).active, false);
+});
+
+test('inicio programado y cancelación si no hay suficientes inscritos', () => {
+  const t = tournament(2, { startsAt: NOW + 120000 });
+  assert.equal(advance(t, NOW + 119999), false);
+  advance(t, NOW + 120000); assert.equal(t.status, 'playing');
+  const empty = tournament(1, { startsAt: NOW + 120000 }); advance(empty, NOW + 120000);
+  assert.equal(empty.status, 'cancelled');
+});
+
+test('cancelación protege contra acciones posteriores', () => {
+  const t = tournament(4); startTournament(t, NOW);
+  assert.throws(() => act(t, t.players[0].id, false, { type: 'cancel' }, NOW + 1000), /organizador/);
+  act(t, null, true, { type: 'cancel' }, NOW + 1000);
+  assert.equal(t.status, 'cancelled'); assert.ok(t.games.every(g => g.result));
+  assert.throws(() => act(t, t.games[0].white, false, { type: 'resign', game: t.games[0].id }, NOW + 1001), /terminado/);
+});
+
+test('arena: validación, emparejamiento continuo de libres y fin por tiempo', async () => {
+  const { pairArena, ARENA_PAUSE_MS } = await import('../src/core.js');
+  assert.throws(() => tournament(0, { format: 'arena', duration: 7 }), /duración/);
+  assert.throws(() => tournament(0, { format: 'arena', duration: 20, minutes: 10 }), /triple/);
+  const t = tournament(5, { format: 'arena', duration: 60, rounds: undefined });
+  assert.equal(t.rounds, 0);
+  startTournament(t, NOW);
+  assert.equal(t.status, 'playing'); assert.equal(t.endsAt, NOW + 3600000); assert.equal(t.games.length, 0);
+  const ids = t.players.map(p => p.id);
+  // Solo se empareja a los presentes: con uno conectado no hay partida.
+  assert.equal(pairArena(t, NOW, new Set([ids[0]])), false);
+  assert.equal(pairArena(t, NOW, new Set(ids)), true);
+  assert.equal(t.games.length, 2);
+  const waiting = ids.filter(id => !t.games.some(g => g.white === id || g.black === id));
+  assert.equal(waiting.length, 1);
+  // Quien termina descansa unos segundos y luego juega con el que esperaba, no con su último rival.
+  const g = t.games[0];
+  act(t, g.white, false, { type: 'resign', game: g.id }, NOW + 60000);
+  assert.equal(pairArena(t, NOW + 60000, new Set(ids)), false);
+  assert.equal(nextAlarm(t, NOW + 60000), NOW + 60000 + ARENA_PAUSE_MS);
+  assert.equal(pairArena(t, NOW + 60000 + ARENA_PAUSE_MS, new Set(ids)), true);
+  const second = t.games.slice(2);
+  assert.equal(second.length, 1);
+  assert.ok(second[0].white === waiting[0] || second[0].black === waiting[0]);
+  // En pausa no se empareja.
+  const loser = g.white, winner = g.black;
+  const other = [second[0].white, second[0].black].find(id => id !== waiting[0]);
+  const idle = [loser, winner].find(id => id !== other);
+  act(t, idle, false, { type: 'pause' }, NOW + 70000);
+  assert.equal(pairArena(t, NOW + 80000, new Set(ids)), false);
+  act(t, idle, false, { type: 'resume' }, NOW + 80000);
+  // Al cumplirse el tiempo no hay partidas nuevas; las que siguen terminan y cuentan.
+  const end = t.endsAt;
+  for (const x of t.games.filter(x => !x.result)) x.lastAt = end - 1000; // partida viva al acabar el tiempo
+  assert.equal(pairArena(t, end, new Set(ids)), false);
+  advance(t, end);
+  assert.equal(t.status, 'playing');
+  for (const x of t.games.filter(x => !x.result)) act(t, x.black, false, { type: 'resign', game: x.id }, end + 1000);
+  assert.equal(t.status, 'finished');
+  assert.ok(t.games.filter(x => !x.bye).every(x => x.result));
+  assert.equal(snapshot(t, null, false, null, end + 2000).format, 'arena');
+});
+
+test('arena sin partidas en juego termina justo al cumplirse el tiempo', () => {
+  const t = tournament(2, { format: 'arena', duration: 30 });
+  startTournament(t, NOW);
+  assert.equal(nextAlarm(t, NOW), t.endsAt);
+  assert.equal(advance(t, t.endsAt), true);
+  assert.equal(t.status, 'finished');
+});
