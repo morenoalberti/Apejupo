@@ -74,7 +74,8 @@
             
             <div class="to-replay" id="to-replay" hidden><label for="to-replay-range">Revisar posición <span id="to-replay-number"></span></label><input type="range" id="to-replay-range" min="0" value="0" step="1"><div class="to-actions"><button id="to-replay-prev" class="btn-ghost" type="button" aria-label="Jugada anterior">← Anterior</button><button id="to-replay-next" class="btn-ghost" type="button" aria-label="Jugada siguiente">Siguiente →</button><button id="to-pgn" class="btn-ghost" type="button">Descargar PGN</button></div></div>
           </section>
-          <section class="to-panel to-matches-panel" aria-labelledby="to-matches-title"><div class="to-section-head"><h2 id="to-matches-title">Tableros</h2><select id="to-round" aria-label="Ver ronda"></select></div><div id="to-matches" class="to-matches"><p class="muted">Los tableros aparecerán al comenzar la primera ronda.</p></div></section>
+          <!-- Lista de tableros de la sala: oculta; las partidas se siguen en la página de tableros. -->
+          <section class="to-panel to-matches-panel" aria-labelledby="to-matches-title" hidden><div class="to-section-head"><h2 id="to-matches-title">Tableros</h2><select id="to-round" aria-label="Ver ronda"></select></div><div id="to-matches" class="to-matches"><p class="muted">Los tableros aparecerán al comenzar la primera ronda.</p></div></section>
         </div>
         <aside class="to-sidebar">
           <section id="to-focus-info" class="to-panel to-focus-info" aria-label="Torneo en curso"><div><strong id="to-focus-title"></strong><span id="to-focus-format" class="muted"></span></div><div class="to-focus-clock"><span>Termina en</span><strong id="to-focus-clock"></strong></div><div id="to-focus-next" class="to-focus-next" hidden><span id="to-focus-status" role="status"></span><button id="to-focus-pause" class="btn-ghost" type="button" hidden>Pausa</button></div></section>
