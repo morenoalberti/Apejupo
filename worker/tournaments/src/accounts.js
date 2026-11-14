@@ -58,6 +58,12 @@ async function sendMail(env, to, subject, text) {
   });
   requireThat(res.ok, 'No se pudo enviar el correo. Inténtalo en unos minutos.', 503);
 }
+// Compara dos claves sin que el tiempo de respuesta delate cuántos caracteres coinciden.
+async function sameSecret(a, b) {
+  const [x, y] = [await sha256(a), await sha256(b)];
+  let diff = 0; for (let i = 0; i < x.length; i++) diff |= x.charCodeAt(i) ^ y.charCodeAt(i);
+  return diff === 0;
+}
 const json = (body, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' } });
 const publicUser = u => ({ id: u.id, nick: u.nick, email: u.email, verified: !!u.verified, createdAt: u.created_at, photo: u.photo_at || null });
 // Foto de perfil: la web la reduce a 192×192 en JPEG antes de subirla; aquí solo se aceptan JPEG pequeños.
@@ -73,6 +79,40 @@ export class AccountStore extends DurableObject {
       CREATE TABLE IF NOT EXISTS tokens (hash TEXT PRIMARY KEY, user_id TEXT NOT NULL, kind TEXT NOT NULL, expires_at INTEGER NOT NULL);
       CREATE TABLE IF NOT EXISTS attempts (key TEXT PRIMARY KEY, count INTEGER NOT NULL, until INTEGER NOT NULL);
       CREATE TABLE IF NOT EXISTS photos (user_id TEXT PRIMARY KEY, data BLOB NOT NULL, updated_at INTEGER NOT NULL);`);
+    // Última actividad (para la página de administración). Las bases anteriores no tenían la columna.
+    if (!this.sql.exec('PRAGMA table_info(users)').toArray().some(c => c.name === 'last_seen')) this.sql.exec('ALTER TABLE users ADD COLUMN last_seen INTEGER');
+  }
+  // Como mucho una escritura por hora y cuenta: basta para saber si alguien sigue usando la web.
+  seen(id, now) { this.sql.exec('UPDATE users SET last_seen = ? WHERE id = ? AND (last_seen IS NULL OR last_seen < ?)', now, id, now - 3600000); }
+  // Administración: lista de cuentas y acciones sobre ellas, con la clave CUENTAS_ADMIN (secreto del Worker).
+  async admin(action, b, ip, now) {
+    const secret = String(this.env.CUENTAS_ADMIN || '');
+    requireThat(secret.length >= 12, 'La administración de cuentas no está configurada en el servidor (falta el secreto CUENTAS_ADMIN).', 503);
+    const lock = 'admin:' + ip, max = this.env.CUENTAS_DESARROLLO === '1' ? 1000 : 10, tried = this.one('SELECT count, until FROM attempts WHERE key = ?', lock);
+    requireThat(!(tried && tried.until > now && tried.count >= max), 'Demasiados intentos. Espera unos minutos y vuelve a probar.', 429);
+    if (!(await sameSecret(String(b.key || ''), secret))) { this.limit(lock, 10, 900000, now); throw new GameError('La clave de administración no es correcta.', 401); }
+    if (action === 'lista') {
+      const users = this.sql.exec(`SELECT u.id, u.nick, u.email, u.verified, u.created_at, u.last_seen, p.updated_at AS photo_at,
+          (SELECT COUNT(*) FROM sessions s WHERE s.user_id = u.id AND s.expires_at > ?) AS sessions
+        FROM users u LEFT JOIN photos p ON p.user_id = u.id ORDER BY u.created_at DESC`, now).toArray();
+      return { now, users: users.map(u => ({ id: u.id, nick: u.nick, email: u.email, verified: !!u.verified, createdAt: u.created_at, lastSeen: u.last_seen || null, photo: u.photo_at || null, sessions: u.sessions })) };
+    }
+    requireThat(/^[a-f0-9]{24}$/.test(String(b.id || '')), 'Cuenta no válida.');
+    const user = this.one('SELECT * FROM users WHERE id = ?', b.id);
+    requireThat(user, 'Esa cuenta ya no existe.', 404);
+    switch (action) {
+      case 'confirmar': this.sql.exec('UPDATE users SET verified = 1 WHERE id = ?', user.id); return { ok: true };
+      case 'reenviar': {
+        requireThat(!user.verified, 'Esa cuenta ya está confirmada.', 409);
+        const link = await this.sendVerification(user, now);
+        return { ok: true, ...(this.env.CUENTAS_DESARROLLO === '1' ? { enlace: link } : {}) };
+      }
+      case 'borrar':
+        for (const table of ['sessions', 'tokens', 'photos']) this.sql.exec(`DELETE FROM ${table} WHERE user_id = ?`, user.id);
+        this.sql.exec('DELETE FROM users WHERE id = ?', user.id);
+        return { ok: true };
+      default: throw new GameError('No encontrado.', 404);
+    }
   }
   one(query, ...args) { return this.sql.exec(query, ...args).toArray()[0] || null; }
   // Freno a la fuerza bruta: como mucho «max» intentos por clave en la ventana indicada.
@@ -134,6 +174,8 @@ export class AccountStore extends DurableObject {
       }
       const b = request.method === 'POST' ? await request.json() : {};
       const ip = String(b.ip || 'local').slice(0, 64), dev = this.env.CUENTAS_DESARROLLO === '1';
+      const adminAction = /^\/admin\/(lista|confirmar|reenviar|borrar)$/.exec(url.pathname);
+      if (adminAction) return json(await this.admin(adminAction[1], b, ip, now));
       switch (url.pathname) {
         case '/registro': {
           const nick = cleanNick(b.nick), email = cleanEmail(b.email); checkPassword(b.password, nick);
@@ -141,7 +183,7 @@ export class AccountStore extends DurableObject {
           requireThat(!this.one('SELECT 1 AS x FROM users WHERE nick_key = ?', nickKey(nick)), 'Este nick ya está registrado.', 409);
           requireThat(!this.one('SELECT 1 AS x FROM users WHERE email = ?', email), 'Ya hay una cuenta con ese correo. Entra o recupera tu contraseña.', 409);
           const user = { id: randomToken(12), nick, email, created_at: now };
-          this.sql.exec('INSERT INTO users (id, nick, nick_key, email, pass, verified, created_at) VALUES (?, ?, ?, ?, ?, 0, ?)', user.id, nick, nickKey(nick), email, await hashPassword(b.password), now);
+          this.sql.exec('INSERT INTO users (id, nick, nick_key, email, pass, verified, created_at, last_seen) VALUES (?, ?, ?, ?, ?, 0, ?, ?)', user.id, nick, nickKey(nick), email, await hashPassword(b.password), now, now);
           const link = await this.sendVerification(user, now);
           // Como en Lichess, al crear la cuenta ya se entra; para jugar con ella hay que confirmar el correo.
           const session = await this.openSession(user, now);
@@ -154,7 +196,7 @@ export class AccountStore extends DurableObject {
           // Mismo mensaje si el usuario no existe o la contraseña falla: no se desvela qué cuentas hay.
           const good = user ? await verifyPassword(String(b.password || ''), user.pass) : (await hashPassword('x'), false);
           requireThat(good, 'Nick o contraseña incorrectos.', 401);
-          this.clearLimit('entrar:' + key);
+          this.clearLimit('entrar:' + key); this.seen(user.id, now);
           return json({ session: await this.openSession(user, now), user: publicUser(user) });
         }
         case '/reenviar': {
@@ -193,6 +235,7 @@ export class AccountStore extends DurableObject {
         case '/yo': {
           const user = await this.user(b.session, now);
           requireThat(user, 'Tu sesión ha caducado. Vuelve a entrar.', 401);
+          this.seen(user.id, now);
           return json({ user: publicUser(user) });
         }
         case '/foto-quitar': {

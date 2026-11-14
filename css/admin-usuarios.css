@@ -1,0 +1,52 @@
+/* Administración de cuentas (admin-usuarios.html) */
+.au-page { width: min(1120px, 100%); margin: 0 auto; padding: 36px 16px 64px; box-sizing: border-box; }
+.au-page [hidden] { display: none !important; }
+.au-login { width: min(440px, 100%); margin: 0 auto; box-sizing: border-box; }
+.au-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px 20px; margin-bottom: 18px; }
+.au-head h1 { margin: 0; font-size: 1.6rem; }
+.au-head p { margin: 2px 0 0; font-size: .88rem; }
+.au-page .btn-ghost { padding: 9px 14px; border: 1px solid var(--line); border-radius: 8px; background: transparent; color: var(--text); font: inherit; font-weight: 600; cursor: pointer; }
+.au-page .btn-ghost:hover { border-color: var(--blue); }
+
+.au-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin: 0 0 18px; }
+.au-stats div { padding: 14px 16px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); }
+.au-stats dt { color: var(--muted); font-size: .82rem; }
+.au-stats dd { margin: 2px 0 0; font-size: 1.6rem; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.2; }
+
+.au-tools { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; }
+.au-tools input, .au-tools select { padding: 9px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--card); color: var(--text); font: inherit; }
+.au-tools input { flex: 1 1 240px; min-width: 0; }
+.au-tools input:focus, .au-tools select:focus { outline: 2px solid var(--blue); outline-offset: 1px; }
+.au-page > section > .cu-msg { margin: 0 0 12px; }
+
+.au-table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; background: var(--card); }
+.au-table { width: 100%; border-collapse: collapse; font-size: .92rem; }
+.au-table th { padding: 10px 14px; text-align: left; color: var(--muted); font-size: .8rem; font-weight: 600; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.au-table td { padding: 10px 14px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+.au-table tr:last-child td { border-bottom: 0; }
+.au-table td.au-date { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.au-table td.au-date small { display: block; color: var(--muted); font-size: .78rem; }
+.au-user { display: flex; align-items: center; gap: 10px; font-weight: 600; white-space: nowrap; }
+.au-user .cu-avatar { width: 32px; height: 32px; flex: none; overflow: hidden; color: #0f1b2d; font-weight: 700; }
+.au-user .cu-avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
+.au-mail { white-space: nowrap; }
+.au-badge { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: .78rem; font-weight: 600; white-space: nowrap; }
+.au-badge.ok { background: #22a66a1f; color: #16a34a; border: 1px solid #22a66a55; }
+.au-badge.pend { background: #f973161a; color: #ea580c; border: 1px solid #f9731666; }
+.au-acts { display: flex; justify-content: flex-end; gap: 6px; white-space: nowrap; }
+.au-acts button { padding: 5px 10px; border: 1px solid var(--line); border-radius: 7px; background: transparent; color: var(--text); font: inherit; font-size: .82rem; cursor: pointer; }
+.au-acts button:hover { border-color: var(--blue); }
+.au-acts button.cu-danger:hover { border-color: #dc2626 !important; }
+.au-acts button:disabled { opacity: .5; cursor: default; }
+.au-empty { text-align: center; padding: 24px 0; }
+
+@media (prefers-color-scheme: dark) {
+  .au-badge.ok { color: #4ade80; }
+  .au-badge.pend { color: #fdba74; }
+}
+@media (max-width: 640px) {
+  .au-page { padding-top: 24px; }
+  .au-head h1 { font-size: 1.35rem; }
+  .au-stats { grid-template-columns: repeat(2, 1fr); }
+  .au-stats dd { font-size: 1.3rem; }
+}

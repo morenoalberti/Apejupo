@@ -6,6 +6,7 @@
     "dev": "wrangler dev --local --ip 127.0.0.1 --port 8789",
     "test": "node --test test/*.test.js",
     "test:integration": "node --test test/network.integration.js",
+    "test:admin": "node --test test/admin.integration.js",
     "test:browser": "node test/browser.e2e.js",
     "check": "wrangler deploy --dry-run --outdir .wrangler/check",
     "simular": "node scripts/simular.js"

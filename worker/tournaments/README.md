@@ -42,6 +42,14 @@ Con `TORNEOS_SIN_CLAVE="1"` en `.dev.vars`, el servidor local no pide la clave p
 
 No hay cuentas verificadas, clasificación Elo, premios, chat ni detección automática de trampas. No se garantiza una identidad por persona: borrar datos o cambiar de navegador crea otra identidad. El análisis con motor no está integrado en esta sección; las partidas terminadas se revisan en el tablero o se exportan.
 
+## Administración de usuarios
+
+`admin-usuarios.html` (sin enlace en el menú y fuera de los buscadores) lista las cuentas registradas: nick, correo, si está confirmada, fecha de alta, última actividad y sesiones abiertas, con totales, búsqueda, filtros y descarga en CSV. Desde ahí se puede confirmar una cuenta a mano, reenviar el correo de confirmación o borrar una cuenta.
+
+Todo pide la clave `CUENTAS_ADMIN` (secreto del Worker, mínimo 12 caracteres), que viaja en la cabecera `Authorization`. Diez claves erróneas en 15 minutos desde la misma IP bloquean el acceso un rato. Sin el secreto configurado, la página responde que la administración no está disponible. En local se lee de `.dev.vars`; al publicar: `npx wrangler secret put CUENTAS_ADMIN`, con una clave distinta de la local.
+
+La «última actividad» se apunta al crear la cuenta, al entrar y al abrir la web con la sesión iniciada (como mucho una vez por hora). Las cuentas creadas antes de este cambio aparecen sin actividad hasta que vuelvan a entrar. Prueba: `npm run test:admin`.
+
 ## Arquitectura y consumo
 
 - `TournamentDirectory`: registro de hasta 30 torneos creados en los últimos 30 días y limitación de intentos fallidos de organización (8 cada 15 minutos por huella IP).

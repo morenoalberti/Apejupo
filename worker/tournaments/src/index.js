@@ -316,6 +316,13 @@ export default {
         requireThat(bytes.byteLength <= 64 * 1024, 'La foto es demasiado grande.', 413);
         return withCors(await accounts.fetch('https://cuentas/foto-subir', { method: 'POST', headers: { 'X-Sesion': bearer(request) }, body: bytes }));
       }
+      // Administración de cuentas: la clave CUENTAS_ADMIN viaja en Authorization, nunca en la URL.
+      const admin = /^\/api\/cuentas\/admin\/(lista|confirmar|reenviar|borrar)$/.exec(path);
+      if (admin) {
+        requireThat(request.method === 'POST', 'Método no permitido.', 405);
+        const b = await body(request);
+        return withCors(await askAccounts('admin/' + admin[1], { id: b.id, key: bearer(request), ip: request.headers.get('CF-Connecting-IP') || 'local' }));
+      }
       const account = /^\/api\/cuentas\/(registro|entrar|reenviar|confirmar|recuperar|restablecer|yo|salir|borrar|foto-quitar)$/.exec(path);
       if (account) {
         requireThat(request.method === 'POST', 'Método no permitido.', 405);
