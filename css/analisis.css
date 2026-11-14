@@ -158,3 +158,6 @@
   .an-pal, .an-pal#an-pal-bottom { margin: 0; }
 }
 .an-pal button { touch-action: none; user-select: none; -webkit-user-select: none; }
+.an-editing .an-io { display: none; }
+#an-ed-msg:empty { display: none; }
+#an-ed-msg { margin: 0; padding: 8px 10px; border-radius: 6px; background: #ef44441f; color: #fca5a5; font-size: .86rem; line-height: 1.4; }

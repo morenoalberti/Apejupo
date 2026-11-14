@@ -11,7 +11,11 @@
   function fig(san) { return san.replace(/[KQRBN]/g, function (c) { return FIG[c]; }); }
   function fenAt(k) { return k === 0 ? rootFen : line[k - 1].fen; }
   function game() { return new Chess(fenAt(ply)); }
-  function msg(text, bad) { var m = $("an-msg"); m.textContent = text || ""; m.classList.toggle("bad", !!bad); }
+  // En el editor los avisos salen en su panel, junto a «Analizar esta posición»; fuera, bajo el PGN.
+  function msg(text, bad) {
+    var m = (typeof editing !== "undefined" && editing && $("an-ed-msg")) || $("an-msg");
+    m.textContent = text || ""; m.classList.toggle("bad", !!bad);
+  }
 
   // ---------- Tablero ----------
   function squares() {
@@ -361,6 +365,7 @@
       + '<button type="button" data-ed="link"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg>Copiar enlace</button>'
       + "</div>"
       + '<button type="button" class="an-ed-go" data-ed="ok">Analizar esta posición</button>'
+      + '<p id="an-ed-msg" class="an-msg" role="alert"></p>'
       + '<button type="button" class="an-btn" data-ed="cancel">Cancelar</button>';
     $("an-evalbig").textContent = ""; $("an-depth").textContent = "Editor de tablero";
     if (document.activeElement !== $("an-fen")) $("an-fen").value = editFen();
@@ -426,7 +431,10 @@
       if (Object.keys(editBoard).some(function (sq) { return editBoard[sq][1] === "P" && (sq[1] === "1" || sq[1] === "8"); })) { msg("No puede haber peones en la primera ni en la última fila.", true); return; }
       var fen = editFen(), other = new Chess();
       if (!other.load(fen.replace(" " + editTurn + " ", " " + (editTurn === "w" ? "b" : "w") + " "))) { msg("Esa posición no es válida.", true); return; }
-      if (other.in_check()) { msg("El bando que no juega no puede estar en jaque.", true); return; }
+      if (other.in_check()) {
+        var side = editTurn === "w" ? "negras" : "blancas", mover = editTurn === "w" ? "blancas" : "negras";
+        msg("Posición imposible: las " + side + " están en jaque y les toca jugar a las " + mover + ". Cambia el turno a las " + side + " o mueve las piezas.", true); return;
+      }
       stopEditor(fen);
     }
   });
