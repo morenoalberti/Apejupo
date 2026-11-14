@@ -7,7 +7,8 @@ const API = (window.APEJUPO_TORNEOS_API || '').replace(/\/$/, '');
 const roomId = new URL(location.href).searchParams.get('id');
 // «Ver tableros» se abre en otra pestaña: solo la cuadrícula en directo, entrando como espectador.
 const boardsMode = new URL(location.href).searchParams.get('vista') === 'tableros';
-let zoomed = null;
+// En la página de tableros, ?partida= abre esa partida ya ampliada.
+let zoomed = new URL(location.href).searchParams.get('partida');
 const statuses = { waiting: 'Inscripción abierta', playing: 'En juego', between: 'Entre rondas', finished: 'Finalizado', cancelled: 'Cancelado' };
 const pieceNames = { k: 'rey', q: 'dama', r: 'torre', b: 'alfil', n: 'caballo', p: 'peón' };
 const images = new Map();
@@ -637,16 +638,30 @@ $('to-standings').addEventListener('click', async event => {
   const id = event.target.closest('[data-remove]')?.dataset.remove;
   if (id && await confirmAction('Retirar inscripción', `¿Retirar a ${name(id)} de este torneo?`, 'Retirar')) send({ type: 'remove', playerId: id });
 });
-$('to-boards-open').addEventListener('click', () => {
-  const url = new URL(location.href); url.search = new URLSearchParams({ id: roomId, vista: 'tableros' });
-  window.open(url, 'apejupo-tableros-' + roomId);
-});
+// Los tableros se ven SIEMPRE en una página aparte: si ya está abierta, se trae al frente
+// (y se cambia a la partida pedida); si no, se abre una nueva.
+let boardsWindow = null;
+function openBoards(gameId = null) {
+  const url = new URL(location.href); url.search = new URLSearchParams({ id: roomId, vista: 'tableros', ...(gameId ? { partida: gameId } : {}) });
+  if (boardsWindow && !boardsWindow.closed) {
+    if (gameId) boardsWindow.location.href = url.href;
+    boardsWindow.focus(); return;
+  }
+  boardsWindow = window.open(url, '_blank');
+  // Nunca se cambia esta página: si el navegador bloquea la ventana, solo se avisa.
+  if (!boardsWindow) message('Tu navegador ha bloqueado la página de tableros. Permite las ventanas emergentes de esta web y vuelve a pulsar.', true);
+}
+$('to-boards-open').addEventListener('click', () => openBoards());
 $('to-boards-grid').addEventListener('click', event => {
   const id = event.target.closest('[data-watch]')?.dataset.watch; if (!id) return;
   zoomed = zoomed === id ? null : id; renderBoards();
   if (zoomed) requestAnimationFrame(() => $('to-boards-grid').querySelector('.zoom')?.scrollIntoView({ behavior: 'smooth', block: 'center' }));
 });
-$('to-matches').addEventListener('click', event => { const id = event.target.closest('[data-watch]')?.dataset.watch; if (id) watch(id); });
+// Un jugador inscrito no cambia su tablero por el de otros: la partida se abre en la página de tableros.
+$('to-matches').addEventListener('click', event => {
+  const id = event.target.closest('[data-watch]')?.dataset.watch; if (!id) return;
+  if (state?.standings.some(p => p.id === state.me)) openBoards(id); else watch(id);
+});
 $('to-round').addEventListener('change', () => { viewedRound = Number($('to-round').value); renderMatches(); });
 $('to-flip').addEventListener('click', () => { flipped = !flipped; manualFlip = true; boardKey = ''; renderGame(); updateClocks(); });
 $('to-board').addEventListener('click', event => {
@@ -762,7 +777,7 @@ $('to-events').addEventListener('click', async event => {
   } catch (error) { button.disabled = false; message(error.message, true); }
 });
 
-$('to-waiting-boards').addEventListener('click', () => $('to-boards-open').click());
+$('to-waiting-boards').addEventListener('click', () => openBoards());
 $('to-host-edit').addEventListener('click', async () => { try { await openEdit(roomId); } catch (error) { message(error.message, true); } });
 $('to-key-edit').addEventListener('click', () => { $('to-joinkey-input').value = state?.joinKey || ''; $('to-joinkey-remove').hidden = !state?.joinKey; $('to-joinkey-dialog').showModal(); $('to-joinkey-input').focus(); });
 $('to-joinkey-form').addEventListener('submit', event => {
