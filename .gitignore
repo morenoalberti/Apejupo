@@ -7,3 +7,6 @@ build/
 .wrangler/
 worker/node_modules/
 .dev.vars
+
+# Notas locales con claves: nunca al repositorio
+Claves*.txt
