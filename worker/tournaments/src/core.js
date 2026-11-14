@@ -62,6 +62,8 @@ export function editTournament(t, input, now = Date.now()) {
   requireThat(t.status === 'waiting', 'El torneo ya ha empezado: no se puede editar.', 409);
   const n = createTournament(input, t.id, t.hostHash, now);
   requireThat(n.capacity >= t.players.length, `Ya hay ${t.players.length} jugadores inscritos: el máximo no puede ser menor.`);
+  // Sin «joinKey» en la petición, la clave de inscripción se queda como estaba.
+  if (input.joinKey === undefined) n.joinKey = t.joinKey;
   for (const k of ['title', 'format', 'duration', 'minutes', 'increment', 'rounds', 'capacity', 'startsAt', 'joinKey']) t[k] = n[k];
 }
 

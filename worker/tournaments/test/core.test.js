@@ -366,6 +366,9 @@ test('editar antes de empezar: se valida como al crear y no después de empezar'
   editTournament(t, { title: 'Abierto editado', format: 'closed', minutes: 3, increment: 2, capacity: 10, joinKey: '' }, NOW);
   assert.equal(t.title, 'Abierto editado'); assert.equal(t.format, 'closed'); assert.equal(t.minutes, 3); assert.equal(t.joinKey, '');
   assert.equal(t.players.length, 3);
+  t.joinKey = 'otra';
+  editTournament(t, { title: 'Abierto editado', format: 'closed', minutes: 3, increment: 2, capacity: 10 }, NOW);
+  assert.equal(t.joinKey, 'otra');
   assert.throws(() => editTournament(t, { title: 'Abierto editado', format: 'swiss', rounds: 3, minutes: 3, increment: 2, capacity: 2 }, NOW), /3 jugadores/);
   assert.throws(() => editTournament(t, { title: 'x', format: 'swiss', rounds: 3, minutes: 3, increment: 2, capacity: 10 }, NOW), /nombre/);
   assert.equal(t.title, 'Abierto editado');
