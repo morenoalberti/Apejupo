@@ -3,11 +3,13 @@ import assert from 'node:assert/strict';
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { randomBytes } from 'node:crypto';
 import WebSocket from 'ws';
+import { organizerSession } from './organizador.js';
 
 const BASE = 'http://127.0.0.1:8789';
 const ORIGIN = 'http://127.0.0.1:8087';
-const key = (await readFile(new URL('../.dev.vars', import.meta.url), 'utf8')).match(/^TORNEOS_CLAVE\s*=\s*"?([^"\r\n]+)"?/m)?.[1];
-assert.ok(key, 'Configura una clave local en .dev.vars antes de ejecutar la prueba.');
+// Organizar pide una cuenta confirmada: «key» es la sesión de un organizador de prueba.
+const key = (await organizerSession()).session;
+assert.ok(key, 'No se pudo crear la cuenta de organizador de prueba.');
 const token = () => randomBytes(32).toString('hex');
 async function api(path, options = {}) {
   return fetch(BASE + '/api/tournaments' + path, { ...options, headers: { Origin: ORIGIN, 'Content-Type': 'application/json', ...options.headers } });

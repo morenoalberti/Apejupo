@@ -2,13 +2,15 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { randomBytes } from 'node:crypto';
+import { organizerSession } from './organizador.js';
 
 // Necesita el servidor local (npm run dev) con CUENTAS_DESARROLLO="1" en .dev.vars, que devuelve
 // en la respuesta el enlace que en producción viajaría por correo.
 const BASE = 'http://127.0.0.1:8789';
 const ORIGIN = 'http://127.0.0.1:8087';
 const vars = await readFile(new URL('../.dev.vars', import.meta.url), 'utf8');
-const key = vars.match(/^TORNEOS_CLAVE\s*=\s*"?([^"\r\n]+)"?/m)?.[1];
+// Organizar pide una cuenta confirmada: «key» es la sesión de un organizador de prueba.
+const key = (await organizerSession()).session;
 const token = () => randomBytes(32).toString('hex');
 const tail = randomBytes(3).toString('hex');
 async function call(path, data = {}, session = '') {

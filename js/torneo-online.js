@@ -50,7 +50,8 @@ function send(action) {
   if (!socket || socket.readyState !== WebSocket.OPEN || !connected) { message('Espera a recuperar la conexión antes de continuar.', true); return false; }
   socket.send(JSON.stringify(action)); return true;
 }
-function hello() { send(boardsMode ? { type: 'hello' } : { type: 'hello', token: read(playerKey()), hostToken: read(hostKey(roomId)) }); }
+// Con la sesión abierta, quien organizó el torneo recupera los controles también desde otro dispositivo.
+function hello() { send(boardsMode ? { type: 'hello' } : { type: 'hello', token: read(playerKey()), hostToken: read(hostKey(roomId)), ...(currentUser() ? { session: session() } : {}) }); }
 
 // En pruebas locales el servidor puede no pedir clave de organización: entonces se ocultan sus campos.
 function setKeyMode(required) {
@@ -132,6 +133,7 @@ function connect() {
     lastReceived = Date.now();
     if (event.data === 'pong') return;
     let next; try { next = JSON.parse(event.data); } catch { return; }
+    if (next.type === 'host-token') { try { write(hostKey(roomId), next.token); } catch {} return; }
     if (next.type === 'error') { pending = false; optimistic = null; boardKey = ''; message(next.message, true); if (state) renderGame(); return; }
     if (next.type === 'move') { if (state) applyMove(next); return; }
     if (next.type !== 'state') return;
@@ -706,6 +708,10 @@ function setCreateMode(id) {
   $('to-create-error').hidden = true; $('to-start-day').min = localDay(new Date());
 }
 $('to-create-open').addEventListener('click', () => {
+  // Como en Lichess: organiza cualquiera con su cuenta (y el correo confirmado).
+  const user = currentUser();
+  if (!user) { message('Entra con tu cuenta para organizar un torneo.'); openAuth('entrar'); return; }
+  if (!user.verified) { message('Confirma tu correo para organizar torneos: abre el enlace que te enviamos. Si no te llegó, pídelo de nuevo desde el menú de tu cuenta.', true); return; }
   $('to-create-form').reset(); setCreateMode(null); syncFormat();
   $('to-create-dialog').showModal();
   // Al crear, la clave empieza en blanco aunque el navegador intente autorrellenarla.
@@ -743,7 +749,7 @@ $('to-create-form').addEventListener('submit', async event => {
       await request(`/api/tournaments/${editingId}/edit`, { method: 'POST', body: JSON.stringify({ ...fields, hostToken: read(hostKey(editingId)) }) });
       $('to-create-dialog').close(); message('Cambios guardados.'); if (!roomId) await loadLobby(); return;
     }
-    const res = await (await request('/api/tournaments', { method: 'POST', key: data.get('key'), body: JSON.stringify({ title: data.get('title'), format: data.get('format'), minutes: Number(data.get('minutes')), increment: Number(data.get('increment')), rounds: data.get('format') === 'swiss' ? Number(data.get('rounds')) : null, duration: isArena ? Number(data.get('duration')) : null, capacity: Number(data.get('capacity')), startsAt, joinKey: data.get('joinKey') || '', hostToken }) })).json();
+    const res = await (await request('/api/tournaments', { method: 'POST', key: session(), body: JSON.stringify({ title: data.get('title'), format: data.get('format'), minutes: Number(data.get('minutes')), increment: Number(data.get('increment')), rounds: data.get('format') === 'swiss' ? Number(data.get('rounds')) : null, duration: isArena ? Number(data.get('duration')) : null, capacity: Number(data.get('capacity')), startsAt, joinKey: data.get('joinKey') || '', hostToken }) })).json();
     write(hostKey(res.id), hostToken); $('to-key').value = ''; location.href = 'jugar-torneo.html?id=' + res.id;
   } catch (e) { $('to-create-error').hidden = false; $('to-create-error').textContent = e.message; }
   finally { button.disabled = false; }

@@ -2,9 +2,11 @@ import { chromium } from 'playwright-core';
 import assert from 'node:assert/strict';
 import { readFile, mkdir, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
+import { organizerSession } from './organizador.js';
 
 const WEB = 'http://127.0.0.1:8087', API = 'http://127.0.0.1:8789/api/tournaments';
-const key = (await readFile(new URL('../.dev.vars', import.meta.url), 'utf8')).match(/^TORNEOS_CLAVE\s*=\s*"?([^"\r\n]+)"?/m)?.[1];
+// Organizar pide una cuenta confirmada: el organizador de la prueba entra con una cuenta nueva.
+const organizer = await organizerSession('http://127.0.0.1:8789', WEB);
 const browser = await chromium.launch({ channel: 'msedge', headless: true });
 const contexts = [], errors = [];
 const output = new URL('../../../build/torneo-qa/', import.meta.url); await mkdir(output, { recursive: true });
@@ -14,7 +16,7 @@ async function page() {
 }
 async function waitText(p, selector, text) { await p.waitForFunction(({ selector, text }) => document.querySelector(selector)?.textContent.includes(text), { selector, text }, { timeout: 45000 }); }
 async function join(p, url, name) {
-  await p.goto(url); await p.locator('#to-name').fill(name); await p.getByRole('button', { name: 'Inscribirme', exact: true }).click(); await p.locator('#to-membership').waitFor({ state: 'visible' });
+  await p.goto(url); await p.locator('#to-name').fill(name); await p.getByRole('button', { name: /^Unirse/ }).click(); await p.locator('#to-membership').waitFor({ state: 'visible' });
 }
 async function move(p, from, to) {
   await waitText(p, '#to-game-status', 'Tu turno');
@@ -32,12 +34,17 @@ async function checkLayout(p, width, theme) {
 try {
   const host = await page();
   await host.goto(WEB + '/jugar-torneo.html');
+  await host.evaluate(({ session, user }) => { localStorage.setItem('apejupoSesion', session); localStorage.setItem('apejupoCuenta', JSON.stringify(user)); }, organizer);
+  await host.reload();
   await host.getByRole('button', { name: 'Organizar torneo', exact: true }).click();
   await host.locator('#to-event-name').fill('Abierto Apejupo · prueba completa');
-  await host.locator('#to-capacity').fill('4'); await host.locator('#to-rounds').fill('2'); await host.locator('#to-key').fill(key);
+  await host.locator('#to-format').selectOption('swiss'); await host.locator('#to-capacity').fill('4'); await host.locator('#to-rounds').fill('2');
   await host.locator('#to-create-form [type=submit]').click(); await host.waitForURL(/\?id=/); const url = host.url(), id = new URL(url).searchParams.get('id');
   await host.locator('#to-host').waitFor({ state: 'visible' });
-  await host.locator('#to-name').fill('Ana García'); await host.getByRole('button', { name: 'Inscribirme', exact: true }).click(); await host.locator('#to-membership').waitFor({ state: 'visible' });
+  // El resto de la prueba juega con alias: el organizador sale de su cuenta y conserva los controles en este navegador.
+  await host.evaluate(() => { localStorage.removeItem('apejupoSesion'); localStorage.removeItem('apejupoCuenta'); }); await host.reload();
+  await host.locator('#to-host').waitFor({ state: 'visible' });
+  await host.locator('#to-name').fill('Ana García'); await host.getByRole('button', { name: /^Unirse/ }).click(); await host.locator('#to-membership').waitFor({ state: 'visible' });
   const names = ['Ana García', 'Ben López', 'Carla Ruiz', 'Diego Martín'];
   const players = [host, await page(), await page(), await page()];
   for (let i = 1; i < players.length; i++) await join(players[i], url, names[i]);

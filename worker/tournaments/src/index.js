@@ -62,18 +62,22 @@ export class TournamentDirectory extends DurableObject {
               return r.ok ? await r.json() : null;
             } catch { return null; }
           }));
-          return json({ tournaments: results.filter(Boolean).sort((a, b) => b.createdAt - a.createdAt), keyRequired: keyRequired(this.env) });
+          return json({ tournaments: results.filter(Boolean).sort((a, b) => b.createdAt - a.createdAt), keyRequired: false, accountRequired: true });
         }
         if (request.method === 'POST') {
           const b = await body(request);
-          // En pruebas locales se puede subir con TORNEOS_MAX_MES en .dev.vars; publicado son 30.
-          requireThat(events.length < (Number(this.env.TORNEOS_MAX_MES) || 30), 'Se ha alcanzado el límite de torneos de este mes. Contacta con la organización.', 429);
+          // Como en Lichess, cualquier cuenta confirmada organiza; con un tope por cuenta y otro general.
+          const host = b.hostAccount;
+          requireThat(host && /^[a-f0-9]{24}$/.test(host.id), 'Entra con tu cuenta para organizar un torneo.', 401);
+          requireThat(events.filter(e => e.host === host.id && now - e.createdAt < 86400000).length < 5, 'Has creado 5 torneos en las últimas 24 horas. Espera un poco para crear otro.', 429);
+          requireThat(events.length < (Number(this.env.TORNEOS_MAX_MES) || 200), 'Se ha alcanzado el límite de torneos de este mes. Contacta con la organización.', 429);
           requireThat(TOKEN.test(b.hostToken), 'Identificación del organizador no válida.');
           const id = randomHex(), hostHash = await hash(b.hostToken);
           const t = createTournament(b, id, hostHash, now);
+          t.hostAccountId = host.id; t.hostNick = host.nick;
           const res = await this.env.TOURNAMENTS.getByName(id).fetch('https://room/init', { method: 'POST', body: JSON.stringify(t) });
           requireThat(res.ok, 'No se pudo crear el torneo.', 503);
-          events.push({ id, createdAt: now });
+          events.push({ id, createdAt: now, host: host.id });
           await this.ctx.storage.put('events', events);
           return json({ id }, 201);
         }
@@ -127,8 +131,10 @@ export class TournamentRoom extends DurableObject {
       throw error;
     }
   }
+  // Organizador: el navegador que creó el torneo o, con su cuenta, cualquier otro dispositivo (ver «hello»).
+  isHost(h) { return !!h && (h === this.t.hostHash || (this.t.hostHashes || []).includes(h)); }
   capabilities(playerHash, hostHash) {
-    return { playerId: this.t.players.find(p => p.hash === playerHash)?.id || null, host: !!hostHash && hostHash === this.t.hostHash };
+    return { playerId: this.t.players.find(p => p.hash === playerHash)?.id || null, host: this.isHost(hostHash) };
   }
   send(ws) {
     const a = ws.deserializeAttachment() || {};
@@ -149,7 +155,7 @@ export class TournamentRoom extends DurableObject {
     for (const ws of this.ctx.getWebSockets()) {
       try {
         const a = ws.deserializeAttachment() || {};
-        const host = !!a.hostHash && a.hostHash === this.t.hostHash, playerId = players.get(a.playerHash) || null;
+        const host = this.isHost(a.hostHash), playerId = players.get(a.playerHash) || null;
         const key = `${playerId}|${host}|${a.game}`;
         let personal = details.get(key);
         if (!personal) { personal = JSON.stringify(personalPart(this.t, playerId, host, a.game)).slice(1); details.set(key, personal); }
@@ -214,19 +220,15 @@ export class TournamentRoom extends DurableObject {
         }
         if (request.method === 'GET') return json(snapshot(this.t, null, false, url.searchParams.get('game')));
         const b = await body(request);
-        if (url.pathname === '/recover') {
-          requireThat(TOKEN.test(b.hostToken), 'Identificación no válida.');
-          this.t.hostHash = await hash(b.hostToken); await this.save(); this.broadcast(); return json({ ok: true });
-        }
         if (url.pathname === '/config' || url.pathname === '/edit') {
           // Solo el organizador: /config devuelve los datos para rellenar el formulario; /edit los cambia.
-          requireThat(TOKEN.test(b.hostToken) && (await hash(b.hostToken)) === this.t.hostHash, 'Solo el organizador puede editar el torneo.', 403);
+          requireThat(TOKEN.test(b.hostToken) && this.isHost(await hash(b.hostToken)), 'Solo el organizador puede editar el torneo.', 403);
           if (url.pathname === '/edit') { editTournament(this.t, b, Date.now()); await this.save(); this.broadcast(); }
           return json({ ...summary(this.t), joinKey: this.t.joinKey || '' });
         }
         if (url.pathname === '/delete') {
           // Solo el organizador. Se avisa a quien tenga la sala abierta y desaparece de la lista.
-          requireThat(TOKEN.test(b.hostToken) && (await hash(b.hostToken)) === this.t.hostHash, 'Solo el organizador puede borrar el torneo.', 403);
+          requireThat(TOKEN.test(b.hostToken) && this.isHost(await hash(b.hostToken)), 'Solo el organizador puede borrar el torneo.', 403);
           for (const ws of this.ctx.getWebSockets()) { try { ws.close(1000, 'El organizador ha borrado el torneo.'); } catch {} }
           await this.ctx.storage.deleteAll(); this.t = null;
           return json({ ok: true });
@@ -263,6 +265,16 @@ export class TournamentRoom extends DurableObject {
         if (b.type === 'hello') {
           a.playerHash = TOKEN.test(b.token) ? await hash(b.token) : null;
           a.hostHash = TOKEN.test(b.hostToken) ? await hash(b.hostToken) : null;
+          // El organizador que abre su torneo desde otro dispositivo con su cuenta recibe una credencial propia.
+          if (!this.isHost(a.hostHash) && this.t.hostAccountId && /^[a-f0-9]{64}$/.test(String(b.session || ''))) {
+            const { user } = await (await this.env.ACCOUNTS.getByName('cuentas').fetch('https://cuentas/sesion', { method: 'POST', body: JSON.stringify({ session: b.session }) })).json();
+            if (user?.id === this.t.hostAccountId) {
+              const fresh = randomHex(32);
+              this.t.hostHashes = [...(this.t.hostHashes || []).slice(-9), await hash(fresh)];
+              a.hostHash = await hash(fresh); await this.save();
+              ws.send(JSON.stringify({ type: 'host-token', token: fresh }));
+            }
+          }
           ws.serializeAttachment(a);
           // Reto: la partida empieza en cuanto los dos jugadores tienen el tablero abierto.
           if (this.t.challenge && this.t.status === 'waiting' && this.online(now).size === 2) { startTournament(this.t, now); await this.save(); this.broadcast(); }
@@ -350,18 +362,19 @@ export default {
         // La sesión viaja en la cabecera Authorization; la IP solo sirve para frenar intentos repetidos.
         return withCors(await askAccounts(account[1], { ...b, session: bearer(request), ip: request.headers.get('CF-Connecting-IP') || 'local' }));
       }
-      const room = /^\/api\/tournaments\/([a-f0-9]{24})(?:\/(join|socket|pgn|recover|delete|config|edit))?$/.exec(path);
+      const room = /^\/api\/tournaments\/([a-f0-9]{24})(?:\/(join|socket|pgn|delete|config|edit))?$/.exec(path);
       if (path === '/api/tournaments' && request.method === 'GET') return withCors(await directory.fetch('https://directory/'));
-      if ((path === '/api/tournaments' && request.method === 'POST') || (room?.[2] === 'recover' && request.method === 'POST')) {
-        const authorization = await directory.fetch('https://directory/authorize', { method: 'POST', body: JSON.stringify({ key: bearer(request), ip: request.headers.get('CF-Connecting-IP') || 'local' }) });
-        if (!authorization.ok) return withCors(authorization);
+      if (path === '/api/tournaments' && request.method === 'POST') {
+        // Organizar pide la sesión de una cuenta con el correo confirmado (va en Authorization).
+        const { user, unverified } = await (await askAccounts('sesion', { session: bearer(request) })).json();
+        requireThat(!unverified, 'Confirma tu correo para organizar torneos: abre el enlace que te enviamos.', 403);
+        requireThat(user, 'Entra con tu cuenta para organizar un torneo.', 401);
         const b = await body(request);
-        if (!room) return withCors(await directory.fetch('https://directory/', { method: 'POST', body: JSON.stringify(b) }));
-        return withCors(await env.TOURNAMENTS.getByName(room[1]).fetch('https://room/recover', { method: 'POST', body: JSON.stringify(b) }));
+        return withCors(await directory.fetch('https://directory/', { method: 'POST', body: JSON.stringify({ ...b, hostAccount: { id: user.id, nick: user.nick } }) }));
       }
       requireThat(room && ROOM_ID.test(room[1]), 'No encontrado.', 404);
       const suffix = room[2] || '';
-      requireThat(!['join', 'recover', 'delete', 'config', 'edit'].includes(suffix) || request.method === 'POST', 'Método no permitido.', 405);
+      requireThat(!['join', 'delete', 'config', 'edit'].includes(suffix) || request.method === 'POST', 'Método no permitido.', 405);
       requireThat(!['socket', 'pgn', ''].includes(suffix) || request.method === 'GET', 'Método no permitido.', 405);
       if (suffix === 'socket') requireThat(origin && allowed.includes(origin), 'Conexión no autorizada.', 403);
       if (suffix === 'join') {
