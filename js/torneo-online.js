@@ -243,10 +243,10 @@ function renderDuel(t) {
   if (!t.challenge || !t.duel) return;
   // Tú a la izquierda si juegas; si miras como espectador, por orden de la sala.
   const players = [...t.standings].sort((a, b) => (b.id === t.me) - (a.id === t.me));
-  const [p, q] = players, wp = t.duel.wins[p?.id] || 0, wq = t.duel.wins[q?.id] || 0, d = t.duel.draws || 0, n = wp + wq + d;
+  const [p, q] = players, wp = t.duel.wins[p?.id] || 0, wq = t.duel.wins[q?.id] || 0, d = t.duel.draws || 0;
   const pts = x => String(x).replace('.5', '½').replace(/^0½$/, '½');
-  $('to-duel-body').innerHTML = !p || !q ? '' : `<div class="to-duel-score"><div class="${p.id === t.me ? 'me' : ''}"><strong>${esc(p.name)}</strong><b>${pts(wp + d / 2)}</b></div><span aria-hidden="true">–</span><div class="${q.id === t.me ? 'me' : ''}"><strong>${esc(q.name)}</strong><b>${pts(wq + d / 2)}</b></div></div>
-    ${n ? `<p class="muted to-duel-detail">${n} ${n === 1 ? 'partida' : 'partidas'} · ${wp} ${wp === 1 ? 'victoria' : 'victorias'} de ${esc(p.name)} · ${wq} de ${esc(q.name)} · ${d} tablas</p>` : ''}`;
+  const row = (x, w) => `<li class="${x.id === t.me ? 'me' : ''}"><strong>${esc(x.name)}</strong><b>${pts(w + d / 2)}</b></li>`;
+  $('to-duel-body').innerHTML = !p || !q ? '' : `<ul class="to-duel-score">${row(p, wp)}${row(q, wq)}</ul>`;
 }
 function renderPodium() {
   const t = state, show = !t.challenge && t.status === 'finished' && t.standings.length >= 2;
