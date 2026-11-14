@@ -18,8 +18,19 @@
   var playersIcon = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="7" r="3"/><path d="M3 21v-2a6 6 0 0 1 12 0v2M16 4a3 3 0 0 1 0 6M21 21v-2a6 6 0 0 0-4-5.65"/></svg>';
   var rulesIcon = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M8 13h8M8 17h6"/></svg>';
   function hasOwnRules(t) { return t.rules_url || t.rules_text || t.rules_document || (t.rules_blocks || []).length || (t.rules_links || []).length || (t.rules_images || []).length; }
+  // Plazas máximas: dato propio si lo hay; si no, se busca en las bases («aforo limitado a 130 jugadores»,
+  // «máximo de 128 participantes»…). Si no aparece, solo se muestra el número de inscritos.
+  function localCapacity(t) {
+    if (Number(t.capacity) > 0) return Number(t.capacity);
+    var text = t.rules_text || "";
+    var m = text.match(/(?:aforo|m[aá]ximo|limitad[oa]|plazas?)[^.\n]{0,40}?(\d{2,4})\s*(?:jugador(?:es|as)?|participantes|plazas|deportistas|inscrit[oa]s)/i);
+    return m ? Number(m[1]) : null;
+  }
   function localActions(t) {
-    var html = '<button type="button" class="btn-ghost local-players-button" data-players="' + esc(localId(t)) + '">' + playersIcon + 'Inscritos</button>';
+    var count = Array.isArray(t.players) ? t.players.length : null, cap = localCapacity(t);
+    var label = count === null ? '' : ' <b class="local-count">' + count + (cap && cap >= count ? '/' + cap : '') + '</b>';
+    var title = count === null ? '' : ' title="' + count + (count === 1 ? ' inscrito' : ' inscritos') + (cap && cap >= count ? ' de ' + cap + ' plazas' : '') + '"';
+    var html = '<button type="button" class="btn-ghost local-players-button" data-players="' + esc(localId(t)) + '"' + title + '>' + playersIcon + 'Inscritos' + label + '</button>';
     if (hasOwnRules(t) || (t.rules_related || []).length) html += '<button type="button" class="btn-ghost local-rules-button" data-rules="' + esc(localId(t)) + '">' + rulesIcon + 'Bases</button>';
     return '<div class="local-actions">' + html + '</div>';
   }

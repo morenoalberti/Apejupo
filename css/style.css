@@ -1421,3 +1421,4 @@ body.card-dragging .tour-tip { display: none !important; }
 @keyframes fgaparece { from { opacity: 0; } }
 @keyframes fgbrillo { to { background-position: -200% 0; } }
 @media (prefers-reduced-motion: reduce) { .fg-cel, .fg-up, .fg-visor[open], .fg-grid[aria-busy="true"] { animation: none; } }
+.local-actions .local-count { margin-left: 2px; padding: 1px 7px; border-radius: 999px; background: #81e6d924; font-weight: 700; font-variant-numeric: tabular-nums; }
