@@ -54,7 +54,13 @@
         <form id="to-join-form" class="to-join-form"><div id="to-joinkey-row" hidden><label for="to-joinkey"><svg class="to-lock" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>Clave del torneo</label><input id="to-joinkey" name="joinKey" maxlength="20" autocomplete="off" placeholder="Te la da el organizador"></div><div id="to-name-row"><label for="to-name">Tu nombre o alias</label><input id="to-name" name="name" minlength="2" maxlength="28" required autocomplete="nickname" placeholder="Tu nombre"></div><button class="btn to-join-btn" type="submit"><svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M7 4.5v15a1 1 0 0 0 1.5.86l12.5-7.5a1 1 0 0 0 0-1.72L8.5 3.64A1 1 0 0 0 7 4.5z"/></svg><span id="to-join-label">Unirse</span></button><button id="to-change-name" class="to-link" type="button" hidden>Cambiar nombre</button><button id="to-join-account" class="to-link" type="button">¿Tienes cuenta? Entra para jugar con tu nick</button><p class="to-small muted">Tu nombre o alias y tus partidas serán públicos durante un máximo de 30 días tras el torneo. <a href="privacidad.html">Privacidad</a></p></form>
       </div>
       <div id="to-membership" class="to-membership" hidden><span id="to-membership-text"></span><button id="to-pause" class="btn-ghost" type="button" hidden>Pausa</button><button id="to-withdraw" class="btn-ghost" type="button">Retirarme</button></div>
-      <div id="to-host" class="to-host" hidden><span>Organización del torneo</span><span id="to-host-key" class="to-host-key"></span><div class="to-actions"><button id="to-key-edit" class="btn-ghost" type="button">Poner clave</button><button id="to-start" class="btn" type="button">Empezar torneo</button><button id="to-cancel" class="btn-ghost" type="button">Cancelar torneo</button></div></div>
+      <div id="to-host" class="to-host" hidden><span>Organización del torneo</span><span id="to-host-key" class="to-host-key"></span><div class="to-actions"><button id="to-host-edit" class="btn-ghost" type="button">Editar</button><button id="to-key-edit" class="btn-ghost" type="button">Poner clave</button><button id="to-start" class="btn" type="button">Empezar torneo</button><button id="to-cancel" class="btn-ghost" type="button">Cancelar torneo</button></div></div>
+      <div id="to-wait" class="to-wait" hidden>
+        <div id="to-wait-side" class="to-wait-side"></div>
+        <div id="to-wait-main" class="to-wait-main">
+          <div class="to-wait-start" role="timer" aria-live="off"><span id="to-wait-label">El torneo empieza en</span><strong id="to-wait-clock"></strong><small id="to-wait-date" class="muted"></small></div>
+        </div>
+      </div>
       <div class="to-room-layout">
         <div class="to-play-column">
           <section id="to-game-panel" class="to-game-panel" aria-labelledby="to-board-title" hidden>

@@ -170,7 +170,9 @@ function render() {
   const t = state;
   $('to-title').textContent = t.title; document.title = t.title + ' · Torneo Apejupo';
   $('to-subtitle').textContent = canJoin(t) && arena(t) && t.status === 'playing' && !t.standings.some(p => p.id === t.me) ? 'El arena está en marcha: únete y empieza a jugar ya.' : t.status === 'waiting' ? 'Las inscripciones están abiertas. Reserva tu sitio en el tablero.' : 'Sigue tus partidas, los tableros y la clasificación en directo.';
-  $('to-summary').innerHTML = `<span class="to-status ${t.status}">${esc(statuses[t.status])}</span><span>${t.minutes} + ${t.increment}</span><span>${formatLabel(t)}</span><span>${arena(t) ? 'Emparejamiento continuo' : closed(t) ? 'Todos contra todos' : 'Suizo de club'}</span>`;
+  $('to-summary').innerHTML = `<span class="to-status ${t.status}">${esc(statuses[t.status])}</span><span>${icons.clock}${t.minutes} + ${t.increment}</span><span>${icons.format}${formatLabel(t)}</span><span>${arena(t) ? 'Emparejamiento continuo' : closed(t) ? 'Todos contra todos' : 'Suizo de club'}</span>`
+    + (t.status === 'waiting' ? `<span>${icons.people}Hasta ${t.capacity} jugadores</span><span>${icons.calendar}${t.startsAt ? esc(date(t.startsAt)) : 'Inicio a cargo del organizador'}</span>${t.locked ? `<span>${icons.lock}Con clave</span>` : ''}` : '');
+  placeWaiting(t.status === 'waiting');
   $('to-notice').hidden = !t.notice; $('to-notice').textContent = t.notice;
   const mine = t.standings.find(p => p.id === t.me), registering = t.status === 'waiting';
   $('to-registration').hidden = !canJoin(t) || !!mine || t.count >= t.capacity;
@@ -207,6 +209,20 @@ function render() {
   $('to-focus-title').textContent = t.title;
   $('to-focus-format').textContent = `${t.minutes} + ${t.increment} · ${formatLabel(t)}`;
   renderPodium(); renderMatches(); renderGame(); renderControls(); renderBoards(); updateClocks();
+}
+// Sala de espera (estilo Lichess): inscritos a la izquierda; en el centro la cuenta atrás,
+// el botón de unirse y la organización. Se mueven los bloques existentes, sin duplicarlos,
+// y vuelven a su sitio cuando empieza el torneo.
+const waitBlocks = () => [[$('to-standings-title').closest('section'), 'to-wait-side'], ...['to-registration', 'to-membership', 'to-host'].map(id => [$(id), 'to-wait-main'])];
+const waitHomes = new Map();
+function placeWaiting(waiting) {
+  $('to-wait').hidden = !waiting; $('to-room').classList.toggle('to-waiting', waiting);
+  for (const [el, target] of waitBlocks()) {
+    if (waiting && el.parentElement.id !== target) {
+      if (!waitHomes.has(el)) { const mark = document.createComment('sitio'); el.before(mark); waitHomes.set(el, mark); }
+      $(target).append(el);
+    } else if (!waiting && waitHomes.has(el)) waitHomes.get(el).after(el);
+  }
 }
 function canJoin(t) { return t.status === 'waiting' || (arena(t) && t.status === 'playing' && Date.now() + offset < t.endsAt); }
 // Hoja de resultados, como en Lichess: una cifra por partida; resaltadas las ganadas con Berserk.
@@ -297,6 +313,7 @@ function renderControls() {
   if (!state) return;
   const t = state, mine = t.standings.find(p => p.id === t.me), ended = ['finished', 'cancelled'].includes(t.status);
   $('to-host').hidden = !t.host || ended;
+  $('to-host-edit').hidden = t.status !== 'waiting';
   $('to-start').hidden = t.status !== 'waiting'; $('to-start').disabled = !connected || t.count < 2;
   $('to-cancel').disabled = !connected;
   $('to-host-key').innerHTML = t.joinKey ? `<svg class="to-lock" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>Clave: <strong>${esc(t.joinKey)}</strong>` : 'Sin clave: cualquiera con el enlace puede inscribirse';
@@ -451,7 +468,8 @@ function updateClocks() {
   if (!state) return;
   const now = Date.now() + offset, t = state;
   const me = t.standings.find(p => p.id === t.me);
-  $('to-phase').textContent = t.status === 'waiting' ? t.startsAt ? `Empieza el ${date(t.startsAt)}` : 'Esperando al organizador'
+  // En la sala de espera la cuenta atrás grande ya dice cuándo empieza.
+  $('to-phase').textContent = t.status === 'waiting' ? ''
     : arena(t) && t.status === 'playing' ? (now >= t.endsAt ? 'Tiempo cumplido: las partidas en juego se terminan, pero ya no cuentan' : t.pairingsCloseAt && now >= t.pairingsCloseAt ? (me?.active && !me.playing ? 'Ya no hay emparejamientos nuevos' : '') : me?.active && !me.playing && !me.paused ? 'Buscando rival…' : '')
     : t.status === 'between' ? `Siguiente ronda en ${Math.max(0, Math.ceil((t.nextRoundAt - now) / 1000))} s` : t.status === 'playing' ? `Ronda ${t.round} de ${t.rounds}` : t.status === 'finished' ? 'Clasificación final' : 'Torneo cancelado';
   // Cuenta atrás grande del arena, como en Lichess.
@@ -464,6 +482,14 @@ function updateClocks() {
     $('to-focus-clock').textContent = $('to-countdown').querySelector('strong').textContent;
   }
   $('to-focus-info').querySelector('.to-focus-clock').hidden = !counting;
+  if (t.status === 'waiting') {
+    const left = t.startsAt ? Math.max(0, t.startsAt - now) : null, s = left === null ? 0 : Math.ceil(left / 1000);
+    const d = Math.floor(s / 86400), hms = `${String(Math.floor(s % 86400 / 3600)).padStart(2, '0')}:${String(Math.floor(s % 3600 / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+    $('to-wait-label').textContent = t.startsAt ? 'El torneo empieza en' : 'El torneo empezará';
+    $('to-wait-clock').textContent = t.startsAt ? (d ? `${d} d ${hms}` : hms) : 'cuando lo decida el organizador';
+    $('to-wait-clock').classList.toggle('to-wait-manual', !t.startsAt);
+    $('to-wait-date').textContent = t.startsAt ? date(t.startsAt) : `${t.count} de ${t.capacity} plazas ocupadas`;
+  }
   if (!$('to-registration').hidden && !canJoin(t)) render();
   if (!$('to-focus-next').hidden) $('to-focus-status').textContent = me?.paused ? 'En pausa: no se te empareja' : $('to-phase').textContent || 'Partida terminada';
   const g = t.game; if (!g) return;
@@ -530,7 +556,12 @@ async function openEdit(id) {
   if (c.format === 'arena') $('to-duration').value = c.duration;
   // Se muestra la clave actual para poder cambiarla; si se borra, el torneo queda sin clave.
   $('to-capacity').value = c.capacity; $('to-join-key-new').value = c.joinKey || '';
-  if (c.startsAt) { const d = new Date(c.startsAt); $('to-start-day').value = localDay(d); $('to-start-time').value = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; }
+  if (c.startsAt) {
+    const d = new Date(c.startsAt), hhmm = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`, list = $('to-start-time');
+    // Si la hora guardada no está en la lista (cada 15 minutos), se añade para no perderla.
+    if (![...list.options].some(o => o.value === hhmm)) list.add(new Option(hhmm, hhmm));
+    $('to-start-day').value = localDay(d); list.value = hhmm;
+  }
   syncFormat(); $('to-create-dialog').showModal();
 }
 document.querySelectorAll('[data-close]').forEach(b => b.addEventListener('click', () => $(b.dataset.close).close()));
@@ -547,7 +578,7 @@ $('to-create-form').addEventListener('submit', async event => {
     if (editingId) {
       const fields = { title: data.get('title'), format: data.get('format'), minutes: Number(data.get('minutes')), increment: Number(data.get('increment')), rounds: data.get('format') === 'swiss' ? Number(data.get('rounds')) : null, duration: isArena ? Number(data.get('duration')) : null, capacity: Number(data.get('capacity')), startsAt, joinKey: data.get('joinKey') || '' };
       await request(`/api/tournaments/${editingId}/edit`, { method: 'POST', body: JSON.stringify({ ...fields, hostToken: read(hostKey(editingId)) }) });
-      $('to-create-dialog').close(); message('Cambios guardados.'); await loadLobby(); return;
+      $('to-create-dialog').close(); message('Cambios guardados.'); if (!roomId) await loadLobby(); return;
     }
     const res = await (await request('/api/tournaments', { method: 'POST', key: data.get('key'), body: JSON.stringify({ title: data.get('title'), format: data.get('format'), minutes: Number(data.get('minutes')), increment: Number(data.get('increment')), rounds: data.get('format') === 'swiss' ? Number(data.get('rounds')) : null, duration: isArena ? Number(data.get('duration')) : null, capacity: Number(data.get('capacity')), startsAt, joinKey: data.get('joinKey') || '', hostToken }) })).json();
     write(hostKey(res.id), hostToken); $('to-key').value = ''; location.href = 'jugar-torneo.html?id=' + res.id;
@@ -716,6 +747,7 @@ $('to-events').addEventListener('click', async event => {
   } catch (error) { button.disabled = false; message(error.message, true); }
 });
 
+$('to-host-edit').addEventListener('click', async () => { try { await openEdit(roomId); } catch (error) { message(error.message, true); } });
 $('to-key-edit').addEventListener('click', () => { $('to-joinkey-input').value = state?.joinKey || ''; $('to-joinkey-remove').hidden = !state?.joinKey; $('to-joinkey-dialog').showModal(); $('to-joinkey-input').focus(); });
 $('to-joinkey-form').addEventListener('submit', event => {
   event.preventDefault();
