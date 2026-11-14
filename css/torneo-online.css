@@ -350,3 +350,28 @@ body.to-focus .to-game-actions { padding-top: 12px; border-top: 1px solid var(--
 #to-joinkey-form .to-actions { grid-auto-flow: row; grid-template-columns: 1fr 1fr; }
 #to-joinkey-form #to-joinkey-remove { grid-column: 1 / -1; order: 3; color: #fca5a5; background: transparent; border-color: #f8717155; }
 #to-joinkey-form #to-joinkey-remove:hover { background: #ef44441f; border-color: #f87171; }
+/* «Cancelar» es el botón activo al abrir: se marca con un anillo bien visible */
+.to-confirm-dialog .to-actions .btn-ghost:focus { outline: none; border-color: #e5b766; box-shadow: 0 0 0 3px #e5b76655; }
+/* En las confirmaciones, el botón destacado es «Cancelar» (el seguro); «Aceptar» va en contorno */
+#to-confirm-dialog .to-actions #to-confirm-no { background: #3b82f6; border-color: #3b82f6; color: #fff; }
+#to-confirm-dialog .to-actions #to-confirm-no:hover { background: #2563eb; border-color: #2563eb; }
+#to-confirm-dialog .to-actions #to-confirm-no:focus { box-shadow: 0 0 0 3px #93c5fd77; border-color: #93c5fd; }
+#to-confirm-dialog .to-actions #to-confirm-yes { background: transparent; border-color: #60a5fa88; color: #93c5fd; }
+#to-confirm-dialog .to-actions #to-confirm-yes:hover { background: #3b82f61f; border-color: #60a5fa; }
+#to-confirm-dialog .to-actions #to-confirm-yes.danger { border-color: #f8717188; color: #fca5a5; }
+#to-confirm-dialog .to-actions #to-confirm-yes.danger:hover { background: #ef44441f; border-color: #f87171; }
+/* Aviso de tablas: tarjeta con el «½», texto en dos líneas y botones a la derecha */
+.to-draw-offer { display: flex; align-items: center; justify-content: flex-start; flex-wrap: wrap; gap: 14px; margin-top: 12px; padding: 14px 16px; border: 1px solid #60a5fa66; border-left: 4px solid #3b82f6; border-radius: 0 12px 12px 0; background: linear-gradient(90deg, #3b82f624, #3b82f60a); animation: to-draw-in .25s ease-out; }
+@keyframes to-draw-in { from { opacity: 0; transform: translateY(-6px); } }
+@media (prefers-reduced-motion: reduce) { .to-draw-offer { animation: none; } }
+.to-draw-ic { flex: none; width: 42px; height: 42px; display: grid; place-items: center; border-radius: 50%; background: #3b82f633; color: #bfdbfe; font-size: 1.3rem; font-weight: 800; box-shadow: 0 0 0 5px #3b82f612; }
+.to-draw-text { flex: 1 1 180px; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.to-draw-text strong { font-size: 1rem; }
+.to-draw-text small { color: var(--muted); font-size: .85rem; }
+.to-draw-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+.to-draw-btns button { padding: 9px 16px !important; border-radius: 10px !important; font-weight: 600; }
+.to-draw-btns .btn-ghost { background: #ffffff0a; border-color: #ffffff22 !important; }
+.to-draw-btns .btn-ghost:hover:not(:disabled) { background: #ffffff16; }
+.to-draw-btns .btn { background: #3b82f6; border-color: #3b82f6; color: #fff; }
+.to-draw-btns .btn:hover:not(:disabled) { background: #2563eb; border-color: #2563eb; }
+@media (max-width: 520px) { .to-draw-btns { width: 100%; } .to-draw-btns button { flex: 1; } }

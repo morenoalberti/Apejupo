@@ -528,7 +528,8 @@ function confirmAction(title, text, danger = false) {
   $('to-confirm-title').textContent = title; $('to-confirm-text').textContent = text; $('to-confirm-text').hidden = !text;
   $('to-confirm-yes').textContent = label; $('to-confirm-no').textContent = cancel;
   $('to-confirm-yes').classList.toggle('danger', danger);
-  $('to-confirm-dialog').showModal();
+  // El botón activo al abrir es siempre «Cancelar», el más seguro: con Intro no se acepta sin querer.
+  $('to-confirm-dialog').showModal(); $('to-confirm-no').focus();
   return new Promise(resolve => { confirmResolve = resolve; });
 }
 function closeConfirm(answer) { $('to-confirm-dialog').close(); confirmResolve?.(answer); confirmResolve = null; }

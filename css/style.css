@@ -1444,3 +1444,9 @@ body.card-dragging .tour-tip { display: none !important; }
 .lv-ptab.pairs tr.grp td { padding: 14px 10px 6px; text-align: left; font-size: .85rem; color: var(--muted); background: none; border-bottom: 1px solid var(--line); cursor: default; }
 .lv-ptab.pairs tr.grp td b { color: var(--text); }
 .lv-ptab.pairs tr.grp .sc { margin: 0 4px; padding: 1px 7px; border-radius: 5px; background: var(--bg); color: var(--text); font-weight: 700; white-space: nowrap; }
+/* Galería: al confirmar un borrado, el botón destacado es «Cancelar» (el seguro); «Aceptar» va en contorno rojo */
+#fg-conf #fg-conf-no { background: #3b82f6; border-color: #3b82f6; color: #fff; }
+#fg-conf #fg-conf-no:hover { background: #2563eb; border-color: #2563eb; }
+#fg-conf #fg-conf-no:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(147, 197, 253, .5); }
+#fg-conf #fg-conf-si { background: transparent; border: 1px solid rgba(248, 113, 113, .55); color: #ef4444; }
+#fg-conf #fg-conf-si:hover { background: rgba(239, 68, 68, .12); border-color: #f87171; }
