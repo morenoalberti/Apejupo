@@ -98,8 +98,10 @@
     var img = cell.querySelector("img"); if (!img) return;
     e.preventDefault();
     var wasSelected = selected === sq;
+    // El tamaño se mide antes de redibujar: después, esta casilla ya no está en la página y mediría 0.
+    var size = cell.getBoundingClientRect().width;
     selected = sq; render();
-    var size = cell.getBoundingClientRect().width, ghost = img.cloneNode();
+    var ghost = img.cloneNode();
     ghost.className = "an-ghost"; ghost.style.width = ghost.style.height = size + "px";
     document.body.appendChild(ghost);
     drag = { from: sq, ghost: ghost, size: size, moved: false, wasSelected: wasSelected, x: e.clientX, y: e.clientY };
@@ -420,3 +422,9 @@
   if (!board || !window.ResizeObserver) return;
   new ResizeObserver(function () { document.documentElement.style.setProperty("--an-board-h", board.getBoundingClientRect().height + "px"); }).observe(board);
 })();
+
+// Si el navegador cancela el arrastre (cambio de pestaña, gesto del sistema…), se quita la pieza que seguía al ratón.
+window.addEventListener("pointercancel", function () {
+  document.querySelectorAll(".an-ghost").forEach(function (g) { g.remove(); });
+  document.querySelectorAll("#an-board img").forEach(function (i) { i.style.opacity = ""; });
+});
