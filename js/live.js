@@ -1195,11 +1195,29 @@
   });
   $("viewer-pair").addEventListener("click", function () {
     var h = '<table class="lv-ptab pairs"><tr><th>Tab.</th><th class="l">Blancas</th><th></th><th class="l">Negras</th></tr>';
+    // Las partidas se agrupan por ronda y, en las ligas por equipos, por encuentro (los tableros empiezan en 1 en cada uno).
+    // Cada grupo lleva un encabezado: «Ronda 4 · Equipo A 2½ – 1½ Equipo B».
+    var groups = [], byKey = {}, fallback = (/Ronda (\d+)/.exec($("viewer-info").textContent) || [])[1] || "";
     order.forEach(function (id) {
       var g = games[id]; if (!g) return;
-      var t = g.tags, bd = /\.(\d+)$/.exec(t.Round || ""), res = g.over ? ({ "1-0": "1-0", "0-1": "0-1", "1/2-1/2": "½-½" }[t.Result] || "–") : '<span class="liveDot" title="En juego"></span>';
-      function pl(ti, nm, el) { return (ti ? '<em class="ttl">' + esc(ti) + "</em> " : "") + esc(nm) + (el ? ' <small>' + esc(el) + "</small>" : ""); }
-      h += '<tr data-g="' + esc(id) + '"><td>' + (bd ? bd[1] : "") + '</td><td class="l">' + nameFlag(g, "w") + pl(t.WhiteTitle, t.White, t.WhiteElo) + '</td><td class="rs">' + res + '</td><td class="l">' + nameFlag(g, "b") + pl(t.BlackTitle, t.Black, t.BlackElo) + "</td></tr>";
+      var t = g.tags, rnd = (/^(\d+)/.exec(t.Round || "") || [])[1] || fallback, teams = t.WhiteTeam && t.BlackTeam ? [t.WhiteTeam, t.BlackTeam].sort() : null;
+      var key = rnd + "|" + (teams ? teams.join("|") : "");
+      if (!byKey[key]) { byKey[key] = { rnd: rnd, team: teams && t.WhiteTeam, rival: teams && t.BlackTeam, pts: [0, 0], live: 0, ids: [] }; groups.push(byKey[key]); }
+      var G = byKey[key]; G.ids.push(id);
+      var sc = { "1-0": [1, 0], "0-1": [0, 1], "1/2-1/2": [.5, .5] }[t.Result];
+      if (g.over && sc) { var home = t.WhiteTeam === G.team; G.pts[0] += home ? sc[0] : sc[1]; G.pts[1] += home ? sc[1] : sc[0]; } else if (!g.over) G.live++;
+    });
+    groups.forEach(function (G) {
+      if (G.rnd || G.team) {
+        var num = function (n) { return Math.floor(n) ? Math.floor(n) + (n % 1 ? "½" : "") : (n % 1 ? "½" : "0"); };
+        h += '<tr class="grp"><td colspan="4">' + (G.rnd ? "<b>Ronda " + esc(G.rnd) + "</b>" : "") +
+          (G.team ? (G.rnd ? " · " : "") + esc(G.team) + ' <span class="sc">' + num(G.pts[0]) + " – " + num(G.pts[1]) + "</span> " + esc(G.rival) + (G.live ? ' <small>(' + G.live + " en juego)</small>" : "") : "") + "</td></tr>";
+      }
+      G.ids.forEach(function (id) {
+        var g = games[id], t = g.tags, bd = /\.(\d+)$/.exec(t.Round || ""), res = g.over ? ({ "1-0": "1-0", "0-1": "0-1", "1/2-1/2": "½-½" }[t.Result] || "–") : '<span class="liveDot" title="En juego"></span>';
+        function pl(ti, nm, el) { return (ti ? '<em class="ttl">' + esc(ti) + "</em> " : "") + esc(nm) + (el ? ' <small>' + esc(el) + "</small>" : ""); }
+        h += '<tr data-g="' + esc(id) + '"><td>' + (bd ? bd[1] : "") + '</td><td class="l">' + nameFlag(g, "w") + pl(t.WhiteTitle, t.White, t.WhiteElo) + '</td><td class="rs">' + res + '</td><td class="l">' + nameFlag(g, "b") + pl(t.BlackTitle, t.Black, t.BlackElo) + "</td></tr>";
+      });
     });
     openPanel("Emparejamientos · " + $("viewer-title").textContent, h + '</table><p class="lv-ffoot">Pulsa una partida para abrirla.</p>', true);
   });
@@ -1309,12 +1327,39 @@
     say("Partida " + spokenName(g.tags.White) + " contra " + spokenName(g.tags.Black) + ". " + who + (newLvl === 3 ? " tienen " : " tienen ") + LV_TXT[newLvl] + ".");
   }
 
-  // Combo con las partidas en juego que no tienen miniatura
-  var more = $("viewer-more");
+  // Combo con las partidas en juego que no tienen miniatura. Es una lista propia (no un <select>) para poder
+  // enseñar la bandera y el título de cada jugador: Windows no pinta banderas dentro de un desplegable normal.
+  // El <select> oculto guarda la partida elegida, como antes.
+  var more = $("viewer-more"), pickB = $("viewer-pick-b"), pickL = $("viewer-pick-l");
+  function pickSide(g, col) {
+    var w = col === "w", t = g.tags[w ? "WhiteTitle" : "BlackTitle"];
+    return '<span class="lv-pick-p">' + nameFlag(g, col) + (t ? '<em class="lv-pick-tt">' + esc(t) + "</em>" : "") + esc(g.tags[w ? "White" : "Black"]) + "</span>";
+  }
+  function pickHtml(g) {
+    var r = g.over ? { "1-0": "1-0", "0-1": "0-1", "1/2-1/2": "½-½" }[g.tags.Result] : "";
+    return pickSide(g, "w") + '<span class="lv-pick-vs">–</span>' + pickSide(g, "b") + (r ? '<span class="lv-pick-r">' + r + "</span>" : "");
+  }
+  function pickShow() {
+    var g = games[more.value];
+    pickB.querySelector("span").innerHTML = g ? pickHtml(g) : '<span class="muted">No hay más partidas</span>';
+    Array.prototype.forEach.call(pickL.children, function (o) { o.setAttribute("aria-selected", String(o.getAttribute("data-id") === more.value)); });
+  }
+  function pickOpen(o) { pickL.hidden = !o; pickB.setAttribute("aria-expanded", String(o)); if (o) { var sel = pickL.querySelector('[aria-selected="true"]') || pickL.firstElementChild; if (sel) sel.focus(); } }
+  pickB.addEventListener("click", function (e) { e.stopPropagation(); if (!pickB.disabled) pickOpen(pickL.hidden); });
+  pickL.addEventListener("click", function (e) {
+    var o = e.target.closest("[data-id]"); if (!o) return;
+    more.value = o.getAttribute("data-id"); pickShow(); pickOpen(false); pickB.focus();
+  });
+  pickL.addEventListener("keydown", function (e) {
+    var items = Array.prototype.slice.call(pickL.children), i = items.indexOf(document.activeElement);
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") { e.preventDefault(); var n = items[Math.max(0, Math.min(items.length - 1, i + (e.key === "ArrowDown" ? 1 : -1)))]; if (n) n.focus(); }
+    if (e.key === "Escape") { pickOpen(false); pickB.focus(); }
+  });
+  document.addEventListener("click", function (e) { if (!pickL.hidden && !$("viewer-pick").contains(e.target)) pickOpen(false); });
   function fillMore() {
     var shown = sortedIds(), key = [];
     var rest = order.filter(function (id) { return shown.indexOf(id) < 0 && games[id]; });
-    rest.forEach(function (id) { key.push(id + optLabel(games[id])); });
+    rest.forEach(function (id) { key.push(id + pickHtml(games[id])); });
     key = key.join("|");
     if (more.getAttribute("data-k") === key) return;
     more.setAttribute("data-k", key);
@@ -1323,8 +1368,11 @@
       ? rest.map(function (id) { return '<option value="' + esc(id) + '">' + esc(optLabel(games[id])) + "</option>"; }).join("")
       : "<option value=\"\">No hay más partidas</option>";
     if (keep && rest.indexOf(keep) >= 0) more.value = keep;
+    pickL.innerHTML = rest.map(function (id) { return '<button type="button" role="option" data-id="' + esc(id) + '">' + pickHtml(games[id]) + "</button>"; }).join("");
+    pickShow();
     $("viewer-add").disabled = !rest.length;
-    more.disabled = !rest.length;
+    more.disabled = !rest.length; pickB.disabled = !rest.length;
+    if (!rest.length) pickOpen(false);
   }
   $("viewer-add").addEventListener("click", function () {
     if (!more.value) return;
