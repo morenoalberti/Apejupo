@@ -392,3 +392,4 @@ body.to-focus .to-game-actions { padding-top: 12px; border-top: 1px solid var(--
 .to-evalw { position: absolute; left: 0; right: 0; bottom: 0; height: 50%; background: #f0f0f0; transition: height .5s ease; }
 .to-live.zoom .to-evalbar { width: 16px; }
 .to-no-eval .to-evalbar { display: none; }
+.to-elo { color: var(--muted); font-variant-numeric: tabular-nums; }

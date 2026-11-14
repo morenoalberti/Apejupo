@@ -217,7 +217,8 @@ export class AccountStore extends DurableObject {
         // Uso interno de las salas de torneo: quién es esta sesión y si un nombre está reservado.
         case '/sesion': {
           const user = await this.user(b.session, now);
-          return json({ user: user && user.verified ? { id: user.id, nick: user.nick } : null, unverified: !!user && !user.verified });
+          // «elo»: cuando las cuentas tengan Elo (se asignará al entrar por primera vez), irá aquí y el suizo lo usará.
+          return json({ user: user && user.verified ? { id: user.id, nick: user.nick, elo: Number.isInteger(user.elo) ? user.elo : null } : null, unverified: !!user && !user.verified });
         }
         case '/nick': return json({ taken: !!this.one('SELECT 1 AS x FROM users WHERE nick_key = ?', nickKey(b.name)) });
         default: throw new GameError('No encontrado.', 404);

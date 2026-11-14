@@ -1,6 +1,8 @@
 import { DurableObject } from 'cloudflare:workers';
 export { AccountStore } from './accounts.js';
-import { GameError, requireThat, isArena, createTournament, editTournament, joinTournament, act, advance, pairArena, nextAlarm, snapshot, sharedSnapshot, personalPart, moveMessage, summary, exportPgn, RETENTION_MS } from './core.js';
+import bbpWasm from './bbp/bbp.wasm';
+import { loadBbp, runDutch } from './bbp-engine.js';
+import { GameError, requireThat, isArena, setSwissEngine, createTournament, editTournament, joinTournament, act, advance, pairArena, nextAlarm, snapshot, sharedSnapshot, personalPart, moveMessage, summary, exportPgn, RETENTION_MS } from './core.js';
 
 // El navegador manda "ping" cada 30 s; sin señal en este margen, el jugador no se considera presente.
 const PRESENCE_MS = 75000;
@@ -91,7 +93,11 @@ export class TournamentRoom extends DurableObject {
   constructor(ctx, env) {
     super(ctx, env);
     this.t = null;
-    ctx.blockConcurrencyWhile(async () => { this.t = await ctx.storage.get('state') || null; });
+    ctx.blockConcurrencyWhile(async () => {
+      this.t = await ctx.storage.get('state') || null;
+      // Motor FIDE del suizo: se carga una vez por sala; si falla, el suizo usa el emparejamiento de club.
+      try { await loadBbp(bbpWasm); setSwissEngine(runDutch); } catch (error) { console.warn('bbpPairings no disponible:', error.message); }
+    });
     ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair('ping', 'pong'));
   }
   async save() {

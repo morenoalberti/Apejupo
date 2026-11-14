@@ -1,4 +1,5 @@
 import { Chess } from 'chess.js';
+import { toTrf, parsePairs, orderByRating } from './swiss-dutch.js';
 
 // Comprobado con la prueba de carga: 128 jugadores y 32 espectadores sin retrasos apreciables.
 export const MAX_PLAYERS = 128;
@@ -27,6 +28,9 @@ const sameKey = (a, b) => a.toLocaleLowerCase('es') === b.toLocaleLowerCase('es'
 export const ARENA_DURATIONS = [3, 5, 10, 15, 20, 30, 45, 60, 90, 120];
 export const isArena = t => t.format === 'arena';
 export const isClosed = t => t.format === 'closed';
+// Motor FIDE del suizo (bbpPairings). Lo instala el servidor al arrancar; sin él se usa el emparejamiento de club.
+let swissEngine = null;
+export function setSwissEngine(run) { swissEngine = run; }
 export const BERSERK_BONUS = .5;
 // Como en Lichess: se deja de emparejar cuando queda menos de la mitad del tiempo base de una partida
 // (entre 30 s y 2 min), y las partidas que acaban después del tiempo se juegan pero no cuentan.
@@ -68,7 +72,7 @@ export function editTournament(t, input, now = Date.now()) {
 }
 
 export function standings(t) {
-  const rows = t.players.map(p => ({ id: p.id, name: p.name, seed: p.seed, active: p.active, registered: !!p.accountId,
+  const rows = t.players.map(p => ({ id: p.id, name: p.name, seed: p.seed, rating: p.rating || null, active: p.active, registered: !!p.accountId,
     points: 0, wins: 0, buchholz: 0, sonneborn: 0, played: 0, byes: 0, opponents: [], colors: [], sheet: [] }));
   const map = new Map(rows.map(p => [p.id, p]));
   const counted = t.games.filter(g => countsForArena(t, g));
@@ -221,7 +225,8 @@ export function pairRound(t) {
   throw new GameError('No se pudieron generar los emparejamientos.');
 }
 
-// «account» solo lo pone el servidor tras comprobar la sesión: { id, nick } de una cuenta confirmada.
+// «account» solo lo pone el servidor tras comprobar la sesión: { id, nick, elo? } de una cuenta confirmada.
+// El Elo de la cuenta se guarda en la inscripción y ordena a los jugadores en el suizo.
 export function joinTournament(t, name, playerHash, now = Date.now(), key = '', account = null) {
   const existing = t.players.find(p => p.hash === playerHash);
   if (existing) return existing;
@@ -238,7 +243,8 @@ export function joinTournament(t, name, playerHash, now = Date.now(), key = '', 
   requireThat(name.length >= 2, 'Escribe un nombre de al menos 2 caracteres.');
   requireThat(!t.players.some(p => p.name.toLocaleLowerCase('es') === name.toLocaleLowerCase('es')), 'Ya hay un jugador con ese nombre. Añade un apellido.');
   requireThat(t.players.length < t.capacity, 'El torneo está completo.');
-  const p = { id: crypto.randomUUID(), hash: playerHash, name, active: true, seed: t.players.length + 1, joinedAt: now, ...(account ? { accountId: account.id } : {}) };
+  const rating = Number.isInteger(account?.elo) && account.elo > 0 ? account.elo : null;
+  const p = { id: crypto.randomUUID(), hash: playerHash, name, active: true, seed: t.players.length + 1, joinedAt: now, rating, ...(account ? { accountId: account.id } : {}) };
   t.players.push(p);
   return p;
 }
@@ -248,13 +254,23 @@ function newGame(t, a, b, now) {
     fen: INITIAL_FEN, moves: [], turn: 'w', whiteMs: t.minutes * 60000, blackMs: t.minutes * 60000,
     lastAt: now, result: null, reason: '', offer: null, bye: !b, finishedAt: null };
 }
+// Suizo: sistema holandés de la FIDE con bbpPairings. Si el motor no está o no encuentra emparejamiento
+// (por ejemplo, más rondas de las posibles sin repetir rival), se usa el emparejamiento de club.
+function swissPairs(t) {
+  if (swissEngine && t.players.filter(p => p.active).length >= 2) {
+    try { return { ...parsePairs(t, swissEngine(toTrf(t))), repeated: false, fide: true }; }
+    catch (error) { console.warn('Emparejamiento FIDE no disponible:', error.message); }
+  }
+  return { ...pairRound(t), fide: false };
+}
 export function beginRound(t, now) {
   if (isClosed(t)) return beginClosedRound(t, now);
-  const { pairs, bye, repeated } = pairRound(t);
+  const { pairs, bye, repeated, fide } = swissPairs(t);
   if (!pairs.length) { finishTournament(t, now); return; }
   t.round++;
   t.nextRoundAt = null;
   t.status = 'playing';
+  t.pairing = fide ? 'fide' : 'club';
   t.notice = repeated ? 'Con los participantes disponibles ha sido necesario repetir algún enfrentamiento.' : '';
   for (const [a, b] of pairs) t.games.push(newGame(t, a, b, now));
   if (bye) {
@@ -269,9 +285,14 @@ export function startTournament(t, now = Date.now()) {
   const n = t.players.length;
   if (isClosed(t)) t.rounds = n % 2 ? n : n - 1;
   else if (!isArena(t)) t.rounds = Math.min(t.rounds, n % 2 ? n : n - 1);
-  // Sorteo de los números iniciales, independiente del orden de inscripción.
-  const random = new Uint32Array(n); crypto.getRandomValues(random);
-  t.players.map((p, i) => ({ p, r: random[i] })).sort((a, b) => a.r - b.r).forEach(({ p }, i) => { p.seed = i + 1; });
+  if (isArena(t) || isClosed(t)) {
+    // Sorteo de los números iniciales, independiente del orden de inscripción.
+    const random = new Uint32Array(n); crypto.getRandomValues(random);
+    t.players.map((p, i) => ({ p, r: random[i] })).sort((a, b) => a.r - b.r).forEach(({ p }, i) => { p.seed = i + 1; });
+  } else {
+    // Suizo, como en la FIDE: números por Elo de mayor a menor; sin Elo, detrás y por orden alfabético.
+    orderByRating(t.players).forEach((p, i) => { p.seed = i + 1; });
+  }
   if (isArena(t)) {
     // Los emparejamientos los hace pairArena con los jugadores conectados en ese momento.
     t.status = 'playing'; t.notice = ''; t.endsAt = now + t.duration * 60000;
@@ -436,7 +457,8 @@ export function summary(t) {
   return { id: t.id, title: t.title, status: t.status, format: t.format || 'swiss', duration: t.duration || null, endsAt: t.endsAt || null,
     pairingsCloseAt: isArena(t) && t.endsAt ? arenaPairingsCloseAt(t) : null,
     minutes: t.minutes, increment: t.increment,
-    rounds: t.rounds, round: t.round, capacity: t.capacity, count: t.players.length, startsAt: t.startsAt, createdAt: t.createdAt, locked: !!t.joinKey };
+    rounds: t.rounds, round: t.round, capacity: t.capacity, count: t.players.length, startsAt: t.startsAt, createdAt: t.createdAt, locked: !!t.joinKey,
+    pairing: t.pairing || null };
 }
 // Jugadas legales de una partida en curso, calculadas una sola vez por posición.
 function legalFor(g) {
