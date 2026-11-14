@@ -253,3 +253,4 @@
 /* Bajo el tablero, en una fila: jugador de abajo a la izquierda y «Analizar partida» a la derecha */
 .an-under { align-self: stretch; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .an-under .an-player, #an-player-bottom { width: auto; max-width: none; margin: 0; min-width: 0; }
+.an-under { justify-content: flex-end; } .an-under #an-player-bottom { margin-right: auto; }
