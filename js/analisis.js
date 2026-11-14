@@ -39,7 +39,7 @@
       return '<div class="' + cls + '" data-sq="' + sq + '">' + img + coords + "</div>";
     }).join("");
     $("an-board").setAttribute("aria-label", "Tablero. Juegan " + (g.turn() === "w" ? "blancas" : "negras") + (g.in_checkmate() ? ". Jaque mate" : g.in_check() ? ". Jaque" : ""));
-    renderMoves(); renderFen(); renderNav(); analyse();
+    renderMoves(); renderFen(); renderNav(); drawArrow(); analyse();
   }
   function renderNav() {
     $("an-first").disabled = $("an-prev").disabled = ply === 0;
@@ -240,7 +240,25 @@
   $("an-reset").addEventListener("click", function () { rootFen = START; line = []; ply = 0; selected = null; flipped = false; $("an-pgn").value = ""; msg(""); render(); });
 
   // ---------- Stockfish ----------
-  var evals = {}, movesTimer = null, sfBusy = false, sfStale = 0;
+  // Cada «go» termina siempre con un «bestmove». Mientras se espera el de una búsqueda que se ha mandado
+  // parar (sfPending), no se lee nada: así los restos de la búsqueda vieja no se atribuyen a la posición nueva.
+  var evals = {}, movesTimer = null, sfSearching = false, sfPending = null;
+  function launch(fen) {
+    sfFen = fen; sfLines = {}; sfSearching = true;
+    sf.postMessage("setoption name MultiPV value " + nLines); sf.postMessage("position fen " + fen); sf.postMessage("go depth 24");
+  }
+  // Número de líneas de análisis (1 a 5), elegido con el contador de la derecha y recordado en este navegador.
+  var nLines = 3;
+  try { nLines = Math.min(5, Math.max(1, Number(localStorage.getItem("apejupoAnalisisLineas")) || 3)); } catch (_) {}
+  function setLines(n) {
+    nLines = Math.min(5, Math.max(1, n));
+    try { localStorage.setItem("apejupoAnalisisLineas", String(nLines)); } catch (_) {}
+    $("an-pv-count").textContent = nLines; $("an-pv-less").disabled = nLines === 1; $("an-pv-more").disabled = nLines === 5;
+    if (sf && sfReady) { sfFen = null; analyse(); }
+  }
+  setTimeout(function () { setLines(nLines); }, 0);
+  $("an-pv-less").addEventListener("click", function () { setLines(nLines - 1); });
+  $("an-pv-more").addEventListener("click", function () { setLines(nLines + 1); });
   var sf = null, sfReady = false, sfFen = null, sfLines = {}, sfTimer = null, sfOn = true;
   try { sfOn = localStorage.getItem("apejupoAnalisisMotor") !== "0"; } catch (_) {}
   $("an-sf").checked = sfOn;
@@ -258,10 +276,14 @@
       sf.onerror = function () { sf = false; $("an-lines").innerHTML = '<p class="an-empty">No se pudo cargar Stockfish.</p>'; };
       sf.onmessage = function (e) {
         var l = String(e.data);
-        if (l === "uciok") { sf.postMessage("setoption name MultiPV value 3"); sf.postMessage("isready"); return; }
-        if (l === "readyok") { sfReady = true; analyse(); return; }
-        if (l.indexOf("bestmove") === 0) { if (sfStale > 0) sfStale--; else sfBusy = false; return; }
-        if (sfStale > 0 || l.indexOf("info") !== 0 || / bound /.test(l) || !sfFen) return;
+        if (l === "uciok") { sf.postMessage("setoption name MultiPV value " + nLines); sf.postMessage("isready"); return; }
+        if (l === "readyok") { if (!sfReady) { sfReady = true; analyse(); } return; }
+        if (l.indexOf("bestmove") === 0) {
+          sfSearching = false;
+          if (sfPending) { var next = sfPending; sfPending = null; launch(next); }
+          return;
+        }
+        if (sfPending || !sfSearching || l.indexOf("info") !== 0 || / bound /.test(l) || !sfFen) return;
         var m = /score (cp|mate) (-?\d+)/.exec(l), pv = / pv (.+)$/.exec(l), mp = /multipv (\d+)/.exec(l), dp = / depth (\d+)/.exec(l);
         if (!m) return;
         var black = sfFen.split(" ")[1] === "b", v = Number(m[2]) * (black ? -1 : 1);
@@ -282,7 +304,7 @@
     var fen = fenAt(ply), g = new Chess(fen);
     if (!sfOn || editing) return;
     if (g.game_over()) {
-      sfFen = null; if (sf) sf.postMessage("stop");
+      sfFen = null; sfPending = null; if (sf && sfSearching) sf.postMessage("stop");
       var mate = g.in_checkmate(), winW = g.turn() === "b";
       evals[fen] = mate ? { mate: true, v: winW ? 1 : -1, depth: 99, over: true } : { mate: false, v: 0, depth: 99, over: true };
       setBar(mate ? { mate: true, v: winW ? 1 : -1 } : { mate: false, v: 0 });
@@ -291,12 +313,11 @@
       return;
     }
     initSf();
-    if (!sf || !sfReady || fen === sfFen) return;
+    if (!sf || !sfReady || fen === sfFen || fen === sfPending) return;
     sfFen = fen; sfLines = {}; arrowMove = null; drawArrow(); $("an-evalbig").textContent = "…";
     $("an-lines").innerHTML = '<p class="an-empty">Calculando…</p>';
-    if (sfBusy) sfStale++; // lo que quede de la búsqueda anterior se descarta hasta su «bestmove»
-    sfBusy = true;
-    sf.postMessage("stop"); sf.postMessage("position fen " + fen); sf.postMessage("go depth 24");
+    if (sfSearching) { if (!sfPending) sf.postMessage("stop"); sfPending = fen; sfFen = null; }
+    else launch(fen);
   }
   function scoreText(r) { return r.mate ? (r.v > 0 ? "#" : "#-") + Math.abs(r.v) : (r.v > 0 ? "+" : "") + (r.v / 100).toFixed(2); }
   function setBar(r) {
@@ -319,7 +340,7 @@
     setBar(best); $("an-evaltext").textContent = scoreText(best).replace(/^\+/, ""); $("an-evalbig").textContent = scoreText(best);
     arrowMove = best.pv[0] || null; drawArrow();
     $("an-depth").textContent = "Profundidad " + best.depth;
-    $("an-lines").innerHTML = [1, 2, 3].filter(function (k) { return sfLines[k]; }).map(function (k) {
+    $("an-lines").innerHTML = Object.keys(sfLines).map(Number).filter(function (k) { return k <= nLines; }).sort(function (a, b) { return a - b; }).map(function (k) {
       var r = sfLines[k];
       return '<button type="button" class="an-line" data-uci="' + (r.pv[0] || "") + '" title="Jugar ' + (r.pv[0] || "") + '"><b class="' + (r.mate ? (r.v > 0 ? "w" : "b") : r.v >= 0 ? "w" : "b") + '">' + scoreText(r) + "</b><span>" + pvSan(sfFen, r.pv) + "</span></button>";
     }).join("");
@@ -337,13 +358,15 @@
     return flipped ? [7 - f + 0.5, r - 0.5] : [f + 0.5, 8 - r + 0.5];
   }
   function drawArrow() {
-    var svg = $("an-arrow");
-    if (!arrowMove || !sfOn || editing) { svg.innerHTML = ""; return; }
-    var a = center(arrowMove.slice(0, 2)), b = center(arrowMove.slice(2, 4)), dx = b[0] - a[0], dy = b[1] - a[1], len = Math.hypot(dx, dy);
+    // La flecha marca la última jugada hecha (de dónde a dónde), no la que recomienda el motor.
+    var svg = $("an-arrow"), last = ply && !editing ? line[ply - 1] : null;
+    if (!last) { svg.innerHTML = ""; return; }
+    var a = center(last.from), b = center(last.to), dx = b[0] - a[0], dy = b[1] - a[1], len = Math.hypot(dx, dy);
     var end = [b[0] - dx / len * 0.3, b[1] - dy / len * 0.3];
     svg.innerHTML = '<defs><marker id="an-head" markerWidth="4" markerHeight="4" refX="2.05" refY="2" orient="auto" markerUnits="strokeWidth"><path d="M0,0 V4 L3,2 z" fill="#15781B"/></marker></defs>'
-      + '<line x1="' + a[0] + '" y1="' + a[1] + '" x2="' + end[0] + '" y2="' + end[1] + '" stroke="#15781B" stroke-width="0.16" stroke-linecap="round" opacity=".8" marker-end="url(#an-head)"/>';
+      + '<line x1="' + a[0] + '" y1="' + a[1] + '" x2="' + end[0] + '" y2="' + end[1] + '" stroke="#15781B" stroke-width="0.16" stroke-linecap="round" opacity=".7" marker-end="url(#an-head)"/>';
   }
+
 
   // ---------- Menú (≡) ----------
   function closeMenu() { $("an-menu").hidden = true; $("an-menu-btn").setAttribute("aria-expanded", "false"); }

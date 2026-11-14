@@ -22,7 +22,6 @@
 .an-sq .an-rk, .an-sq .an-fl { color: #b58863; } .an-sq.dk .an-rk, .an-sq.dk .an-fl { color: #f0d9b5; }
 .an-ghost { position: fixed; z-index: 50; pointer-events: none; filter: drop-shadow(0 6px 8px #0007); }
 .an-arrow { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
-.an-off .an-arrow { display: none; }
 .an-evalbar { position: relative; flex: none; width: 18px; border-radius: 4px; overflow: hidden; background: #403d39; }
 .an-evalw { position: absolute; left: 0; right: 0; bottom: 0; height: 50%; background: #f2f2f2; transition: height .5s ease; }
 .an-evalbar span { position: absolute; left: 0; right: 0; top: 4px; font: 700 9px/1 system-ui, sans-serif; text-align: center; color: #ddd; }
@@ -172,3 +171,10 @@
 .an-comment.mistake { background: #e69f001a; border-left-color: #e69f00; }
 .an-comment.dubious { background: #56b4e91a; border-left-color: #56b4e9; }
 .an-comment.good { background: #6299241a; border-left-color: #629924; }
+/* Contador de líneas de análisis, pegado al borde derecho de la cabecera del motor */
+.an-multipv { margin-left: auto; display: inline-flex; align-items: center; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.an-multipv button { width: 28px; height: 28px; border: 0; background: none; color: var(--text); font: 700 1rem/1 system-ui, sans-serif; cursor: pointer; }
+.an-multipv button:hover:not(:disabled) { background: #3b82f61f; color: var(--blue); }
+.an-multipv button:disabled { opacity: .3; cursor: default; }
+.an-multipv span { min-width: 22px; text-align: center; font-weight: 700; font-variant-numeric: tabular-nums; }
+.an-off .an-multipv { opacity: .4; }
