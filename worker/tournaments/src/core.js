@@ -451,7 +451,10 @@ export function sharedSnapshot(t, now = Date.now()) {
     standings: standings(t).map(({ opponents, colors, seed, ...p }) => p),
     games: t.games.map(g => ({ id: g.id, round: g.round, white: g.white, black: g.black, result: g.result, reason: g.reason, bye: g.bye,
       late: !countsForArena(t, g),
-      berserkW: !!g.berserkW, berserkB: !!g.berserkB, ...(g.result || g.bye ? {} : { fen: g.fen, lastMove: g.lastMove || null, turn: g.turn, whiteMs: g.whiteMs, blackMs: g.blackMs, lastAt: g.lastAt, ply: g.moves.length }) })) };
+      berserkW: !!g.berserkW, berserkB: !!g.berserkB,
+      // Las terminadas llevan la posición final, para seguir viéndolas en la página de tableros.
+      ...(g.result && !g.bye ? { fen: g.fen, lastMove: g.lastMove || null } : {}),
+      ...(g.result || g.bye ? {} : { fen: g.fen, lastMove: g.lastMove || null, turn: g.turn, whiteMs: g.whiteMs, blackMs: g.blackMs, lastAt: g.lastAt, ply: g.moves.length }) })) };
 }
 // Parte de cada conexión: quién es, si organiza y su tablero.
 export function personalPart(t, playerId, host, gameId) {

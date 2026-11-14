@@ -385,3 +385,16 @@ body.to-focus .to-game-actions { padding-top: 12px; border-top: 1px solid var(--
 .to-draw-title span { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: #3b82f633; color: #bfdbfe; font-size: 1rem; font-weight: 800; }
 .to-board-wrap .to-draw-btns { width: 100%; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .to-board-wrap .to-draw-btns button { padding: 12px 14px !important; font-size: 1rem; }
+/* Página de tableros: barra de evaluación a la izquierda de cada tablero */
+.to-live-board { display: flex; gap: 5px; align-items: stretch; }
+.to-live-board .to-mini { flex: 1; min-width: 0; }
+.to-evalbar { flex: none; width: 10px; position: relative; overflow: hidden; border-radius: 3px; background: #3a3836; }
+.to-evalw { position: absolute; left: 0; right: 0; bottom: 0; height: 50%; background: #f0f0f0; transition: height .5s ease; }
+.to-live.zoom .to-evalbar { width: 16px; }
+.to-no-eval .to-evalbar { display: none; }
+/* Partidas terminadas en la página de tableros: se quedan con el resultado encima */
+.to-boards-done { grid-column: 1 / -1; margin: 10px 0 0; padding-top: 14px; border-top: 1px solid var(--line); font-size: 1rem; color: var(--muted); }
+.to-live.done .to-mini { filter: saturate(.55) brightness(.8); }
+.to-live.done::after { content: attr(data-result); position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); padding: 4px 14px; border-radius: 10px; background: #0b1422d9; color: #fff; font: 800 1.6rem/1.2 system-ui, sans-serif; pointer-events: none; }
+.to-live.done { position: relative; }
+.to-live.zoom.done::after { font-size: 3rem; }

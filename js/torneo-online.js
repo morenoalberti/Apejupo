@@ -260,10 +260,108 @@ function renderBoards() {
   if (!boardsMode) return;
   document.title = `Tableros · ${state.title}`;
   $('to-boards-sub').textContent = `${state.title} · ${live.length === 1 ? '1 partida' : `${live.length} partidas`} en juego`;
-  if (!live.some(g => g.id === zoomed)) zoomed = null;
-  $('to-boards-grid').classList.toggle('has-zoom', !!zoomed);
-  $('to-boards-grid').innerHTML = live.map(g => `<button type="button" class="to-live big ${g.id === zoomed ? 'zoom' : ''}" aria-pressed="${g.id === zoomed}" data-watch="${g.id}" aria-label="Ver ${esc(name(g.white))} contra ${esc(name(g.black))}"><span class="to-live-name"><span>${g.berserkB ? '<b class="to-bz">⚡</b>' : ''}${esc(name(g.black))}</span><strong data-clock="${g.id}:b"></strong></span>${miniBoard(g)}<span class="to-live-name"><span>${g.berserkW ? '<b class="to-bz">⚡</b>' : ''}${esc(name(g.white))}</span><strong data-clock="${g.id}:w"></strong></span></button>`).join('') || `<p class="muted to-boards-empty">${['finished', 'cancelled'].includes(state.status) ? 'El torneo ha terminado.' : 'No hay partidas en juego ahora mismo. Los tableros aparecerán aquí en cuanto empiecen.'}</p>`;
+  // Las terminadas no desaparecen: quedan debajo, con su resultado, la más reciente primero.
+  const done = state.games.filter(g => g.result && !g.bye && g.fen).reverse();
+  const shown = [...live, ...done];
+  if (!shown.some(g => g.id === zoomed)) zoomed = null;
+  const grid = $('to-boards-grid');
+  grid.classList.toggle('has-zoom', !!zoomed);
+  // Cada tablero se crea una vez y en cada jugada solo cambian sus casillas: así no tiembla nada.
+  for (const [id, c] of boardCards) if (!shown.some(g => g.id === id)) { c.el.remove(); boardCards.delete(id); }
+  grid.querySelector('.to-boards-empty')?.remove();
+  let divider = grid.querySelector('.to-boards-done');
+  if (!divider) { divider = document.createElement('h3'); divider.className = 'to-boards-done'; divider.textContent = 'Partidas terminadas'; }
+  // Se reordena solo si cambia el orden (al empezar o terminar una partida); mover un tablero no lo repinta.
+  const order = [...live.map(g => g.id), ...(done.length ? ['—'] : []), ...done.map(g => g.id)];
+  if (order.join() !== boardOrder) {
+    boardOrder = order.join();
+    for (const id of order) {
+      if (id === '—') { grid.append(divider); continue; }
+      const g = shown.find(x => x.id === id);
+      let c = boardCards.get(id);
+      if (!c) { c = boardCard(g); boardCards.set(id, c); }
+      grid.append(c.el);
+    }
+    if (!done.length) divider.remove();
+  }
+  for (const g of shown) {
+    const c = boardCards.get(g.id);
+    updateCard(c, g);
+    c.el.classList.toggle('zoom', g.id === zoomed); c.el.setAttribute('aria-pressed', String(g.id === zoomed));
+  }
+  if (!shown.length) grid.insertAdjacentHTML('beforeend', `<p class="muted to-boards-empty">${['finished', 'cancelled'].includes(state.status) ? 'El torneo ha terminado.' : 'No hay partidas en juego ahora mismo. Los tableros aparecerán aquí en cuanto empiecen.'}</p>`);
   updateMiniClocks();
+}
+const boardCards = new Map();
+let boardOrder = '';
+function boardCard(g) {
+  const el = document.createElement('button'); el.type = 'button'; el.className = 'to-live big'; el.dataset.watch = g.id;
+  const cells = Array.from({ length: 64 }, (_, i) => `<i class="${(Math.floor(i / 8) + i % 8) % 2 ? 'dk' : ''}"></i>`).join('');
+  el.innerHTML = `<span class="to-live-name"><span class="to-nb"></span><strong data-clock="${g.id}:b"></strong></span>`
+    + `<span class="to-live-board"><span class="to-evalbar" title="Evaluación de Stockfish"><span class="to-evalw"></span></span><span class="to-mini" aria-hidden="true">${cells}</span></span>`
+    + `<span class="to-live-name"><span class="to-nw"></span><strong data-clock="${g.id}:w"></strong></span>`;
+  return { el, cells: [...el.querySelectorAll('.to-mini i')], pieces: {}, fen: null, last: '', names: '' };
+}
+function updateCard(c, g) {
+  const nb = (g.berserkB ? '<b class="to-bz">⚡</b>' : '') + esc(name(g.black)), nw = (g.berserkW ? '<b class="to-bz">⚡</b>' : '') + esc(name(g.white));
+  if (c.names !== nb + '|' + nw) {
+    c.names = nb + '|' + nw; c.el.querySelector('.to-nb').innerHTML = nb; c.el.querySelector('.to-nw').innerHTML = nw;
+    c.el.setAttribute('aria-label', `Ver ${name(g.white)} contra ${name(g.black)}`);
+  }
+  if (c.fen !== g.fen) {
+    const pieces = fenPieces(g.fen);
+    c.cells.forEach((cell, i) => {
+      const sq = 'abcdefgh'[i % 8] + (8 - Math.floor(i / 8)), want = pieces[sq] || '';
+      if ((c.pieces[sq] || '') !== want) { cell.innerHTML = want ? `<img src="assets/pieces/${want}.png" alt="">` : ''; c.pieces[sq] = want; }
+    });
+    c.fen = g.fen; queueEval(g.id, g.fen);
+  }
+  // Partida terminada: el resultado encima del tablero, como en tu partida.
+  const result = g.result ? g.result.replace('1/2-1/2', '½–½') : '';
+  if (c.el.dataset.result !== result) {
+    if (result) { c.el.dataset.result = result; c.el.classList.add('done'); c.el.title = g.reason || ''; } else { delete c.el.dataset.result; c.el.classList.remove('done'); }
+  }
+  const last = g.lastMove ? g.lastMove.from + g.lastMove.to : '';
+  if (c.last !== last) {
+    c.cells.forEach((cell, i) => { const sq = 'abcdefgh'[i % 8] + (8 - Math.floor(i / 8)); cell.classList.toggle('lm', !!g.lastMove && (sq === g.lastMove.from || sq === g.lastMove.to)); });
+    c.last = last;
+  }
+}
+// Barra de evaluación: un solo Stockfish (el de Torneos Live) repasa los tableros por turnos, poco rato cada uno.
+let sf = null, sfJob = null;
+const sfQueue = new Map();
+function queueEval(id, fen) { if (!boardsMode) return; sfQueue.set(id, fen); nextEval(); }
+function nextEval() {
+  if (sfJob || !sfQueue.size) return;
+  if (sf === null) {
+    sf = false;
+    try {
+      sf = new Worker('assets/stockfish/stockfish-19-lite-single.js');
+      sf.onerror = () => { sf = false; document.body.classList.add('to-no-eval'); };
+      sf.onmessage = e => {
+        const line = String(e.data);
+        if (!sfJob) return;
+        const m = /score (cp|mate) (-?\d+)/.exec(line);
+        if (line.startsWith('info') && m && !/bound/.test(line)) sfJob.score = { mate: m[1] === 'mate', v: Number(m[2]) };
+        if (line.startsWith('bestmove')) { showEval(sfJob); sfJob = null; nextEval(); }
+      };
+      sf.postMessage('uci');
+    } catch { sf = false; }
+  }
+  if (!sf) return;
+  const [id, fen] = sfQueue.entries().next().value; sfQueue.delete(id);
+  sfJob = { id, fen, score: null };
+  sf.postMessage('position fen ' + fen); sf.postMessage('go movetime 300');
+}
+function showEval(job) {
+  const c = boardCards.get(job.id); if (!c || c.fen !== job.fen || !job.score) return;
+  const black = job.fen.split(' ')[1] === 'b', r = job.score;
+  // Stockfish puntúa para el bando que mueve: se pasa a puntos de vista de las blancas.
+  let v = black ? -r.v : r.v;
+  if (r.mate && r.v === 0) v = black ? 1 : -1; // mate ya dado: gana quien no mueve
+  const pct = r.mate ? (v > 0 ? 100 : 0) : 50 + 50 * (2 / (1 + Math.exp(-0.004 * v)) - 1);
+  c.el.querySelector('.to-evalw').style.height = Math.max(3, Math.min(97, pct)) + '%';
+  c.el.querySelector('.to-evalbar').title = 'Stockfish: ' + (r.mate ? (v > 0 ? '#' : '#-') + Math.abs(r.v) : (v > 0 ? '+' : '') + (v / 100).toFixed(1));
 }
 function updateMiniClocks() {
   if (!boardsMode) return;
