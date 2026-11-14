@@ -57,6 +57,14 @@ export function createTournament(input, id, hostHash, now = Date.now()) {
     players: [], games: [], revision: 0, finishedAt: null, notice: '', joinKey };
 }
 
+// Editar antes de empezar: se valida igual que al crear y se conservan inscritos y fechas internas.
+export function editTournament(t, input, now = Date.now()) {
+  requireThat(t.status === 'waiting', 'El torneo ya ha empezado: no se puede editar.', 409);
+  const n = createTournament(input, t.id, t.hostHash, now);
+  requireThat(n.capacity >= t.players.length, `Ya hay ${t.players.length} jugadores inscritos: el máximo no puede ser menor.`);
+  for (const k of ['title', 'format', 'duration', 'minutes', 'increment', 'rounds', 'capacity', 'startsAt', 'joinKey']) t[k] = n[k];
+}
+
 export function standings(t) {
   const rows = t.players.map(p => ({ id: p.id, name: p.name, seed: p.seed, active: p.active, registered: !!p.accountId,
     points: 0, wins: 0, buchholz: 0, sonneborn: 0, played: 0, byes: 0, opponents: [], colors: [], sheet: [] }));

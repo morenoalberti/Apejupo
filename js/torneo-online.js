@@ -15,6 +15,7 @@ let state = null, socket = null, reconnectTimer = null, heartbeat = null, retry 
 let connected = false, pending = false, offset = 0, selected = null, flipped = false, manualFlip = false;
 let boardKey = '', lastRound = null, viewedRound = null, replay = null, replayPly = null, promotion = null;
 let confirmResolve = null, dropped = null, lobby = new Map();
+let editingId = null, keyFieldRequired = false; // formulario de organizar: torneo que se edita y si se pide la clave de organización
 // Jugada propia mostrada al instante, antes de que la confirme el servidor (como en Lichess).
 let optimistic = null, rendered = { game: null, fen: null }, skipSlide = false, drag = null;
 
@@ -52,7 +53,7 @@ function hello() { send(boardsMode ? { type: 'hello' } : { type: 'hello', token:
 // En pruebas locales el servidor puede no pedir clave de organización: entonces se ocultan sus campos.
 function setKeyMode(required) {
   for (const [field, input] of [['to-key-field', 'to-key']]) {
-    $(field).hidden = !required; $(input).disabled = !required; $(input).required = required;
+    keyFieldRequired = required; $(field).hidden = !required; $(input).disabled = !required; $(input).required = required;
   }
 }
 async function checkKeyMode() {
@@ -69,8 +70,10 @@ const icons = {
 const emptyLobby = `<div class="to-empty"><div class="to-empty-art" aria-hidden="true"><svg viewBox="0 0 64 64"><path d="M32 5v10M27 10h10M22 27c0-6 4-11 10-11s10 5 10 11c0 5-3 8-4 12H26c-1-4-4-7-4-12zM24 39h16l3 9H21zM17 48h30v7H17z"/></svg></div><strong>El próximo torneo puede ser el nuestro</strong><p>Todavía no hay torneos. Cuando la organización abra uno, aparecerá aquí.</p><button class="btn" type="button" data-create>Organizar torneo</button></div>`;
 function eventCard(t) {
   const trash = read(hostKey(t.id)) ? `<button class="to-delete" type="button" data-delete="${t.id}" aria-label="Borrar el torneo ${esc(t.title)}" title="Borrar torneo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M5 7l1 13h12l1-13M9 7V4h6v3"/></svg></button>` : '';
+  // Lápiz para editar: solo el organizador y mientras no haya empezado.
+  const pencil = trash && t.status === 'waiting' ? `<button class="to-delete to-edit" type="button" data-edit="${t.id}" aria-label="Editar el torneo ${esc(t.title)}" title="Editar torneo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></button>` : '';
   const full = Math.min(100, Math.round(t.count / t.capacity * 100));
-  return `<article class="to-event ${t.status}">${trash}<div class="to-event-top"><span class="to-status ${t.status}">${esc(statuses[t.status])}</span><span class="to-event-clock">${icons.clock}${t.minutes} + ${t.increment}</span></div>`
+  return `<article class="to-event ${t.status}">${pencil}${trash}<div class="to-event-top"><span class="to-status ${t.status}">${esc(statuses[t.status])}</span><span class="to-event-clock">${icons.clock}${t.minutes} + ${t.increment}</span></div>`
     + `<h3>${esc(t.title)}</h3><ul class="to-event-meta"><li>${icons.format}${formatLabel(t)}</li>${t.locked ? `<li>${icons.lock}Inscripción con clave</li>` : ''}<li>${icons.calendar}${t.startsAt ? esc(date(t.startsAt)) : 'Inicio a cargo del organizador'}</li></ul>`
     + `<div class="to-event-fill"><span>${icons.people}${t.count}/${t.capacity} jugadores</span><i><b style="width:${full}%"></b></i></div>`
     + `<a class="btn" href="jugar-torneo.html?id=${t.id}">${t.status === 'waiting' ? 'Entrar e inscribirme' : 'Ver torneo'}</a></article>`;
@@ -504,21 +507,45 @@ function syncFormat() {
 }
 $('to-format').addEventListener('change', syncFormat);
 $('to-refresh').addEventListener('click', loadLobby);
+// El mismo formulario sirve para crear y para editar (editingId = torneo que se edita).
+function setCreateMode(id) {
+  editingId = id;
+  $('to-create-heading').textContent = id ? 'Editar torneo' : 'Organizar un torneo';
+  $('to-create-submit').textContent = id ? 'Guardar cambios' : 'Crear y abrir inscripciones';
+  // Para editar basta con ser el organizador: no se pide la clave de organización.
+  $('to-key-field').hidden = !!id || !keyFieldRequired; $('to-key').disabled = $('to-key').required = !id && keyFieldRequired;
+  $('to-create-error').hidden = true; $('to-start-day').min = localDay(new Date());
+}
 $('to-create-open').addEventListener('click', () => {
-  $('to-create-error').hidden = true; $('to-start-day').min = localDay(new Date()); syncFormat();
+  $('to-create-form').reset(); setCreateMode(null); syncFormat();
   $('to-create-dialog').showModal();
 });
+async function openEdit(id) {
+  const c = await (await request(`/api/tournaments/${id}/config`, { method: 'POST', body: JSON.stringify({ hostToken: read(hostKey(id)) }) })).json();
+  const form = $('to-create-form'); form.reset(); setCreateMode(id);
+  form.title.value = c.title; $('to-format').value = c.format; $('to-minutes').value = c.minutes; $('to-increment').value = c.increment;
+  if (c.format === 'swiss') $('to-rounds').value = c.rounds;
+  if (c.format === 'arena') $('to-duration').value = c.duration;
+  $('to-capacity').value = c.capacity; $('to-join-key-new').value = c.joinKey || '';
+  if (c.startsAt) { const d = new Date(c.startsAt); $('to-start-day').value = localDay(d); $('to-start-time').value = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; }
+  syncFormat(); $('to-create-dialog').showModal();
+}
 document.querySelectorAll('[data-close]').forEach(b => b.addEventListener('click', () => $(b.dataset.close).close()));
 $('to-create-form').addEventListener('submit', async event => {
   event.preventDefault(); const form = event.currentTarget, button = form.querySelector('[type="submit"]'); button.disabled = true;
   try {
     const data = new FormData(form), hostToken = token();
-    write('apejupoTorneoOrganizacionPendiente', hostToken);
+    if (!editingId) write('apejupoTorneoOrganizacionPendiente', hostToken);
     const day = data.get('startDay'), time = data.get('startTime');
     if (day && !time) throw new Error('Elige también la hora de inicio.');
     if (time && !day) throw new Error('Elige también el día de inicio.');
     const startsAt = day ? new Date(`${day}T${time}`).getTime() : null;
     const isArena = data.get('format') === 'arena';
+    if (editingId) {
+      const fields = { title: data.get('title'), format: data.get('format'), minutes: Number(data.get('minutes')), increment: Number(data.get('increment')), rounds: data.get('format') === 'swiss' ? Number(data.get('rounds')) : null, duration: isArena ? Number(data.get('duration')) : null, capacity: Number(data.get('capacity')), startsAt, joinKey: data.get('joinKey') || '' };
+      await request(`/api/tournaments/${editingId}/edit`, { method: 'POST', body: JSON.stringify({ ...fields, hostToken: read(hostKey(editingId)) }) });
+      $('to-create-dialog').close(); message('Cambios guardados.'); await loadLobby(); return;
+    }
     const res = await (await request('/api/tournaments', { method: 'POST', key: data.get('key'), body: JSON.stringify({ title: data.get('title'), format: data.get('format'), minutes: Number(data.get('minutes')), increment: Number(data.get('increment')), rounds: data.get('format') === 'swiss' ? Number(data.get('rounds')) : null, duration: isArena ? Number(data.get('duration')) : null, capacity: Number(data.get('capacity')), startsAt, joinKey: data.get('joinKey') || '', hostToken }) })).json();
     write(hostKey(res.id), hostToken); $('to-key').value = ''; location.href = 'jugar-torneo.html?id=' + res.id;
   } catch (e) { $('to-create-error').hidden = false; $('to-create-error').textContent = e.message; }
@@ -669,6 +696,8 @@ document.addEventListener('pointerdown', () => { try { audio ||= new AudioContex
 
 $('to-events').addEventListener('click', async event => {
   if (event.target.closest('[data-create]')) { $('to-create-open').click(); return; }
+  const pencil = event.target.closest('[data-edit]');
+  if (pencil) { try { await openEdit(pencil.dataset.edit); } catch (error) { message(error.message, true); } return; }
   const button = event.target.closest('[data-delete]'); if (!button) return;
   const id = button.dataset.delete, t = lobby.get(id); if (!t) return;
   const n = t.count, players = n === 1 ? 'Hay 1 jugador inscrito' : `Hay ${n} jugadores inscritos`;

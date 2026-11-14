@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Chess } from 'chess.js';
-import { createTournament, joinTournament, startTournament, act, advance, standings, snapshot, sharedSnapshot, personalPart, moveMessage, canPossiblyMate, nextAlarm, exportPgn, BREAK_MS } from '../src/core.js';
+import { createTournament, editTournament, joinTournament, startTournament, act, advance, standings, snapshot, sharedSnapshot, personalPart, moveMessage, canPossiblyMate, nextAlarm, exportPgn, BREAK_MS } from '../src/core.js';
 
 const NOW = 1800000000000;
 function tournament(count = 2, options = {}) {
@@ -359,4 +359,16 @@ test('cerrado: todos contra todos una vez, descanso sin punto y colores equilibr
     // Todas las partidas las ganan las negras: el descanso no suma.
     for (const row of standings(t)) assert.equal(row.points, real.filter(g => g.black === row.id).length);
   }
+});
+
+test('editar antes de empezar: se valida como al crear y no después de empezar', () => {
+  const t = tournament(3); t.joinKey = 'secreta';
+  editTournament(t, { title: 'Abierto editado', format: 'closed', minutes: 3, increment: 2, capacity: 10, joinKey: '' }, NOW);
+  assert.equal(t.title, 'Abierto editado'); assert.equal(t.format, 'closed'); assert.equal(t.minutes, 3); assert.equal(t.joinKey, '');
+  assert.equal(t.players.length, 3);
+  assert.throws(() => editTournament(t, { title: 'Abierto editado', format: 'swiss', rounds: 3, minutes: 3, increment: 2, capacity: 2 }, NOW), /3 jugadores/);
+  assert.throws(() => editTournament(t, { title: 'x', format: 'swiss', rounds: 3, minutes: 3, increment: 2, capacity: 10 }, NOW), /nombre/);
+  assert.equal(t.title, 'Abierto editado');
+  startTournament(t, NOW);
+  assert.throws(() => editTournament(t, { title: 'Otro nombre', format: 'swiss', rounds: 3, minutes: 3, increment: 2, capacity: 10 }, NOW), /empezado/);
 });

@@ -1,6 +1,6 @@
 import { DurableObject } from 'cloudflare:workers';
 export { AccountStore } from './accounts.js';
-import { GameError, requireThat, isArena, createTournament, joinTournament, act, advance, pairArena, nextAlarm, snapshot, sharedSnapshot, personalPart, moveMessage, summary, exportPgn, RETENTION_MS } from './core.js';
+import { GameError, requireThat, isArena, createTournament, editTournament, joinTournament, act, advance, pairArena, nextAlarm, snapshot, sharedSnapshot, personalPart, moveMessage, summary, exportPgn, RETENTION_MS } from './core.js';
 
 // El navegador manda "ping" cada 30 s; sin señal en este margen, el jugador no se considera presente.
 const PRESENCE_MS = 75000;
@@ -200,6 +200,12 @@ export class TournamentRoom extends DurableObject {
           requireThat(TOKEN.test(b.hostToken), 'Identificación no válida.');
           this.t.hostHash = await hash(b.hostToken); await this.save(); this.broadcast(); return json({ ok: true });
         }
+        if (url.pathname === '/config' || url.pathname === '/edit') {
+          // Solo el organizador: /config devuelve los datos para rellenar el formulario; /edit los cambia.
+          requireThat(TOKEN.test(b.hostToken) && (await hash(b.hostToken)) === this.t.hostHash, 'Solo el organizador puede editar el torneo.', 403);
+          if (url.pathname === '/edit') { editTournament(this.t, b, Date.now()); await this.save(); this.broadcast(); }
+          return json({ ...summary(this.t), joinKey: this.t.joinKey || '' });
+        }
         if (url.pathname === '/delete') {
           // Solo el organizador. Se avisa a quien tenga la sala abierta y desaparece de la lista.
           requireThat(TOKEN.test(b.hostToken) && (await hash(b.hostToken)) === this.t.hostHash, 'Solo el organizador puede borrar el torneo.', 403);
@@ -311,7 +317,7 @@ export default {
         // La sesión viaja en la cabecera Authorization; la IP solo sirve para frenar intentos repetidos.
         return withCors(await askAccounts(account[1], { ...b, session: bearer(request), ip: request.headers.get('CF-Connecting-IP') || 'local' }));
       }
-      const room = /^\/api\/tournaments\/([a-f0-9]{24})(?:\/(join|socket|pgn|recover|delete))?$/.exec(path);
+      const room = /^\/api\/tournaments\/([a-f0-9]{24})(?:\/(join|socket|pgn|recover|delete|config|edit))?$/.exec(path);
       if (path === '/api/tournaments' && request.method === 'GET') return withCors(await directory.fetch('https://directory/'));
       if ((path === '/api/tournaments' && request.method === 'POST') || (room?.[2] === 'recover' && request.method === 'POST')) {
         const authorization = await directory.fetch('https://directory/authorize', { method: 'POST', body: JSON.stringify({ key: bearer(request), ip: request.headers.get('CF-Connecting-IP') || 'local' }) });
@@ -322,7 +328,7 @@ export default {
       }
       requireThat(room && ROOM_ID.test(room[1]), 'No encontrado.', 404);
       const suffix = room[2] || '';
-      requireThat(!['join', 'recover', 'delete'].includes(suffix) || request.method === 'POST', 'Método no permitido.', 405);
+      requireThat(!['join', 'recover', 'delete', 'config', 'edit'].includes(suffix) || request.method === 'POST', 'Método no permitido.', 405);
       requireThat(!['socket', 'pgn', ''].includes(suffix) || request.method === 'GET', 'Método no permitido.', 405);
       if (suffix === 'socket') requireThat(origin && allowed.includes(origin), 'Conexión no autorizada.', 403);
       if (suffix === 'join') {

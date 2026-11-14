@@ -281,3 +281,6 @@ body.to-focus .to-game-actions { padding-top: 12px; border-top: 1px solid var(--
 /* Iconos de los títulos del formulario de organizar torneo */
 .to-dialog .to-lbl-ic { width: 16px; height: 16px; margin-right: 7px; vertical-align: -3px; fill: none; stroke: #e5b766; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .to-dialog h2 .to-lbl-ic { width: 22px; height: 22px; vertical-align: -4px; margin-right: 9px; }
+/* Lápiz de editar, a la izquierda de la papelera */
+.to-edit { right: 70px; border-color: rgba(96, 165, 250, .45); background: rgba(96, 165, 250, .12); color: #60a5fa; }
+.to-edit:hover, .to-edit:focus-visible { background: #3b82f6; color: #fff; }
