@@ -62,7 +62,7 @@
       return '<div class="' + cls + '" data-sq="' + sq + '">' + img + coords + "</div>";
     }).join("");
     $("an-board").setAttribute("aria-label", "Tablero. Juegan " + (g.turn() === "w" ? "blancas" : "negras") + (g.in_checkmate() ? ". Jaque mate" : g.in_check() ? ". Jaque" : ""));
-    renderMoves(); renderFen(); renderNav(); renderPlayers(); drawArrow(); analyse();
+    renderMoves(); renderFen(); renderNav(); renderPlayers(); renderOpening(); drawArrow(); analyse();
   }
   // Nombres de los jugadores (si los trae el PGN), con título y Elo: arriba el bando que está arriba en el tablero.
   function renderPlayers() {
@@ -74,6 +74,19 @@
       el.innerHTML = '<span class="an-pdot ' + color + '" aria-hidden="true"></span>' + (p.title ? '<b class="an-ptitle">' + e(p.title) + "</b>" : "")
         + '<span class="an-pname">' + e(p.name) + "</span>" + (/^\d+$/.test(p.elo) && p.elo !== "0" ? '<span class="an-pelo">' + e(p.elo) + "</span>" : "");
     });
+  }
+  // Apertura o defensa (lista de js/aperturas.js): la más larga que coincide con las jugadas hasta la posición actual.
+  var openingIndex = null;
+  function renderOpening() {
+    var el = $("an-opening");
+    if (!openingIndex) { openingIndex = {}; (window.APERTURAS || []).forEach(function (a) { if (a[2]) openingIndex[a[2]] = a; }); }
+    var found = null;
+    if (rootFen === START && !editing) {
+      var sans = line.slice(0, ply).map(function (n) { return n.san; });
+      for (var k = sans.length; k > 0 && !found; k--) found = openingIndex[sans.slice(0, k).join(" ")] || null;
+    }
+    el.hidden = !found;
+    if (found) el.innerHTML = "<b>" + found[0] + "</b>" + found[1];
   }
   function renderNav() {
     $("an-first").disabled = $("an-prev").disabled = ply === 0;
