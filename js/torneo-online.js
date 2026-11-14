@@ -519,6 +519,12 @@ function updateClocks() {
 // Todas las ventanas de confirmación usan «Aceptar» y «Cancelar».
 function confirmAction(title, text, danger = false) {
   const label = 'Aceptar', cancel = 'Cancelar';
+  // Icono y color según la acción: rojo si se pierde algo; azul si es un paso normal.
+  $('to-confirm-icon').className = 'to-dialog-icon ' + (danger ? 'danger' : 'info');
+  $('to-confirm-icon').innerHTML = danger
+    ? '<svg viewBox="0 0 24 24"><path d="M12 3 2 20h20z"/><path d="M12 10v4M12 17h.01"/></svg>'
+    : '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg>';
+  $('to-confirm-dialog').dataset.tone = danger ? 'danger' : 'info';
   $('to-confirm-title').textContent = title; $('to-confirm-text').textContent = text; $('to-confirm-text').hidden = !text;
   $('to-confirm-yes').textContent = label; $('to-confirm-no').textContent = cancel;
   $('to-confirm-yes').classList.toggle('danger', danger);
@@ -624,13 +630,13 @@ $('to-join-form').addEventListener('submit', async event => {
   finally { button.disabled = !connected; }
 });
 $('to-start').addEventListener('click', async () => {
-  if (await confirmAction('Empezar torneo', arena(state) ? `Se cerrarán las inscripciones y empezará la cuenta atrás de ${duration(state.duration)}. Se emparejará a los jugadores que tengan la página abierta.` : `Se cerrarán las inscripciones y arrancarán los relojes de ${state.count} jugadores. Las rondas se ajustarán al número de inscritos.`)) { message(''); send({ type: 'start' }); }
+  if (await confirmAction('Empezar torneo', arena(state) ? `Se cerrarán las inscripciones y empezará la cuenta atrás de ${duration(state.duration)}. Se emparejará a los jugadores que tengan la página abierta.` : `Se cerrarán las inscripciones y arrancarán los relojes de ${state.count} jugadores. Las rondas se ajustarán al número de inscritos.`, false)) { message(''); send({ type: 'start' }); }
 });
 $('to-cancel').addEventListener('click', async () => {
-  if (await confirmAction('Cancelar torneo', 'El torneo se cerrará y las partidas en juego terminarán en tablas. Esta acción no se puede deshacer.')) send({ type: 'cancel' });
+  if (await confirmAction('Cancelar torneo', 'El torneo se cerrará y las partidas en juego terminarán en tablas. Esta acción no se puede deshacer.', true)) send({ type: 'cancel' });
 });
 $('to-withdraw').addEventListener('click', async () => {
-  if (await confirmAction(state.status === 'waiting' ? 'Cancelar inscripción' : 'Retirarte del torneo', state.status === 'waiting' ? 'Se liberará tu plaza. Podrás volver a inscribirte mientras haya sitio.' : arena(state) ? 'Perderás tu partida en curso y no se te emparejará más. Si solo quieres descansar, usa «Pausa».' : 'Perderás tu partida en curso y no participarás en las siguientes rondas.')) send({ type: 'withdraw' });
+  if (await confirmAction(state.status === 'waiting' ? 'Cancelar inscripción' : 'Retirarte del torneo', state.status === 'waiting' ? 'Se liberará tu plaza. Podrás volver a inscribirte mientras haya sitio.' : arena(state) ? 'Perderás tu partida en curso y no se te emparejará más. Si solo quieres descansar, usa «Pausa».' : 'Perderás tu partida en curso y no participarás en las siguientes rondas.', true)) send({ type: 'withdraw' });
 });
 $('to-focus-pause').addEventListener('click', () => $('to-pause').click());
 $('to-pause').addEventListener('click', () => {
@@ -639,7 +645,7 @@ $('to-pause').addEventListener('click', () => {
 });
 $('to-standings').addEventListener('click', async event => {
   const id = event.target.closest('[data-remove]')?.dataset.remove;
-  if (id && await confirmAction('Retirar inscripción', `¿Retirar a ${name(id)} de este torneo?`)) send({ type: 'remove', playerId: id });
+  if (id && await confirmAction('Retirar inscripción', `¿Retirar a ${name(id)} de este torneo?`, true)) send({ type: 'remove', playerId: id });
 });
 // Los tableros se ven SIEMPRE en una página aparte: si ya está abierta, se trae al frente
 // (y se cambia a la partida pedida); si no, se abre una nueva.
@@ -729,7 +735,7 @@ $('to-accept').addEventListener('click', () => send({ type: 'accept-draw', game:
 $('to-decline').addEventListener('click', () => send({ type: 'decline-draw', game: state.game.id }));
 $('to-resign').addEventListener('click', async () => {
   const id = state.game.id;
-  if (await confirmAction('¿Quieres abandonar la partida?', '')) send({ type: 'resign', game: id });
+  if (await confirmAction('¿Quieres abandonar la partida?', '', true)) send({ type: 'resign', game: id });
 });
 $('to-confirm-no').addEventListener('click', () => closeConfirm(false));
 $('to-confirm-yes').addEventListener('click', () => closeConfirm(true));
