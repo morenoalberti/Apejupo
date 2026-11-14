@@ -375,3 +375,10 @@ body.to-focus .to-game-actions { padding-top: 12px; border-top: 1px solid var(--
 .to-draw-btns .btn { background: #3b82f6; border-color: #3b82f6; color: #fff; }
 .to-draw-btns .btn:hover:not(:disabled) { background: #2563eb; border-color: #2563eb; }
 @media (max-width: 520px) { .to-draw-btns { width: 100%; } .to-draw-btns button { flex: 1; } }
+/* La oferta de tablas sale en medio del tablero: solo los dos botones */
+.to-board-wrap { position: relative; }
+.to-board-wrap .to-draw-offer { position: absolute; z-index: 20; left: 50%; top: 50%; width: min(92%, 400px); margin: 0; padding: 12px; transform: translate(-50%, -50%); border: 1px solid #60a5fa88; border-radius: 14px; background: #16243bf2; backdrop-filter: blur(4px); box-shadow: 0 24px 60px -10px #000d; animation: to-draw-pop .22s ease-out; }
+@keyframes to-draw-pop { from { opacity: 0; transform: translate(-50%, -46%) scale(.96); } }
+@media (prefers-reduced-motion: reduce) { .to-board-wrap .to-draw-offer { animation: none; } }
+.to-board-wrap .to-draw-btns { width: 100%; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.to-board-wrap .to-draw-btns button { padding: 12px 14px !important; font-size: 1rem; }
