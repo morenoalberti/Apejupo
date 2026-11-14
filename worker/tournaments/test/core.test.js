@@ -338,3 +338,26 @@ test('suizo de 128 jugadores durante 7 rondas: 64 tableros y sin rivales repetid
   }
   assert.equal(t.status, 'finished');
 });
+
+test('cerrado: todos contra todos una vez, descanso sin punto y colores equilibrados', () => {
+  assert.throws(() => tournament(0, { format: 'closed', capacity: 21 }), /cerrado/);
+  for (const n of [2, 5, 6, 9, 10]) {
+    const t = tournament(n, { format: 'closed', capacity: 20 }); startTournament(t, NOW); let now = NOW;
+    assert.equal(t.rounds, n % 2 ? n : n - 1);
+    for (let round = 1; round <= t.rounds; round++) {
+      const games = t.games.filter(g => g.round === round);
+      assert.equal(games.filter(g => g.bye).length, n % 2);
+      for (const g of games.filter(g => !g.bye)) act(t, g.white, false, { type: 'resign', game: g.id }, ++now);
+      if (round < t.rounds) { now += BREAK_MS; advance(t, now); }
+    }
+    assert.equal(t.status, 'finished');
+    const real = t.games.filter(g => !g.bye), keys = new Set(real.map(g => [g.white, g.black].sort().join(':')));
+    assert.equal(real.length, n * (n - 1) / 2); assert.equal(keys.size, real.length);
+    for (const p of t.players) {
+      const whites = real.filter(g => g.white === p.id).length, blacks = real.filter(g => g.black === p.id).length;
+      assert.ok(Math.abs(whites - blacks) <= 1, `colores de ${p.name}: ${whites}/${blacks}`);
+    }
+    // Todas las partidas las ganan las negras: el descanso no suma.
+    for (const row of standings(t)) assert.equal(row.points, real.filter(g => g.black === row.id).length);
+  }
+});

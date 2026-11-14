@@ -26,6 +26,8 @@ export function cleanJoinKey(value) {
 const sameKey = (a, b) => a.toLocaleLowerCase('es') === b.toLocaleLowerCase('es');
 export const ARENA_DURATIONS = [3, 5, 10, 15, 20, 30, 45, 60, 90, 120];
 export const isArena = t => t.format === 'arena';
+export const isClosed = t => t.format === 'closed';
+export const MAX_CLOSED_PLAYERS = 20;
 export const BERSERK_BONUS = .5;
 // Como en Lichess: se deja de emparejar cuando queda menos de la mitad del tiempo base de una partida
 // (entre 30 s y 2 min), y las partidas que acaban después del tiempo se juegan pero no cuentan.
@@ -35,10 +37,11 @@ export const BERSERK_MIN_PLIES = 13; // al menos 7 jugadas de blancas para cobra
 const berserkBonus = (g, color) => !!(color === 'w' ? g.berserkW : g.berserkB) && g.moves.length >= BERSERK_MIN_PLIES;
 export function createTournament(input, id, hostHash, now = Date.now()) {
   const title = cleanName(input.title, 70);
-  const format = input.format === 'arena' ? 'arena' : 'swiss';
+  const format = ['arena', 'closed'].includes(input.format) ? input.format : 'swiss';
   const minutes = Number(input.minutes), increment = Number(input.increment);
   const capacity = Number(input.capacity), joinKey = cleanJoinKey(input.joinKey);
-  const rounds = format === 'arena' ? 0 : Number(input.rounds);
+  // Cerrado: las rondas salen del número de inscritos al empezar (todos contra todos).
+  const rounds = format === 'swiss' ? Number(input.rounds) : 0;
   const duration = format === 'arena' ? Number(input.duration) : null;
   requireThat(title.length >= 4, 'El nombre del torneo debe tener al menos 4 caracteres.');
   requireThat([1, 2, 3, 5, 10, 15].includes(minutes), 'Elige un ritmo válido.');
@@ -46,7 +49,8 @@ export function createTournament(input, id, hostHash, now = Date.now()) {
   if (format === 'arena') {
     requireThat(ARENA_DURATIONS.includes(duration), 'Elige una duración válida.');
     requireThat(duration >= minutes * 3, 'La duración debe dar para varias partidas: al menos el triple de los minutos por jugador.');
-  } else requireThat(Number.isInteger(rounds) && rounds >= 1 && rounds <= 9, 'Elige entre 1 y 9 rondas.');
+  } else if (format === 'closed') requireThat(capacity <= MAX_CLOSED_PLAYERS, `En un torneo cerrado el límite es de ${MAX_CLOSED_PLAYERS} jugadores.`);
+  else requireThat(Number.isInteger(rounds) && rounds >= 1 && rounds <= 9, 'Elige entre 1 y 9 rondas.');
   requireThat(Number.isInteger(capacity) && capacity >= 2 && capacity <= MAX_PLAYERS, `El límite es de 2 a ${MAX_PLAYERS} jugadores.`);
   let startsAt = input.startsAt ? Number(input.startsAt) : null;
   requireThat(!startsAt || (Number.isFinite(startsAt) && startsAt > now + 60000 && startsAt < now + 14 * 86400000), 'La fecha de inicio debe estar entre un minuto y 14 días en el futuro.');
@@ -63,7 +67,7 @@ export function standings(t) {
   for (const g of counted) {
     const white = map.get(g.white), black = map.get(g.black);
     if (!white) continue;
-    if (g.bye) { white.points += 1; white.byes++; white.sheet.push({ s: 1, bye: true }); continue; }
+    if (g.bye) { const s = g.rest ? 0 : 1; white.points += s; white.byes++; white.sheet.push({ s, bye: true }); continue; }
     white.colors.push('w'); black.colors.push('b');
     white.opponents.push(black.id); black.opponents.push(white.id);
     if (!g.result) continue;
@@ -87,6 +91,8 @@ export function standings(t) {
   for (const p of t.players) { const row = map.get(p.id); row.paused = !!p.paused; row.playing = t.games.some(g => !g.result && (g.white === p.id || g.black === p.id)); }
   // Arena: con número de partidas desigual, Buchholz no es comparable; desempatan victorias y eficacia.
   if (isArena(t)) return rows.sort((a, b) => b.points - a.points || b.wins - a.wins || a.played - b.played || a.seed - b.seed);
+  // Cerrado: todos juegan contra todos, así que Buchholz no distingue; manda Sonneborn-Berger.
+  if (isClosed(t)) return rows.sort((a, b) => b.points - a.points || b.sonneborn - a.sonneborn || b.wins - a.wins || a.seed - b.seed);
   return rows.sort((a, b) => b.points - a.points || b.buchholz - a.buchholz || b.sonneborn - a.sonneborn || b.wins - a.wins || a.seed - b.seed);
 }
 
@@ -131,6 +137,38 @@ function orient(a, b, round) {
   const ab = colorCost(a, 'w') + colorCost(b, 'b');
   const ba = colorCost(a, 'b') + colorCost(b, 'w');
   return ab < ba || (ab === ba && (a.seed + round) % 2 === 0) ? [a, b] : [b, a];
+}
+
+// Cerrado: tabla Berger. Los números i y j (sin contar el último) se cruzan en la ronda
+// (i + j − 2) mod (n − 1) + 1; el que queda libre juega con el último. Con número impar,
+// el último es un hueco (descanso). Así nadie pasa de una partida de diferencia entre blancas y negras.
+export function closedPairs(players, round) {
+  const ids = [...players].sort((a, b) => a.seed - b.seed);
+  if (ids.length % 2) ids.push(null);
+  const n = ids.length, pairs = [], used = new Set();
+  for (let i = 1; i < n; i++) for (let j = i + 1; j < n; j++) {
+    if ((i + j - 2) % (n - 1) + 1 !== round) continue;
+    pairs.push((i + j) % 2 ? [ids[i - 1], ids[j - 1]] : [ids[j - 1], ids[i - 1]]);
+    used.add(i); used.add(j);
+  }
+  const k = Array.from({ length: n - 1 }, (_, x) => x + 1).find(x => !used.has(x));
+  pairs.unshift(k % 2 ? [ids[k - 1], ids[n - 1]] : [ids[n - 1], ids[k - 1]]);
+  return pairs;
+}
+function beginClosedRound(t, now) {
+  t.round++;
+  t.nextRoundAt = null; t.status = 'playing'; t.notice = '';
+  for (const [a, b] of closedPairs(t.players, t.round)) {
+    const present = [a, b].filter(p => p && p.active);
+    if (present.length === 2) { t.games.push(newGame(t, a, b, now)); continue; }
+    if (!present.length) continue;
+    const g = newGame(t, present[0], null, now);
+    // Hueco de número impar: descansa sin punto. Rival retirado: el punto es para quien sigue.
+    const rest = !a || !b;
+    g.result = '1-0'; g.reason = rest ? 'Descanso' : 'Rival retirado: un punto'; g.finishedAt = now;
+    if (rest) g.rest = true;
+    t.games.push(g);
+  }
 }
 
 // Suizo de club: busca primero una ronda completa sin rivales repetidos y aproxima puntuaciones y colores.
@@ -192,6 +230,7 @@ function newGame(t, a, b, now) {
     lastAt: now, result: null, reason: '', offer: null, bye: !b, finishedAt: null };
 }
 export function beginRound(t, now) {
+  if (isClosed(t)) return beginClosedRound(t, now);
   const { pairs, bye, repeated } = pairRound(t);
   if (!pairs.length) { finishTournament(t, now); return; }
   t.round++;
@@ -209,7 +248,8 @@ export function startTournament(t, now = Date.now()) {
   requireThat(t.status === 'waiting', 'El torneo ya ha comenzado.');
   requireThat(t.players.length >= 2, 'Se necesitan al menos dos jugadores.');
   const n = t.players.length;
-  if (!isArena(t)) t.rounds = Math.min(t.rounds, n % 2 ? n : n - 1);
+  if (isClosed(t)) t.rounds = n % 2 ? n : n - 1;
+  else if (!isArena(t)) t.rounds = Math.min(t.rounds, n % 2 ? n : n - 1);
   // Sorteo de los números iniciales, independiente del orden de inscripción.
   const random = new Uint32Array(n); crypto.getRandomValues(random);
   t.players.map((p, i) => ({ p, r: random[i] })).sort((a, b) => a.r - b.r).forEach(({ p }, i) => { p.seed = i + 1; });

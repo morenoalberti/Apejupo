@@ -38,8 +38,9 @@ async function request(path, { key, ...options } = {}) {
   return response;
 }
 const arena = t => t?.format === 'arena';
+const closed = t => t?.format === 'closed';
 function duration(minutes) { return minutes % 60 ? (minutes > 60 ? `${Math.floor(minutes / 60)} h ${minutes % 60} min` : `${minutes} min`) : `${minutes / 60} h`; }
-function formatLabel(t) { return arena(t) ? `Arena de ${duration(t.duration)}` : `${t.rounds} rondas`; }
+function formatLabel(t) { return arena(t) ? `Arena de ${duration(t.duration)}` : closed(t) ? (t.rounds ? `Cerrado a ${t.rounds} rondas` : 'Cerrado: todos contra todos') : `${t.rounds} rondas`; }
 function date(value) { return new Intl.DateTimeFormat('es', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(value); }
 function name(id) { return state?.standings.find(p => p.id === id)?.name || 'Jugador'; }
 function send(action) {
@@ -166,7 +167,7 @@ function render() {
   const t = state;
   $('to-title').textContent = t.title; document.title = t.title + ' · Torneo Apejupo';
   $('to-subtitle').textContent = canJoin(t) && arena(t) && t.status === 'playing' && !t.standings.some(p => p.id === t.me) ? 'El arena está en marcha: únete y empieza a jugar ya.' : t.status === 'waiting' ? 'Las inscripciones están abiertas. Reserva tu sitio en el tablero.' : 'Sigue tus partidas, los tableros y la clasificación en directo.';
-  $('to-summary').innerHTML = `<span class="to-status ${t.status}">${esc(statuses[t.status])}</span><span>${t.minutes} + ${t.increment}</span><span>${formatLabel(t)}</span><span>${arena(t) ? 'Emparejamiento continuo' : 'Suizo de club'}</span>`;
+  $('to-summary').innerHTML = `<span class="to-status ${t.status}">${esc(statuses[t.status])}</span><span>${t.minutes} + ${t.increment}</span><span>${formatLabel(t)}</span><span>${arena(t) ? 'Emparejamiento continuo' : closed(t) ? 'Todos contra todos' : 'Suizo de club'}</span>`;
   $('to-notice').hidden = !t.notice; $('to-notice').textContent = t.notice;
   const mine = t.standings.find(p => p.id === t.me), registering = t.status === 'waiting';
   $('to-registration').hidden = !canJoin(t) || !!mine || t.count >= t.capacity;
@@ -490,9 +491,17 @@ $('to-start-time').insertAdjacentHTML('beforeend', Array.from({ length: 96 }, (_
   return `<option value="${hh}:${mm}">${hh}:${mm}</option>`;
 }).join(''));
 function localDay(d) { return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
+const formatHelp = {
+  arena: 'Se juega durante un tiempo fijo; quien termina su partida se empareja enseguida con otro jugador libre.',
+  swiss: 'Número fijo de rondas, con rivales de puntuación parecida y sin repetir enfrentamientos.',
+  closed: 'Todos contra todos, una vez cada uno. Las rondas salen del número de inscritos (máximo 20).'
+};
 function syncFormat() {
-  const isArena = $('to-format').value === 'arena';
-  $('to-rounds-field').hidden = isArena; $('to-rounds').disabled = isArena;
+  const format = $('to-format').value, isArena = format === 'arena', noRounds = format !== 'swiss';
+  $('to-format-help').textContent = formatHelp[format];
+  $('to-rounds-field').hidden = noRounds; $('to-rounds').disabled = noRounds;
+  $('to-capacity').max = format === 'closed' ? 20 : 128;
+  if (format === 'closed' && Number($('to-capacity').value) > 20) $('to-capacity').value = 20;
   $('to-duration-field').hidden = !isArena; $('to-duration').disabled = !isArena;
 }
 $('to-format').addEventListener('change', syncFormat);
@@ -512,7 +521,7 @@ $('to-create-form').addEventListener('submit', async event => {
     if (time && !day) throw new Error('Elige también el día de inicio.');
     const startsAt = day ? new Date(`${day}T${time}`).getTime() : null;
     const isArena = data.get('format') === 'arena';
-    const res = await (await request('/api/tournaments', { method: 'POST', key: data.get('key'), body: JSON.stringify({ title: data.get('title'), format: data.get('format'), minutes: Number(data.get('minutes')), increment: Number(data.get('increment')), rounds: isArena ? null : Number(data.get('rounds')), duration: isArena ? Number(data.get('duration')) : null, capacity: Number(data.get('capacity')), startsAt, joinKey: data.get('joinKey') || '', hostToken }) })).json();
+    const res = await (await request('/api/tournaments', { method: 'POST', key: data.get('key'), body: JSON.stringify({ title: data.get('title'), format: data.get('format'), minutes: Number(data.get('minutes')), increment: Number(data.get('increment')), rounds: data.get('format') === 'swiss' ? Number(data.get('rounds')) : null, duration: isArena ? Number(data.get('duration')) : null, capacity: Number(data.get('capacity')), startsAt, joinKey: data.get('joinKey') || '', hostToken }) })).json();
     write(hostKey(res.id), hostToken); $('to-key').value = ''; location.href = 'jugar-torneo.html?id=' + res.id;
   } catch (e) { $('to-create-error').hidden = false; $('to-create-error').textContent = e.message; }
   finally { button.disabled = false; }
