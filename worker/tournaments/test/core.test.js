@@ -402,8 +402,9 @@ test('arena: evita a los últimos rivales mientras haya otro libre', () => {
 test('arena: entre los libres prefiere a quien no ha sido rival reciente', () => {
   const t = tournament(4, { format: 'arena', duration: 60 }); startTournament(t, NOW);
   const [a, b, c, d] = t.players.map(p => p.id);
-  t.players.forEach((p, i) => { p.seed = i + 1; }); // A elige primero
-  const game = (w, k, r) => ({ id: w + k + r, round: r, white: w, black: k, result: '1/2-1/2', bye: false, finishedAt: NOW, moves: [] });
+  t.players.forEach((p, i) => { p.seed = i + 1; }); // con la misma espera, A elige primero
+  // Partidas terminadas hace rato: todos llevan el mismo tiempo libres y decide el número de sorteo.
+  const game = (w, k, r) => ({ id: w + k + r, round: r, white: w, black: k, result: '1/2-1/2', bye: false, finishedAt: NOW - 100000, moves: [] });
   t.round = 2; t.games.push(game(a, b, 1), game(a, c, 2));
   pairArena(t, NOW + 60000, new Set([a, b, c, d]));
   const mine = t.games.slice(-2).find(g => g.white === a || g.black === a);
