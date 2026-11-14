@@ -197,3 +197,7 @@
 .an-mv { -webkit-touch-callout: none; user-select: none; -webkit-user-select: none; }
 /* Sin la cifra pequeña dentro de la barra de evaluación: la evaluación ya sale grande arriba */
 #an-evaltext { display: none; }
+/* Barra de evaluación a la izquierda del tablero; las paletas del editor se alinean con el tablero */
+.an-evalbar { order: -1; }
+.an-pal, .an-pal#an-pal-bottom { margin-right: 0; margin-left: 26px; }
+@media (max-width: 760px) { .an-pal, .an-pal#an-pal-bottom { margin-left: 20px; } }
