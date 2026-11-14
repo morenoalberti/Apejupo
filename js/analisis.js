@@ -167,6 +167,17 @@
     msg("Partida cargada: " + (headers.White ? headers.White + " – " + (headers.Black || "?") + " · " : "") + Math.ceil(line.length / 2) + " jugadas.");
     render();
   });
+  // Copiar al portapapeles; si el navegador no deja, se prueba con un cuadro de texto temporal.
+  function copyText(text, done) {
+    function fallback() {
+      var t = document.createElement("textarea"); t.value = text; t.style.position = "fixed"; t.style.opacity = "0";
+      document.body.appendChild(t); t.select();
+      var ok = false; try { ok = document.execCommand("copy"); } catch (_) {}
+      t.remove(); msg(ok ? done : "No se pudo copiar automáticamente.", !ok);
+    }
+    if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(text).then(function () { msg(done); }, fallback);
+    else fallback();
+  }
   function pgnText() {
     var parts = rootFen.split(" "), num = Number(parts[5]) || 1, white = parts[1] === "w", out = [];
     line.forEach(function (m, i) { if (white) out.push(num + ". " + m.san); else out.push((i === 0 ? num + "... " : "") + m.san); if (!white) num++; white = !white; });
@@ -176,8 +187,7 @@
   $("an-copy").addEventListener("click", function () {
     var text = pgnText();
     $("an-pgn").value = text;
-    if (navigator.clipboard) navigator.clipboard.writeText(text).then(function () { msg("PGN copiado al portapapeles."); }, function () { msg("PGN escrito en el cuadro: cópialo desde ahí."); });
-    else msg("PGN escrito en el cuadro: cópialo desde ahí.");
+    copyText(text, "PGN copiado al portapapeles.");
   });
   $("an-reset").addEventListener("click", function () { rootFen = START; line = []; ply = 0; selected = null; flipped = false; $("an-pgn").value = ""; msg(""); render(); });
 
@@ -290,10 +300,11 @@
     else if (act === "edit") startEditor();
     else if (act === "start") $("an-reset").click();
     else if (act === "link") copyLink(fenAt(ply));
+    else if (act === "pgn") $("an-copy").click();
   });
   function copyLink(fen) {
     var url = location.origin + location.pathname + "?fen=" + encodeURIComponent(fen);
-    if (navigator.clipboard) navigator.clipboard.writeText(url).then(function () { msg("Enlace de la posición copiado."); }, function () { msg(url); }); else msg(url);
+    copyText(url, "Enlace de la posición copiado.");
   }
 
   // ---------- Editor de tablero (como el de Lichess) ----------
