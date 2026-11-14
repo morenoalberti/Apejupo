@@ -384,3 +384,28 @@ test('arena con 3: quien espera rival no recibe la partida de otros; el espectad
   assert.equal(selectedGame(t, game.white, null).id, game.id);
   assert.equal(selectedGame(t, null, null).id, game.id);
 });
+
+test('arena: evita a los últimos rivales mientras haya otro libre', () => {
+  const t = tournament(4, { format: 'arena', duration: 60 }); startTournament(t, NOW);
+  const [a, b, c, d] = t.players.map(p => p.id), game = (w, k, r) => ({ id: w + k + r, round: r, white: w, black: k, result: '1/2-1/2', bye: false, finishedAt: NOW, moves: [] });
+  t.round = 3;
+  // A ha jugado contra B (antes) y contra C (la última); D está en pausa. Libres: A, B y C.
+  t.games.push(game(a, b, 1), game(a, c, 2));
+  t.players.find(p => p.id === d).paused = true;
+  pairArena(t, NOW + 60000, new Set([a, b, c, d]));
+  // Elija quien elija primero (el orden depende del sorteo), nadie repite contra su último rival:
+  // A y C acaban de jugar, así que la pareja nunca es A-C.
+  const g = t.games.at(-1);
+  assert.notDeepEqual([g.white, g.black].sort(), [a, c].sort());
+});
+
+test('arena: entre los libres prefiere a quien no ha sido rival reciente', () => {
+  const t = tournament(4, { format: 'arena', duration: 60 }); startTournament(t, NOW);
+  const [a, b, c, d] = t.players.map(p => p.id);
+  t.players.forEach((p, i) => { p.seed = i + 1; }); // A elige primero
+  const game = (w, k, r) => ({ id: w + k + r, round: r, white: w, black: k, result: '1/2-1/2', bye: false, finishedAt: NOW, moves: [] });
+  t.round = 2; t.games.push(game(a, b, 1), game(a, c, 2));
+  pairArena(t, NOW + 60000, new Set([a, b, c, d]));
+  const mine = t.games.slice(-2).find(g => g.white === a || g.black === a);
+  assert.ok([mine.white, mine.black].includes(d)); // ni C (la última) ni B (la anterior): D
+});

@@ -106,7 +106,17 @@ export function standings(t) {
 
 // Arena: cada jugador libre (conectado, sin pausa y tras una breve pausa desde su última partida)
 // se empareja con otro libre. El que más tiempo lleva esperando elige primero; se busca un rival
-// de puntuación parecida y se evita repetir el último rival si hay alternativa.
+// de puntuación parecida y se evitan sus últimos rivales (primero el más reciente) si hay alternativa.
+export const ARENA_RECENT_RIVALS = 3;
+function recentRivals(t, id) {
+  const out = [];
+  for (let i = t.games.length - 1; i >= 0 && out.length < ARENA_RECENT_RIVALS; i--) {
+    const g = t.games[i];
+    if (g.bye || (g.white !== id && g.black !== id)) continue;
+    out.push(g.white === id ? g.black : g.white);
+  }
+  return out;
+}
 function lastGame(t, id) { return [...t.games].reverse().find(g => g.white === id || g.black === id) || null; }
 export function arenaReadyAt(t, id) {
   const g = lastGame(t, id);
@@ -125,10 +135,11 @@ export function pairArena(t, now = Date.now(), online = null) {
   t.round++;
   const pairs = [];
   while (free.length >= 2) {
-    const a = free.shift(), last = lastGame(t, a.id), lastRival = last && (last.white === a.id ? last.black : last.white);
-    const options = free.filter(b => b.id !== lastRival);
-    const pool = options.length ? options : free;
-    const b = pool.reduce((best, c) => Math.abs(c.points - a.points) < Math.abs(best.points - a.points) ? c : best);
+    const a = free.shift(), recent = recentRivals(t, a.id);
+    // Cuanto más reciente el rival, más se evita: el último solo si no queda nadie más.
+    const recency = c => { const i = recent.indexOf(c.id); return i < 0 ? 0 : ARENA_RECENT_RIVALS - i; };
+    const better = (c, best) => (recency(c) - recency(best) || Math.abs(c.points - a.points) - Math.abs(best.points - a.points)) < 0;
+    const b = free.reduce((best, c) => better(c, best) ? c : best);
     free.splice(free.indexOf(b), 1);
     pairs.push(orient(a, b, t.round));
   }
