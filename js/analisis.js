@@ -8,13 +8,14 @@
   // Árbol de jugadas con variantes: cada nodo { id, san, fen, from, to, parent, children }; children[0] es la
   // continuación principal. «line» es el camino de la raíz a la jugada actual más su continuación principal,
   // y «ply» la posición en ese camino: así la navegación, la flecha y las marcas trabajan sobre «line».
+  var players = null; // jugadores del PGN: { w: { name, title, elo }, b: … }
   var nodes = {}, nextId = 1, pgnResult = null, root = newNode(null, { fen: START }); // pgnResult: { node, text } del PGN
   function newNode(parent, data) {
     var n = { id: nextId++, san: data.san || "", fen: data.fen, from: data.from || "", to: data.to || "", parent: parent, children: [] };
     nodes[n.id] = n; return n;
   }
   function resetTree(fen) {
-    nodes = {}; nextId = 1; rootFen = fen; root = newNode(null, { fen: fen }); line = []; ply = 0; pgnResult = null;
+    nodes = {}; nextId = 1; rootFen = fen; root = newNode(null, { fen: fen }); line = []; ply = 0; pgnResult = null; players = null;
     if (typeof stopBatch === "function") stopBatch(true);
     var box = document.getElementById("an-game"); if (box) box.hidden = true; // el botón solo existe con un PGN cargado
   }
@@ -61,7 +62,18 @@
       return '<div class="' + cls + '" data-sq="' + sq + '">' + img + coords + "</div>";
     }).join("");
     $("an-board").setAttribute("aria-label", "Tablero. Juegan " + (g.turn() === "w" ? "blancas" : "negras") + (g.in_checkmate() ? ". Jaque mate" : g.in_check() ? ". Jaque" : ""));
-    renderMoves(); renderFen(); renderNav(); drawArrow(); analyse();
+    renderMoves(); renderFen(); renderNav(); renderPlayers(); drawArrow(); analyse();
+  }
+  // Nombres de los jugadores (si los trae el PGN), con título y Elo: arriba el bando que está arriba en el tablero.
+  function renderPlayers() {
+    ["top", "bottom"].forEach(function (pos) {
+      var el = $("an-player-" + pos), color = (pos === "top") !== flipped ? "b" : "w", p = players && players[color];
+      el.hidden = !p || editing;
+      if (!p) return;
+      var e = function (t) { return String(t).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); };
+      el.innerHTML = '<span class="an-pdot ' + color + '" aria-hidden="true"></span>' + (p.title ? '<b class="an-ptitle">' + e(p.title) + "</b>" : "")
+        + '<span class="an-pname">' + e(p.name) + "</span>" + (/^\d+$/.test(p.elo) && p.elo !== "0" ? '<span class="an-pelo">' + e(p.elo) + "</span>" : "");
+    });
   }
   function renderNav() {
     $("an-first").disabled = $("an-prev").disabled = ply === 0;
@@ -253,6 +265,9 @@
     hist.forEach(function (m) { replay.move(m); var n = newNode(at, { san: m.san, fen: replay.fen(), from: m.from, to: m.to }); at.children.push(n); at = n; });
     var res = (headers.Result || "").trim();
     if (/^(1-0|0-1|1\/2-1\/2)$/.test(res)) pgnResult = { node: at, text: res === "1/2-1/2" ? "½-½" : res };
+    var who = function (c) { var name = (headers[c] || "").trim(); return name && name !== "?" ? { name: name, title: (headers[c + "Title"] || "").trim(), elo: (headers[c + "Elo"] || "").trim() } : null; };
+    var pw = who("White"), pb = who("Black");
+    if (pw || pb) players = { w: pw || { name: "Blancas", title: "", elo: "" }, b: pb || { name: "Negras", title: "", elo: "" } };
     setCur(root); selected = null; flipped = false; // se empieza desde la posición inicial
     $("an-game").hidden = false; $("an-summary").innerHTML = ""; setAnalyzeButton();
     msg("Partida cargada: " + (headers.White ? headers.White + " – " + (headers.Black || "?") + " · " : "") + Math.ceil(hist.length / 2) + " jugadas.");
