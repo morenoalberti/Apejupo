@@ -30,7 +30,9 @@ export async function refresh() {
 // Redondel de la cuenta: tu foto si la has subido; si no, la inicial del nick.
 export const photoUrl = user => user?.photo ? `${API}/api/cuentas/foto/${user.id}?v=${user.photo}` : '';
 export function avatar(user, extra = '') {
-  const inner = user.photo ? `<img src="${esc(photoUrl(user))}" alt="" width="64" height="64">` : esc(user.nick[0].toUpperCase());
+  const initial = esc(user.nick[0].toUpperCase());
+  // Si la foto no carga (servidor caído, sin conexión…), se queda la inicial en vez del icono roto.
+  const inner = user.photo ? `<img src="${esc(photoUrl(user))}" alt="" width="64" height="64" data-i="${initial}" onerror="this.parentNode.classList.remove('has-photo');this.replaceWith(this.dataset.i)">` : initial;
   return `<span class="cu-avatar${user.photo ? ' has-photo' : ''}" aria-hidden="true">${inner}${extra}</span>`;
 }
 function renderChip() {
