@@ -417,3 +417,7 @@ body.to-focus .to-game-actions { padding-top: 12px; border-top: 1px solid var(--
 /* Reto: fuera el bloque del título, la barra de la sala y las etiquetas del torneo */
 .to-challenge .to-hero, .to-challenge .to-room-bar, .to-challenge .to-tournament-bar, .to-challenge #to-notice, .to-challenge #to-focus-info { display: none !important; }
 .to-challenge .to-content { padding-top: 24px; }
+/* Reto: columna del marcador más estrecha (en móvil va debajo del tablero, a todo el ancho) */
+@media (min-width: 761px) { .to-challenge .to-room-layout { grid-template-columns: minmax(0, 1fr) 230px; } }
+.to-challenge .to-duel { padding: 16px; }
+.to-challenge .to-duel-score b { font-size: 1.7rem; }
