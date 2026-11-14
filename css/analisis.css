@@ -178,3 +178,20 @@
 .an-multipv button:disabled { opacity: .3; cursor: default; }
 .an-multipv span { min-width: 22px; text-align: center; font-weight: 700; font-variant-numeric: tabular-nums; }
 .an-off .an-multipv { opacity: .4; }
+/* Árbol de jugadas: línea principal seguida y variantes en bloques sangrados */
+.an-moves { display: block; }
+.an-tree, .an-var { display: flex; flex-wrap: wrap; align-content: flex-start; gap: 2px 4px; }
+.an-var { flex-basis: 100%; margin: 3px 0 3px 8px; padding: 3px 8px; border-left: 2px solid #3b82f655; border-radius: 0 6px 6px 0; background: #ffffff06; font-size: .88rem; }
+.an-var .an-mv { font-weight: 500; color: var(--muted); }
+.an-var .an-mv.cur { color: #fff; }
+.an-var .an-var { margin-left: 4px; }
+/* Menú contextual de una jugada */
+.an-ctx { position: fixed; z-index: 60; min-width: 230px; padding: 6px; border: 1px solid var(--line); border-top: 3px solid #629924; border-radius: 8px; background: var(--card); box-shadow: 0 18px 40px -10px #000c; }
+.an-ctx[hidden] { display: none; }
+.an-ctx-title { margin: 0 0 4px; padding: 4px 8px; font-weight: 700; color: var(--muted); font-size: .85rem; }
+.an-ctx button { display: flex; align-items: center; gap: 10px; width: 100%; padding: 9px 10px; border: 0; border-radius: 6px; background: none; color: var(--text); font: inherit; font-size: .92rem; text-align: left; cursor: pointer; }
+.an-ctx button:hover, .an-ctx button:focus-visible { background: #3b82f61f; outline: none; }
+.an-ctx button.danger { color: #f87171; }
+.an-ctx button.danger:hover { background: #ef44441f; }
+.an-ctx svg { width: 18px; height: 18px; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.an-mv { -webkit-touch-callout: none; user-select: none; -webkit-user-select: none; }
