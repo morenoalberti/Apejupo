@@ -195,9 +195,7 @@
 .to-dialog p { font-size: .9rem; }
 .to-dialog input, .to-dialog select { width: 100%; }
 .to-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 16px; }
-.to-start-fields { border: 0; padding: 0; margin: 12px 0 0; min-width: 0; }
-.to-start-fields legend { font-size: .86rem; font-weight: 600; padding: 0; }
-.to-start-fields label { font-weight: 500; margin-top: 6px; }
+.to-start-fields { border: 0; padding: 0; margin: 0; min-width: 0; }
 .to-submit { width: 100%; margin-top: 22px; }
 .to-confirm-dialog { max-width: 420px; }
 .to-confirm-dialog .to-actions { justify-content: flex-end; }
