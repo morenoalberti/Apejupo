@@ -162,3 +162,13 @@
 #an-ed-msg:empty { display: none; }
 #an-ed-msg { margin: 0; padding: 8px 10px; border-radius: 6px; background: #ef44441f; color: #fca5a5; font-size: .86rem; line-height: 1.4; }
 .an-msg-side { margin: 0; font-size: .86rem; } .an-msg-side:empty { display: none; }
+/* Marcas de las jugadas (como Lichess) y comentario de la jugada actual */
+.an-mark { margin-left: 1px; font-weight: 800; }
+.an-mark.blunder { color: #df5353; } .an-mark.mistake { color: #e69f00; } .an-mark.dubious { color: #56b4e9; }
+.an-mv.cur .an-mark { color: #fff; }
+.an-sym { align-self: center; padding: 0 6px 0 2px; font-weight: 700; color: var(--muted); font-size: .9rem; }
+.an-comment { flex-basis: 100%; margin: 10px 2px 0; padding: 8px 10px; border-radius: 6px; font-size: .88rem; line-height: 1.4; background: #3b82f614; border-left: 3px solid #3b82f6; }
+.an-comment.blunder { background: #df53531a; border-left-color: #df5353; }
+.an-comment.mistake { background: #e69f001a; border-left-color: #e69f00; }
+.an-comment.dubious { background: #56b4e91a; border-left-color: #56b4e9; }
+.an-comment.good { background: #6299241a; border-left-color: #629924; }
