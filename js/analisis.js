@@ -572,7 +572,7 @@
       + '<button type="button" class="an-ed-go" data-ed="ok">Analizar esta posición</button>'
       + '<p id="an-ed-msg" class="an-msg" role="alert"></p>'
       + '<button type="button" class="an-btn" data-ed="cancel">Cancelar</button>';
-    $("an-evalbig").textContent = ""; $("an-depth").textContent = "Editor de tablero";
+    $("an-evalbig").textContent = ""; $("an-depth").textContent = "Editar tablero";
     if (document.activeElement !== $("an-fen")) $("an-fen").value = editFen();
   }
   function setSquare(sq, piece) { if (piece) editBoard[sq] = piece; else delete editBoard[sq]; }
