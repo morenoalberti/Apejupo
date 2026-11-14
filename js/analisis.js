@@ -8,13 +8,13 @@
   // Árbol de jugadas con variantes: cada nodo { id, san, fen, from, to, parent, children }; children[0] es la
   // continuación principal. «line» es el camino de la raíz a la jugada actual más su continuación principal,
   // y «ply» la posición en ese camino: así la navegación, la flecha y las marcas trabajan sobre «line».
-  var nodes = {}, nextId = 1, root = newNode(null, { fen: START });
+  var nodes = {}, nextId = 1, pgnResult = null, root = newNode(null, { fen: START }); // pgnResult: { node, text } del PGN
   function newNode(parent, data) {
     var n = { id: nextId++, san: data.san || "", fen: data.fen, from: data.from || "", to: data.to || "", parent: parent, children: [] };
     nodes[n.id] = n; return n;
   }
   function resetTree(fen) {
-    nodes = {}; nextId = 1; rootFen = fen; root = newNode(null, { fen: fen }); line = []; ply = 0;
+    nodes = {}; nextId = 1; rootFen = fen; root = newNode(null, { fen: fen }); line = []; ply = 0; pgnResult = null;
     if (typeof stopBatch === "function") stopBatch(true);
     var box = document.getElementById("an-game"); if (box) box.hidden = true; // el botón solo existe con un PGN cargado
   }
@@ -91,9 +91,12 @@
   }
   function renderMoves() {
     if (!root.children.length) { $("an-moves").innerHTML = '<p class="an-empty">Mueve una pieza para empezar.</p>'; return; }
-    var g = game(), cur = curNode(), end = g.in_checkmate() ? (g.turn() === "w" ? "0-1" : "1-0") : g.in_draw() || g.in_stalemate() ? "½-½" : "";
+    // Resultado tras la última jugada de la línea principal: el del final de la partida (mate o tablas)
+    // o, si no, el que trae el PGN (mientras esa siga siendo la última jugada).
+    var cur = curNode(), last = root; while (last.children[0]) last = last.children[0];
+    var lg = new Chess(last.fen), end = lg.in_checkmate() ? (lg.turn() === "w" ? "0-1" : "1-0") : lg.in_draw() || lg.in_stalemate() ? "½-½" : pgnResult && pgnResult.node === last ? pgnResult.text : "";
     var jc = ply ? judgeNode(cur) : null;
-    $("an-moves").innerHTML = '<div class="an-tree">' + seqHtml(root.children[0], true) + (end && !cur.children.length && isMainline(cur) ? '<span class="an-res">' + end + "</span>" : "") + "</div>"
+    $("an-moves").innerHTML = '<div class="an-tree">' + seqHtml(root.children[0], true) + (end ? '<span class="an-res" title="Resultado">' + end + "</span>" : "") + "</div>"
       + (jc && jc.text ? '<p class="an-comment ' + jc.kind + '">' + jc.text + "</p>" : "");
     var el = $("an-moves").querySelector(".cur");
     if (el) el.scrollIntoView({ block: "nearest" });
@@ -248,6 +251,8 @@
     resetTree(start);
     var at = root;
     hist.forEach(function (m) { replay.move(m); var n = newNode(at, { san: m.san, fen: replay.fen(), from: m.from, to: m.to }); at.children.push(n); at = n; });
+    var res = (headers.Result || "").trim();
+    if (/^(1-0|0-1|1\/2-1\/2)$/.test(res)) pgnResult = { node: at, text: res === "1/2-1/2" ? "½-½" : res };
     setCur(root); selected = null; flipped = false; // se empieza desde la posición inicial
     $("an-game").hidden = false; $("an-summary").innerHTML = ""; setAnalyzeButton();
     msg("Partida cargada: " + (headers.White ? headers.White + " – " + (headers.Black || "?") + " · " : "") + Math.ceil(hist.length / 2) + " jugadas.");
