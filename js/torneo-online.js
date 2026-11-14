@@ -260,29 +260,23 @@ function renderBoards() {
   if (!boardsMode) return;
   document.title = `Tableros · ${state.title}`;
   $('to-boards-sub').textContent = `${state.title} · ${live.length === 1 ? '1 partida' : `${live.length} partidas`} en juego`;
-  // Las terminadas no desaparecen: quedan debajo, con su resultado, la más reciente primero.
-  const done = state.games.filter(g => g.result && !g.bye && g.fen).reverse();
-  const shown = [...live, ...done];
+  // Como en Lichess: solo las partidas en juego; al terminar, su tablero se va.
+  const shown = live;
   if (!shown.some(g => g.id === zoomed)) zoomed = null;
   const grid = $('to-boards-grid');
   grid.classList.toggle('has-zoom', !!zoomed);
   // Cada tablero se crea una vez y en cada jugada solo cambian sus casillas: así no tiembla nada.
   for (const [id, c] of boardCards) if (!shown.some(g => g.id === id)) { c.el.remove(); boardCards.delete(id); }
   grid.querySelector('.to-boards-empty')?.remove();
-  let divider = grid.querySelector('.to-boards-done');
-  if (!divider) { divider = document.createElement('h3'); divider.className = 'to-boards-done'; divider.textContent = 'Partidas terminadas'; }
   // Se reordena solo si cambia el orden (al empezar o terminar una partida); mover un tablero no lo repinta.
-  const order = [...live.map(g => g.id), ...(done.length ? ['—'] : []), ...done.map(g => g.id)];
+  const order = live.map(g => g.id);
   if (order.join() !== boardOrder) {
     boardOrder = order.join();
-    for (const id of order) {
-      if (id === '—') { grid.append(divider); continue; }
-      const g = shown.find(x => x.id === id);
-      let c = boardCards.get(id);
-      if (!c) { c = boardCard(g); boardCards.set(id, c); }
+    for (const g of live) {
+      let c = boardCards.get(g.id);
+      if (!c) { c = boardCard(g); boardCards.set(g.id, c); }
       grid.append(c.el);
     }
-    if (!done.length) divider.remove();
   }
   for (const g of shown) {
     const c = boardCards.get(g.id);
@@ -315,11 +309,6 @@ function updateCard(c, g) {
       if ((c.pieces[sq] || '') !== want) { cell.innerHTML = want ? `<img src="assets/pieces/${want}.png" alt="">` : ''; c.pieces[sq] = want; }
     });
     c.fen = g.fen; queueEval(g.id, g.fen);
-  }
-  // Partida terminada: el resultado encima del tablero, como en tu partida.
-  const result = g.result ? g.result.replace('1/2-1/2', '½–½') : '';
-  if (c.el.dataset.result !== result) {
-    if (result) { c.el.dataset.result = result; c.el.classList.add('done'); c.el.title = g.reason || ''; } else { delete c.el.dataset.result; c.el.classList.remove('done'); }
   }
   const last = g.lastMove ? g.lastMove.from + g.lastMove.to : '';
   if (c.last !== last) {

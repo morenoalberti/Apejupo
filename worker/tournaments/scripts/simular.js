@@ -46,7 +46,9 @@ function bot(id, name) {
     if (!color) return;
     if (g.offer && g.offer !== t.me) send({ type: 'decline-draw', game: g.id });
     if (g.turn !== color || me.plannedPly === g.moves.length) return;
-    me.plannedPly = g.moves.length; clearTimeout(me.timer);
+    me.plannedPly = g.moves.length; clearTimeout(me.timer); clearTimeout(me.retry);
+    // Si en 8 segundos la jugada no ha llegado al tablero, se vuelve a intentar.
+    me.retry = setTimeout(() => { if (me.state?.game?.id === g.id && me.state.game.moves.length === me.plannedPly) { me.plannedPly = null; think(); } }, 8000);
     // Entre 0,8 y 3 segundos por jugada; las primeras, más rápidas.
     const delay = g.moves.length < 10 ? 500 + Math.random() * 1200 : 800 + Math.random() * 2200;
     me.timer = setTimeout(() => {
@@ -58,7 +60,8 @@ function bot(id, name) {
   }
   function connect() {
     ws = new WebSocket(BASE.replace('http', 'ws') + '/api/tournaments/' + id + '/socket', { origin: ORIGIN });
-    ws.on('open', () => send({ type: 'hello', token: me.token }));
+    // Al reconectar se olvida la jugada pendiente: puede haberse perdido con la conexión.
+    ws.on('open', () => { me.plannedPly = null; send({ type: 'hello', token: me.token }); });
     ws.on('message', data => {
       if (String(data) === 'pong') return;
       const msg = JSON.parse(String(data));
