@@ -27,7 +27,6 @@ const sameKey = (a, b) => a.toLocaleLowerCase('es') === b.toLocaleLowerCase('es'
 export const ARENA_DURATIONS = [3, 5, 10, 15, 20, 30, 45, 60, 90, 120];
 export const isArena = t => t.format === 'arena';
 export const isClosed = t => t.format === 'closed';
-export const MAX_CLOSED_PLAYERS = 20;
 export const BERSERK_BONUS = .5;
 // Como en Lichess: se deja de emparejar cuando queda menos de la mitad del tiempo base de una partida
 // (entre 30 s y 2 min), y las partidas que acaban después del tiempo se juegan pero no cuentan.
@@ -49,8 +48,7 @@ export function createTournament(input, id, hostHash, now = Date.now()) {
   if (format === 'arena') {
     requireThat(ARENA_DURATIONS.includes(duration), 'Elige una duración válida.');
     requireThat(duration >= minutes * 3, 'La duración debe dar para varias partidas: al menos el triple de los minutos por jugador.');
-  } else if (format === 'closed') requireThat(capacity <= MAX_CLOSED_PLAYERS, `En un torneo cerrado el límite es de ${MAX_CLOSED_PLAYERS} jugadores.`);
-  else requireThat(Number.isInteger(rounds) && rounds >= 1 && rounds <= 9, 'Elige entre 1 y 9 rondas.');
+  } else if (format === 'swiss') requireThat(Number.isInteger(rounds) && rounds >= 1 && rounds <= 9, 'Elige entre 1 y 9 rondas.');
   requireThat(Number.isInteger(capacity) && capacity >= 2 && capacity <= MAX_PLAYERS, `El límite es de 2 a ${MAX_PLAYERS} jugadores.`);
   let startsAt = input.startsAt ? Number(input.startsAt) : null;
   requireThat(!startsAt || (Number.isFinite(startsAt) && startsAt > now + 60000 && startsAt < now + 14 * 86400000), 'La fecha de inicio debe estar entre un minuto y 14 días en el futuro.');

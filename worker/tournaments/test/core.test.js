@@ -340,7 +340,6 @@ test('suizo de 128 jugadores durante 7 rondas: 64 tableros y sin rivales repetid
 });
 
 test('cerrado: todos contra todos una vez, descanso sin punto y colores equilibrados', () => {
-  assert.throws(() => tournament(0, { format: 'closed', capacity: 21 }), /cerrado/);
   for (const n of [2, 5, 6, 9, 10]) {
     const t = tournament(n, { format: 'closed', capacity: 20 }); startTournament(t, NOW); let now = NOW;
     assert.equal(t.rounds, n % 2 ? n : n - 1);

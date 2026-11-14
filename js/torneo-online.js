@@ -494,14 +494,12 @@ function localDay(d) { return `${d.getFullYear()}-${String(d.getMonth() + 1).pad
 const formatHelp = {
   arena: 'Se juega durante un tiempo fijo; quien termina su partida se empareja enseguida con otro jugador libre.',
   swiss: 'Número fijo de rondas, con rivales de puntuación parecida y sin repetir enfrentamientos.',
-  closed: 'Todos contra todos, una vez cada uno. Las rondas salen del número de inscritos (máximo 20).'
+  closed: 'Todos contra todos, una vez cada uno. Las rondas salen del número de inscritos.'
 };
 function syncFormat() {
   const format = $('to-format').value, isArena = format === 'arena', noRounds = format !== 'swiss';
   $('to-format-help').textContent = formatHelp[format];
   $('to-rounds-field').hidden = noRounds; $('to-rounds').disabled = noRounds;
-  $('to-capacity').max = format === 'closed' ? 20 : 128;
-  if (format === 'closed' && Number($('to-capacity').value) > 20) $('to-capacity').value = 20;
   $('to-duration-field').hidden = !isArena; $('to-duration').disabled = !isArena;
 }
 $('to-format').addEventListener('change', syncFormat);
