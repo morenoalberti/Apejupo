@@ -8,15 +8,15 @@
 .an-board { display: grid; grid-template-columns: repeat(8, 1fr); aspect-ratio: 1; width: 100%; border-radius: 4px; overflow: hidden; user-select: none; -webkit-user-select: none; touch-action: none; box-shadow: 0 10px 30px -12px #0008; }
 .an-sq { position: relative; background: #f0d9b5; cursor: pointer; }
 .an-sq.dk { background: #b58863; }
-.an-sq.lm { background: #cdd26a; }
-.an-sq.dk.lm { background: #aaa23a; }
-.an-sq.sel { background: #829769; }
-.an-sq.dk.sel { background: #646f40; }
-.an-sq.chk { background: radial-gradient(circle, #ff0000 0%, #e70000aa 30%, transparent 75%), #f0d9b5; }
-.an-sq.dk.chk { background: radial-gradient(circle, #ff0000 0%, #e70000aa 30%, transparent 75%), #b58863; }
+.an-sq.an-lm { background: #cdd26a; }
+.an-sq.dk.an-lm { background: #aaa23a; }
+.an-sq.an-sel { background: #829769; }
+.an-sq.dk.an-sel { background: #646f40; }
+.an-sq.an-chk { background: radial-gradient(circle, #ff0000 0%, #e70000aa 30%, transparent 75%), #f0d9b5; }
+.an-sq.dk.an-chk { background: radial-gradient(circle, #ff0000 0%, #e70000aa 30%, transparent 75%), #b58863; }
 .an-sq img { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
-.an-sq.dot::after { content: ""; position: absolute; left: 50%; top: 50%; width: 28%; height: 28%; transform: translate(-50%, -50%); border-radius: 50%; background: #14551e66; }
-.an-sq.cap::after { content: ""; position: absolute; inset: 0; border-radius: 50%; box-shadow: inset 0 0 0 6px #14551e66; }
+.an-sq.an-dot::after { content: ""; position: absolute; left: 50%; top: 50%; width: 28%; height: 28%; transform: translate(-50%, -50%); border-radius: 50%; background: #14551e66; }
+.an-sq.an-cap::after { content: ""; position: absolute; inset: 0; border-radius: 50%; box-shadow: inset 0 0 0 6px #14551e66; }
 .an-rk, .an-fl { position: absolute; font: 700 clamp(9px, 1.1vw, 13px)/1 system-ui, sans-serif; pointer-events: none; }
 .an-rk { top: 3px; right: 4px; } .an-fl { bottom: 3px; left: 4px; }
 .an-sq .an-rk, .an-sq .an-fl { color: #b58863; } .an-sq.dk .an-rk, .an-sq.dk .an-fl { color: #f0d9b5; }
@@ -157,3 +157,4 @@
   .an { gap: 12px; }
   .an-pal, .an-pal#an-pal-bottom { margin: 0; }
 }
+.an-pal button { touch-action: none; user-select: none; -webkit-user-select: none; }

@@ -29,7 +29,7 @@
     if (g.in_check()) squares().forEach(function (sq) { var p = g.get(sq); if (p && p.type === "k" && p.color === g.turn()) kingSq = sq; });
     $("an-board").innerHTML = squares().map(function (sq, i) {
       var p = g.get(sq), dark = (FILES.indexOf(sq[0]) + Number(sq[1])) % 2 === 0;
-      var cls = "an-sq" + (dark ? " dk" : "") + (last && (sq === last.from || sq === last.to) ? " lm" : "") + (sq === selected ? " sel" : "") + (sq === kingSq ? " chk" : "") + (targets.indexOf(sq) >= 0 ? (p ? " cap" : " dot") : "");
+      var cls = "an-sq" + (dark ? " dk" : "") + (last && (sq === last.from || sq === last.to) ? " an-lm" : "") + (sq === selected ? " an-sel" : "") + (sq === kingSq ? " an-chk" : "") + (targets.indexOf(sq) >= 0 ? (p ? " an-cap" : " an-dot") : "");
       var coords = (i % 8 === 0 ? '<span class="an-rk">' + sq[1] + "</span>" : "") + (i >= 56 ? '<span class="an-fl">' + sq[0] + "</span>" : "");
       var img = p ? '<img src="assets/pieces/' + p.color + p.type.toUpperCase() + '.png" alt="" draggable="false">' : "";
       return '<div class="' + cls + '" data-sq="' + sq + '">' + img + coords + "</div>";
@@ -366,26 +366,47 @@
     if (document.activeElement !== $("an-fen")) $("an-fen").value = editFen();
   }
   function setSquare(sq, piece) { if (piece) editBoard[sq] = piece; else delete editBoard[sq]; }
-  function editPointerDown(e, cell) {
-    var sq = cell.dataset.sq;
-    if (tool === "trash") { setSquare(sq, null); renderEditor(); return; }
-    if (tool !== "hand") { setSquare(sq, editBoard[sq] === tool ? null : tool); renderEditor(); return; }
-    var img = cell.querySelector("img"); if (!img) return;
+  // Arrastre en el editor, como en Lichess: cualquier pieza del tablero se puede arrastrar a otra casilla
+  // (o fuera, para quitarla) con la herramienta que sea; las piezas de las barras se arrastran al tablero.
+  // Un clic sin arrastrar aplica la herramienta elegida: colocar esa pieza, quitar (papelera) o nada (mano).
+  function startEditDrag(e, piece, from, size) {
     e.preventDefault();
-    var size = cell.getBoundingClientRect().width, ghost = img.cloneNode();
-    ghost.className = "an-ghost"; ghost.style.width = ghost.style.height = size + "px"; document.body.appendChild(ghost);
-    drag = { edit: true, from: sq, ghost: ghost, size: size, moved: false, x: e.clientX, y: e.clientY };
-    moveGhost(e.clientX, e.clientY); img.style.opacity = ".25";
+    var ghost = document.createElement("img");
+    ghost.src = "assets/pieces/" + piece + ".png"; ghost.alt = ""; ghost.className = "an-ghost";
+    ghost.style.width = ghost.style.height = size + "px"; document.body.appendChild(ghost);
+    drag = { edit: true, from: from, piece: piece, ghost: ghost, size: size, moved: false, x: e.clientX, y: e.clientY };
+    moveGhost(e.clientX, e.clientY);
+  }
+  function editPointerDown(e, cell) {
+    var sq = cell.dataset.sq, size = cell.getBoundingClientRect().width, piece = editBoard[sq];
+    if (piece && tool !== "trash") {
+      startEditDrag(e, piece, sq, size);
+      var img = cell.querySelector("img"); if (img) img.style.opacity = ".25";
+      return;
+    }
+    if (tool === "trash") { setSquare(sq, null); renderEditor(); return; }
+    if (tool !== "hand") { setSquare(sq, tool); renderEditor(); }
   }
   function editDrop(d, e) {
-    var to = sqFromPoint(e.clientX, e.clientY), piece = editBoard[d.from];
-    if (!d.moved) { renderEditor(); return; }
+    var to = sqFromPoint(e.clientX, e.clientY);
+    if (!d.from) { if (to) setSquare(to, d.piece); renderEditor(); return; } // desde la barra
+    if (!d.moved) {
+      // Clic sin arrastrar sobre una pieza: con una pieza elegida, la cambia por esa o la quita si es la misma.
+      if (tool !== "hand") setSquare(d.from, editBoard[d.from] === tool ? null : tool);
+      renderEditor(); return;
+    }
     setSquare(d.from, null);
-    if (to) setSquare(to, piece); // soltar fuera del tablero quita la pieza
+    if (to) setSquare(to, d.piece); // soltar fuera del tablero quita la pieza
     renderEditor();
   }
-  function paletteClick(e) { var b = e.target.closest("[data-tool]"); if (b) { tool = b.dataset.tool; renderEditor(); } }
-  $("an-pal-top").addEventListener("click", paletteClick); $("an-pal-bottom").addEventListener("click", paletteClick);
+  function palettePointerDown(e) {
+    var b = e.target.closest("[data-tool]"); if (!b || e.button > 0) return;
+    tool = b.dataset.tool;
+    if (/^[wb][KQRBNP]$/.test(tool)) startEditDrag(e, tool, null, $("an-board").getBoundingClientRect().width / 8);
+    $("an-pal-top").querySelectorAll("button").forEach(function (x) { x.classList.toggle("on", x.dataset.tool === tool); });
+    $("an-pal-bottom").querySelectorAll("button").forEach(function (x) { x.classList.toggle("on", x.dataset.tool === tool); });
+  }
+  $("an-pal-top").addEventListener("pointerdown", palettePointerDown); $("an-pal-bottom").addEventListener("pointerdown", palettePointerDown);
   $("an-editor").addEventListener("change", function (e) {
     if (e.target.id === "an-ed-turn") editTurn = e.target.value;
     if (e.target.dataset.castle) castle[e.target.dataset.castle] = e.target.checked;
