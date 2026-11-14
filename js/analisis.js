@@ -52,14 +52,62 @@
     line.forEach(function (m, i) {
       if (white) html += '<span class="an-num">' + num + ".</span>";
       else if (i === 0) html += '<span class="an-num">' + num + "…</span>";
-      html += '<button type="button" class="an-mv' + (i + 1 === ply ? " cur" : "") + '" data-ply="' + (i + 1) + '">' + fig(m.san) + "</button>";
+      var j = judge(i);
+      html += '<button type="button" class="an-mv' + (i + 1 === ply ? " cur" : "") + '" data-ply="' + (i + 1) + '">' + fig(m.san)
+        + (j && j.mark ? '<b class="an-mark ' + j.kind + '">' + j.mark + "</b>" : "") + "</button>"
+        + (j && j.sym ? '<span class="an-sym" title="' + j.symTitle + '">' + j.sym + "</span>" : "");
       if (!white) num++;
       white = !white;
     });
     var g = game(), end = g.in_checkmate() ? (g.turn() === "w" ? "0-1" : "1-0") : g.in_draw() || g.in_stalemate() ? "½-½" : "";
-    $("an-moves").innerHTML = html + (end && ply === line.length ? '<span class="an-res">' + end + "</span>" : "");
+    var jc = ply ? judge(ply - 1) : null;
+    $("an-moves").innerHTML = html + (end && ply === line.length ? '<span class="an-res">' + end + "</span>" : "")
+      + (jc && jc.text ? '<p class="an-comment ' + jc.kind + '">' + jc.text + "</p>" : "");
     var cur = $("an-moves").querySelector(".cur");
     if (cur) cur.scrollIntoView({ block: "nearest" });
+  }
+
+  // ---------- Valoración de las jugadas ----------
+  // Como Lichess: se compara la probabilidad de ganar de quien mueve antes y después de la jugada
+  // (escala -1…1): baja ≥0,3 → ?? (error grave), ≥0,2 → ? (error), ≥0,1 → ?! (imprecisión).
+  // Tras una jugada marcada se pone cómo queda la posición (=, ⩲, ±, +-…); si hay mate forzado, #N.
+  function winChance(e) {
+    if (e.mate) return e.v > 0 ? 1 : e.v < 0 ? -1 : 0;
+    return 2 / (1 + Math.exp(-0.00368208 * e.v)) - 1;
+  }
+  function evalSym(e) {
+    if (e.over) return "";
+    if (e.mate) return { sym: (e.v > 0 ? "#" : "#-") + Math.abs(e.v), title: "Mate en " + Math.abs(e.v) + " para las " + (e.v > 0 ? "blancas" : "negras") };
+    var a = Math.abs(e.v), w = e.v > 0;
+    var t = a < 30 ? ["=", "Igualdad"] : a < 70 ? [w ? "⩲" : "⩱", "Ligera ventaja de las " + (w ? "blancas" : "negras")]
+      : a < 200 ? [w ? "±" : "∓", "Ventaja de las " + (w ? "blancas" : "negras")] : [w ? "+-" : "-+", "Ventaja decisiva de las " + (w ? "blancas" : "negras")];
+    return { sym: t[0], title: t[1] };
+  }
+  function uciSan(fen, uci) {
+    if (!uci) return "";
+    var m = new Chess(fen).move({ from: uci.slice(0, 2), to: uci.slice(2, 4), promotion: uci[4] });
+    return m ? fig(m.san) : "";
+  }
+  // i: índice de la jugada en «line». Devuelve marca, símbolo y comentario, o null si falta evaluación.
+  function judge(i) {
+    var beforeFen = fenAt(i), afterFen = line[i].fen, before = evals[beforeFen], after = evals[afterFen];
+    if (!before || !after || before.depth < 10 || (!after.over && after.depth < 10)) return null;
+    var whiteMoved = beforeFen.split(" ")[1] === "w", sign = whiteMoved ? 1 : -1, who = whiteMoved ? "blancas" : "negras";
+    var drop = (winChance(before) - winChance(after)) * sign;
+    var r = { mark: "", kind: "", text: "", sym: "", symTitle: "" };
+    if (drop >= 0.3) { r.mark = "??"; r.kind = "blunder"; r.text = "Error grave."; }
+    else if (drop >= 0.2) { r.mark = "?"; r.kind = "mistake"; r.text = "Error."; }
+    else if (drop >= 0.1) { r.mark = "?!"; r.kind = "dubious"; r.text = "Imprecisión."; }
+    var best = before.best && before.best !== line[i].from + line[i].to ? uciSan(beforeFen, before.best) : "";
+    if (r.mark && best) r.text += " Mejor era " + best + ".";
+    // Mate perdido: había mate y tras la jugada ya no.
+    if (before.mate && before.v * sign > 0 && !(after.mate && after.v * sign > 0) && !after.over) { r.mark = r.mark || "?"; r.kind = r.kind || "mistake"; if (r.text.indexOf("Mejor") < 0) r.text = "Se pierde el mate." + (best ? " Mejor era " + best + "." : ""); else r.text = "Se pierde el mate. " + r.text; }
+    var s = evalSym(after);
+    if (s && (r.mark || after.mate)) { r.sym = s.sym; r.symTitle = s.title; }
+    if (after.mate && !after.over) r.text = (r.text ? r.text + " " : "") + "Mate en " + Math.abs(after.v) + " para las " + (after.v > 0 ? "blancas" : "negras") + ".";
+    if (!r.mark && !r.sym) return null;
+    if (!r.kind) r.kind = after.v * sign > 0 ? "good" : "info";
+    return r;
   }
 
   // ---------- Jugadas ----------
@@ -192,6 +240,7 @@
   $("an-reset").addEventListener("click", function () { rootFen = START; line = []; ply = 0; selected = null; flipped = false; $("an-pgn").value = ""; msg(""); render(); });
 
   // ---------- Stockfish ----------
+  var evals = {}, movesTimer = null, sfBusy = false, sfStale = 0;
   var sf = null, sfReady = false, sfFen = null, sfLines = {}, sfTimer = null, sfOn = true;
   try { sfOn = localStorage.getItem("apejupoAnalisisMotor") !== "0"; } catch (_) {}
   $("an-sf").checked = sfOn;
@@ -211,11 +260,19 @@
         var l = String(e.data);
         if (l === "uciok") { sf.postMessage("setoption name MultiPV value 3"); sf.postMessage("isready"); return; }
         if (l === "readyok") { sfReady = true; analyse(); return; }
-        if (l.indexOf("info") !== 0 || / bound /.test(l) || !sfFen) return;
+        if (l.indexOf("bestmove") === 0) { if (sfStale > 0) sfStale--; else sfBusy = false; return; }
+        if (sfStale > 0 || l.indexOf("info") !== 0 || / bound /.test(l) || !sfFen) return;
         var m = /score (cp|mate) (-?\d+)/.exec(l), pv = / pv (.+)$/.exec(l), mp = /multipv (\d+)/.exec(l), dp = / depth (\d+)/.exec(l);
         if (!m) return;
         var black = sfFen.split(" ")[1] === "b", v = Number(m[2]) * (black ? -1 : 1);
         sfLines[mp ? mp[1] : 1] = { mate: m[1] === "mate", v: v, pv: pv ? pv[1].trim().split(/\s+/) : [], depth: dp ? dp[1] : "" };
+        if (!mp || mp[1] === "1") {
+          var depth = dp ? Number(dp[1]) : 0, old = evals[sfFen];
+          if (!old || depth >= old.depth) {
+            evals[sfFen] = { mate: m[1] === "mate", v: v, depth: depth, best: pv ? pv[1].trim().split(/\s+/)[0] : null };
+            if (!movesTimer) movesTimer = setTimeout(function () { movesTimer = null; renderMoves(); }, 400);
+          }
+        }
         if (!sfTimer) sfTimer = setTimeout(function () { sfTimer = null; showEngine(); }, 120);
       };
       sf.postMessage("uci");
@@ -227,6 +284,7 @@
     if (g.game_over()) {
       sfFen = null; if (sf) sf.postMessage("stop");
       var mate = g.in_checkmate(), winW = g.turn() === "b";
+      evals[fen] = mate ? { mate: true, v: winW ? 1 : -1, depth: 99, over: true } : { mate: false, v: 0, depth: 99, over: true };
       setBar(mate ? { mate: true, v: winW ? 1 : -1 } : { mate: false, v: 0 });
       $("an-evaltext").textContent = mate ? (winW ? "1-0" : "0-1") : "½"; $("an-evalbig").textContent = $("an-evaltext").textContent; arrowMove = null; drawArrow();
       $("an-lines").innerHTML = '<p class="an-empty">' + (mate ? "Jaque mate." : "Tablas.") + "</p>"; $("an-depth").textContent = "";
@@ -236,6 +294,8 @@
     if (!sf || !sfReady || fen === sfFen) return;
     sfFen = fen; sfLines = {}; arrowMove = null; drawArrow(); $("an-evalbig").textContent = "…";
     $("an-lines").innerHTML = '<p class="an-empty">Calculando…</p>';
+    if (sfBusy) sfStale++; // lo que quede de la búsqueda anterior se descarta hasta su «bestmove»
+    sfBusy = true;
     sf.postMessage("stop"); sf.postMessage("position fen " + fen); sf.postMessage("go depth 24");
   }
   function scoreText(r) { return r.mate ? (r.v > 0 ? "#" : "#-") + Math.abs(r.v) : (r.v > 0 ? "+" : "") + (r.v / 100).toFixed(2); }
