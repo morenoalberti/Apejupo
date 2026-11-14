@@ -138,7 +138,7 @@ export class AccountStore extends DurableObject {
         case '/registro': {
           const nick = cleanNick(b.nick), email = cleanEmail(b.email); checkPassword(b.password, nick);
           this.limit('registro:' + ip, 5, 3600000, now);
-          requireThat(!this.one('SELECT 1 AS x FROM users WHERE nick_key = ?', nickKey(nick)), 'Ese nick ya está cogido. Elige otro.', 409);
+          requireThat(!this.one('SELECT 1 AS x FROM users WHERE nick_key = ?', nickKey(nick)), 'Este nick ya está registrado.', 409);
           requireThat(!this.one('SELECT 1 AS x FROM users WHERE email = ?', email), 'Ya hay una cuenta con ese correo. Entra o recupera tu contraseña.', 409);
           const user = { id: randomToken(12), nick, email, created_at: now };
           this.sql.exec('INSERT INTO users (id, nick, nick_key, email, pass, verified, created_at) VALUES (?, ?, ?, ?, ?, 0, ?)', user.id, nick, nickKey(nick), email, await hashPassword(b.password), now);
