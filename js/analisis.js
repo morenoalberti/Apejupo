@@ -5,6 +5,24 @@
   var $ = function (id) { return document.getElementById(id); };
   var FILES = "abcdefgh", START = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
   var rootFen = START, line = [], ply = 0, flipped = false, selected = null, drag = null, pendingPromo = null;
+  // Árbol de jugadas con variantes: cada nodo { id, san, fen, from, to, parent, children }; children[0] es la
+  // continuación principal. «line» es el camino de la raíz a la jugada actual más su continuación principal,
+  // y «ply» la posición en ese camino: así la navegación, la flecha y las marcas trabajan sobre «line».
+  var nodes = {}, nextId = 1, root = newNode(null, { fen: START });
+  function newNode(parent, data) {
+    var n = { id: nextId++, san: data.san || "", fen: data.fen, from: data.from || "", to: data.to || "", parent: parent, children: [] };
+    nodes[n.id] = n; return n;
+  }
+  function resetTree(fen) { nodes = {}; nextId = 1; rootFen = fen; root = newNode(null, { fen: fen }); line = []; ply = 0; }
+  function setCur(node) {
+    var path = [];
+    for (var n = node; n && n !== root; n = n.parent) path.unshift(n);
+    ply = path.length;
+    for (var c = node.children[0]; c; c = c.children[0]) path.push(c);
+    line = path;
+  }
+  function curNode() { return ply ? line[ply - 1] : root; }
+  function isMainline(node) { for (var n = node; n.parent; n = n.parent) if (n.parent.children[0] !== n) return false; return true; }
 
   // Jugadas con figuras, como en Lichess en español: Nf3 → ♘f3.
   var FIG = { K: "♔", Q: "♕", R: "♖", B: "♗", N: "♘" };
@@ -46,25 +64,34 @@
     $("an-next").disabled = $("an-last").disabled = ply === line.length;
   }
   function renderFen() { if (document.activeElement !== $("an-fen")) $("an-fen").value = fenAt(ply); }
+  // Lista de jugadas como en Lichess: la línea principal seguida y, tras cada jugada que tiene alternativas,
+  // las variantes en bloques entre paréntesis (que a su vez pueden tener variantes).
+  function moveHtml(n, forceNum) {
+    var parts = n.parent.fen.split(" "), num = Number(parts[5]) || 1, white = parts[1] === "w", j = judgeNode(n);
+    var pre = white ? '<span class="an-num">' + num + ".</span>" : forceNum ? '<span class="an-num">' + num + "…</span>" : "";
+    return pre + '<button type="button" class="an-mv' + (n === curNode() ? " cur" : "") + '" data-id="' + n.id + '">' + fig(n.san)
+      + (j && j.mark ? '<b class="an-mark ' + j.kind + '">' + j.mark + "</b>" : "") + "</button>"
+      + (j && j.sym ? '<span class="an-sym" title="' + j.symTitle + '">' + j.sym + "</span>" : "");
+  }
+  function seqHtml(first, forceNum) {
+    var html = "", force = forceNum;
+    for (var n = first; n; n = n.children[0]) {
+      html += moveHtml(n, force); force = false;
+      if (n.parent.children[0] === n && n.parent.children.length > 1) {
+        n.parent.children.slice(1).forEach(function (v) { html += '<div class="an-var">' + seqHtml(v, true) + "</div>"; });
+        force = true; // tras una variante, la siguiente jugada lleva su número
+      }
+    }
+    return html;
+  }
   function renderMoves() {
-    var parts = fenAt(0).split(" "), num = Number(parts[5]) || 1, white = parts[1] === "w", html = "";
-    if (!line.length) { $("an-moves").innerHTML = '<p class="an-empty">Mueve una pieza para empezar.</p>'; return; }
-    line.forEach(function (m, i) {
-      if (white) html += '<span class="an-num">' + num + ".</span>";
-      else if (i === 0) html += '<span class="an-num">' + num + "…</span>";
-      var j = judge(i);
-      html += '<button type="button" class="an-mv' + (i + 1 === ply ? " cur" : "") + '" data-ply="' + (i + 1) + '">' + fig(m.san)
-        + (j && j.mark ? '<b class="an-mark ' + j.kind + '">' + j.mark + "</b>" : "") + "</button>"
-        + (j && j.sym ? '<span class="an-sym" title="' + j.symTitle + '">' + j.sym + "</span>" : "");
-      if (!white) num++;
-      white = !white;
-    });
-    var g = game(), end = g.in_checkmate() ? (g.turn() === "w" ? "0-1" : "1-0") : g.in_draw() || g.in_stalemate() ? "½-½" : "";
-    var jc = ply ? judge(ply - 1) : null;
-    $("an-moves").innerHTML = html + (end && ply === line.length ? '<span class="an-res">' + end + "</span>" : "")
+    if (!root.children.length) { $("an-moves").innerHTML = '<p class="an-empty">Mueve una pieza para empezar.</p>'; return; }
+    var g = game(), cur = curNode(), end = g.in_checkmate() ? (g.turn() === "w" ? "0-1" : "1-0") : g.in_draw() || g.in_stalemate() ? "½-½" : "";
+    var jc = ply ? judgeNode(cur) : null;
+    $("an-moves").innerHTML = '<div class="an-tree">' + seqHtml(root.children[0], true) + (end && !cur.children.length && isMainline(cur) ? '<span class="an-res">' + end + "</span>" : "") + "</div>"
       + (jc && jc.text ? '<p class="an-comment ' + jc.kind + '">' + jc.text + "</p>" : "");
-    var cur = $("an-moves").querySelector(".cur");
-    if (cur) cur.scrollIntoView({ block: "nearest" });
+    var el = $("an-moves").querySelector(".cur");
+    if (el) el.scrollIntoView({ block: "nearest" });
   }
 
   // ---------- Valoración de las jugadas ----------
@@ -88,9 +115,9 @@
     var m = new Chess(fen).move({ from: uci.slice(0, 2), to: uci.slice(2, 4), promotion: uci[4] });
     return m ? fig(m.san) : "";
   }
-  // i: índice de la jugada en «line». Devuelve marca, símbolo y comentario, o null si falta evaluación.
-  function judge(i) {
-    var beforeFen = fenAt(i), afterFen = line[i].fen, before = evals[beforeFen], after = evals[afterFen];
+  // Devuelve marca, símbolo y comentario de la jugada de un nodo, o null si falta evaluación.
+  function judgeNode(node) {
+    var beforeFen = node.parent.fen, afterFen = node.fen, before = evals[beforeFen], after = evals[afterFen];
     if (!before || !after || before.depth < 10 || (!after.over && after.depth < 10)) return null;
     var whiteMoved = beforeFen.split(" ")[1] === "w", sign = whiteMoved ? 1 : -1, who = whiteMoved ? "blancas" : "negras";
     var drop = (winChance(before) - winChance(after)) * sign;
@@ -98,7 +125,7 @@
     if (drop >= 0.3) { r.mark = "??"; r.kind = "blunder"; r.text = "Error grave."; }
     else if (drop >= 0.2) { r.mark = "?"; r.kind = "mistake"; r.text = "Error."; }
     else if (drop >= 0.1) { r.mark = "?!"; r.kind = "dubious"; r.text = "Imprecisión."; }
-    var best = before.best && before.best !== line[i].from + line[i].to ? uciSan(beforeFen, before.best) : "";
+    var best = before.best && before.best !== node.from + node.to ? uciSan(beforeFen, before.best) : "";
     if (r.mark && best) r.text += " Mejor era " + best + ".";
     // Mate perdido: había mate y tras la jugada ya no.
     if (before.mate && before.v * sign > 0 && !(after.mate && after.v * sign > 0) && !after.over) { r.mark = r.mark || "?"; r.kind = r.kind || "mistake"; if (r.text.indexOf("Mejor") < 0) r.text = "Se pierde el mate." + (best ? " Mejor era " + best + "." : ""); else r.text = "Se pierde el mate. " + r.text; }
@@ -117,9 +144,11 @@
     if (legal[0].flags.indexOf("p") >= 0 && !promotion) { askPromotion(from, to, g.turn()); return true; }
     var m = g.move({ from: from, to: to, promotion: promotion || "q" });
     if (!m) return false;
-    // Si se juega algo distinto a lo que seguía, la línea se sustituye desde aquí.
-    if (!(line[ply] && line[ply].san === m.san)) line = line.slice(0, ply).concat([{ san: m.san, fen: g.fen(), from: m.from, to: m.to }]);
-    ply++; selected = null; msg(""); render();
+    // Si esa jugada ya existe desde aquí se sigue por ella; si no, se añade como variante (o como
+    // continuación principal si aún no había ninguna). Nunca se borra lo que ya había.
+    var parent = curNode(), node = parent.children.filter(function (c) { return c.san === m.san; })[0];
+    if (!node) { node = newNode(parent, { san: m.san, fen: g.fen(), from: m.from, to: m.to }); parent.children.push(node); }
+    setCur(node); selected = null; msg(""); render();
     return true;
   }
   function askPromotion(from, to, color) {
@@ -183,7 +212,7 @@
   $("an-next").addEventListener("click", function () { go(ply + 1); });
   $("an-last").addEventListener("click", function () { go(line.length); });
   function flip() { flipped = !flipped; render(); drawArrow(); }
-  $("an-moves").addEventListener("click", function (e) { var b = e.target.closest("[data-ply]"); if (b) go(Number(b.dataset.ply)); });
+  $("an-moves").addEventListener("click", function (e) { var b = e.target.closest("[data-id]"); if (b && nodes[b.dataset.id]) { setCur(nodes[b.dataset.id]); selected = null; render(); } });
   document.addEventListener("keydown", function (e) {
     if (e.key === "Escape") closeMenu();
     if (editing || /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName) || document.querySelector("dialog[open]")) return;
@@ -199,7 +228,7 @@
     fen = fen.trim();
     var ok = new Chess().validate_fen(fen);
     if (!ok.valid) { msg("FEN no válido: " + ok.error, true); return false; }
-    rootFen = fen; line = []; ply = 0; selected = null; flipped = fen.split(" ")[1] === "b"; msg("Posición cargada."); render(); return true;
+    resetTree(fen); selected = null; flipped = fen.split(" ")[1] === "b"; msg("Posición cargada."); render(); return true;
   }
   $("an-fen").addEventListener("change", function () { if (this.value.trim() !== fenAt(ply)) loadFen(this.value); });
   $("an-fen").addEventListener("keydown", function (e) { if (e.key === "Enter") this.blur(); });
@@ -210,8 +239,10 @@
     var g = new Chess();
     if (!g.load_pgn(text, { sloppy: true })) { msg("No se pudo leer el PGN. Revisa que las jugadas sean correctas.", true); return; }
     var hist = g.history({ verbose: true }), headers = g.header(), start = headers.FEN || START, replay = new Chess(start);
-    rootFen = start; line = hist.map(function (m) { replay.move(m); return { san: m.san, fen: replay.fen(), from: m.from, to: m.to }; });
-    ply = line.length; selected = null; flipped = false;
+    resetTree(start);
+    var at = root;
+    hist.forEach(function (m) { replay.move(m); var n = newNode(at, { san: m.san, fen: replay.fen(), from: m.from, to: m.to }); at.children.push(n); at = n; });
+    setCur(at); selected = null; flipped = false;
     msg("Partida cargada: " + (headers.White ? headers.White + " – " + (headers.Black || "?") + " · " : "") + Math.ceil(line.length / 2) + " jugadas.");
     render();
   });
@@ -226,18 +257,28 @@
     if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(text).then(function () { msg(done); }, fallback);
     else fallback();
   }
+  function pgnSeq(first, forceNum) {
+    var out = [], force = forceNum;
+    for (var n = first; n; n = n.children[0]) {
+      var parts = n.parent.fen.split(" "), num = Number(parts[5]) || 1, white = parts[1] === "w";
+      out.push((white ? num + ". " : force ? num + "... " : "") + n.san); force = false;
+      if (n.parent.children[0] === n && n.parent.children.length > 1) {
+        n.parent.children.slice(1).forEach(function (v) { out.push("(" + pgnSeq(v, true) + ")"); });
+        force = true;
+      }
+    }
+    return out.join(" ");
+  }
   function pgnText() {
-    var parts = rootFen.split(" "), num = Number(parts[5]) || 1, white = parts[1] === "w", out = [];
-    line.forEach(function (m, i) { if (white) out.push(num + ". " + m.san); else out.push((i === 0 ? num + "... " : "") + m.san); if (!white) num++; white = !white; });
     var head = rootFen !== START ? '[SetUp "1"]\n[FEN "' + rootFen + '"]\n\n' : "";
-    return head + out.join(" ");
+    return head + (root.children.length ? pgnSeq(root.children[0], true) : "");
   }
   $("an-copy").addEventListener("click", function () {
     var text = pgnText();
     $("an-pgn").value = text;
     copyText(text, "PGN copiado al portapapeles.");
   });
-  $("an-reset").addEventListener("click", function () { rootFen = START; line = []; ply = 0; selected = null; flipped = false; $("an-pgn").value = ""; msg(""); render(); });
+  $("an-reset").addEventListener("click", function () { resetTree(START); selected = null; flipped = false; $("an-pgn").value = ""; msg(""); render(); });
 
   // ---------- Stockfish ----------
   // Cada «go» termina siempre con un «bestmove». Mientras se espera el de una búsqueda que se ha mandado
@@ -367,6 +408,56 @@
       + '<line x1="' + a[0] + '" y1="' + a[1] + '" x2="' + end[0] + '" y2="' + end[1] + '" stroke="#15781B" stroke-width="0.16" stroke-linecap="round" opacity=".7" marker-end="url(#an-head)"/>';
   }
 
+
+  // ---------- Menú contextual de una jugada (clic derecho, o pulsación larga en el móvil) ----------
+  var ctxNode = null, pressTimer = null;
+  function closeCtx() { var m = $("an-ctx"); if (m) m.hidden = true; ctxNode = null; }
+  function openCtx(node, x, y) {
+    var m = $("an-ctx");
+    if (!m) { m = document.createElement("div"); m.id = "an-ctx"; m.className = "an-ctx"; m.setAttribute("role", "menu"); document.body.appendChild(m); m.addEventListener("click", ctxAction); }
+    ctxNode = node;
+    var main = isMainline(node);
+    var I = function (d) { return '<svg viewBox="0 0 24 24" aria-hidden="true">' + d + "</svg>"; };
+    m.innerHTML = '<p class="an-ctx-title">' + fig(node.san) + "</p>"
+      + (!main ? '<button type="button" role="menuitem" data-ctx="promote">' + I('<path d="M12 19V5M5 12l7-7 7 7"/>') + "Promocionar variante</button>" : "")
+      + (!main ? '<button type="button" role="menuitem" data-ctx="main">' + I('<path d="M4 12h16M14 6l6 6-6 6"/>') + "Convertir en línea principal</button>" : "")
+      + '<button type="button" role="menuitem" data-ctx="delete" class="danger">' + I('<path d="M4 7h16M10 11v6M14 11v6M5 7l1 13h12l1-13M9 7V4h6v3"/>') + "Borrar desde aquí</button>"
+      + '<button type="button" role="menuitem" data-ctx="copy">' + I('<path d="M8 4h8a2 2 0 0 1 2 2v14H6V6a2 2 0 0 1 2-2z"/><path d="M9 9h6M9 13h6M9 17h3"/>') + "Copiar PGN</button>";
+    m.hidden = false;
+    var w = m.offsetWidth, h = m.offsetHeight;
+    m.style.left = Math.max(8, Math.min(x, innerWidth - w - 8)) + "px"; m.style.top = Math.max(8, Math.min(y, innerHeight - h - 8)) + "px";
+    var firstBtn = m.querySelector("button"); if (firstBtn) firstBtn.focus();
+  }
+  function ctxAction(e) {
+    var b = e.target.closest("[data-ctx]"); if (!b || !ctxNode) return;
+    var node = ctxNode, act = b.dataset.ctx; closeCtx();
+    if (act === "promote") {
+      // Sube la variante un nivel: pasa a ser la continuación principal en el punto donde se separa.
+      for (var n = node; n.parent; n = n.parent) if (n.parent.children[0] !== n) { var sib = n.parent.children; sib.splice(sib.indexOf(n), 1); sib.unshift(n); break; }
+    } else if (act === "main") {
+      for (var k = node; k.parent; k = k.parent) { var ch = k.parent.children; ch.splice(ch.indexOf(k), 1); ch.unshift(k); }
+    } else if (act === "delete") {
+      var cur = curNode(), inside = false;
+      for (var c = cur; c; c = c.parent) if (c === node) inside = true;
+      node.parent.children.splice(node.parent.children.indexOf(node), 1);
+      if (inside) { setCur(node.parent); render(); return; }
+    } else if (act === "copy") { $("an-copy").click(); return; }
+    setCur(curNode()); render();
+  }
+  $("an-moves").addEventListener("contextmenu", function (e) {
+    var b = e.target.closest("[data-id]"); if (!b || !nodes[b.dataset.id]) return;
+    e.preventDefault(); openCtx(nodes[b.dataset.id], e.clientX, e.clientY);
+  });
+  // Móvil: pulsación larga sobre una jugada.
+  $("an-moves").addEventListener("touchstart", function (e) {
+    var b = e.target.closest("[data-id]"); if (!b) return;
+    var t = e.touches[0];
+    pressTimer = setTimeout(function () { pressTimer = null; openCtx(nodes[b.dataset.id], t.clientX, t.clientY); }, 550);
+  }, { passive: true });
+  ["touchend", "touchmove", "touchcancel"].forEach(function (ev) { $("an-moves").addEventListener(ev, function () { clearTimeout(pressTimer); }, { passive: true }); });
+  document.addEventListener("pointerdown", function (e) { if (!e.target.closest("#an-ctx")) closeCtx(); });
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape") closeCtx(); });
+  window.addEventListener("scroll", closeCtx, { passive: true });
 
   // ---------- Menú (≡) ----------
   function closeMenu() { $("an-menu").hidden = true; $("an-menu-btn").setAttribute("aria-expanded", "false"); }
@@ -535,7 +626,7 @@
 
   // ?fen=… abre esa posición (por ejemplo, desde un enlace compartido).
   var q = new URLSearchParams(location.search).get("fen");
-  if (q && new Chess().validate_fen(q).valid) { rootFen = q; flipped = q.split(" ")[1] === "b"; }
+  if (q && new Chess().validate_fen(q).valid) { resetTree(q); flipped = q.split(" ")[1] === "b"; }
   render();
 })();
 
