@@ -171,15 +171,19 @@ function connect() {
 function render() {
   const t = state;
   $('to-title').textContent = t.title; document.title = t.title + ' · Torneo Apejupo';
-  $('to-subtitle').textContent = canJoin(t) && arena(t) && t.status === 'playing' && !t.standings.some(p => p.id === t.me) ? 'El arena está en marcha: únete y empieza a jugar ya.' : t.challenge && t.status === 'waiting' ? 'La partida empieza en cuanto los dos tengáis el tablero abierto.' : t.status === 'waiting' ? 'Las inscripciones están abiertas. Reserva tu sitio en el tablero.' : 'Sigue tus partidas, los tableros y la clasificación en directo.';
-  $('to-summary').innerHTML = `<span class="to-status ${t.status}">${esc(t.challenge && t.status === 'waiting' ? 'Esperando al rival' : statuses[t.status])}</span><span>${icons.clock}${t.minutes} + ${t.increment}</span><span>${icons.format}${formatLabel(t)}</span><span>${arena(t) ? 'Emparejamiento continuo' : closed(t) ? 'Todos contra todos' : t.pairing === 'club' ? 'Suizo de club' : 'Suizo FIDE (sistema holandés)'}</span>`
+  $('to-subtitle').textContent = canJoin(t) && arena(t) && t.status === 'playing' && !t.standings.some(p => p.id === t.me) ? 'El arena está en marcha: únete y empieza a jugar ya.' : t.challenge ? (t.status === 'waiting' ? 'La partida empieza en cuanto los dos tengáis el tablero abierto.' : '') : t.status === 'waiting' ? 'Las inscripciones están abiertas. Reserva tu sitio en el tablero.' : 'Sigue tus partidas, los tableros y la clasificación en directo.';
+  $('to-subtitle').hidden = !$('to-subtitle').textContent;
+  // Reto: solo el tablero (y el marcador entre los dos) bajo la cabecera de la web.
+  document.body.classList.toggle('to-challenge', !!t.challenge);
+  $('to-summary').innerHTML = `<span class="to-status ${t.status}">${esc(t.challenge && t.status === 'waiting' ? 'Esperando al rival' : statuses[t.status])}</span><span>${icons.clock}${t.minutes} + ${t.increment}</span><span>${icons.format}${formatLabel(t)}</span>${t.challenge ? '' : `<span>${arena(t) ? 'Emparejamiento continuo' : closed(t) ? 'Todos contra todos' : t.pairing === 'club' ? 'Suizo de club' : 'Suizo FIDE (sistema holandés)'}</span>`}`
     + (t.status === 'waiting' ? `<span>${icons.people}Hasta ${t.capacity} jugadores</span><span>${icons.calendar}${t.startsAt ? esc(date(t.startsAt)) : 'Inicio a cargo del organizador'}</span>${t.locked ? `<span>${icons.lock}Con clave</span>` : ''}` : '');
   placeWaiting(t.status === 'waiting');
   $('to-notice').hidden = !t.notice; $('to-notice').textContent = t.notice;
   const mine = t.standings.find(p => p.id === t.me), registering = t.status === 'waiting';
   $('to-registration').hidden = !canJoin(t) || !!mine || t.count >= t.capacity;
   renderJoin();
-  $('to-membership').hidden = !mine;
+  $('to-membership').hidden = !mine || !!t.challenge;
+  renderDuel(t);
   $('to-membership-text').textContent = mine ? `Juegas como ${mine.name}${mine.active ? mine.paused ? ' · En pausa: no se te empareja' : '' : ' · Retirado del torneo'}` : '';
   $('to-standings-title').textContent = registering ? 'Inscritos' : 'Clasificación';
   $('to-player-count').textContent = `${t.count}/${t.capacity}`;
@@ -205,7 +209,7 @@ function render() {
   $('to-focus-pause').textContent = mine?.paused ? 'Volver a jugar' : 'Pausa';
   $('to-focus-pause').disabled = !connected;
   // Con el torneo en juego no se muestra «Compartir torneo».
-  $('to-share').hidden = ['playing', 'between'].includes(t.status);
+  $('to-share').hidden = !!t.challenge || ['playing', 'between'].includes(t.status);
   // Los invitados que entran con el enlace no ven la lista de torneos: solo el organizador.
   $('to-back').hidden = !t.host;
   $('to-focus-title').textContent = t.title;
@@ -233,8 +237,19 @@ function sheet(p) {
   const label = r => (r.bye ? 'Descanso' : r.s === 1 ? 'Victoria' : r.s === 0 ? 'Derrota' : 'Tablas') + (r.berserk ? ' con Berserk' : '') + (r.bonus ? ' (+½)' : '');
   return `<span class="to-sheet">${p.sheet.map(r => `<i class="${r.s === 1 ? 'w' : r.s === 0 ? 'l' : 'd'}${r.bonus ? ' b' : ''}" title="${label(r)}">${r.s === .5 ? '½' : r.s}</i>`).join('')}</span>`;
 }
+// Reto: en lugar de clasificación y podio, el marcador acumulado entre los dos jugadores (todas sus partidas).
+function renderDuel(t) {
+  $('to-duel').hidden = !t.challenge; $('to-standings-panel').hidden = !!t.challenge;
+  if (!t.challenge || !t.duel) return;
+  // Tú a la izquierda si juegas; si miras como espectador, por orden de la sala.
+  const players = [...t.standings].sort((a, b) => (b.id === t.me) - (a.id === t.me));
+  const [p, q] = players, wp = t.duel.wins[p?.id] || 0, wq = t.duel.wins[q?.id] || 0, d = t.duel.draws || 0, n = wp + wq + d;
+  const pts = x => String(x).replace('.5', '½').replace(/^0½$/, '½');
+  $('to-duel-body').innerHTML = !p || !q ? '' : `<div class="to-duel-score"><div class="${p.id === t.me ? 'me' : ''}"><strong>${esc(p.name)}</strong><b>${pts(wp + d / 2)}</b></div><span aria-hidden="true">–</span><div class="${q.id === t.me ? 'me' : ''}"><strong>${esc(q.name)}</strong><b>${pts(wq + d / 2)}</b></div></div>
+    <p class="muted to-duel-detail">${n ? `${n} ${n === 1 ? 'partida' : 'partidas'} · ${wp} ${wp === 1 ? 'victoria' : 'victorias'} de ${esc(p.name)} · ${wq} de ${esc(q.name)} · ${d} tablas` : 'Es vuestra primera partida. El marcador se guarda para las próximas.'}</p>`;
+}
 function renderPodium() {
-  const t = state, show = t.status === 'finished' && t.standings.length >= 2;
+  const t = state, show = !t.challenge && t.status === 'finished' && t.standings.length >= 2;
   $('to-podium').hidden = !show;
   if (!show) return;
   const top = t.standings.slice(0, 3), order = [1, 0, 2].filter(i => top[i]);
@@ -256,7 +271,7 @@ function renderJoin() {
 function liveGames() { return (state?.games || []).filter(g => !g.result && !g.bye && g.fen); }
 function renderBoards() {
   const live = liveGames();
-  $('to-boards-open').hidden = !live.length;
+  $('to-boards-open').hidden = !live.length || !!state.challenge;
   $('to-boards-label').textContent = `Ver tableros (${live.length})`;
   if (!boardsMode) return;
   document.title = `Tableros · ${state.title}`;
@@ -607,7 +622,7 @@ function updateClocks() {
   const now = Date.now() + offset, t = state;
   const me = t.standings.find(p => p.id === t.me);
   // En la sala de espera la cuenta atrás grande ya dice cuándo empieza.
-  $('to-phase').textContent = t.status === 'waiting' ? ''
+  $('to-phase').textContent = t.status === 'waiting' || t.challenge ? ''
     : arena(t) && t.status === 'playing' ? (now >= t.endsAt ? 'Tiempo cumplido: las partidas en juego se terminan, pero ya no cuentan' : t.pairingsCloseAt && now >= t.pairingsCloseAt ? (me?.active && !me.playing ? 'Ya no hay emparejamientos nuevos' : '') : me?.active && !me.playing && !me.paused ? 'Buscando rival…' : '')
     : t.status === 'between' ? `Siguiente ronda en ${Math.max(0, Math.ceil((t.nextRoundAt - now) / 1000))} s` : t.status === 'playing' ? `Ronda ${t.round} de ${t.rounds}` : t.status === 'finished' ? 'Clasificación final' : 'Torneo cancelado';
   // Cuenta atrás grande del arena, como en Lichess.

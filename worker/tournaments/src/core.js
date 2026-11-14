@@ -456,12 +456,17 @@ export function act(t, playerId, host, action, now = Date.now()) {
   afterResults(t, now);
 }
 
+// Marcador del reto con los identificadores de jugador de la sala (la web no conoce los de las cuentas).
+function duelScore(t) {
+  const s = t.challenge.score || { wins: {}, draws: 0 };
+  return { draws: s.draws || 0, wins: Object.fromEntries(t.players.map(p => [p.id, s.wins?.[p.accountId] || 0])) };
+}
 export function summary(t) {
   return { id: t.id, title: t.title, status: t.status, format: t.format || 'swiss', duration: t.duration || null, endsAt: t.endsAt || null,
     pairingsCloseAt: isArena(t) && t.endsAt ? arenaPairingsCloseAt(t) : null,
     minutes: t.minutes, increment: t.increment,
     rounds: t.rounds, round: t.round, capacity: t.capacity, count: t.players.length, startsAt: t.startsAt, createdAt: t.createdAt, locked: !!t.joinKey,
-    pairing: t.pairing || null, challenge: !!t.challenge };
+    pairing: t.pairing || null, challenge: !!t.challenge, duel: t.challenge ? duelScore(t) : null };
 }
 // Jugadas legales de una partida en curso, calculadas una sola vez por posición.
 function legalFor(g) {

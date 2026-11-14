@@ -147,6 +147,8 @@ export class ChallengeHub extends DurableObject {
     const fromWhite = c.color === 'w' ? true : c.color === 'b' ? false : crypto.getRandomValues(new Uint8Array(1))[0] < 128;
     // Empieza en cuanto los dos tengan el tablero abierto; si alguno no llega, a los 30 segundos.
     t.challenge = { white: fromWhite ? pf.id : pt.id };
+    // Marcador acumulado entre los dos, para verlo durante la partida; al terminar se actualiza.
+    try { t.challenge.score = await (await this.env.ACCOUNTS.getByName('cuentas').fetch('https://cuentas/duelo-ver', { method: 'POST', body: JSON.stringify({ a: c.from.id, b: c.to.id }) })).json(); } catch {}
     t.startsAt = now + START_GRACE_MS;
     const res = await this.env.TOURNAMENTS.getByName(id).fetch('https://room/init', { method: 'POST', body: JSON.stringify(t) });
     requireThat(res.ok, 'No se pudo crear la partida. Vuelve a intentarlo.', 503);

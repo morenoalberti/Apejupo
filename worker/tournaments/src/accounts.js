@@ -78,9 +78,24 @@ export class AccountStore extends DurableObject {
       CREATE TABLE IF NOT EXISTS sessions (hash TEXT PRIMARY KEY, user_id TEXT NOT NULL, expires_at INTEGER NOT NULL);
       CREATE TABLE IF NOT EXISTS tokens (hash TEXT PRIMARY KEY, user_id TEXT NOT NULL, kind TEXT NOT NULL, expires_at INTEGER NOT NULL);
       CREATE TABLE IF NOT EXISTS attempts (key TEXT PRIMARY KEY, count INTEGER NOT NULL, until INTEGER NOT NULL);
-      CREATE TABLE IF NOT EXISTS photos (user_id TEXT PRIMARY KEY, data BLOB NOT NULL, updated_at INTEGER NOT NULL);`);
+      CREATE TABLE IF NOT EXISTS photos (user_id TEXT PRIMARY KEY, data BLOB NOT NULL, updated_at INTEGER NOT NULL);
+      CREATE TABLE IF NOT EXISTS duels (a TEXT NOT NULL, b TEXT NOT NULL, a_wins INTEGER NOT NULL DEFAULT 0, b_wins INTEGER NOT NULL DEFAULT 0, draws INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (a, b));
+      CREATE TABLE IF NOT EXISTS duel_games (room TEXT PRIMARY KEY, at INTEGER NOT NULL);`);
     // Última actividad (para la página de administración). Las bases anteriores no tenían la columna.
     if (!this.sql.exec('PRAGMA table_info(users)').toArray().some(c => c.name === 'last_seen')) this.sql.exec('ALTER TABLE users ADD COLUMN last_seen INTEGER');
+  }
+  // Marcador de los retos entre dos cuentas (victorias de cada una y tablas), guardado con el par ordenado.
+  duel(x, y) {
+    const [a, b] = x < y ? [x, y] : [y, x], row = this.one('SELECT * FROM duels WHERE a = ? AND b = ?', a, b) || { a_wins: 0, b_wins: 0, draws: 0 };
+    return { wins: { [a]: row.a_wins, [b]: row.b_wins }, draws: row.draws };
+  }
+  recordDuel(room, white, black, result, now) {
+    if (this.one('SELECT 1 AS x FROM duel_games WHERE room = ?', room)) return; // cada partida cuenta una sola vez
+    const [a, b] = white < black ? [white, black] : [black, white];
+    const winner = result === '1-0' ? white : result === '0-1' ? black : null;
+    this.sql.exec('INSERT OR IGNORE INTO duels (a, b) VALUES (?, ?)', a, b);
+    this.sql.exec(`UPDATE duels SET ${winner === null ? 'draws = draws + 1' : winner === a ? 'a_wins = a_wins + 1' : 'b_wins = b_wins + 1'} WHERE a = ? AND b = ?`, a, b);
+    this.sql.exec('INSERT INTO duel_games (room, at) VALUES (?, ?)', room, now);
   }
   // Como mucho una escritura por hora y cuenta: basta para saber si alguien sigue usando la web.
   seen(id, now) { this.sql.exec('UPDATE users SET last_seen = ? WHERE id = ? AND (last_seen IS NULL OR last_seen < ?)', now, id, now - 3600000); }
@@ -109,6 +124,7 @@ export class AccountStore extends DurableObject {
       }
       case 'borrar':
         for (const table of ['sessions', 'tokens', 'photos']) this.sql.exec(`DELETE FROM ${table} WHERE user_id = ?`, user.id);
+        this.sql.exec('DELETE FROM duels WHERE a = ? OR b = ?', user.id, user.id);
         this.sql.exec('DELETE FROM users WHERE id = ?', user.id);
         return { ok: true };
       default: throw new GameError('No encontrado.', 404);
@@ -254,6 +270,7 @@ export class AccountStore extends DurableObject {
           this.limit('borrar:' + user.id, 5, 900000, now);
           requireThat(await verifyPassword(String(b.password || ''), user.pass), 'La contraseña no es correcta.', 403);
           for (const table of ['sessions', 'tokens', 'photos']) this.sql.exec(`DELETE FROM ${table} WHERE user_id = ?`, user.id);
+          this.sql.exec('DELETE FROM duels WHERE a = ? OR b = ?', user.id, user.id);
           this.sql.exec('DELETE FROM users WHERE id = ?', user.id);
           return json({ ok: true });
         }
@@ -262,6 +279,14 @@ export class AccountStore extends DurableObject {
           const user = await this.user(b.session, now);
           // «elo»: cuando las cuentas tengan Elo (se asignará al entrar por primera vez), irá aquí y el suizo lo usará.
           return json({ user: user && user.verified ? { id: user.id, nick: user.nick, elo: Number.isInteger(user.elo) ? user.elo : null } : null, unverified: !!user && !user.verified });
+        }
+        // Uso interno de los retos: marcador entre dos cuentas y anotación de una partida terminada.
+        case '/duelo-ver': requireThat(/^[a-f0-9]{24}$/.test(b.a) && /^[a-f0-9]{24}$/.test(b.b), 'Cuentas no válidas.'); return json(this.duel(b.a, b.b));
+        case '/duelo-anotar': {
+          requireThat(/^[a-f0-9]{24}$/.test(b.white) && /^[a-f0-9]{24}$/.test(b.black) && /^[a-f0-9]{24}$/.test(b.room), 'Datos no válidos.');
+          requireThat(['1-0', '0-1', '1/2-1/2'].includes(b.result), 'Resultado no válido.');
+          this.recordDuel(b.room, b.white, b.black, b.result, now);
+          return json(this.duel(b.white, b.black));
         }
         case '/nick': return json({ taken: !!this.one('SELECT 1 AS x FROM users WHERE nick_key = ?', nickKey(b.name)) });
         default: throw new GameError('No encontrado.', 404);

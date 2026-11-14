@@ -91,6 +91,8 @@ test('retos: solo a jugadores en línea; al aceptar, los dos reciben el tablero 
   RA.send({ type: 'resign', game: game.id });
   const over = await RB.next(m => m.type === 'state' && m.status === 'finished');
   assert.equal(over.games[0].result, '1-0');
+  // El marcador entre los dos queda guardado: 1 victoria de B (blancas), 0 de A.
+  assert.equal(over.duel.wins[game.white], 1); assert.equal(over.duel.wins[game.black], 0); assert.equal(over.duel.draws, 0);
   RA.close(); RB.close();
 
   // Revancha: A la pide desde el tablero; B la recibe marcada como revancha y con los colores cambiados.
@@ -108,6 +110,8 @@ test('retos: solo a jugadores en línea; al aceptar, los dos reciben el tablero 
   const second = await QA.next(m => m.type === 'state' && m.status === 'playing');
   assert.equal(second.game.white, second.me, 'en la revancha A juega con blancas');
   assert.match(second.title, /^Revancha:/);
+  // La revancha arranca con el marcador acumulado: A (ahora blancas) 0, B 1.
+  assert.equal(second.duel.wins[second.game.white], 0); assert.equal(second.duel.wins[second.game.black], 1);
   QA.close(); QB.close();
 
   for (const u of [a, b, c]) await call('/api/cuentas/borrar', { password: 'clave-segura-1' }, u.session);

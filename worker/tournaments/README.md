@@ -49,6 +49,7 @@ No hay cuentas verificadas, clasificación Elo, premios, chat ni detección auto
 - `ChallengeHub` (Durable Object `RETOS`): cada pestaña con sesión abre un WebSocket a `/api/retos/socket` y manda la sesión en el primer mensaje. Así se sabe quién está en línea (ping cada 30 s).
 - Al retado le aparece en cualquier página un cuadro centrado «X te reta a una partida» con el ritmo, su color y una barra de 60 s. Si no responde, el reto caduca. Un reto nuevo sustituye al anterior del mismo jugador.
 - Al aceptar se crea una sala de torneo de dos jugadores y una ronda (`t.challenge`), sin pasar por el listado. Cada navegador recibe su credencial de jugador y va solo a `jugar-torneo.html?id=…`. La partida empieza en cuanto los dos tienen el tablero abierto, o a los 30 s si alguno no llega. El color es el que eligió quien reta, o al azar.
+- En la sala de un reto solo se ve el tablero bajo la cabecera de la web, y al lado el **marcador entre los dos** (victorias de cada uno y tablas). Se guarda en `AccountStore` (tabla `duels`, cada partida una sola vez) y sigue sumando en las revanchas y en los retos futuros. Si se borra una cuenta, se borran sus marcadores.
 - Al terminar, los dos tienen el botón **Revancha**: manda un reto con el mismo ritmo y los colores cambiados, que el rival ve como «X te pide la revancha».
 
 Prueba: `npm run test:retos` (dos clientes: reto a desconectado, rechazo, aceptación, colores, inicio automático y revancha).

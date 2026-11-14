@@ -404,3 +404,16 @@ body.to-focus .to-game-actions { padding-top: 12px; border-top: 1px solid var(--
 .to-rematch .btn { min-width: 180px; }
 .to-rematch p { margin: 0; font-size: .9rem; text-align: center; }
 .to-rematch p:empty { display: none; }
+
+/* Reto: marcador entre los dos jugadores */
+.to-duel h2 { margin: 0 0 14px; font-size: 1rem; }
+.to-duel-score { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 10px; text-align: center; }
+.to-duel-score div { display: grid; gap: 4px; min-width: 0; }
+.to-duel-score strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .92rem; }
+.to-duel-score .me strong { color: var(--blue); }
+.to-duel-score b { font-size: 2rem; line-height: 1; font-variant-numeric: tabular-nums; }
+.to-duel-score > span { color: var(--muted); font-size: 1.4rem; }
+.to-duel-detail { margin: 14px 0 0; font-size: .85rem; text-align: center; line-height: 1.45; }
+/* Reto: fuera el bloque del título, la barra de la sala y las etiquetas del torneo */
+.to-challenge .to-hero, .to-challenge .to-room-bar, .to-challenge .to-tournament-bar, .to-challenge #to-notice, .to-challenge #to-focus-info { display: none !important; }
+.to-challenge .to-content { padding-top: 24px; }
