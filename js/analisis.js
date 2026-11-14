@@ -232,19 +232,38 @@
   }
   $("an-fen").addEventListener("change", function () { if (this.value.trim() !== fenAt(ply)) loadFen(this.value); });
   $("an-fen").addEventListener("keydown", function (e) { if (e.key === "Enter") this.blur(); });
-  $("an-load").addEventListener("click", function () {
-    var text = $("an-pgn").value.trim(); if (!text) { msg("Pega una partida en PGN para cargarla.", true); return; }
+  // Carga un PGN (línea principal). Devuelve el texto del error, o null si se ha cargado.
+  function loadPgn(text) {
+    text = (text || "").trim(); if (!text) return "Pega una partida en PGN para cargarla.";
     // chess.js pide una línea en blanco entre las cabeceras [Event …] y las jugadas: se añade si falta.
     text = text.replace(/\r\n?/g, "\n").replace(/^(\s*\[[^\n]*\]\s*\n)+(?!\s*\n)/, function (m) { return m.replace(/\s*$/, "") + "\n\n"; });
     var g = new Chess();
-    if (!g.load_pgn(text, { sloppy: true })) { msg("No se pudo leer el PGN. Revisa que las jugadas sean correctas.", true); return; }
+    if (!g.load_pgn(text, { sloppy: true })) return "No se pudo leer el PGN. Revisa que las jugadas sean correctas.";
     var hist = g.history({ verbose: true }), headers = g.header(), start = headers.FEN || START, replay = new Chess(start);
     resetTree(start);
     var at = root;
     hist.forEach(function (m) { replay.move(m); var n = newNode(at, { san: m.san, fen: replay.fen(), from: m.from, to: m.to }); at.children.push(n); at = n; });
     setCur(at); selected = null; flipped = false;
-    msg("Partida cargada: " + (headers.White ? headers.White + " – " + (headers.Black || "?") + " · " : "") + Math.ceil(line.length / 2) + " jugadas.");
+    msg("Partida cargada: " + (headers.White ? headers.White + " – " + (headers.Black || "?") + " · " : "") + Math.ceil(hist.length / 2) + " jugadas.");
     render();
+    return null;
+  }
+  $("an-load").addEventListener("click", function () { var err = loadPgn($("an-pgn").value); if (err) msg(err, true); });
+  // Ventana «Cargar PGN» del menú.
+  function openPgnDialog() { $("an-pgn-error").textContent = ""; $("an-pgn-file").value = ""; $("an-pgn-text").value = ""; $("an-pgn-fname").textContent = "Elegir archivo .pgn"; $("an-pgn-dialog").showModal(); $("an-pgn-text").focus(); }
+  $("an-pgn-form").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var err = loadPgn($("an-pgn-text").value);
+    if (err) { $("an-pgn-error").textContent = err; return; }
+    $("an-pgn-dialog").close();
+  });
+  $("an-pgn-cancel").addEventListener("click", function () { $("an-pgn-dialog").close(); });
+  $("an-pgn-file").addEventListener("change", function () {
+    var f = this.files && this.files[0]; if (!f) return;
+    var r = new FileReader();
+    r.onload = function () { $("an-pgn-text").value = String(r.result || ""); $("an-pgn-error").textContent = ""; $("an-pgn-fname").textContent = f.name; };
+    r.onerror = function () { $("an-pgn-error").textContent = "No se pudo leer el archivo."; };
+    r.readAsText(f);
   });
   // Copiar al portapapeles; si el navegador no deja, se prueba con un cuadro de texto temporal.
   function copyText(text, done) {
@@ -475,6 +494,7 @@
     else if (act === "start") $("an-reset").click();
     else if (act === "link") copyLink(fenAt(ply));
     else if (act === "pgn") $("an-copy").click();
+    else if (act === "load") openPgnDialog();
   });
   function copyLink(fen) {
     var url = location.origin + location.pathname + "?fen=" + encodeURIComponent(fen);

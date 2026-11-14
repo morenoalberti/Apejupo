@@ -201,3 +201,17 @@
 .an-evalbar { order: -1; }
 .an-pal, .an-pal#an-pal-bottom { margin-right: 0; margin-left: 26px; }
 @media (max-width: 760px) { .an-pal, .an-pal#an-pal-bottom { margin-left: 20px; } }
+/* Ventana «Cargar PGN» */
+.an-pgn-dialog { width: min(560px, calc(100vw - 28px)); padding: 22px; border: 1px solid #2f4466; border-top: 4px solid #629924; border-radius: 14px; background: var(--card); color: var(--text); box-shadow: 0 30px 80px -12px #000c; }
+.an-pgn-dialog::backdrop { background: #07101fbb; backdrop-filter: blur(3px); }
+.an-pgn-dialog h2 { margin: 0 0 6px; font-size: 1.2rem; }
+.an-pgn-help { margin: 0 0 12px; color: var(--muted); font-size: .88rem; }
+.an-pgn-dialog textarea { width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--text); font: .88rem/1.45 ui-monospace, Consolas, monospace; resize: vertical; }
+.an-pgn-file { display: inline-flex; align-items: center; gap: 8px; margin-top: 10px; cursor: pointer; }
+.an-pgn-file input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.an-pgn-file:focus-within { outline: 3px solid var(--blue); outline-offset: 2px; }
+.an-pgn-file svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.an-pgn-error { margin: 8px 0 0; color: #f87171; font-size: .88rem; }
+.an-pgn-error:empty { display: none; }
+.an-pgn-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px; }
+.an-pgn-actions .an-ed-go { padding: 9px 22px; }
