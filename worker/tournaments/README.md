@@ -1,6 +1,6 @@
 # Torneos propios de Apejupo
 
-Implementación local de la sección **Torneo**, en `jugar-torneo.html`. Este servicio es independiente de `worker/wrangler.toml`. No se ha desplegado ni se han modificado recursos en Cloudflare.
+Implementación local de la sección **Torneo**, en `jugar-torneo.html`. Este servicio es independiente de `worker/wrangler.toml`.
 
 ## Arranque local (Windows)
 
@@ -92,9 +92,9 @@ npm run check
 
 Las pruebas crean torneos y jugadores de prueba únicamente en el almacenamiento local de Wrangler. No acceden a la web ni al Worker publicados.
 
-## Preparación de una futura publicación
+## Publicación
 
-No ejecutar despliegues sin la autorización del usuario. Faltaría configurar una clave de organización real como secreto, desplegar este servicio con sus migraciones SQLite y poner la URL obtenida en `js/torneo-config.js`. Después, comprobar conexiones, persistencia, alarmas y consumo en Cloudflare antes de abrir inscripciones. La web actual se despliega al subir `main`: no hacer push de este trabajo mientras siga en revisión.
+Publicado en `https://apejupo-torneos.chessrival-worker.workers.dev` (`npx wrangler deploy` desde esta carpeta). La web lo usa desde `js/torneo-config.js`. Secretos necesarios (`npx wrangler secret put NOMBRE`): `TORNEOS_CLAVE` (organizar torneos), `CUENTAS_ADMIN` (admin-usuarios.html) y `RESEND_API_KEY` (correos de confirmación y recuperación, con el dominio apejupo.com verificado en Resend). Nunca configurar `TORNEOS_SIN_CLAVE` ni `CUENTAS_DESARROLLO` en producción.
 
 Referencias: [WebSockets y hibernación](https://developers.cloudflare.com/durable-objects/best-practices/websockets/), [alarmas](https://developers.cloudflare.com/durable-objects/api/alarms/), [cuotas](https://developers.cloudflare.com/durable-objects/platform/pricing/), [chess.js](https://jhlywa.github.io/chess.js/).
 
