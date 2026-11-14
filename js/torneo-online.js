@@ -492,7 +492,7 @@ $('to-start-time').insertAdjacentHTML('beforeend', Array.from({ length: 96 }, (_
 }).join(''));
 function localDay(d) { return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
 const formatHelp = {
-  arena: 'Se juega durante un tiempo fijo; quien termina su partida se empareja enseguida con otro jugador libre.',
+  arena: 'Tiempo máximo de juego',
   swiss: 'Número fijo de rondas, con rivales de puntuación parecida y sin repetir enfrentamientos.',
   closed: 'Todos contra todos, una vez cada uno. Las rondas salen del número de inscritos.'
 };
