@@ -516,8 +516,9 @@ function updateClocks() {
     el.classList.toggle('running', running); el.classList.toggle('urgent', running && remaining < 20000);
   }
 }
-function confirmAction(title, text, label = 'Confirmar', danger = false) {
-  $('to-confirm-title').textContent = title; $('to-confirm-text').textContent = text; $('to-confirm-yes').textContent = label;
+function confirmAction(title, text, label = 'Confirmar', danger = false, cancel = 'Volver') {
+  $('to-confirm-title').textContent = title; $('to-confirm-text').textContent = text; $('to-confirm-text').hidden = !text;
+  $('to-confirm-yes').textContent = label; $('to-confirm-no').textContent = cancel;
   $('to-confirm-yes').classList.toggle('danger', danger);
   $('to-confirm-dialog').showModal();
   return new Promise(resolve => { confirmResolve = resolve; });
@@ -726,7 +727,7 @@ $('to-accept').addEventListener('click', () => send({ type: 'accept-draw', game:
 $('to-decline').addEventListener('click', () => send({ type: 'decline-draw', game: state.game.id }));
 $('to-resign').addEventListener('click', async () => {
   const id = state.game.id;
-  if (await confirmAction('Abandonar partida', 'La partida contará como derrota. Seguirás inscrito para las siguientes rondas.', 'Abandonar')) send({ type: 'resign', game: id });
+  if (await confirmAction('¿Quieres abandonar la partida?', '', 'Aceptar', false, 'Cancelar')) send({ type: 'resign', game: id });
 });
 $('to-confirm-no').addEventListener('click', () => closeConfirm(false));
 $('to-confirm-yes').addEventListener('click', () => closeConfirm(true));
