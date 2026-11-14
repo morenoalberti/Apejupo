@@ -349,8 +349,23 @@ function paint(canvas, piece) {
   const draw = () => { if (canvas.isConnected && image.naturalWidth) { canvas.width = image.naturalWidth; canvas.height = image.naturalHeight; canvas.getContext('2d').drawImage(image, 0, 0); } };
   if (image.complete) draw(); else image.addEventListener('load', draw, { once: true });
 }
+function renderWaiting() {
+  const t = state, mine = t.standings.find(p => p.id === t.me);
+  const show = !t.game && !!mine?.active && ['playing', 'between'].includes(t.status);
+  $('to-waiting-pair').hidden = !show;
+  if (!show) return;
+  const bye = !arena(t) && t.games.some(g => g.bye && g.round === t.round && g.white === t.me);
+  const [title, text] = arena(t)
+    ? mine.paused ? ['Estás en pausa', 'No se te empareja. Pulsa «Volver a jugar» cuando quieras seguir.']
+      : ['Buscando rival…', 'Ahora mismo no queda nadie libre: sois un número impar o los demás están jugando. Jugarás en cuanto termine una partida.']
+    : bye ? ['Descansas esta ronda', closed(t) ? 'Con un número impar de jugadores, a cada uno le toca descansar una ronda. No suma punto.' : 'Te toca descanso y sumas un punto. Jugarás en la siguiente ronda.']
+      : ['Esperando la siguiente ronda', 'Tu partida de esta ronda ha terminado.'];
+  $('to-waiting-title').textContent = title; $('to-waiting-text').textContent = text;
+  $('to-waiting-boards').hidden = !t.games.some(g => !g.result && !g.bye);
+}
 function renderGame() {
   const g = state?.game;
+  renderWaiting();
   $('to-game-panel').hidden = !g;
   if (!g) return;
   const own = !!myColor();
@@ -747,6 +762,7 @@ $('to-events').addEventListener('click', async event => {
   } catch (error) { button.disabled = false; message(error.message, true); }
 });
 
+$('to-waiting-boards').addEventListener('click', () => $('to-boards-open').click());
 $('to-host-edit').addEventListener('click', async () => { try { await openEdit(roomId); } catch (error) { message(error.message, true); } });
 $('to-key-edit').addEventListener('click', () => { $('to-joinkey-input').value = state?.joinKey || ''; $('to-joinkey-remove').hidden = !state?.joinKey; $('to-joinkey-dialog').showModal(); $('to-joinkey-input').focus(); });
 $('to-joinkey-form').addEventListener('submit', event => {

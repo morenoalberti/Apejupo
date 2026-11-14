@@ -437,7 +437,10 @@ function legalFor(g) {
 // La partida que ve cada conexión: la elegida, si no la propia y si no la última del torneo.
 export function selectedGame(t, playerId, gameId) {
   const own = playerId ? [...t.games].reverse().find(g => !g.bye && (isArena(t) || g.round === t.round) && (g.white === playerId || g.black === playerId)) : null;
-  return t.games.find(g => g.id === gameId && !g.bye) || own || [...t.games].reverse().find(g => !g.bye) || null;
+  // Un jugador sin partida (esperando rival o descansando) no recibe la de otros: solo si la pide.
+  // Al espectador se le enseña la última partida.
+  const player = playerId && t.players.some(p => p.id === playerId);
+  return t.games.find(g => g.id === gameId && !g.bye) || own || (player ? null : [...t.games].reverse().find(g => !g.bye)) || null;
 }
 export function gameDetail(g) { return g ? { ...g, legal: legalFor(g) } : null; }
 // Parte común del estado: igual para todos, se calcula una vez por envío (como Lichess, que no

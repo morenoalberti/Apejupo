@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Chess } from 'chess.js';
-import { createTournament, editTournament, joinTournament, startTournament, act, advance, standings, snapshot, sharedSnapshot, personalPart, moveMessage, canPossiblyMate, nextAlarm, exportPgn, BREAK_MS } from '../src/core.js';
+import { createTournament, editTournament, pairArena, selectedGame, joinTournament, startTournament, act, advance, standings, snapshot, sharedSnapshot, personalPart, moveMessage, canPossiblyMate, nextAlarm, exportPgn, BREAK_MS } from '../src/core.js';
 
 const NOW = 1800000000000;
 function tournament(count = 2, options = {}) {
@@ -374,4 +374,13 @@ test('editar antes de empezar: se valida como al crear y no después de empezar'
   assert.equal(t.title, 'Abierto editado');
   startTournament(t, NOW);
   assert.throws(() => editTournament(t, { title: 'Otro nombre', format: 'swiss', rounds: 3, minutes: 3, increment: 2, capacity: 10 }, NOW), /empezado/);
+});
+
+test('arena con 3: quien espera rival no recibe la partida de otros; el espectador sí', () => {
+  const t = tournament(3, { format: 'arena', duration: 60 }); startTournament(t, NOW); pairArena(t, NOW + 1);
+  const game = t.games.find(g => !g.bye), waiting = t.players.find(p => p.id !== game.white && p.id !== game.black);
+  assert.equal(selectedGame(t, waiting.id, null), null);
+  assert.equal(selectedGame(t, waiting.id, game.id).id, game.id);
+  assert.equal(selectedGame(t, game.white, null).id, game.id);
+  assert.equal(selectedGame(t, null, null).id, game.id);
 });
