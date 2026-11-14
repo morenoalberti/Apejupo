@@ -13,7 +13,11 @@
     var n = { id: nextId++, san: data.san || "", fen: data.fen, from: data.from || "", to: data.to || "", parent: parent, children: [] };
     nodes[n.id] = n; return n;
   }
-  function resetTree(fen) { nodes = {}; nextId = 1; rootFen = fen; root = newNode(null, { fen: fen }); line = []; ply = 0; }
+  function resetTree(fen) {
+    nodes = {}; nextId = 1; rootFen = fen; root = newNode(null, { fen: fen }); line = []; ply = 0;
+    if (typeof stopBatch === "function") stopBatch(true);
+    var box = document.getElementById("an-game"); if (box) box.hidden = true; // el botón solo existe con un PGN cargado
+  }
   function setCur(node) {
     var path = [];
     for (var n = node; n && n !== root; n = n.parent) path.unshift(n);
@@ -71,7 +75,8 @@
     var pre = white ? '<span class="an-num">' + num + ".</span>" : forceNum ? '<span class="an-num">' + num + "…</span>" : "";
     return pre + '<button type="button" class="an-mv' + (n === curNode() ? " cur" : "") + '" data-id="' + n.id + '">' + fig(n.san)
       + (j && j.mark ? '<b class="an-mark ' + j.kind + '">' + j.mark + "</b>" : "") + "</button>"
-      + (j && j.sym ? '<span class="an-sym" title="' + j.symTitle + '">' + j.sym + "</span>" : "");
+      + (j && j.sym ? '<span class="an-sym" title="' + j.symTitle + '">' + j.sym + "</span>" : "")
+      + (j && j.mark && j.best ? '<span class="an-note ' + j.kind + '">mejor ' + j.best + "</span>" : "");
   }
   function seqHtml(first, forceNum) {
     var html = "", force = forceNum;
@@ -126,7 +131,7 @@
     else if (drop >= 0.2) { r.mark = "?"; r.kind = "mistake"; r.text = "Error."; }
     else if (drop >= 0.1) { r.mark = "?!"; r.kind = "dubious"; r.text = "Imprecisión."; }
     var best = before.best && before.best !== node.from + node.to ? uciSan(beforeFen, before.best) : "";
-    if (r.mark && best) r.text += " Mejor era " + best + ".";
+    if (r.mark && best) { r.text += " Mejor era " + best + "."; r.best = best; }
     // Mate perdido: había mate y tras la jugada ya no.
     if (before.mate && before.v * sign > 0 && !(after.mate && after.v * sign > 0) && !after.over) { r.mark = r.mark || "?"; r.kind = r.kind || "mistake"; if (r.text.indexOf("Mejor") < 0) r.text = "Se pierde el mate." + (best ? " Mejor era " + best + "." : ""); else r.text = "Se pierde el mate. " + r.text; }
     var s = evalSym(after);
@@ -243,7 +248,8 @@
     resetTree(start);
     var at = root;
     hist.forEach(function (m) { replay.move(m); var n = newNode(at, { san: m.san, fen: replay.fen(), from: m.from, to: m.to }); at.children.push(n); at = n; });
-    setCur(at); selected = null; flipped = false;
+    setCur(root); selected = null; flipped = false; // se empieza desde la posición inicial
+    $("an-game").hidden = false; $("an-summary").innerHTML = ""; setAnalyzeButton();
     msg("Partida cargada: " + (headers.White ? headers.White + " – " + (headers.Black || "?") + " · " : "") + Math.ceil(hist.length / 2) + " jugadas.");
     render();
     return null;
@@ -303,9 +309,9 @@
   // Cada «go» termina siempre con un «bestmove». Mientras se espera el de una búsqueda que se ha mandado
   // parar (sfPending), no se lee nada: así los restos de la búsqueda vieja no se atribuyen a la posición nueva.
   var evals = {}, movesTimer = null, sfSearching = false, sfPending = null;
-  function launch(fen) {
+  function launch(fen, depth, lines) {
     sfFen = fen; sfLines = {}; sfSearching = true;
-    sf.postMessage("setoption name MultiPV value " + nLines); sf.postMessage("position fen " + fen); sf.postMessage("go depth 24");
+    sf.postMessage("setoption name MultiPV value " + (lines || nLines)); sf.postMessage("position fen " + fen); sf.postMessage("go depth " + (depth || 24));
   }
   // Número de líneas de análisis (1 a 5), elegido con el contador de la derecha y recordado en este navegador.
   var nLines = 3;
@@ -337,9 +343,10 @@
       sf.onmessage = function (e) {
         var l = String(e.data);
         if (l === "uciok") { sf.postMessage("setoption name MultiPV value " + nLines); sf.postMessage("isready"); return; }
-        if (l === "readyok") { if (!sfReady) { sfReady = true; analyse(); } return; }
+        if (l === "readyok") { if (!sfReady) { sfReady = true; if (batch) batchNext(); else analyse(); } return; }
         if (l.indexOf("bestmove") === 0) {
           sfSearching = false;
+          if (batch) { sfPending = null; batchNext(); return; }
           if (sfPending) { var next = sfPending; sfPending = null; launch(next); }
           return;
         }
@@ -355,14 +362,14 @@
             if (!movesTimer) movesTimer = setTimeout(function () { movesTimer = null; renderMoves(); }, 400);
           }
         }
-        if (!sfTimer) sfTimer = setTimeout(function () { sfTimer = null; showEngine(); }, 120);
+        if (!batch && !sfTimer) sfTimer = setTimeout(function () { sfTimer = null; showEngine(); }, 120);
       };
       sf.postMessage("uci");
     } catch (_) { sf = false; }
   }
   function analyse() {
     var fen = fenAt(ply), g = new Chess(fen);
-    if (!sfOn || editing) return;
+    if (!sfOn || editing || batch) return; // mientras se analiza la partida, el motor está ocupado con ella
     if (g.game_over()) {
       sfFen = null; sfPending = null; if (sf && sfSearching) sf.postMessage("stop");
       var mate = g.in_checkmate(), winW = g.turn() === "b";
@@ -379,6 +386,65 @@
     if (sfSearching) { if (!sfPending) sf.postMessage("stop"); sfPending = fen; sfFen = null; }
     else launch(fen);
   }
+  // ---------- Analizar la partida (solo con un PGN cargado) ----------
+  // Stockfish recorre todas las posiciones de la línea principal (profundidad 16, una línea) y guarda su
+  // evaluación; con ellas cada jugada recibe su marca, su valoración y un comentario corto.
+  var batch = null, BATCH_DEPTH = 16;
+  function mainlineNodes() { var out = []; for (var n = root.children[0]; n; n = n.children[0]) out.push(n); return out; }
+  function setAnalyzeButton() {
+    var b = $("an-analyze"); if (!b) return;
+    if (batch) { b.innerHTML = '<span class="an-spin" aria-hidden="true"></span>Analizando… ' + batch.done + "/" + batch.total + " · Detener"; b.classList.add("busy"); }
+    else { b.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3v18h18"/><path d="m7 15 4-4 3 3 6-7"/></svg>' + (mainlineNodes().every(function (n) { return evals[n.fen] && evals[n.fen].depth >= BATCH_DEPTH; }) && root.children.length ? "Partida analizada" : "Analizar partida"); b.classList.remove("busy"); }
+    $("an-progress").style.width = batch ? Math.round(batch.done / batch.total * 100) + "%" : "0";
+    $("an-progress").parentElement.hidden = !batch;
+  }
+  function startBatch() {
+    var fens = [root.fen].concat(mainlineNodes().map(function (n) { return n.fen; }));
+    batch = { queue: fens, total: fens.length, done: 0 };
+    setAnalyzeButton(); $("an-summary").innerHTML = "";
+    $("an-lines").innerHTML = '<p class="an-empty">Analizando la partida…</p>'; $("an-depth").textContent = "Análisis de la partida";
+    initSf();
+    if (!sf || !sfReady) return; // al estar listo («readyok») se empieza
+    if (sfSearching) { sf.postMessage("stop"); sfPending = null; } // su «bestmove» lanzará la primera posición
+    else batchNext();
+  }
+  function stopBatch(silent) {
+    if (!batch) return;
+    batch = null;
+    if (sf && sfSearching) sf.postMessage("stop");
+    if (!silent) { setAnalyzeButton(); sfFen = null; analyse(); }
+  }
+  function batchNext() {
+    if (!batch) return;
+    while (batch.queue.length) {
+      var fen = batch.queue.shift(), g = new Chess(fen);
+      if (g.game_over()) {
+        var mate = g.in_checkmate();
+        evals[fen] = mate ? { mate: true, v: g.turn() === "b" ? 1 : -1, depth: 99, over: true } : { mate: false, v: 0, depth: 99, over: true };
+        batch.done++; continue;
+      }
+      if (evals[fen] && evals[fen].depth >= BATCH_DEPTH) { batch.done++; continue; }
+      setAnalyzeButton();
+      launch(fen, BATCH_DEPTH, 1);
+      batch.done++;
+      return;
+    }
+    // Terminado: marcas en la lista, resumen por bando y el motor vuelve a la posición actual.
+    batch = null; sfFen = null;
+    setAnalyzeButton(); renderSummary(); renderMoves(); analyse();
+  }
+  function renderSummary() {
+    var count = { w: { "?!": 0, "?": 0, "??": 0 }, b: { "?!": 0, "?": 0, "??": 0 } };
+    mainlineNodes().forEach(function (n) { var j = judgeNode(n); if (j && j.mark) count[n.parent.fen.split(" ")[1]][j.mark]++; });
+    var row = function (c, name) {
+      var n = function (k, one, many) { return c[k] + " " + (c[k] === 1 ? one : many); };
+      return '<div class="an-sum-row"><strong>' + name + '</strong><span class="dubious">' + n("?!", "imprecisión", "imprecisiones") + "</span>"
+        + '<span class="mistake">' + n("?", "error", "errores") + "</span>" + '<span class="blunder">' + n("??", "error grave", "errores graves") + "</span></div>";
+    };
+    $("an-summary").innerHTML = row(count.w, "Blancas") + row(count.b, "Negras");
+  }
+  $("an-analyze").addEventListener("click", function () { if (batch) stopBatch(); else startBatch(); });
+
   function scoreText(r) { return r.mate ? (r.v > 0 ? "#" : "#-") + Math.abs(r.v) : (r.v > 0 ? "+" : "") + (r.v / 100).toFixed(2); }
   function setBar(r) {
     var pct = r.mate ? (r.v > 0 ? 100 : 0) : 50 + 50 * (2 / (1 + Math.exp(-0.004 * r.v)) - 1);
