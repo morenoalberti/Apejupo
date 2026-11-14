@@ -259,9 +259,13 @@ function renderBoards() {
   $('to-boards-label').textContent = `Ver tableros (${live.length})`;
   if (!boardsMode) return;
   document.title = `Tableros · ${state.title}`;
-  $('to-boards-sub').textContent = `${state.title} · ${live.length === 1 ? '1 partida' : `${live.length} partidas`} en juego`;
-  // Como en Lichess: solo las partidas en juego; al terminar, su tablero se va.
-  const shown = live;
+  const inPlay = `${live.length === 1 ? '1 partida' : `${live.length} partidas`} en juego`;
+  const doneHere = arena(state) ? 0 : state.games.filter(g => g.round === state.round && !g.bye && g.result).length;
+  $('to-boards-sub').textContent = arena(state) ? `${state.title} · ${inPlay}`
+    : `${state.title} · Ronda ${state.round} de ${state.rounds} · ${state.status === 'finished' ? 'torneo terminado' : `${inPlay}${doneHere ? `, ${doneHere} terminada${doneHere === 1 ? '' : 's'}` : ''}`}`;
+  // Arena: solo las partidas en juego. Suizo y cerrado: toda la ronda en curso; las terminadas se quedan
+  // con su resultado hasta que empieza la ronda siguiente, que las sustituye.
+  const shown = arena(state) ? live : state.games.filter(g => g.round === state.round && !g.bye && g.fen);
   if (!shown.some(g => g.id === zoomed)) zoomed = null;
   const grid = $('to-boards-grid');
   grid.classList.toggle('has-zoom', !!zoomed);
@@ -269,10 +273,10 @@ function renderBoards() {
   for (const [id, c] of boardCards) if (!shown.some(g => g.id === id)) { c.el.remove(); boardCards.delete(id); }
   grid.querySelector('.to-boards-empty')?.remove();
   // Se reordena solo si cambia el orden (al empezar o terminar una partida); mover un tablero no lo repinta.
-  const order = live.map(g => g.id);
+  const order = shown.map(g => g.id);
   if (order.join() !== boardOrder) {
     boardOrder = order.join();
-    for (const g of live) {
+    for (const g of shown) {
       let c = boardCards.get(g.id);
       if (!c) { c = boardCard(g); boardCards.set(g.id, c); }
       grid.append(c.el);
@@ -309,6 +313,12 @@ function updateCard(c, g) {
       if ((c.pieces[sq] || '') !== want) { cell.innerHTML = want ? `<img src="assets/pieces/${want}.png" alt="">` : ''; c.pieces[sq] = want; }
     });
     c.fen = g.fen; queueEval(g.id, g.fen);
+  }
+  // Partida terminada: el resultado encima del tablero.
+  const result = g.result ? g.result.replace('1/2-1/2', '½–½') : '';
+  if ((c.el.dataset.result || '') !== result) {
+    if (result) { c.el.dataset.result = result; c.el.classList.add('done'); c.el.title = g.reason || ''; }
+    else { delete c.el.dataset.result; c.el.classList.remove('done'); c.el.removeAttribute('title'); }
   }
   const last = g.lastMove ? g.lastMove.from + g.lastMove.to : '';
   if (c.last !== last) {
