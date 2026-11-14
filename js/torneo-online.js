@@ -515,11 +515,12 @@ function setCreateMode(id) {
   // Para editar basta con ser el organizador: no se pide la clave de organización.
   $('to-key-field').hidden = !!id || !keyFieldRequired; $('to-key').disabled = $('to-key').required = !id && keyFieldRequired;
   $('to-create-error').hidden = true; $('to-start-day').min = localDay(new Date());
-  $('to-join-key-new').placeholder = 'Por ejemplo: apejupo2026';
 }
 $('to-create-open').addEventListener('click', () => {
   $('to-create-form').reset(); setCreateMode(null); syncFormat();
   $('to-create-dialog').showModal();
+  // Al crear, la clave empieza en blanco aunque el navegador intente autorrellenarla.
+  setTimeout(() => { if (!editingId) $('to-join-key-new').value = ''; }, 50);
 });
 async function openEdit(id) {
   const c = await (await request(`/api/tournaments/${id}/config`, { method: 'POST', body: JSON.stringify({ hostToken: read(hostKey(id)) }) })).json();
@@ -527,9 +528,8 @@ async function openEdit(id) {
   form.title.value = c.title; $('to-format').value = c.format; $('to-minutes').value = c.minutes; $('to-increment').value = c.increment;
   if (c.format === 'swiss') $('to-rounds').value = c.rounds;
   if (c.format === 'arena') $('to-duration').value = c.duration;
-  // La clave sale en blanco: si se deja así, se mantiene la que tenga el torneo.
-  $('to-capacity').value = c.capacity; $('to-join-key-new').value = '';
-  $('to-join-key-new').placeholder = c.joinKey ? 'En blanco: se mantiene la clave actual' : 'Por ejemplo: apejupo2026';
+  // Se muestra la clave actual para poder cambiarla; si se borra, el torneo queda sin clave.
+  $('to-capacity').value = c.capacity; $('to-join-key-new').value = c.joinKey || '';
   if (c.startsAt) { const d = new Date(c.startsAt); $('to-start-day').value = localDay(d); $('to-start-time').value = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; }
   syncFormat(); $('to-create-dialog').showModal();
 }
@@ -545,7 +545,7 @@ $('to-create-form').addEventListener('submit', async event => {
     const startsAt = day ? new Date(`${day}T${time}`).getTime() : null;
     const isArena = data.get('format') === 'arena';
     if (editingId) {
-      const fields = { title: data.get('title'), format: data.get('format'), minutes: Number(data.get('minutes')), increment: Number(data.get('increment')), rounds: data.get('format') === 'swiss' ? Number(data.get('rounds')) : null, duration: isArena ? Number(data.get('duration')) : null, capacity: Number(data.get('capacity')), startsAt, joinKey: data.get('joinKey') || undefined };
+      const fields = { title: data.get('title'), format: data.get('format'), minutes: Number(data.get('minutes')), increment: Number(data.get('increment')), rounds: data.get('format') === 'swiss' ? Number(data.get('rounds')) : null, duration: isArena ? Number(data.get('duration')) : null, capacity: Number(data.get('capacity')), startsAt, joinKey: data.get('joinKey') || '' };
       await request(`/api/tournaments/${editingId}/edit`, { method: 'POST', body: JSON.stringify({ ...fields, hostToken: read(hostKey(editingId)) }) });
       $('to-create-dialog').close(); message('Cambios guardados.'); await loadLobby(); return;
     }
