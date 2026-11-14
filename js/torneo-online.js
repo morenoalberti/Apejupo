@@ -1,5 +1,6 @@
 import { Chess } from '../assets/chess/chess.js';
-import { session, currentUser, openAuth } from './cuenta.js?v=20261113-cuentas6';
+import { session, currentUser, openAuth } from './cuenta.js?v=20261114-retos1';
+import { send as sendReto } from './retos.js?v=20261114-retos1';
 
 const $ = id => document.getElementById(id);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -42,7 +43,7 @@ async function request(path, { key, ...options } = {}) {
 const arena = t => t?.format === 'arena';
 const closed = t => t?.format === 'closed';
 function duration(minutes) { return minutes % 60 ? (minutes > 60 ? `${Math.floor(minutes / 60)} h ${minutes % 60} min` : `${minutes} min`) : `${minutes / 60} h`; }
-function formatLabel(t) { return arena(t) ? `Arena de ${duration(t.duration)}` : closed(t) ? (t.rounds ? `Cerrado a ${t.rounds} rondas` : 'Cerrado: todos contra todos') : `${t.rounds} rondas`; }
+function formatLabel(t) { return t.challenge ? 'Reto' : arena(t) ? `Arena de ${duration(t.duration)}` : closed(t) ? (t.rounds ? `Cerrado a ${t.rounds} rondas` : 'Cerrado: todos contra todos') : `${t.rounds} rondas`; }
 function date(value) { return new Intl.DateTimeFormat('es', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(value); }
 function name(id) { return state?.standings.find(p => p.id === id)?.name || 'Jugador'; }
 function send(action) {
@@ -170,8 +171,8 @@ function connect() {
 function render() {
   const t = state;
   $('to-title').textContent = t.title; document.title = t.title + ' · Torneo Apejupo';
-  $('to-subtitle').textContent = canJoin(t) && arena(t) && t.status === 'playing' && !t.standings.some(p => p.id === t.me) ? 'El arena está en marcha: únete y empieza a jugar ya.' : t.status === 'waiting' ? 'Las inscripciones están abiertas. Reserva tu sitio en el tablero.' : 'Sigue tus partidas, los tableros y la clasificación en directo.';
-  $('to-summary').innerHTML = `<span class="to-status ${t.status}">${esc(statuses[t.status])}</span><span>${icons.clock}${t.minutes} + ${t.increment}</span><span>${icons.format}${formatLabel(t)}</span><span>${arena(t) ? 'Emparejamiento continuo' : closed(t) ? 'Todos contra todos' : t.pairing === 'club' ? 'Suizo de club' : 'Suizo FIDE (sistema holandés)'}</span>`
+  $('to-subtitle').textContent = canJoin(t) && arena(t) && t.status === 'playing' && !t.standings.some(p => p.id === t.me) ? 'El arena está en marcha: únete y empieza a jugar ya.' : t.challenge && t.status === 'waiting' ? 'La partida empieza en cuanto los dos tengáis el tablero abierto.' : t.status === 'waiting' ? 'Las inscripciones están abiertas. Reserva tu sitio en el tablero.' : 'Sigue tus partidas, los tableros y la clasificación en directo.';
+  $('to-summary').innerHTML = `<span class="to-status ${t.status}">${esc(t.challenge && t.status === 'waiting' ? 'Esperando al rival' : statuses[t.status])}</span><span>${icons.clock}${t.minutes} + ${t.increment}</span><span>${icons.format}${formatLabel(t)}</span><span>${arena(t) ? 'Emparejamiento continuo' : closed(t) ? 'Todos contra todos' : t.pairing === 'club' ? 'Suizo de club' : 'Suizo FIDE (sistema holandés)'}</span>`
     + (t.status === 'waiting' ? `<span>${icons.people}Hasta ${t.capacity} jugadores</span><span>${icons.calendar}${t.startsAt ? esc(date(t.startsAt)) : 'Inicio a cargo del organizador'}</span>${t.locked ? `<span>${icons.lock}Con clave</span>` : ''}` : '');
   placeWaiting(t.status === 'waiting');
   $('to-notice').hidden = !t.notice; $('to-notice').textContent = t.notice;
@@ -225,7 +226,7 @@ function placeWaiting(waiting) {
     } else if (!waiting && waitHomes.has(el)) waitHomes.get(el).after(el);
   }
 }
-function canJoin(t) { return t.status === 'waiting' || (arena(t) && t.status === 'playing' && Date.now() + offset < t.endsAt); }
+function canJoin(t) { return !t.challenge && (t.status === 'waiting' || (arena(t) && t.status === 'playing' && Date.now() + offset < t.endsAt)); }
 // Hoja de resultados, como en Lichess: una cifra por partida; resaltadas las ganadas con Berserk.
 function sheet(p) {
   if (!p.sheet?.length) return '';
@@ -432,7 +433,31 @@ function renderControls() {
   $('to-draw-offer').hidden = !g || !!g.result || !ownGame || !g.offer || g.offer === t.me;
   $('to-accept').disabled = !connected; $('to-decline').disabled = !connected;
   $('to-all-pgn').hidden = !ended || !t.games.some(g => !g.bye);
+  // Reto terminado: cualquiera de los dos puede pedir la revancha (mismo ritmo, colores cambiados).
+  $('to-rematch-box').hidden = !t.challenge || !g || !ownGame || !g.result;
+  if ($('to-rematch-box').hidden) { rematch = null; $('to-rematch-msg').textContent = ''; }
+  $('to-rematch').textContent = rematch ? 'Cancelar revancha' : 'Revancha';
 }
+// Revancha: se manda como un reto normal al rival, que tiene esta misma página abierta.
+let rematch = null;
+function rematchNote(text) { $('to-rematch-msg').textContent = text; }
+$('to-rematch').addEventListener('click', () => {
+  const g = state?.game; if (!g) return;
+  if (rematch) { sendReto({ type: 'cancelar', id: rematch.id }); rematch = null; rematchNote('Revancha cancelada.'); renderControls(); return; }
+  const mine = g.white === state.me ? 'w' : 'b', rival = name(mine === 'w' ? g.black : g.white);
+  if (!sendReto({ type: 'retar', nick: rival, minutes: state.minutes, increment: state.increment, color: mine === 'w' ? 'b' : 'w', revancha: true })) { rematchNote('Sin conexión con el servidor. Espera un momento y vuelve a probar.'); return; }
+  $('to-rematch').disabled = true; rematchNote('Enviando…');
+});
+addEventListener('apejupo:retos', ({ detail: m }) => {
+  if (!state?.challenge) return;
+  const box = $('to-rematch');
+  if (m.type === 'enviado' && m.reto.revancha) { rematch = m.reto; box.disabled = false; rematchNote(`Esperando a que ${m.reto.to} acepte…`); }
+  else if (['rechazado', 'caducado', 'cerrado'].includes(m.type) && rematch?.id === m.id) {
+    rematch = null; rematchNote(m.type === 'rechazado' ? `${m.nick} ha rechazado la revancha.` : m.type === 'caducado' ? `${m.nick} no ha respondido.` : '');
+  } else if (m.type === 'error' && !m.id && box.disabled) { box.disabled = false; rematchNote(m.message); }
+  else return;
+  renderControls();
+});
 function watch(id) { selected = null; replay = null; replayPly = null; boardKey = ''; manualFlip = false; send({ type: 'watch', game: id }); }
 function myColor() { const g = state?.game; return !g ? null : g.white === state.me ? 'w' : g.black === state.me ? 'b' : null; }
 function canMove() { return !!state?.game && connected && !pending && !state.game.result && myColor() === state.game.turn; }

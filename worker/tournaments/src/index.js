@@ -1,8 +1,9 @@
 import { DurableObject } from 'cloudflare:workers';
 export { AccountStore } from './accounts.js';
+export { ChallengeHub } from './retos.js';
 import bbpWasm from './bbp/bbp.wasm';
 import { loadBbp, runDutch } from './bbp-engine.js';
-import { GameError, requireThat, isArena, setSwissEngine, createTournament, editTournament, joinTournament, act, advance, pairArena, nextAlarm, snapshot, sharedSnapshot, personalPart, moveMessage, summary, exportPgn, RETENTION_MS } from './core.js';
+import { GameError, requireThat, isArena, setSwissEngine, startTournament, createTournament, editTournament, joinTournament, act, advance, pairArena, nextAlarm, snapshot, sharedSnapshot, personalPart, moveMessage, summary, exportPgn, RETENTION_MS } from './core.js';
 
 // El navegador manda "ping" cada 30 s; sin señal en este margen, el jugador no se considera presente.
 const PRESENCE_MS = 75000;
@@ -252,8 +253,10 @@ export class TournamentRoom extends DurableObject {
           a.playerHash = TOKEN.test(b.token) ? await hash(b.token) : null;
           a.hostHash = TOKEN.test(b.hostToken) ? await hash(b.hostToken) : null;
           ws.serializeAttachment(a);
+          // Reto: la partida empieza en cuanto los dos jugadores tienen el tablero abierto.
+          if (this.t.challenge && this.t.status === 'waiting' && this.online(now).size === 2) { startTournament(this.t, now); await this.save(); this.broadcast(); }
           // Quien entra (o vuelve) puede completar una pareja en el modo arena.
-          if (this.pair(now)) { await this.save(); this.broadcast(); }
+          else if (this.pair(now)) { await this.save(); this.broadcast(); }
           else this.send(ws);
           return;
         }
@@ -307,6 +310,12 @@ export default {
       const directory = env.DIRECTORY.getByName('public');
       const accounts = env.ACCOUNTS.getByName('cuentas');
       const askAccounts = async (action, data) => accounts.fetch('https://cuentas/' + action, { method: 'POST', body: JSON.stringify(data) });
+      // Retos: una conexión en vivo por pestaña; la sesión viaja en el primer mensaje, nunca en la URL.
+      if (path === '/api/retos/socket') {
+        requireThat(request.method === 'GET' && request.headers.get('Upgrade')?.toLowerCase() === 'websocket', 'Se necesita una conexión WebSocket.', 426);
+        requireThat(origin && allowed.includes(origin), 'Conexión no autorizada.', 403);
+        return env.RETOS.getByName('retos').fetch(new Request('https://retos/socket', request));
+      }
       // Fotos de perfil: se ven sin sesión (GET) y se suben como bytes JPEG con la sesión (POST).
       const photo = /^\/api\/cuentas\/foto\/([a-f0-9]{24})$/.exec(path);
       if (photo && request.method === 'GET') return withCors(await accounts.fetch('https://cuentas/foto/' + photo[1]));

@@ -20,6 +20,10 @@ class_name = "TournamentDirectory"
 name = "ACCOUNTS"
 class_name = "AccountStore"
 
+[[durable_objects.bindings]]
+name = "RETOS"
+class_name = "ChallengeHub"
+
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["TournamentRoom", "TournamentDirectory"]
@@ -29,3 +33,8 @@ new_sqlite_classes = ["TournamentRoom", "TournamentDirectory"]
 [[migrations]]
 tag = "v2"
 new_sqlite_classes = ["AccountStore"]
+
+# Retos entre cuentas (retar.html)
+[[migrations]]
+tag = "v3"
+new_sqlite_classes = ["ChallengeHub"]

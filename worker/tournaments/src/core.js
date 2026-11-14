@@ -299,6 +299,9 @@ export function startTournament(t, now = Date.now()) {
     return;
   }
   beginRound(t, now);
+  // Reto entre dos cuentas: el color lo decide quien reta (o el azar), no el emparejador.
+  const g = t.challenge && t.games[0];
+  if (g && g.white !== t.challenge.white) [g.white, g.black] = [g.black, g.white];
 }
 function finishTournament(t, now) {
   t.status = 'finished'; t.finishedAt = now; t.nextRoundAt = null;
@@ -458,7 +461,7 @@ export function summary(t) {
     pairingsCloseAt: isArena(t) && t.endsAt ? arenaPairingsCloseAt(t) : null,
     minutes: t.minutes, increment: t.increment,
     rounds: t.rounds, round: t.round, capacity: t.capacity, count: t.players.length, startsAt: t.startsAt, createdAt: t.createdAt, locked: !!t.joinKey,
-    pairing: t.pairing || null };
+    pairing: t.pairing || null, challenge: !!t.challenge };
 }
 // Jugadas legales de una partida en curso, calculadas una sola vez por posición.
 function legalFor(g) {

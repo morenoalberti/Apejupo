@@ -42,6 +42,17 @@ Con `TORNEOS_SIN_CLAVE="1"` en `.dev.vars`, el servidor local no pide la clave p
 
 No hay cuentas verificadas, clasificación Elo, premios, chat ni detección automática de trampas. No se garantiza una identidad por persona: borrar datos o cambiar de navegador crea otra identidad. El análisis con motor no está integrado en esta sección; las partidas terminadas se revisan en el tablero o se exportan.
 
+## Retos entre jugadores
+
+`retar.html` (menú Torneos → Retar) permite retar por su nick a otro jugador **que esté conectado en ese momento**. Hace falta cuenta con el correo confirmado.
+
+- `ChallengeHub` (Durable Object `RETOS`): cada pestaña con sesión abre un WebSocket a `/api/retos/socket` y manda la sesión en el primer mensaje. Así se sabe quién está en línea (ping cada 30 s).
+- Al retado le aparece en cualquier página un cuadro centrado «X te reta a una partida» con el ritmo, su color y una barra de 60 s. Si no responde, el reto caduca. Un reto nuevo sustituye al anterior del mismo jugador.
+- Al aceptar se crea una sala de torneo de dos jugadores y una ronda (`t.challenge`), sin pasar por el listado. Cada navegador recibe su credencial de jugador y va solo a `jugar-torneo.html?id=…`. La partida empieza en cuanto los dos tienen el tablero abierto, o a los 30 s si alguno no llega. El color es el que eligió quien reta, o al azar.
+- Al terminar, los dos tienen el botón **Revancha**: manda un reto con el mismo ritmo y los colores cambiados, que el rival ve como «X te pide la revancha».
+
+Prueba: `npm run test:retos` (dos clientes: reto a desconectado, rechazo, aceptación, colores, inicio automático y revancha).
+
 ## Administración de usuarios
 
 `admin-usuarios.html` (sin enlace en el menú y fuera de los buscadores) lista las cuentas registradas: nick, correo, si está confirmada, fecha de alta, última actividad y sesiones abiertas, con totales, búsqueda, filtros y descarga en CSV. Desde ahí se puede confirmar una cuenta a mano, reenviar el correo de confirmación o borrar una cuenta.

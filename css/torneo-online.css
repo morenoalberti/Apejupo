@@ -398,3 +398,9 @@ body.to-focus .to-game-actions { padding-top: 12px; border-top: 1px solid var(--
 .to-live.done .to-mini { filter: saturate(.55) brightness(.8); }
 .to-live.done::after { content: attr(data-result); position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); padding: 4px 14px; border-radius: 10px; background: #0b1422d9; color: #fff; font: 800 1.6rem/1.2 system-ui, sans-serif; pointer-events: none; }
 .to-live.zoom.done::after { font-size: 3rem; }
+
+/* Revancha tras un reto (js/torneo-online.js) */
+.to-rematch { display: grid; justify-items: center; gap: 6px; }
+.to-rematch .btn { min-width: 180px; }
+.to-rematch p { margin: 0; font-size: .9rem; text-align: center; }
+.to-rematch p:empty { display: none; }

@@ -202,3 +202,6 @@ addEventListener('resize', closeMenu);
 addEventListener('scroll', closeMenu, { passive: true });
 addEventListener('storage', e => { if (e.key === SESSION_KEY || e.key === USER_KEY) { renderChip(); dispatchEvent(new CustomEvent('apejupo:cuenta', { detail: currentUser() })); } });
 renderChip(); refresh();
+
+// Retos entre jugadores: conexión en vivo y aviso «X te reta» en todas las páginas.
+import './retos.js?v=20261114-retos1';

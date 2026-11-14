@@ -1,0 +1,24 @@
+/* Página «Retar» (retar.html) */
+.rt-page [hidden] { display: none !important; }
+.rt-conn { display: flex; align-items: center; gap: 8px; margin: 0 0 6px; font-size: .88rem; color: var(--muted); }
+.rt-conn::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: #94a3b8; flex: none; }
+.rt-conn.online::before { background: #22c55e; box-shadow: 0 0 0 3px #22c55e33; }
+.rt-page select { width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--card); color: var(--text); font: inherit; }
+.rt-colors { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 8px 0 0; padding: 0; border: 0; }
+.rt-colors legend { padding: 0; margin-bottom: 6px; font-weight: 600; font-size: .9rem; }
+.rt-colors label { margin: 0 !important; }
+.rt-colors input { position: absolute; opacity: 0; }
+.rt-colors span { display: block; padding: 9px 6px; border: 1px solid var(--line); border-radius: 8px; text-align: center; font-weight: 600; cursor: pointer; }
+.rt-colors input:checked + span { border-color: var(--blue); background: #3b82f61f; }
+.rt-colors input:focus-visible + span { outline: 2px solid var(--blue); outline-offset: 1px; }
+.rt-h { margin: 26px 0 8px; padding-top: 18px; border-top: 1px solid var(--line); font-size: 1rem; }
+.rt-online { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.rt-online li { display: flex; align-items: center; gap: 10px; font-size: .95rem; }
+.rt-online li.muted { font-size: .9rem; }
+.rt-nick { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
+.rt-dot { width: 8px; height: 8px; border-radius: 50%; background: #22c55e; flex: none; }
+.rt-online .btn-ghost { padding: 5px 12px !important; font-size: .85rem; }
+.rt-center { text-align: center; }
+.rt-center h1 { font-size: 1.35rem !important; font-weight: 600; }
+.rt-center .rt-bar { margin: 18px 0 8px; }
+.rt-center .btn-ghost { margin-top: 8px; }
