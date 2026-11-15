@@ -418,7 +418,13 @@
   }
   function guardarPie(f, pie) {
     return fetch(API + "/" + f.id + "/pie", { method: "POST", headers: { "X-Clave": clave, "Content-Type": "application/json" }, body: JSON.stringify({ pie: pie }) })
-      .then(function (r) { return r.json().then(function (j) { if (!r.ok) throw new Error(j.error || "No se ha podido guardar"); return j; }); })
+      .then(function (r) {
+        if (r.status === 401) { // la clave guardada ya no vale (se ha cambiado): se pide otra vez y se guarda el pie al entrar
+          olvidarClave(); pedirClave(function () { guardarPie(f, pie).catch(function (e) { alert(e.message); }); });
+          throw new Error("La clave guardada ya no vale. Escríbela de nuevo.");
+        }
+        return r.json().then(function (j) { if (!r.ok) throw new Error(j.error || "No se ha podido guardar"); return j; });
+      })
       .then(function (j) { f.pie = j.pie; pintar(); return j.pie; });
   }
   $("fg-v-ed").addEventListener("click", function () {
@@ -481,6 +487,7 @@
   }
   function borrarYa(f) {
     return fetch(API + "/" + f.id, { method: "DELETE", headers: { "X-Clave": clave } }).then(function (r) {
+      if (r.status === 401) { olvidarClave(); pedirClave(function () { borrarYa(f); }); return false; } // clave cambiada: se pide otra vez
       if (!r.ok) return r.json().catch(function () { return {}; }).then(function (j) { throw new Error(j.error || "No se ha podido borrar"); });
       fotos = fotos.filter(function (g) { return g.id !== f.id; });
       pintar();
@@ -494,6 +501,15 @@
     if (fotos.length) pintar(); // muestra u oculta «Ordenar» según la clave
     sesion.hidden = !clave;
     sesion.innerHTML = clave ? (admin ? "Administración" : "Socio") + ' · <button type="button" id="fg-salir">Salir</button>' : "";
+  }
+  function olvidarClave() { clave = ""; admin = false; guardar("fg-clave", ""); guardar("fg-admin", ""); pintarSesion(); cargarVideos(); }
+  // Al abrir la galería se comprueba la clave guardada: si se ha cambiado en el servidor, se olvida (y se pedirá al hacer falta).
+  function revisarClave() {
+    if (!clave) return;
+    fetch(API + "/acceso", { method: "POST", headers: { "X-Clave": clave } }).then(function (r) {
+      if (r.status === 401) return olvidarClave();
+      if (r.ok) return r.json().then(function (j) { if (!!j.admin !== admin) { admin = !!j.admin; guardar("fg-admin", admin ? "1" : ""); pintarSesion(); cargarVideos(); } });
+    }).catch(function () {}); // sin conexión: se deja como estaba
   }
   // Acceso de administración sin botón visible: fotos.html#admin abre la ventana de la clave
   function accesoAdmin() {
@@ -533,7 +549,7 @@
   }
   sesion.addEventListener("click", function (e) {
     if (e.target.id !== "fg-salir") return;
-    e.stopPropagation(); clave = ""; admin = false; guardar("fg-clave", ""); guardar("fg-admin", ""); pintarSesion(); cargarVideos();
+    e.stopPropagation(); olvidarClave();
   });
 
   // ───── Arrastrar y elegir fotos ─────
@@ -677,5 +693,6 @@
 
   pintarSesion();
   cargar(); cargarVideos();
+  revisarClave();
   accesoAdmin();
 })();
