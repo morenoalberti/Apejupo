@@ -283,7 +283,7 @@ export class AccountStore extends DurableObject {
         // Uso interno de los retos: marcador entre dos cuentas y anotación de una partida terminada.
         case '/duelo-ver': requireThat(/^[a-f0-9]{24}$/.test(b.a) && /^[a-f0-9]{24}$/.test(b.b), 'Cuentas no válidas.'); return json(this.duel(b.a, b.b));
         case '/duelo-anotar': {
-          requireThat(/^[a-f0-9]{24}$/.test(b.white) && /^[a-f0-9]{24}$/.test(b.black) && /^[a-f0-9]{24}(-[1-9])?$/.test(b.room), 'Datos no válidos.');
+          requireThat(/^[a-f0-9]{24}$/.test(b.white) && /^[a-f0-9]{24}$/.test(b.black) && /^[a-f0-9]{24}(-\d{1,2})?$/.test(b.room), 'Datos no válidos.');
           requireThat(['1-0', '0-1', '1/2-1/2'].includes(b.result), 'Resultado no válido.');
           this.recordDuel(b.room, b.white, b.black, b.result, now);
           return json(this.duel(b.white, b.black));

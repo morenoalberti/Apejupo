@@ -54,7 +54,8 @@ export function createTournament(input, id, hostHash, now = Date.now()) {
   if (format === 'arena') {
     requireThat(ARENA_DURATIONS.includes(duration), 'Elige una duración válida.');
     requireThat(duration >= minutes * 3, 'La duración debe dar para varias partidas: al menos el triple de los minutos por jugador.');
-  } else if (format === 'swiss') requireThat(Number.isInteger(rounds) && rounds >= 1 && rounds <= 9, 'Elige entre 1 y 9 rondas.');
+  } else if (format === 'swiss' && input.match) requireThat(Number.isInteger(rounds) && rounds >= 2 && rounds <= 20, 'Un match puede ser de 2 a 20 partidas.'); // reto a varias partidas entre dos
+  else if (format === 'swiss') requireThat(Number.isInteger(rounds) && rounds >= 1 && rounds <= 9, 'Elige entre 1 y 9 rondas.');
   requireThat(Number.isInteger(capacity) && capacity >= 2 && capacity <= MAX_PLAYERS, `El límite es de 2 a ${MAX_PLAYERS} jugadores.`);
   let startsAt = input.startsAt ? Number(input.startsAt) : null;
   requireThat(!startsAt || (Number.isFinite(startsAt) && startsAt > now + 60000 && startsAt < now + 14 * 86400000), 'La fecha de inicio debe estar entre un minuto y 14 días en el futuro.');

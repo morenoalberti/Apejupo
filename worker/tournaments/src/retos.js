@@ -8,7 +8,7 @@ export const RETO_MS = 60000;            // un reto sin respuesta caduca al minu
 const PRESENCE_MS = 75000;               // el navegador manda «ping» cada 30 s
 const START_GRACE_MS = 30000;            // si alguno no llega al tablero, la partida empieza igual pasado este margen
 const MINUTES = [1, 2, 3, 5, 10, 15], INCREMENTS = [0, 1, 2, 3, 5, 10], COLORS = ['w', 'b', 'azar'];
-const MAX_GAMES = 9; // match: de 2 a 9 partidas seguidas entre los dos (1 = reto normal)
+const MIN_GAMES = 5, MAX_GAMES = 20; // match: de 5 a 20 partidas seguidas entre los dos (1 = reto normal)
 
 const hex = n => [...crypto.getRandomValues(new Uint8Array(n))].map(b => b.toString(16).padStart(2, '0')).join('');
 async function sha(value) { return [...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value)))].map(b => b.toString(16).padStart(2, '0')).join(''); }
@@ -99,7 +99,7 @@ export class ChallengeHub extends DurableObject {
           requireThat(MINUTES.includes(minutes) && INCREMENTS.includes(increment), 'Elige un ritmo válido.');
           requireThat(COLORS.includes(color), 'Elige un color válido.');
           const games = b.games === undefined ? 1 : Number(b.games);
-          requireThat(Number.isInteger(games) && games >= 1 && games <= MAX_GAMES, `Un match puede ser de 2 a ${MAX_GAMES} partidas.`);
+          requireThat(games === 1 || (Number.isInteger(games) && games >= MIN_GAMES && games <= MAX_GAMES), `Un match puede ser de ${MIN_GAMES} a ${MAX_GAMES} partidas.`);
           requireThat(key(b.nick), 'Escribe el nick del jugador al que quieres retar.');
           requireThat(key(b.nick) !== key(me.nick), 'No puedes retarte a ti mismo.');
           const target = [...this.online(now).values()].find(u => key(u.nick) === key(b.nick));
@@ -156,7 +156,7 @@ export class ChallengeHub extends DurableObject {
   async createGame(c, now) {
     const id = hex(12), tokens = { from: hex(32), to: hex(32) };
     const games = c.games || 1, kind = games > 1 ? `Match a ${games}` : c.revancha ? 'Revancha' : 'Reto';
-    const t = createTournament({ title: `${kind}: ${c.from.nick} – ${c.to.nick}`, format: 'swiss', minutes: c.minutes, increment: c.increment, rounds: games, capacity: 2 }, id, await sha(hex(32)), now);
+    const t = createTournament({ title: `${kind}: ${c.from.nick} – ${c.to.nick}`, format: 'swiss', minutes: c.minutes, increment: c.increment, rounds: games, capacity: 2, match: games > 1 }, id, await sha(hex(32)), now);
     const pf = joinTournament(t, '', await sha(tokens.from), now, '', c.from);
     const pt = joinTournament(t, '', await sha(tokens.to), now, '', c.to);
     const fromWhite = c.color === 'w' ? true : c.color === 'b' ? false : crypto.getRandomValues(new Uint8Array(1))[0] < 128;
