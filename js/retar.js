@@ -1,7 +1,7 @@
 // Página «Retar»: retar por su nick a un jugador que esté en línea. Al aceptar, los dos van al tablero
 // automáticamente (lo hace js/retos.js, que está en todas las páginas).
-import { currentUser, openAuth } from './cuenta.js?v=20261114-retos1';
-import { send, isReady, outgoing, myNick } from './retos.js?v=20261114-retos1';
+import { currentUser, openAuth } from './cuenta.js?v=20261115-ritmos1';
+import { send, isReady, outgoing, myNick } from './retos.js?v=20261115-ritmos1';
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -22,7 +22,7 @@ function render() {
 function startWaiting(c) {
   waiting = c; note(''); render();
   $('rt-wait-title').innerHTML = `Esperando a que <b>${esc(c.to)}</b> acepte…`;
-  $('rt-wait-detail').textContent = `Ritmo ${c.minutes}+${c.increment} · ${c.color === 'w' ? 'juegas con blancas' : c.color === 'b' ? 'juegas con negras' : 'color al azar'}`;
+  $('rt-wait-detail').textContent = `Ritmo ${c.minutes}' + ${c.increment}" · ${c.color === 'w' ? 'juegas con blancas' : c.color === 'b' ? 'juegas con negras' : 'color al azar'}`;
   clearInterval(waitTimer);
   const tick = () => {
     const left = Math.max(0, Math.ceil((c.expiresAt - Date.now()) / 1000));

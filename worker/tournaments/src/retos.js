@@ -7,7 +7,7 @@ import { GameError, requireThat, createTournament, joinTournament } from './core
 export const RETO_MS = 60000;            // un reto sin respuesta caduca al minuto
 const PRESENCE_MS = 75000;               // el navegador manda «ping» cada 30 s
 const START_GRACE_MS = 30000;            // si alguno no llega al tablero, la partida empieza igual pasado este margen
-const MINUTES = [1, 2, 3, 5, 10, 15], INCREMENTS = [0, 2, 3, 5, 10], COLORS = ['w', 'b', 'azar'];
+const MINUTES = [1, 2, 3, 5, 10, 15], INCREMENTS = [0, 1, 2, 3, 5, 10], COLORS = ['w', 'b', 'azar'];
 
 const hex = n => [...crypto.getRandomValues(new Uint8Array(n))].map(b => b.toString(16).padStart(2, '0')).join('');
 async function sha(value) { return [...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value)))].map(b => b.toString(16).padStart(2, '0')).join(''); }

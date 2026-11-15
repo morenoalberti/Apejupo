@@ -1,6 +1,6 @@
 import { Chess } from '../assets/chess/chess.js';
-import { session, currentUser, openAuth } from './cuenta.js?v=20261114-retos1';
-import { send as sendReto } from './retos.js?v=20261114-retos1';
+import { session, currentUser, openAuth } from './cuenta.js?v=20261115-ritmos1';
+import { send as sendReto } from './retos.js?v=20261115-ritmos1';
 
 const $ = id => document.getElementById(id);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));

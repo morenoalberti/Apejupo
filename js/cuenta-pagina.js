@@ -1,6 +1,6 @@
 // Página «Mi cuenta»: confirmar la cuenta y poner contraseña nueva (enlaces del correo), ver tus datos,
 // salir y borrar la cuenta.
-import { api, currentUser, logout, openAuth, refresh } from './cuenta.js?v=20261114-retos1';
+import { api, currentUser, logout, openAuth, refresh } from './cuenta.js?v=20261115-ritmos1';
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
