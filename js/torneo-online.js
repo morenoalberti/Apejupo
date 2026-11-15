@@ -428,13 +428,13 @@ function newGameAlert() {
 }
 function formatPoints(n) { return Number.isInteger(n) ? String(n) : n % 1 === .5 ? (Math.floor(n) || '') + '½' : String(n); }
 function renderMatches() {
-  // Arena: primero las partidas en juego y luego las terminadas, de la más reciente a la más antigua.
-  const list = arena(state) ? [...state.games].reverse().sort((a, b) => !!a.result - !!b.result) : state.games.filter(g => g.round === viewedRound);
+  // Arena: solo las partidas en juego, de la más reciente a la más antigua; al terminar, desaparecen de la lista.
+  const list = arena(state) ? [...state.games].reverse().filter(g => !g.result && !g.bye && g.fen) : state.games.filter(g => g.round === viewedRound);
   $('to-matches').innerHTML = list.map(g => g.bye
     ? `<div class="to-match bye"><span>${esc(name(g.white))}</span><strong>Descanso · +1</strong></div>`
     : !g.result && g.fen
       ? `<button type="button" data-watch="${g.id}" class="to-live ${g.id === state.game?.id ? 'selected' : ''} ${g.white === state.me || g.black === state.me ? 'mine' : ''}" aria-label="Ver ${esc(name(g.white))} contra ${esc(name(g.black))}, en juego"><span class="to-live-name">${g.berserkB ? '<b class="to-bz" title="Berserk">⚡</b>' : ''}${esc(name(g.black))}</span>${miniBoard(g)}<span class="to-live-name">${g.berserkW ? '<b class="to-bz" title="Berserk">⚡</b>' : ''}${esc(name(g.white))}</span></button>`
-      : `<button type="button" data-watch="${g.id}" class="to-match ${g.id === state.game?.id ? 'selected' : ''} ${g.white === state.me || g.black === state.me ? 'mine' : ''}"><span>♔ ${esc(name(g.white))}${g.berserkW ? ' ⚡' : ''}</span><strong>${g.result ? esc(g.result.replace('1/2-1/2', '½–½')) : 'en juego'}</strong><span>${g.berserkB ? '⚡ ' : ''}${esc(name(g.black))} ♚</span></button>`).join('') || '<p class="muted">Los tableros aparecerán al comenzar la primera ronda.</p>';
+      : `<button type="button" data-watch="${g.id}" class="to-match ${g.id === state.game?.id ? 'selected' : ''} ${g.white === state.me || g.black === state.me ? 'mine' : ''}"><span>♔ ${esc(name(g.white))}${g.berserkW ? ' ⚡' : ''}</span><strong>${g.result ? esc(g.result.replace('1/2-1/2', '½–½')) : 'en juego'}</strong><span>${g.berserkB ? '⚡ ' : ''}${esc(name(g.black))} ♚</span></button>`).join('') || `<p class="muted">${arena(state) && state.status === 'playing' ? 'Ahora mismo no hay partidas en juego.' : arena(state) && state.status === 'finished' ? 'El torneo ha terminado.' : 'Los tableros aparecerán al comenzar la primera ronda.'}</p>`;
   $('to-matches').classList.toggle('has-live', list.some(g => !g.result && g.fen));
 }
 function renderControls() {
