@@ -486,7 +486,8 @@ function canMove() { return !!state?.game && connected && !pending && !state.gam
 // Se puede premover cuando juegas esta partida y no te toca (o tu jugada aún no la ha confirmado el servidor).
 function canPremove() { const g = state?.game; return !!g && connected && !g.result && !replay && !!myColor() && !canMove(); }
 function shownFen() { const g = state.game; return optimistic?.game === g.id ? optimistic.fen : g.fen; }
-// Destinos de un premovimiento: el movimiento de la pieza sin mirar qué hay en medio, porque el rival aún va a mover.
+// Destinos de un premovimiento: todo lo que alcanza la pieza sin mirar qué hay en medio ni en la casilla (también las propias,
+// para recapturar), porque el rival aún va a mover. Al llegar tu turno solo se juega si es legal.
 function premoveDests(from) {
   const pieces = fenPieces(shownFen()), piece = pieces[from], me = myColor();
   if (!piece || piece[0] !== me) return [];
@@ -495,7 +496,7 @@ function premoveDests(from) {
     const x = f + df, y = r + dr;
     if (x < 0 || x > 7 || y < 0 || y > 7) return false;
     const sq = String.fromCharCode(97 + x) + (y + 1);
-    if (pieces[sq]?.[0] !== me) out.push(sq);
+    out.push(sq);
     return true;
   };
   const ray = (df, dr) => { for (let k = 1; add(df * k, dr * k); k++); };
@@ -507,7 +508,7 @@ function premoveDests(from) {
   if (kind === 'K') {
     for (const [a, b] of [[1, 1], [1, 0], [1, -1], [0, 1], [0, -1], [-1, 1], [-1, 0], [-1, -1]]) add(a, b);
     const home = me === 'w' ? '1' : '8';
-    if (from === 'e' + home) for (const sq of ['g' + home, 'c' + home]) if (pieces[sq]?.[0] !== me && !out.includes(sq)) out.push(sq);
+    if (from === 'e' + home) for (const sq of ['g' + home, 'c' + home]) if (!out.includes(sq)) out.push(sq);
   }
   return out;
 }
@@ -886,6 +887,7 @@ $('to-board').addEventListener('pointerdown', event => {
   const square = event.target.closest('[data-square]')?.dataset.square, premoving = canPremove();
   if (!square || !(premoving || canMove())) return;
   if (premoving ? fenPieces(shownFen())[square]?.[0] !== myColor() : !state.game.legal.some(m => m.from === square)) return;
+  if (premoving && selected && selected !== square && premoveDests(selected).includes(square)) return; // lo resuelve el clic: premovimiento
   if (premoving && premove) { premove = null; boardKey = ''; }
   const canvas = $('to-board').querySelector(`[data-square="${square}"] canvas`);
   if (!canvas) return;
