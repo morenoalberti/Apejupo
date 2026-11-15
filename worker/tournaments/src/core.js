@@ -478,7 +478,9 @@ export function summary(t) {
   return { id: t.id, title: t.title, status: t.status, format: t.format || 'swiss', duration: t.duration || null, endsAt: t.endsAt || null,
     pairingsCloseAt: isArena(t) && t.endsAt ? arenaPairingsCloseAt(t) : null,
     minutes: t.minutes, increment: t.increment,
-    rounds: t.rounds, round: t.round, capacity: t.capacity, count: t.players.length, startsAt: t.startsAt, createdAt: t.createdAt, locked: !!t.joinKey,
+    rounds: t.rounds, round: t.round, capacity: t.capacity, count: t.players.length,
+    // Inscritos que se muestran: sin los que han salido del torneo (al terminar, todos).
+    listed: t.status === 'finished' ? t.players.length : t.players.filter(p => !p.paused).length, startsAt: t.startsAt, createdAt: t.createdAt, locked: !!t.joinKey,
     pairing: t.pairing || null, challenge: !!t.challenge, duel: t.challenge ? duelScore(t) : null };
 }
 // Jugadas legales de una partida en curso, calculadas una sola vez por posición.

@@ -46,8 +46,12 @@ const arena = t => t?.format === 'arena';
 const closed = t => t?.format === 'closed';
 function duration(minutes) { return minutes % 60 ? (minutes > 60 ? `${Math.floor(minutes / 60)} h ${minutes % 60} min` : `${minutes} min`) : `${minutes / 60} h`; }
 const isMatch = t => !!t.challenge && t.rounds > 1;
+// Quien ha salido del torneo no aparece en las listas ni en los contadores hasta que vuelve a entrar
+// (en la clasificación final sí, con sus puntos).
+const listed = t => t.standings.filter(p => !p.paused || t.status === 'finished');
 function formatLabel(t) { return t.challenge ? (isMatch(t) ? `Match a ${t.rounds} partidas` : 'Reto') : arena(t) ? `Arena de ${duration(t.duration)}` : closed(t) ? (t.rounds ? `Cerrado a ${t.rounds} rondas` : 'Cerrado: todos contra todos') : `${t.rounds} rondas`; }
-function date(value) { return new Intl.DateTimeFormat('es', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(value); }
+// «15 nov, 16:00 h.»
+function date(value) { return new Intl.DateTimeFormat('es', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(value) + ' h.'; }
 function name(id) { return state?.standings.find(p => p.id === id)?.name || 'Jugador'; }
 function send(action) {
   if (!socket || socket.readyState !== WebSocket.OPEN || !connected) { message('Espera a recuperar la conexión antes de continuar.', true); return false; }
@@ -78,10 +82,10 @@ function eventCard(t) {
   const trash = read(hostKey(t.id)) ? `<button class="to-delete" type="button" data-delete="${t.id}" aria-label="Borrar el torneo ${esc(t.title)}" title="Borrar torneo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M5 7l1 13h12l1-13M9 7V4h6v3"/></svg></button>` : '';
   // Lápiz para editar: solo el organizador y mientras no haya empezado.
   const pencil = trash && t.status === 'waiting' ? `<button class="to-delete to-edit" type="button" data-edit="${t.id}" aria-label="Editar el torneo ${esc(t.title)}" title="Editar torneo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></button>` : '';
-  const full = Math.min(100, Math.round(t.count / t.capacity * 100));
+  const count = t.listed ?? t.count, full = Math.min(100, Math.round(count / t.capacity * 100));
   return `<article class="to-event ${t.status}">${pencil}${trash}<div class="to-event-top"><span class="to-status ${t.status}">${esc(statuses[t.status])}</span><span class="to-event-clock">${icons.clock}${t.minutes} + ${t.increment}</span></div>`
     + `<h3>${esc(t.title)}</h3><ul class="to-event-meta"><li>${icons.format}${formatLabel(t)}</li>${t.locked ? `<li>${icons.lock}Inscripción con clave</li>` : ''}<li>${icons.calendar}${t.startsAt ? esc(date(t.startsAt)) : 'Inicio a cargo del organizador'}</li></ul>`
-    + `<div class="to-event-fill"><span>${icons.people}${t.count}/${t.capacity} jugadores</span><i><b style="width:${full}%"></b></i></div>`
+    + `<div class="to-event-fill"><span>${icons.people}${count}/${t.capacity} jugadores</span><i><b style="width:${full}%"></b></i></div>`
     + `<a class="btn" href="jugar-torneo.html?id=${t.id}">${t.status === 'waiting' ? 'Entrar e inscribirme' : 'Ver torneo'}</a></article>`;
 }
 async function loadLobby() {
@@ -192,12 +196,12 @@ function render() {
   renderJoin();
   $('to-membership').hidden = !mine || !!t.challenge;
   renderDuel(t);
-  $('to-membership-text').textContent = mine ? `Juegas como ${mine.name}${mine.active ? mine.paused ? ' · Has salido del torneo: no se te empareja' : '' : ' · Retirado del torneo'}` : '';
+  $('to-membership-text').textContent = mine ? `Juegas como ${mine.name}${mine.active ? '' : ' · Retirado del torneo'}` : '';
   $('to-standings-title').textContent = registering ? 'Inscritos' : 'Clasificación';
-  $('to-player-count').textContent = `${t.count}/${t.capacity}`;
+  $('to-player-count').textContent = `${listed(t).length}/${t.capacity}`;
   $('to-extra-col').innerHTML = arena(t) ? '<abbr title="Partidas jugadas">PJ</abbr>' : '<abbr title="Buchholz: suma de puntos de los rivales">BH</abbr>';
   const tag = p => (p.registered ? ' <span class="to-registered" title="Cuenta registrada">✓</span>' : '') + (!p.active ? ' <small>retirado</small>' : arena(t) && t.status === 'playing' ? p.playing ? ' <small>jugando</small>' : p.paused ? ' <small>en pausa</small>' : '' : '');
-  $('to-standings').innerHTML = t.standings.map((p, i) => `<tr class="${p.id === t.me ? 'me ' : ''}${t.status === 'finished' && i === 0 ? 'winner' : ''}"><td>${i + 1}</td><td>${esc(p.name)}${p.rating ? ` <small class="to-elo" title="Elo">${p.rating}</small>` : ''}${p.id === t.me ? ' <small>(tú)</small>' : ''}${tag(p)}${sheet(p)}${registering && t.host ? `<button class="to-remove" type="button" data-remove="${p.id}" aria-label="Retirar a ${esc(p.name)}">×</button>` : ''}</td><td><strong>${formatPoints(p.points)}</strong></td><td>${arena(t) ? p.played : formatPoints(p.buchholz)}</td></tr>`).join('') || '<tr><td colspan="4" class="muted">Aún no hay inscritos.</td></tr>';
+  $('to-standings').innerHTML = listed(t).map((p, i) => `<tr class="${p.id === t.me ? 'me ' : ''}${t.status === 'finished' && i === 0 ? 'winner' : ''}"><td>${i + 1}</td><td>${esc(p.name)}${p.rating ? ` <small class="to-elo" title="Elo">${p.rating}</small>` : ''}${p.id === t.me ? ' <small>(tú)</small>' : ''}${tag(p)}${sheet(p)}${registering && t.host ? `<button class="to-remove" type="button" data-remove="${p.id}" aria-label="Retirar a ${esc(p.name)}">×</button>` : ''}</td><td><strong>${formatPoints(p.points)}</strong></td><td>${arena(t) ? p.played : formatPoints(p.buchholz)}</td></tr>`).join('') || '<tr><td colspan="4" class="muted">Aún no hay inscritos.</td></tr>';
   $('to-tiebreak').hidden = registering;
   $('to-tiebreak').textContent = arena(t) ? 'Desempates: victorias, menos partidas jugadas y número de sorteo.' : 'Desempates: Buchholz, Sonneborn-Berger, victorias y número de sorteo.';
   const rounds = arena(t) ? [] : [...new Set(t.games.map(g => g.round))];
@@ -706,7 +710,7 @@ function updateClocks() {
     $('to-wait-label').textContent = t.startsAt ? 'El torneo empieza en' : 'El torneo empezará';
     $('to-wait-clock').textContent = t.startsAt ? (d ? `${d} d ${hms}` : hms) : 'cuando lo decida el organizador';
     $('to-wait-clock').classList.toggle('to-wait-manual', !t.startsAt);
-    $('to-wait-date').textContent = t.startsAt ? date(t.startsAt) : `${t.count} de ${t.capacity} plazas ocupadas`;
+    $('to-wait-date').textContent = t.startsAt ? date(t.startsAt) : `${listed(t).length} de ${t.capacity} plazas ocupadas`;
   }
   if (!$('to-registration').hidden && !canJoin(t)) render();
   if (!$('to-focus-next').hidden) $('to-focus-status').textContent = me?.paused ? 'Has salido del torneo: no se te empareja' : $('to-phase').textContent || 'Partida terminada';
