@@ -192,7 +192,7 @@ function render() {
   renderJoin();
   $('to-membership').hidden = !mine || !!t.challenge;
   renderDuel(t);
-  $('to-membership-text').textContent = mine ? `Juegas como ${mine.name}${mine.active ? mine.paused ? ' · En pausa: no se te empareja' : '' : ' · Retirado del torneo'}` : '';
+  $('to-membership-text').textContent = mine ? `Juegas como ${mine.name}${mine.active ? mine.paused ? ' · Has salido del torneo: no se te empareja' : '' : ' · Retirado del torneo'}` : '';
   $('to-standings-title').textContent = registering ? 'Inscritos' : 'Clasificación';
   $('to-player-count').textContent = `${t.count}/${t.capacity}`;
   $('to-extra-col').innerHTML = arena(t) ? '<abbr title="Partidas jugadas">PJ</abbr>' : '<abbr title="Buchholz: suma de puntos de los rivales">BH</abbr>';
@@ -214,7 +214,7 @@ function render() {
   document.body.classList.toggle('to-focus', focus);
   $('to-focus-next').hidden = !focus || ownActive;
   $('to-focus-pause').hidden = !arena(t) || ownActive;
-  $('to-focus-pause').textContent = mine?.paused ? 'Volver a jugar' : 'Pausa';
+  $('to-focus-pause').textContent = mine?.paused ? 'Entrar en el torneo' : 'Salir del torneo';
   $('to-focus-pause').disabled = !connected;
   // Con el torneo en juego no se muestra «Compartir torneo».
   $('to-share').hidden = !!t.challenge || ['playing', 'between'].includes(t.status);
@@ -443,7 +443,7 @@ function renderControls() {
   $('to-host-key').innerHTML = t.joinKey ? `<svg class="to-lock" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>Clave: <strong>${esc(t.joinKey)}</strong>` : 'Sin clave: cualquiera con el enlace puede inscribirse';
   $('to-key-edit').textContent = t.joinKey ? 'Cambiar clave' : 'Poner clave'; $('to-key-edit').disabled = !connected;
   $('to-pause').hidden = !arena(t) || !mine?.active || ended;
-  $('to-pause').textContent = mine?.paused ? 'Volver a jugar' : 'Pausa'; $('to-pause').disabled = !connected;
+  $('to-pause').textContent = mine?.paused ? 'Entrar en el torneo' : 'Salir del torneo'; $('to-pause').disabled = !connected;
   $('to-withdraw').hidden = !mine?.active || ended; $('to-withdraw').textContent = t.status === 'waiting' ? 'Cancelar inscripción' : 'Retirarme del torneo';
   $('to-withdraw').disabled = !connected;
   $('to-join-form').querySelector('button').disabled = !connected;
@@ -544,7 +544,7 @@ function renderWaiting() {
   if (!show) return;
   const bye = !arena(t) && t.games.some(g => g.bye && g.round === t.round && g.white === t.me);
   const [title, text] = arena(t)
-    ? mine.paused ? ['Estás en pausa', 'No se te empareja. Pulsa «Volver a jugar» cuando quieras seguir.']
+    ? mine.paused ? ['Has salido del torneo', 'No se te empareja y conservas tus puntos. Pulsa «Entrar en el torneo» cuando quieras seguir.']
       : ['Buscando rival…', 'Ahora mismo no queda nadie libre: sois un número impar o los demás están jugando. Jugarás en cuanto termine una partida.']
     : bye ? ['Descansas esta ronda', closed(t) ? 'Con un número impar de jugadores, a cada uno le toca descansar una ronda. No suma punto.' : 'Te toca descanso y sumas un punto. Jugarás en la siguiente ronda.']
       : ['Esperando la siguiente ronda', 'Tu partida de esta ronda ha terminado.'];
@@ -709,7 +709,7 @@ function updateClocks() {
     $('to-wait-date').textContent = t.startsAt ? date(t.startsAt) : `${t.count} de ${t.capacity} plazas ocupadas`;
   }
   if (!$('to-registration').hidden && !canJoin(t)) render();
-  if (!$('to-focus-next').hidden) $('to-focus-status').textContent = me?.paused ? 'En pausa: no se te empareja' : $('to-phase').textContent || 'Partida terminada';
+  if (!$('to-focus-next').hidden) $('to-focus-status').textContent = me?.paused ? 'Has salido del torneo: no se te empareja' : $('to-phase').textContent || 'Partida terminada';
   const g = t.game; if (!g) return;
   for (const id of ['to-player-top', 'to-player-bottom']) {
     const el = $(id), color = el.dataset.color, running = !g.result && g.turn === color;
@@ -843,12 +843,12 @@ $('to-cancel').addEventListener('click', async () => {
   if (await confirmAction('Cancelar torneo', 'El torneo se cerrará y las partidas en juego terminarán en tablas. Esta acción no se puede deshacer.', true)) send({ type: 'cancel' });
 });
 $('to-withdraw').addEventListener('click', async () => {
-  if (await confirmAction(state.status === 'waiting' ? 'Cancelar inscripción' : 'Retirarte del torneo', state.status === 'waiting' ? 'Se liberará tu plaza. Podrás volver a inscribirte mientras haya sitio.' : arena(state) ? 'Perderás tu partida en curso y no se te emparejará más. Si solo quieres descansar, usa «Pausa».' : 'Perderás tu partida en curso y no participarás en las siguientes rondas.', true)) send({ type: 'withdraw' });
+  if (await confirmAction(state.status === 'waiting' ? 'Cancelar inscripción' : 'Retirarte del torneo', state.status === 'waiting' ? 'Se liberará tu plaza. Podrás volver a inscribirte mientras haya sitio.' : arena(state) ? 'Perderás tu partida en curso y no se te emparejará más. Si solo quieres descansar, usa «Salir del torneo»: conservas tus puntos y puedes volver a entrar.' : 'Perderás tu partida en curso y no participarás en las siguientes rondas.', true)) send({ type: 'withdraw' });
 });
 $('to-focus-pause').addEventListener('click', () => $('to-pause').click());
 $('to-pause').addEventListener('click', () => {
   const mine = state.standings.find(p => p.id === state.me);
-  if (send({ type: mine?.paused ? 'resume' : 'pause' })) message(mine?.paused ? 'Vuelves a estar disponible: se te emparejará con el próximo jugador libre.' : 'En pausa: no se te emparejará hasta que vuelvas. Si estás jugando, termina tu partida.');
+  if (send({ type: mine?.paused ? 'resume' : 'pause' })) message(mine?.paused ? 'Has vuelto a entrar en el torneo: se te emparejará con el próximo jugador libre.' : 'Has salido del torneo: no se te emparejará hasta que vuelvas a entrar. Conservas tus puntos. Si estás jugando, termina tu partida.');
 });
 $('to-standings').addEventListener('click', async event => {
   const id = event.target.closest('[data-remove]')?.dataset.remove;
