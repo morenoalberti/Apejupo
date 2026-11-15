@@ -6,18 +6,34 @@
 .rt-page select { width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--card); color: var(--text); font: inherit; }
 .rt-colors { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 8px 0 0; padding: 0; border: 0; }
 .rt-colors legend { padding: 0; margin-bottom: 6px; font-weight: 600; font-size: .9rem; }
-.rt-colors label { margin: 0 !important; }
-.rt-colors input { position: absolute; opacity: 0; }
-.rt-colors span { display: block; padding: 9px 6px; border: 1px solid var(--line); border-radius: 8px; text-align: center; font-weight: 600; cursor: pointer; }
+.rt-colors label { position: relative; margin: 0 !important; }
+.rt-colors input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; pointer-events: none; }
+.rt-colors label > span { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 9px 6px; border: 1px solid var(--line); border-radius: 8px; text-align: center; font-weight: 600; cursor: pointer; }
 .rt-colors input:checked + span { border-color: var(--blue); background: #3b82f61f; }
 .rt-colors input:focus-visible + span { outline: 2px solid var(--blue); outline-offset: 1px; }
-.rt-h { margin: 26px 0 8px; padding-top: 18px; border-top: 1px solid var(--line); font-size: 1rem; }
-.rt-online { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
-.rt-online li { display: flex; align-items: center; gap: 10px; font-size: .95rem; }
-.rt-online li.muted { font-size: .9rem; }
-.rt-nick { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
-.rt-dot { width: 8px; height: 8px; border-radius: 50%; background: #22c55e; flex: none; }
-.rt-online .btn-ghost { padding: 5px 12px !important; font-size: .85rem; }
+.rt-pz { display: inline-flex; flex: none; padding: 2px 4px; border-radius: 999px; background: #e2e8f0; }
+.rt-pz img { display: block; width: 20px; height: 20px; }
+/* Tarjeta de reto a la izquierda y lista de jugadores a la derecha */
+.cu-page.rt-page { width: min(940px, 100%); }
+.rt-page > section { max-width: 560px; margin: 0 auto; }
+.rt-layout { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 20px; align-items: start; }
+.rt-players { display: flex; flex-direction: column; gap: 10px; padding: 20px; }
+.rt-players h2 { margin: 0; font-size: 1.05rem; }
+.rt-online { list-style: none; margin: 0; padding: 4px; display: grid; gap: 2px; max-height: 420px; overflow-y: auto; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); }
+.rt-online li { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 6px; font-size: .95rem; cursor: pointer; user-select: none; }
+.rt-online:focus-visible { outline: 2px solid var(--blue); outline-offset: 1px; }
+.rt-online li:hover { background: #3b82f614; }
+.rt-online li[aria-selected="true"] { background: #3b82f62e; outline: 1px solid var(--blue); }
+.rt-online li.muted { cursor: default; font-size: .9rem; }
+.rt-online li.off .rt-nick { color: var(--muted); font-weight: 500; }
+.rt-nick { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.rt-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #ef4444; flex: none; vertical-align: middle; }
+.rt-dot.on { background: #22c55e; box-shadow: 0 0 0 3px #22c55e33; }
+.rt-hint .rt-dot + * , .rt-hint .rt-dot ~ .rt-dot { margin-left: 12px; }
+.rt-hint { margin: 0; font-size: .8rem; line-height: 1.5; }
+.rt-hint .rt-dot { margin: 0 5px 0 0; width: 7px; height: 7px; box-shadow: none; }
+@media (max-width: 760px) { .rt-layout { grid-template-columns: 1fr; } .rt-online { max-height: 300px; } }
+@media (max-width: 480px) { .rt-colors label > span { flex-direction: column; gap: 4px; white-space: nowrap; } }
 .rt-center { text-align: center; }
 .rt-center h1 { font-size: 1.35rem !important; font-weight: 600; }
 .rt-center .rt-bar { margin: 18px 0 8px; }

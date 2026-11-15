@@ -288,6 +288,8 @@ export class AccountStore extends DurableObject {
           this.recordDuel(b.room, b.white, b.black, b.result, now);
           return json(this.duel(b.white, b.black));
         }
+        // Uso interno de los retos: nicks de las cuentas confirmadas (la lista de jugadores de retar.html).
+        case '/jugadores': return json({ nicks: this.sql.exec('SELECT nick FROM users WHERE verified = 1 ORDER BY nick_key').toArray().map(r => r.nick) });
         case '/nick': return json({ taken: !!this.one('SELECT 1 AS x FROM users WHERE nick_key = ?', nickKey(b.name)) });
         default: throw new GameError('No encontrado.', 404);
       }

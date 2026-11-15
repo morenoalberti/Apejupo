@@ -26,6 +26,16 @@ export class ChallengeHub extends DurableObject {
     });
   }
   online(now) { const m = new Map(); for (const { a } of this.entries(now)) m.set(a.user.id, a.user); return m; }
+  // Jugadores registrados (cuentas confirmadas), guardados un minuto para no preguntar a las cuentas en cada refresco.
+  async players(now) {
+    if (!this.playerCache || now - this.playerCache.at > 60000) {
+      try {
+        const res = await this.env.ACCOUNTS.getByName('cuentas').fetch('https://cuentas/jugadores', { method: 'POST', body: '{}' });
+        this.playerCache = { at: now, nicks: (await res.json()).nicks || [] };
+      } catch { return this.playerCache?.nicks || []; }
+    }
+    return this.playerCache.nicks;
+  }
   send(ws, msg) { try { ws.send(JSON.stringify(msg)); } catch {} }
   toUser(userId, msg, filter = () => true) { for (const { ws, a } of this.entries()) if (a.user.id === userId && filter(ws, a)) this.send(ws, msg); }
   async load(now = Date.now()) {
@@ -78,7 +88,8 @@ export class ChallengeHub extends DurableObject {
         requireThat(a.user, 'Entra con tu cuenta (y confirma el correo) para retar a otros jugadores.', 401);
         const me = a.user;
         if (b.type === 'conectados') {
-          this.send(ws, { type: 'conectados', nicks: [...this.online(now).values()].filter(u => u.id !== me.id).map(u => u.nick).sort((x, y) => x.localeCompare(y, 'es')) });
+          const jugadores = (await this.players(now)).filter(n => key(n) !== key(me.nick));
+          this.send(ws, { type: 'conectados', nicks: [...this.online(now).values()].filter(u => u.id !== me.id).map(u => u.nick).sort((x, y) => x.localeCompare(y, 'es')), jugadores });
           return;
         }
         let list = await this.load(now);

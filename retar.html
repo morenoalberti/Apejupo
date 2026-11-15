@@ -10,7 +10,7 @@
 <link rel="icon" type="image/svg+xml" href="assets/icon.svg">
 <link rel="stylesheet" href="css/style.css?v=20261112-torneo">
 <link rel="stylesheet" href="css/cuenta.css?v=20261114-retos1">
-<link rel="stylesheet" href="css/retar.css?v=20261114-retos1">
+<link rel="stylesheet" href="css/retar.css?v=20261115-jugadores1">
 <script defer src="js/analytics.js?v=20261111-analytics"></script>
 </head>
 <body>
@@ -27,7 +27,8 @@
   </div>
 </header>
 <main class="cu-page rt-page">
-  <section class="cu-card" data-view="form" hidden>
+  <div class="rt-layout" data-view="form" hidden>
+  <section class="cu-card">
     <h1>Retar a un jugador</h1>
     <p class="muted">Escribe el nick de un jugador que esté conectado ahora. Le saldrá tu reto en pantalla y, si acepta, se abrirá el tablero a los dos.</p>
     <p class="rt-conn" id="rt-conn" role="status">Conectando…</p>
@@ -41,16 +42,21 @@
         <optgroup label="Rápidas"><option value="10+0">10' + 0"</option><option value="10+5">10' + 5"</option><option value="15+10">15' + 10"</option></optgroup>
       </select>
       <fieldset class="rt-colors"><legend>Juegas con</legend>
-        <label><input type="radio" name="rt-color" value="azar" checked><span>Al azar</span></label>
-        <label><input type="radio" name="rt-color" value="w"><span>Blancas</span></label>
-        <label><input type="radio" name="rt-color" value="b"><span>Negras</span></label>
+        <label><input type="radio" name="rt-color" value="azar" checked><span><span class="rt-pz" aria-hidden="true"><img src="assets/pieces/wK.png" alt="" width="20" height="20"><img src="assets/pieces/bK.png" alt="" width="20" height="20"></span>Al azar</span></label>
+        <label><input type="radio" name="rt-color" value="w"><span><span class="rt-pz" aria-hidden="true"><img src="assets/pieces/wK.png" alt="" width="20" height="20"></span>Blancas</span></label>
+        <label><input type="radio" name="rt-color" value="b"><span><span class="rt-pz" aria-hidden="true"><img src="assets/pieces/bK.png" alt="" width="20" height="20"></span>Negras</span></label>
       </fieldset>
       <button id="rt-send" class="btn cu-submit" type="submit" disabled>Retar</button>
     </form>
     <p id="rt-msg" class="cu-msg" role="alert" hidden></p>
-    <h2 class="rt-h">Conectados ahora <span id="rt-online-count" class="muted"></span></h2>
-    <ul class="rt-online" id="rt-online"><li class="muted">Buscando jugadores…</li></ul>
   </section>
+  <aside class="cu-card rt-players" aria-labelledby="rt-players-h">
+    <h2 id="rt-players-h">Jugadores <span id="rt-online-count" class="muted"></span></h2>
+    <input id="rt-search" type="search" placeholder="Buscar jugador" aria-label="Buscar jugador" aria-controls="rt-online" autocomplete="off">
+    <ul class="rt-online" id="rt-online" role="listbox" tabindex="0" aria-label="Jugadores registrados"><li class="muted">Buscando jugadores…</li></ul>
+    <p class="rt-hint muted">Doble clic o Enter para elegir rival.<br><span class="rt-dot on" aria-hidden="true"></span>en línea<span class="rt-dot" aria-hidden="true"></span>desconectado</p>
+  </aside>
+  </div>
   <section class="cu-card rt-center" data-view="esperando" hidden>
     <h1 id="rt-wait-title">Esperando…</h1>
     <p class="muted" id="rt-wait-detail"></p>
@@ -75,6 +81,6 @@
 <script src="js/menu.js?v=20261113-menus"></script>
 <script src="js/util.js?v=20261113-menus"></script>
 <script src="js/torneo-config.js?v=20261114-publicado"></script>
-<script type="module" src="js/retar.js?v=20261115-ritmos1"></script>
+<script type="module" src="js/retar.js?v=20261115-jugadores1"></script>
 </body>
 </html>

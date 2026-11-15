@@ -34,19 +34,48 @@ function startWaiting(c) {
 function stopWaiting(message, error = false) { waiting = null; clearInterval(waitTimer); render(); note(message, error); }
 
 function askOnline() { if (isReady() && !waiting) send({ type: 'conectados' }); }
-function renderOnline(nicks) {
-  $('rt-online-count').textContent = nicks.length ? `(${nicks.length})` : '';
-  $('rt-online').innerHTML = nicks.length
-    ? nicks.map(n => `<li><span class="rt-dot" aria-hidden="true"></span><span class="rt-nick">${esc(n)}</span><button type="button" class="btn-ghost" data-nick="${esc(n)}">Retar</button></li>`).join('')
-    : '<li class="muted">Ahora mismo no hay nadie más conectado.</li>';
-  $('rt-nicks').innerHTML = nicks.map(n => `<option value="${esc(n)}">`).join('');
+// Lista de jugadores registrados: primero los que están en línea (punto verde), después el resto (punto rojo).
+// Doble clic o Enter sobre un jugador lo pone en «Nick del rival».
+const low = s => String(s).toLocaleLowerCase('es');
+let online = [], players = [], picked = '';
+function renderOnline(nicks, jugadores) {
+  online = nicks || [];
+  if (jugadores) players = jugadores;
+  $('rt-nicks').innerHTML = online.map(n => `<option value="${esc(n)}">`).join('');
+  renderPlayers();
+}
+function visiblePlayers() {
+  const on = new Set(online.map(low)), q = low($('rt-search').value.trim());
+  const all = [...new Map([...players, ...online].map(n => [low(n), n])).values()]; // los recién registrados pueden no estar aún en la lista
+  return all.filter(n => !q || low(n).includes(q)).map(n => ({ nick: n, on: on.has(low(n)) }))
+    .sort((a, b) => (b.on - a.on) || a.nick.localeCompare(b.nick, 'es'));
+}
+function renderPlayers() {
+  const list = visiblePlayers(), q = $('rt-search').value.trim();
+  if (!list.some(p => p.nick === picked)) picked = '';
+  $('rt-online-count').textContent = online.length ? `· ${online.length} en línea` : '';
+  $('rt-online').innerHTML = list.length
+    ? list.map(p => `<li role="option" data-nick="${esc(p.nick)}" aria-selected="${p.nick === picked}" class="${p.on ? 'on' : 'off'}" title="${p.on ? 'En línea' : 'Desconectado'}"><span class="rt-dot${p.on ? ' on' : ''}" aria-hidden="true"></span><span class="rt-nick">${esc(p.nick)}</span></li>`).join('')
+    : `<li class="muted">${q ? 'Ningún jugador coincide con la búsqueda.' : 'Todavía no hay otros jugadores registrados.'}</li>`;
+}
+function pick(nick, scroll = false) {
+  picked = nick;
+  for (const li of $('rt-online').querySelectorAll('li[data-nick]')) {
+    const sel = li.dataset.nick === nick; li.setAttribute('aria-selected', sel);
+    if (sel && scroll) li.scrollIntoView({ block: 'nearest' });
+  }
+}
+function choose(nick) {
+  if (!nick) return;
+  $('rt-nick').value = nick; note('');
+  $('rt-nick').focus();
 }
 
 addEventListener('apejupo:retos', ({ detail: m }) => {
   switch (m.type) {
     case 'hola': render(); askOnline(); if (outgoing.size) startWaiting([...outgoing.values()][0]); break;
     case 'desconectado': render(); break;
-    case 'conectados': renderOnline(m.nicks); break;
+    case 'conectados': renderOnline(m.nicks, m.jugadores); break;
     case 'enviado': startWaiting(m.reto); break;
     case 'rechazado': if (waiting?.id === m.id) stopWaiting(`${m.nick} ha rechazado el reto.`, true); break;
     case 'caducado': if (waiting?.id === m.id) stopWaiting(`${m.nick} no ha respondido a tiempo.`, true); break;
@@ -67,10 +96,22 @@ $('rt-form').addEventListener('submit', e => {
   if (send({ type: 'retar', nick, minutes, increment, color: document.querySelector('input[name="rt-color"]:checked').value })) $('rt-send').disabled = true;
   else note('Sin conexión con el servidor. Espera un momento y vuelve a probar.', true);
 });
-$('rt-online').addEventListener('click', e => {
-  const b = e.target.closest('button[data-nick]'); if (!b) return;
-  $('rt-nick').value = b.dataset.nick; $('rt-form').requestSubmit();
-});
+$('rt-online').addEventListener('click', e => { const li = e.target.closest('li[data-nick]'); if (li) pick(li.dataset.nick); });
+$('rt-online').addEventListener('dblclick', e => { const li = e.target.closest('li[data-nick]'); if (li) choose(li.dataset.nick); });
+$('rt-search').addEventListener('input', () => { renderPlayers(); const first = visiblePlayers()[0]; if ($('rt-search').value.trim() && first) pick(first.nick, true); });
+function listKeys(e) {
+  const list = visiblePlayers(); if (!list.length) return;
+  const i = list.findIndex(p => p.nick === picked);
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    e.preventDefault();
+    const next = e.key === 'ArrowDown' ? Math.min(list.length - 1, i + 1) : Math.max(0, i - 1);
+    pick(list[next].nick, true);
+  } else if (e.key === 'Enter') {
+    e.preventDefault(); choose(picked || list[0].nick);
+  }
+}
+$('rt-search').addEventListener('keydown', listKeys);
+$('rt-online').addEventListener('keydown', listKeys);
 $('rt-cancel').addEventListener('click', () => { if (waiting) send({ type: 'cancelar', id: waiting.id }); stopWaiting('Reto cancelado.'); });
 $('rt-enter').addEventListener('click', () => openAuth('entrar'));
 $('rt-register').addEventListener('click', () => openAuth('registro'));
