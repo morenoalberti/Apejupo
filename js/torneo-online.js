@@ -218,8 +218,9 @@ function render() {
   const ownView = !!t.game && (t.game.white === t.me || t.game.black === t.me);
   const focus = ownActive || (!!mine?.active && ownView && ['playing', 'between'].includes(t.status));
   document.body.classList.toggle('to-focus', focus);
-  $('to-focus-next').hidden = !focus || ownActive;
-  $('to-focus-pause').hidden = !arena(t) || ownActive;
+  // Arena: la fila con «Salir del torneo» también se ve mientras juegas tu partida (la terminas y ya no se te empareja).
+  $('to-focus-next').hidden = !focus || (ownActive && !arena(t));
+  $('to-focus-pause').hidden = !arena(t);
   $('to-focus-pause').textContent = mine?.paused ? 'Entrar en el torneo' : 'Salir del torneo';
   $('to-focus-pause').disabled = !connected;
   // Con el torneo en juego no se muestra «Compartir torneo».
@@ -715,7 +716,8 @@ function updateClocks() {
     $('to-wait-date').textContent = t.startsAt ? date(t.startsAt) : `${listed(t).length} de ${t.capacity} plazas ocupadas`;
   }
   if (!$('to-registration').hidden && !canJoin(t)) render();
-  if (!$('to-focus-next').hidden) $('to-focus-status').textContent = me?.paused ? 'Has salido del torneo: no se te empareja' : $('to-phase').textContent || 'Partida terminada';
+  const playingNow = !!t.me && t.games.some(x => !x.result && !x.bye && (x.white === t.me || x.black === t.me));
+  if (!$('to-focus-next').hidden) $('to-focus-status').textContent = me?.paused ? 'Has salido del torneo' : playingNow ? 'Partida en juego' : $('to-phase').textContent || 'Partida terminada';
   const g = t.game; if (!g) return;
   for (const id of ['to-player-top', 'to-player-bottom']) {
     const el = $(id), color = el.dataset.color, running = !g.result && g.turn === color;
