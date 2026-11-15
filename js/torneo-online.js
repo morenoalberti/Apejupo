@@ -20,6 +20,8 @@ let confirmResolve = null, dropped = null, lobby = new Map();
 let editingId = null, keyFieldRequired = false; // formulario de organizar: torneo que se edita y si se pide la clave de organización
 // Jugada propia mostrada al instante, antes de que la confirme el servidor (como en Lichess).
 let optimistic = null, rendered = { game: null, fen: null }, skipSlide = false, drag = null;
+// Premovimiento (como en Lichess): jugada elegida mientras piensa el rival; se juega sola en cuanto te toca, si es legal.
+let premove = null;
 
 function read(key) { try { return localStorage.getItem(key) || ''; } catch { return ''; } }
 function write(key, value) {
@@ -110,10 +112,11 @@ function applyMove(m) {
     if (d.ply === g.moves.length + 1) {
       g.moves.push(d.san); Object.assign(g, clock, { offer: d.offer, legal: d.legal });
       if (optimistic && optimistic.game === d.id && d.ply >= optimistic.ply) optimistic = null;
-      if (!drag) selected = null; boardKey = '';
+      if (!drag && !keepSelection(d.fen)) selected = null; boardKey = '';
     } else if (d.ply > g.moves.length + 1) { send({ type: 'watch', game: g.id }); return; } // se perdió algo: pedir el tablero completo
   }
   render();
+  playPremove();
 }
 function connect() {
   clearTimeout(reconnectTimer); clearInterval(heartbeat);
@@ -141,13 +144,15 @@ function connect() {
     const oldGame = state?.game, oldMe = state?.me;
     offset = next.serverNow - Date.now(); pending = false; state = next;
     if (optimistic && (next.game?.id !== optimistic.game || next.game.moves.length >= optimistic.ply)) optimistic = null;
-    if (oldGame?.id !== next.game?.id || oldGame?.fen !== next.game?.fen) { if (!drag) selected = null; boardKey = ''; }
+    if (oldGame?.id !== next.game?.id || oldGame?.fen !== next.game?.fen) { if (!drag && !(oldGame?.id === next.game?.id && keepSelection(next.game.fen))) selected = null; boardKey = ''; }
+    if (premove && (premove.game !== next.game?.id || next.game?.result)) premove = null;
     if (oldGame?.id !== next.game?.id || oldGame?.result !== next.game?.result) { replay = null; replayPly = null; }
     if (!manualFlip && next.me && next.game && (oldGame?.id !== next.game.id || oldMe !== next.me)) flipped = next.game.black === next.me;
     const changedRound = lastRound !== next.round; lastRound = next.round;
     if (changedRound && next.round > 0) message('');
     if (changedRound || viewedRound === null) viewedRound = next.round || 1;
     render();
+    playPremove();
     if (next.me && (changedRound || oldMe !== next.me)) {
       const mine = next.games.find(g => !g.bye && (arena(next) ? !g.result : g.round === next.round) && (g.white === next.me || g.black === next.me));
       if (mine && mine.id !== next.game?.id) { watch(mine.id); if (!mine.result) newGameAlert(); }
@@ -478,6 +483,45 @@ addEventListener('apejupo:retos', ({ detail: m }) => {
 function watch(id) { selected = null; replay = null; replayPly = null; boardKey = ''; manualFlip = false; send({ type: 'watch', game: id }); }
 function myColor() { const g = state?.game; return !g ? null : g.white === state.me ? 'w' : g.black === state.me ? 'b' : null; }
 function canMove() { return !!state?.game && connected && !pending && !state.game.result && myColor() === state.game.turn; }
+// Se puede premover cuando juegas esta partida y no te toca (o tu jugada aún no la ha confirmado el servidor).
+function canPremove() { const g = state?.game; return !!g && connected && !g.result && !replay && !!myColor() && !canMove(); }
+function shownFen() { const g = state.game; return optimistic?.game === g.id ? optimistic.fen : g.fen; }
+// Destinos de un premovimiento: el movimiento de la pieza sin mirar qué hay en medio, porque el rival aún va a mover.
+function premoveDests(from) {
+  const pieces = fenPieces(shownFen()), piece = pieces[from], me = myColor();
+  if (!piece || piece[0] !== me) return [];
+  const f = from.charCodeAt(0) - 97, r = Number(from[1]) - 1, out = [];
+  const add = (df, dr) => {
+    const x = f + df, y = r + dr;
+    if (x < 0 || x > 7 || y < 0 || y > 7) return false;
+    const sq = String.fromCharCode(97 + x) + (y + 1);
+    if (pieces[sq]?.[0] !== me) out.push(sq);
+    return true;
+  };
+  const ray = (df, dr) => { for (let k = 1; add(df * k, dr * k); k++); };
+  const kind = piece[1], dir = me === 'w' ? 1 : -1;
+  if (kind === 'P') { add(0, dir); if (r === (me === 'w' ? 1 : 6)) add(0, 2 * dir); add(-1, dir); add(1, dir); }
+  if (kind === 'N') for (const [a, b] of [[1, 2], [2, 1], [2, -1], [1, -2], [-1, -2], [-2, -1], [-2, 1], [-1, 2]]) add(a, b);
+  if (kind === 'B' || kind === 'Q') for (const [a, b] of [[1, 1], [1, -1], [-1, 1], [-1, -1]]) ray(a, b);
+  if (kind === 'R' || kind === 'Q') for (const [a, b] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) ray(a, b);
+  if (kind === 'K') {
+    for (const [a, b] of [[1, 1], [1, 0], [1, -1], [0, 1], [0, -1], [-1, 1], [-1, 0], [-1, -1]]) add(a, b);
+    const home = me === 'w' ? '1' : '8';
+    if (from === 'e' + home) for (const sq of ['g' + home, 'c' + home]) if (pieces[sq]?.[0] !== me && !out.includes(sq)) out.push(sq);
+  }
+  return out;
+}
+// Pieza elegida mientras se preparaba un premovimiento: sigue elegida al llegar la jugada (propia o del rival) si continúa en su casilla.
+function keepSelection(fen) { return !!selected && !!myColor() && fenPieces(fen)[selected]?.[0] === myColor(); }
+function setPremove(from, to) { premove = { game: state.game.id, from, to }; selected = null; boardKey = ''; renderBoard(); }
+function cancelPremove() { if (!premove && !selected) return false; premove = null; selected = null; boardKey = ''; renderBoard(); return true; }
+// Te toca: si el premovimiento es legal en la posición nueva, se juega al momento (coronando en dama); si no, se descarta.
+function playPremove() {
+  if (!premove || !canMove()) return;
+  const g = state.game, p = premove; premove = null; boardKey = '';
+  if (p.game !== g.id || !g.legal.some(m => m.from === p.from && m.to === p.to)) { renderBoard(); return; }
+  skipSlide = true; move(p.from, p.to, 'q');
+}
 function fenPieces(fen) {
   const out = {};
   fen.split(' ')[0].split('/').forEach((rank, row) => { let col = 0; for (const c of rank) { if (/\d/.test(c)) col += Number(c); else { out['abcdefgh'[col++] + (8 - row)] = (c === c.toUpperCase() ? 'w' : 'b') + c.toUpperCase(); } } });
@@ -544,23 +588,24 @@ function renderBoard() {
   const shown = optimistic?.game === g.id ? optimistic : null;
   const fen = g.result && replay ? replay[replayPly] : shown ? shown.fen : g.fen;
   const lastMove = shown ? shown.lastMove : g.lastMove;
-  const key = [g.id, fen, flipped, selected, canMove(), lastMove?.from, lastMove?.to].join('|');
+  const pre = premove?.game === g.id ? premove : null, premoving = canPremove();
+  const key = [g.id, fen, flipped, selected, canMove(), premoving, pre?.from, pre?.to, lastMove?.from, lastMove?.to].join('|');
   if (boardKey === key) return; boardKey = key;
   // Deslizar la pieza que se acaba de mover, en lugar de que salte de casilla.
   const slideMove = !skipSlide && rendered.game === g.id && rendered.fen && rendered.fen !== fen && lastMove ? lastMove : null;
   const prevFen = rendered.fen; rendered = { game: g.id, fen }; skipSlide = false;
   const activeSquare = document.activeElement?.closest('#to-board [data-square]')?.dataset.square;
   const pieces = fenPieces(fen), order = Array.from({ length: 64 }, (_, i) => flipped ? 63 - i : i);
-  const targets = selected ? g.legal.filter(m => m.from === selected).map(m => m.to) : [];
+  const targets = !selected ? [] : premoving ? premoveDests(selected) : g.legal.filter(m => m.from === selected).map(m => m.to);
   const last = !g.result || replayPly === g.moves.length ? lastMove : null;
   $('to-board').innerHTML = order.map((index, i) => {
     const row = Math.floor(index / 8), col = index % 8, sq = 'abcdefgh'[col] + (8 - row), piece = pieces[sq];
     const desc = piece ? `${pieceNames[piece[1].toLowerCase()]} de ${piece[0] === 'w' ? 'blancas' : 'negras'}` : 'vacía';
-    return `<button type="button" class="to-square ${(row + col) % 2 ? 'dark ' : ''}${sq === selected ? 'selected ' : ''}${targets.includes(sq) ? 'target ' : ''}${last && (sq === last.from || sq === last.to) ? 'last' : ''}" data-square="${sq}" tabindex="${sq === (activeSquare || (flipped ? 'h8' : 'a1')) ? 0 : -1}" aria-label="${sq}: ${desc}${targets.includes(sq) ? ', destino posible' : ''}" aria-pressed="${sq === selected}">${piece ? `<canvas data-piece="${piece}" aria-hidden="true" width="80" height="80"></canvas>` : ''}${i % 8 === 0 ? `<span class="to-coordinate rank">${8 - row}</span>` : ''}${i >= 56 ? `<span class="to-coordinate file">${'abcdefgh'[col]}</span>` : ''}</button>`;
+    return `<button type="button" class="to-square ${(row + col) % 2 ? 'dark ' : ''}${sq === selected ? 'selected ' : ''}${targets.includes(sq) ? 'target ' : ''}${last && (sq === last.from || sq === last.to) ? 'last ' : ''}${pre && (sq === pre.from || sq === pre.to) ? 'premove' : ''}" data-square="${sq}" tabindex="${sq === (activeSquare || (flipped ? 'h8' : 'a1')) ? 0 : -1}" aria-label="${sq}: ${desc}${targets.includes(sq) ? ', destino posible' : ''}${pre && sq === pre.to ? ', premovimiento' : ''}" aria-pressed="${sq === selected}">${piece ? `<canvas data-piece="${piece}" aria-hidden="true" width="80" height="80"></canvas>` : ''}${i % 8 === 0 ? `<span class="to-coordinate rank">${8 - row}</span>` : ''}${i >= 56 ? `<span class="to-coordinate file">${'abcdefgh'[col]}</span>` : ''}</button>`;
   }).join('');
   for (const canvas of $('to-board').querySelectorAll('canvas')) paint(canvas, canvas.dataset.piece);
   if (activeSquare) $('to-board').querySelector(`[data-square="${activeSquare}"]`)?.focus({ preventScroll: true });
-  $('to-board').classList.toggle('can-move', canMove());
+  $('to-board').classList.toggle('can-move', canMove() || premoving);
   if (drag) $('to-board').querySelector(`[data-square="${drag.from}"] canvas`)?.classList.add('to-dragging');
   if (slideMove && !g.result) {
     const before = fenPieces(prevFen);
@@ -592,6 +637,7 @@ function slide(from, to) {
   canvas.addEventListener('transitionend', () => { cell.style.zIndex = ''; }, { once: true });
 }
 function squareClick(square) {
+  if (canPremove()) { premoveClick(square); return; }
   if (!canMove()) return;
   const g = state.game;
   if (selected === square) { selected = null; renderBoard(); return; }
@@ -607,6 +653,16 @@ function squareClick(square) {
   }
   selected = g.legal.some(m => m.from === square) ? square : null;
   renderBoard();
+}
+function premoveClick(square) {
+  const mine = fenPieces(shownFen())[square]?.[0] === myColor();
+  if (premove) {
+    const p = premove; premove = null; boardKey = '';
+    if (square === p.from || square === p.to || !mine) { selected = null; renderBoard(); return; }
+  }
+  if (selected && selected !== square && premoveDests(selected).includes(square)) { setPremove(selected, square); return; }
+  selected = selected === square || !mine ? null : square;
+  boardKey = ''; renderBoard();
 }
 function move(from, to, promotion = 'q') {
   const g = state.game;
@@ -826,9 +882,11 @@ $('to-board').addEventListener('click', event => {
 // Arrastre como en Lichess: al pulsar una pieza propia, se pega al puntero en ese instante
 // (ratón, lápiz o dedo); en su casilla queda una sombra y se marcan los destinos posibles.
 $('to-board').addEventListener('pointerdown', event => {
-  if (event.button > 0 || !canMove()) return;
-  const square = event.target.closest('[data-square]')?.dataset.square;
-  if (!square || !state.game.legal.some(m => m.from === square)) return;
+  if (event.button > 0) return;
+  const square = event.target.closest('[data-square]')?.dataset.square, premoving = canPremove();
+  if (!square || !(premoving || canMove())) return;
+  if (premoving ? fenPieces(shownFen())[square]?.[0] !== myColor() : !state.game.legal.some(m => m.from === square)) return;
+  if (premoving && premove) { premove = null; boardKey = ''; }
   const canvas = $('to-board').querySelector(`[data-square="${square}"] canvas`);
   if (!canvas) return;
   event.preventDefault(); // sin selección de texto ni arrastre nativo del navegador
@@ -854,13 +912,16 @@ function endDrag(event) {
   document.body.classList.remove('to-grabbing');
   const to = event && document.elementFromPoint(event.clientX, event.clientY)?.closest('#to-board [data-square]')?.dataset.square;
   dropped = { square: to, at: performance.now() };
-  if (to && to !== from && state.game.legal.some(m => m.from === from && m.to === to)) { selected = from; skipSlide = true; squareClick(to); return; }
+  if (to && to !== from && canPremove() && premoveDests(from).includes(to)) { setPremove(from, to); return; }
+  if (to && to !== from && canMove() && state.game.legal.some(m => m.from === from && m.to === to)) { selected = from; skipSlide = true; squareClick(to); return; }
   // Soltar en la misma casilla sin mover: selecciona la pieza (o la deselecciona si ya lo estaba).
   selected = to === from && !(wasSelected && !moved) ? from : null;
   boardKey = ''; renderBoard();
 }
 document.addEventListener('pointerup', endDrag);
 document.addEventListener('pointercancel', () => endDrag(null));
+$('to-board').addEventListener('contextmenu', event => { if (cancelPremove()) event.preventDefault(); });
+document.addEventListener('keydown', event => { if (event.key === 'Escape' && !document.querySelector('dialog[open]') && cancelPremove()) event.preventDefault(); });
 $('to-board').addEventListener('keydown', event => {
   const buttons = [...$('to-board').querySelectorAll('button')], index = buttons.indexOf(event.target), delta = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -8, ArrowDown: 8 }[event.key];
   if (delta !== undefined && index >= 0) { event.preventDefault(); const next = buttons[Math.max(0, Math.min(63, index + delta))]; buttons.forEach(b => b.tabIndex = -1); next.tabIndex = 0; next.focus(); }

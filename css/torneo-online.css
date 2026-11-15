@@ -146,6 +146,9 @@
 .to-square.last { background: #e8d568; }
 .to-square.dark.last { background: #bdac43; }
 .to-square.selected { background: #7db16a; }
+/* Premovimiento: casillas de origen y destino en rojizo, como en Lichess */
+.to-square.premove { background: #c9a19a; }
+.to-square.dark.premove { background: #a8746b; }
 .to-square.target::after { content: ''; position: absolute; width: 26%; height: 26%; background: #23342155; border-radius: 50%; pointer-events: none; }
 .to-square.target:has(canvas)::after { width: 88%; height: 88%; background: none; border: 5px solid #23342155; }
 .to-square:focus-visible { outline: 3px solid #1764c0 !important; outline-offset: -3px !important; z-index: 1; }
