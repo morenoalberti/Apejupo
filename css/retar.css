@@ -11,6 +11,23 @@
 .rt-colors label > span { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 9px 6px; border: 1px solid var(--line); border-radius: 8px; text-align: center; font-weight: 600; cursor: pointer; }
 .rt-colors input:checked + span { border-color: var(--blue); background: #3b82f61f; }
 .rt-colors input:focus-visible + span { outline: 2px solid var(--blue); outline-offset: 1px; }
+/* Ritmo (estrecho) y Match en la misma fila */
+.rt-row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 6px 22px; }
+.rt-field { display: grid; gap: 6px; }
+.rt-field > label, .rt-label { font-weight: 600; font-size: .9rem; margin-top: 6px; }
+.rt-page #rt-pace { width: 132px; }
+.rt-match { display: flex; align-items: center; gap: 12px; min-height: 42px; }
+.rt-page #rt-games { width: 132px; }
+.rt-page #rt-games:disabled { opacity: .45; }
+.rt-match-d { margin-top: -2px; }
+/* Interruptor On/Off */
+.rt-switch { position: relative; display: inline-block; width: 46px; height: 26px; margin: 0 !important; flex: none; cursor: pointer; }
+.rt-switch input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+.rt-switch span { position: absolute; inset: 0; border-radius: 999px; background: var(--line); transition: background .15s; pointer-events: none; }
+.rt-switch span::after { content: ''; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px #0005; transition: transform .15s; }
+.rt-switch input:checked + span { background: #22c55e; }
+.rt-switch input:checked + span::after { transform: translateX(20px); }
+.rt-switch input:focus-visible + span { outline: 2px solid var(--blue); outline-offset: 2px; }
 .rt-pz { display: inline-flex; flex: none; padding: 2px 4px; border-radius: 999px; background: #e2e8f0; }
 .rt-pz img { display: block; width: 20px; height: 20px; }
 /* Tarjeta de reto a la izquierda y lista de jugadores a la derecha */

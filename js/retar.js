@@ -1,7 +1,7 @@
 // Página «Retar»: retar por su nick a un jugador que esté en línea. Al aceptar, los dos van al tablero
 // automáticamente (lo hace js/retos.js, que está en todas las páginas).
-import { currentUser, openAuth } from './cuenta.js?v=20261115-ritmos1';
-import { send, isReady, outgoing, myNick } from './retos.js?v=20261115-ritmos1';
+import { currentUser, openAuth } from './cuenta.js?v=20261115-match1';
+import { send, isReady, outgoing, myNick } from './retos.js?v=20261115-match1';
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -22,7 +22,7 @@ function render() {
 function startWaiting(c) {
   waiting = c; note(''); render();
   $('rt-wait-title').innerHTML = `Esperando a que <b>${esc(c.to)}</b> acepte…`;
-  $('rt-wait-detail').textContent = `Ritmo ${c.minutes}' + ${c.increment}" · ${c.color === 'w' ? 'juegas con blancas' : c.color === 'b' ? 'juegas con negras' : 'color al azar'}`;
+  $('rt-wait-detail').textContent = `Ritmo ${c.minutes}' + ${c.increment}"${c.games > 1 ? ` · match a ${c.games} partidas` : ''} · ${c.color === 'w' ? 'juegas con blancas' : c.color === 'b' ? 'juegas con negras' : 'color al azar'}`;
   clearInterval(waitTimer);
   const tick = () => {
     const left = Math.max(0, Math.ceil((c.expiresAt - Date.now()) / 1000));
@@ -93,7 +93,8 @@ $('rt-form').addEventListener('submit', e => {
   if (myNick && nick.toLowerCase() === myNick.toLowerCase()) { note('No puedes retarte a ti mismo.', true); return; }
   const [minutes, increment] = $('rt-pace').value.split('+').map(Number);
   note('');
-  if (send({ type: 'retar', nick, minutes, increment, color: document.querySelector('input[name="rt-color"]:checked').value })) $('rt-send').disabled = true;
+  const games = $('rt-match').checked ? Number($('rt-games').value) : 1;
+  if (send({ type: 'retar', nick, minutes, increment, games, color: document.querySelector('input[name="rt-color"]:checked').value })) $('rt-send').disabled = true;
   else note('Sin conexión con el servidor. Espera un momento y vuelve a probar.', true);
 });
 $('rt-online').addEventListener('click', e => { const li = e.target.closest('li[data-nick]'); if (li) pick(li.dataset.nick); });
@@ -112,6 +113,14 @@ function listKeys(e) {
 }
 $('rt-search').addEventListener('keydown', listKeys);
 $('rt-online').addEventListener('keydown', listKeys);
+// Match: el número de partidas solo se elige con el interruptor encendido.
+function renderMatch() {
+  const on = $('rt-match').checked;
+  $('rt-games').disabled = !on;
+  $('rt-match-d').textContent = on ? `Match a ${$('rt-games').value} partidas seguidas contra el mismo rival, alternando colores.` : 'Desactivado: una sola partida. Activado: varias seguidas, alternando colores.';
+}
+$('rt-match').addEventListener('change', renderMatch);
+$('rt-games').addEventListener('change', renderMatch);
 $('rt-cancel').addEventListener('click', () => { if (waiting) send({ type: 'cancelar', id: waiting.id }); stopWaiting('Reto cancelado.'); });
 $('rt-enter').addEventListener('click', () => openAuth('entrar'));
 $('rt-register').addEventListener('click', () => openAuth('registro'));

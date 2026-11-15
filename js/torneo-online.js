@@ -1,6 +1,6 @@
 import { Chess } from '../assets/chess/chess.js';
-import { session, currentUser, openAuth } from './cuenta.js?v=20261115-ritmos1';
-import { send as sendReto } from './retos.js?v=20261115-ritmos1';
+import { session, currentUser, openAuth } from './cuenta.js?v=20261115-match1';
+import { send as sendReto } from './retos.js?v=20261115-match1';
 
 const $ = id => document.getElementById(id);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -45,7 +45,8 @@ async function request(path, { key, ...options } = {}) {
 const arena = t => t?.format === 'arena';
 const closed = t => t?.format === 'closed';
 function duration(minutes) { return minutes % 60 ? (minutes > 60 ? `${Math.floor(minutes / 60)} h ${minutes % 60} min` : `${minutes} min`) : `${minutes / 60} h`; }
-function formatLabel(t) { return t.challenge ? 'Reto' : arena(t) ? `Arena de ${duration(t.duration)}` : closed(t) ? (t.rounds ? `Cerrado a ${t.rounds} rondas` : 'Cerrado: todos contra todos') : `${t.rounds} rondas`; }
+const isMatch = t => !!t.challenge && t.rounds > 1;
+function formatLabel(t) { return t.challenge ? (isMatch(t) ? `Match a ${t.rounds} partidas` : 'Reto') : arena(t) ? `Arena de ${duration(t.duration)}` : closed(t) ? (t.rounds ? `Cerrado a ${t.rounds} rondas` : 'Cerrado: todos contra todos') : `${t.rounds} rondas`; }
 function date(value) { return new Intl.DateTimeFormat('es', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(value); }
 function name(id) { return state?.standings.find(p => p.id === id)?.name || 'Jugador'; }
 function send(action) {
@@ -252,8 +253,10 @@ function renderDuel(t) {
   const players = [...t.standings].sort((a, b) => (b.id === t.me) - (a.id === t.me));
   const [p, q] = players, wp = t.duel.wins[p?.id] || 0, wq = t.duel.wins[q?.id] || 0, d = t.duel.draws || 0;
   const pts = x => String(x).replace('.5', '½').replace(/^0½$/, '½');
-  const row = (x, w) => `<li class="${x.id === t.me ? 'me' : ''}"><strong>${esc(x.name)}</strong><b>${pts(w + d / 2)}</b></li>`;
-  $('to-duel-body').innerHTML = !p || !q ? '' : `<ul class="to-duel-score">${row(p, wp)}${row(q, wq)}</ul>`;
+  const row = (x, value) => `<li class="${x.id === t.me ? 'me' : ''}"><strong>${esc(x.name)}</strong><b>${pts(value)}</b></li>`;
+  // Match: arriba el resultado de este match; debajo, el historial de todas las partidas entre los dos.
+  const match = isMatch(t) && p && q ? `<p class="to-duel-h">${t.status === 'finished' ? 'Match terminado' : `Match · partida ${Math.max(1, t.round)} de ${t.rounds}`}</p><ul class="to-duel-score">${row(p, p.points)}${row(q, q.points)}</ul><p class="to-duel-h">Historial entre los dos</p>` : '';
+  $('to-duel-body').innerHTML = !p || !q ? '' : `${match}<ul class="to-duel-score${match ? ' small' : ''}">${row(p, wp + d / 2)}${row(q, wq + d / 2)}</ul>`;
 }
 function renderPodium() {
   const t = state, show = !t.challenge && t.status === 'finished' && t.standings.length >= 2;
@@ -456,7 +459,7 @@ function renderControls() {
   $('to-accept').disabled = !connected; $('to-decline').disabled = !connected;
   $('to-all-pgn').hidden = !ended || !t.games.some(g => !g.bye);
   // Reto terminado: cualquiera de los dos puede pedir la revancha (mismo ritmo, colores cambiados).
-  $('to-rematch-box').hidden = !t.challenge || !g || !ownGame || !g.result;
+  $('to-rematch-box').hidden = !t.challenge || !g || !ownGame || !g.result || t.status !== 'finished';
   if ($('to-rematch-box').hidden) { rematch = null; $('to-rematch-msg').textContent = ''; }
   $('to-rematch').textContent = rematch ? 'Cancelar revancha' : 'Revancha';
 }
@@ -467,7 +470,7 @@ $('to-rematch').addEventListener('click', () => {
   const g = state?.game; if (!g) return;
   if (rematch) { sendReto({ type: 'cancelar', id: rematch.id }); rematch = null; rematchNote('Revancha cancelada.'); renderControls(); return; }
   const mine = g.white === state.me ? 'w' : 'b', rival = name(mine === 'w' ? g.black : g.white);
-  if (!sendReto({ type: 'retar', nick: rival, minutes: state.minutes, increment: state.increment, color: mine === 'w' ? 'b' : 'w', revancha: true })) { rematchNote('Sin conexión con el servidor. Espera un momento y vuelve a probar.'); return; }
+  if (!sendReto({ type: 'retar', nick: rival, minutes: state.minutes, increment: state.increment, games: isMatch(state) ? state.rounds : 1, color: mine === 'w' ? 'b' : 'w', revancha: true })) { rematchNote('Sin conexión con el servidor. Espera un momento y vuelve a probar.'); return; }
   $('to-rematch').disabled = true; rematchNote('Enviando…');
 });
 addEventListener('apejupo:retos', ({ detail: m }) => {
@@ -681,7 +684,10 @@ function updateClocks() {
   const now = Date.now() + offset, t = state;
   const me = t.standings.find(p => p.id === t.me);
   // En la sala de espera la cuenta atrás grande ya dice cuándo empieza.
-  $('to-phase').textContent = t.status === 'waiting' || t.challenge ? ''
+  $('to-phase').textContent = isMatch(t) && t.status === 'between' ? `Siguiente partida en ${Math.max(0, Math.ceil((t.nextRoundAt - now) / 1000))} s`
+    : isMatch(t) && t.status === 'playing' ? `Partida ${t.round} de ${t.rounds}`
+    : isMatch(t) && t.status === 'finished' ? 'Match terminado'
+    : t.status === 'waiting' || t.challenge ? ''
     : arena(t) && t.status === 'playing' ? (now >= t.endsAt ? 'Tiempo cumplido: las partidas en juego se terminan, pero ya no cuentan' : t.pairingsCloseAt && now >= t.pairingsCloseAt ? (me?.active && !me.playing ? 'Ya no hay emparejamientos nuevos' : '') : me?.active && !me.playing && !me.paused ? 'Buscando rival…' : '')
     : t.status === 'between' ? `Siguiente ronda en ${Math.max(0, Math.ceil((t.nextRoundAt - now) / 1000))} s` : t.status === 'playing' ? `Ronda ${t.round} de ${t.rounds}` : t.status === 'finished' ? 'Clasificación final' : 'Torneo cancelado';
   // Cuenta atrás grande del arena, como en Lichess.

@@ -410,3 +410,28 @@ test('arena: entre los libres prefiere a quien no ha sido rival reciente', () =>
   const mine = t.games.slice(-2).find(g => g.white === a || g.black === a);
   assert.ok([mine.white, mine.black].includes(d)); // ni C (la última) ni B (la anterior): D
 });
+
+test('match entre dos a 3 partidas: no se limitan las rondas, colores alternos y pausa corta entre partidas', () => {
+  const t = createTournament({ title: 'Match a 3: A – B', format: 'swiss', minutes: 1, increment: 1, rounds: 3, capacity: 2 }, 'c'.repeat(24), 'host', NOW);
+  const a = joinTournament(t, 'Ana', 'secret-a', NOW), b = joinTournament(t, 'Beto', 'secret-b', NOW);
+  t.challenge = { white: b.id };
+  startTournament(t, NOW);
+  assert.equal(t.rounds, 3);
+  const colors = [];
+  let now = NOW;
+  for (let round = 1; round <= 3; round++) {
+    const g = t.games.find(x => x.round === round);
+    assert.ok(g, 'partida de la ronda ' + round);
+    colors.push(g.white === b.id ? 'B' : 'A');
+    act(t, g.black, false, { type: 'resign', game: g.id }, now += 1000);
+    if (round < 3) {
+      assert.equal(t.status, 'between');
+      assert.ok(t.nextRoundAt - now <= 10000, 'pausa corta entre partidas');
+      advance(t, now = t.nextRoundAt);
+      assert.equal(t.status, 'playing');
+    }
+  }
+  assert.deepEqual(colors, ['B', 'A', 'B']);
+  assert.equal(t.status, 'finished');
+  assert.equal(t.games.length, 3);
+});

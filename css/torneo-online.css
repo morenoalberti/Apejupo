@@ -410,6 +410,9 @@ body.to-focus .to-game-actions { padding-top: 12px; border-top: 1px solid var(--
 
 /* Reto: marcador entre los dos jugadores */
 .to-duel-score { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.to-duel-h { margin: 0 0 6px; color: var(--muted); font-size: .8rem; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+.to-duel-score + .to-duel-h { margin-top: 14px; }
+.to-duel-score.small { font-size: .85rem; opacity: .85; }
 .to-duel-score li { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .to-duel-score strong { min-width: 0; overflow-wrap: anywhere; font-size: .95rem; line-height: 1.3; }
 .to-duel-score .me strong { color: var(--blue); }

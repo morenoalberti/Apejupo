@@ -88,7 +88,7 @@ function showDialog(c) {
   }
   current = c;
   dialog.querySelector('#rt-title').innerHTML = c.revancha ? `<b>${esc(c.from)}</b> te pide la revancha` : `<b>${esc(c.from)}</b> te reta a una partida`;
-  dialog.querySelector('#rt-detail').innerHTML = `Ritmo <b>${c.minutes}' + ${c.increment}"</b> · ${colorText(c)}`;
+  dialog.querySelector('#rt-detail').innerHTML = `Ritmo <b>${c.minutes}' + ${c.increment}"</b>${c.games > 1 ? ` · <b>Match a ${c.games} partidas</b>` : ''} · ${colorText(c)}`;
   const yes = dialog.querySelector('#rt-yes'), no = dialog.querySelector('#rt-no');
   yes.disabled = false; no.disabled = false; yes.textContent = 'Aceptar';
   dialogNote('');

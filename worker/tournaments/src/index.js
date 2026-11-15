@@ -87,15 +87,22 @@ export class TournamentRoom extends DurableObject {
     });
     ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair('ping', 'pong'));
   }
-  // Reto terminado: se anota en el marcador de las dos cuentas (una sola vez) y se trae el total.
+  // Cada partida terminada de un reto (o de un match) se anota una sola vez en el marcador de las dos cuentas y se trae el total.
   async recordDuel() {
-    const c = this.t.challenge, g = this.t.games.find(x => !x.bye);
-    if (!c || c.recorded || this.t.status !== 'finished' || !g?.result) return;
+    const c = this.t.challenge;
+    if (!c) return;
+    const done = new Set(c.recordedRounds || (c.recorded ? [1] : []));
     const account = id => this.t.players.find(p => p.id === id)?.accountId;
-    try {
-      const res = await this.env.ACCOUNTS.getByName('cuentas').fetch('https://cuentas/duelo-anotar', { method: 'POST', body: JSON.stringify({ room: this.t.id, white: account(g.white), black: account(g.black), result: g.result }) });
-      if (res.ok) { c.score = await res.json(); c.recorded = true; }
-    } catch (error) { console.warn('No se pudo anotar el reto:', error.message); }
+    for (const g of this.t.games) {
+      if (g.bye || !g.result || done.has(g.round)) continue;
+      // La primera partida usa el id de la sala, como los retos de una sola partida; las siguientes, sala-ronda.
+      const room = g.round === 1 ? this.t.id : `${this.t.id}-${g.round}`;
+      try {
+        const res = await this.env.ACCOUNTS.getByName('cuentas').fetch('https://cuentas/duelo-anotar', { method: 'POST', body: JSON.stringify({ room, white: account(g.white), black: account(g.black), result: g.result }) });
+        if (res.ok) { c.score = await res.json(); done.add(g.round); }
+      } catch (error) { console.warn('No se pudo anotar el reto:', error.message); }
+    }
+    c.recordedRounds = [...done];
   }
   async save() {
     await this.recordDuel();

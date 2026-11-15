@@ -4,6 +4,8 @@ import { toTrf, parsePairs, orderByRating } from './swiss-dutch.js';
 // Comprobado con la prueba de carga: 128 jugadores y 32 espectadores sin retrasos apreciables.
 export const MAX_PLAYERS = 128;
 export const BREAK_MS = 30000;
+// Match entre dos (reto a varias partidas): pausa corta entre una partida y la siguiente.
+export const MATCH_BREAK_MS = 10000;
 export const RETENTION_MS = 30 * 86400000;
 const INITIAL_FEN = new Chess().fen();
 const engines = new WeakMap();
@@ -48,7 +50,7 @@ export function createTournament(input, id, hostHash, now = Date.now()) {
   const duration = format === 'arena' ? Number(input.duration) : null;
   requireThat(title.length >= 4, 'El nombre del torneo debe tener al menos 4 caracteres.');
   requireThat([1, 2, 3, 5, 10, 15].includes(minutes), 'Elige un ritmo válido.');
-  requireThat([0, 2, 3, 5, 10].includes(increment), 'Elige un incremento válido.');
+  requireThat([0, 1, 2, 3, 5, 10].includes(increment), 'Elige un incremento válido.');
   if (format === 'arena') {
     requireThat(ARENA_DURATIONS.includes(duration), 'Elige una duración válida.');
     requireThat(duration >= minutes * 3, 'La duración debe dar para varias partidas: al menos el triple de los minutos por jugador.');
@@ -263,7 +265,16 @@ function swissPairs(t) {
   }
   return { ...pairRound(t), fide: false };
 }
+// Reto entre dos cuentas: el color de la primera partida lo decide quien reta (o el azar), no el emparejador;
+// en un match a varias partidas los colores se alternan en cada una.
+function beginChallengeRound(t, now) {
+  const [a, b] = t.players, first = t.players.find(p => p.id === t.challenge.white) || a, second = first === a ? b : a;
+  t.round++;
+  t.nextRoundAt = null; t.status = 'playing'; t.notice = ''; t.pairing = null;
+  t.games.push(t.round % 2 ? newGame(t, first, second, now) : newGame(t, second, first, now));
+}
 export function beginRound(t, now) {
+  if (t.challenge) return beginChallengeRound(t, now);
   if (isClosed(t)) return beginClosedRound(t, now);
   const { pairs, bye, repeated, fide } = swissPairs(t);
   if (!pairs.length) { finishTournament(t, now); return; }
@@ -284,7 +295,8 @@ export function startTournament(t, now = Date.now()) {
   requireThat(t.players.length >= 2, 'Se necesitan al menos dos jugadores.');
   const n = t.players.length;
   if (isClosed(t)) t.rounds = n % 2 ? n : n - 1;
-  else if (!isArena(t)) t.rounds = Math.min(t.rounds, n % 2 ? n : n - 1);
+  // Un reto (también a varias partidas) enfrenta siempre a los mismos dos: no se limitan las rondas.
+  else if (!isArena(t) && !t.challenge) t.rounds = Math.min(t.rounds, n % 2 ? n : n - 1);
   if (isArena(t) || isClosed(t)) {
     // Sorteo de los números iniciales, independiente del orden de inscripción.
     const random = new Uint32Array(n); crypto.getRandomValues(random);
@@ -299,9 +311,6 @@ export function startTournament(t, now = Date.now()) {
     return;
   }
   beginRound(t, now);
-  // Reto entre dos cuentas: el color lo decide quien reta (o el azar), no el emparejador.
-  const g = t.challenge && t.games[0];
-  if (g && g.white !== t.challenge.white) [g.white, g.black] = [g.black, g.white];
 }
 function finishTournament(t, now) {
   t.status = 'finished'; t.finishedAt = now; t.nextRoundAt = null;
@@ -315,7 +324,7 @@ export function afterResults(t, now) {
   }
   if (t.status !== 'playing' || t.games.some(g => g.round === t.round && !g.result)) return;
   if (t.round >= t.rounds || t.players.filter(p => p.active).length < 2) finishTournament(t, now);
-  else { t.status = 'between'; t.nextRoundAt = now + BREAK_MS; }
+  else { t.status = 'between'; t.nextRoundAt = now + (t.challenge ? MATCH_BREAK_MS : BREAK_MS); }
 }
 function chessFor(g) {
   const cached = engines.get(g);

@@ -8,11 +8,12 @@ export const RETO_MS = 60000;            // un reto sin respuesta caduca al minu
 const PRESENCE_MS = 75000;               // el navegador manda «ping» cada 30 s
 const START_GRACE_MS = 30000;            // si alguno no llega al tablero, la partida empieza igual pasado este margen
 const MINUTES = [1, 2, 3, 5, 10, 15], INCREMENTS = [0, 1, 2, 3, 5, 10], COLORS = ['w', 'b', 'azar'];
+const MAX_GAMES = 9; // match: de 2 a 9 partidas seguidas entre los dos (1 = reto normal)
 
 const hex = n => [...crypto.getRandomValues(new Uint8Array(n))].map(b => b.toString(16).padStart(2, '0')).join('');
 async function sha(value) { return [...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value)))].map(b => b.toString(16).padStart(2, '0')).join(''); }
 const key = nick => String(nick || '').trim().toLocaleLowerCase('es');
-const pub = c => ({ id: c.id, from: c.from.nick, to: c.to.nick, minutes: c.minutes, increment: c.increment, color: c.color, revancha: !!c.revancha, expiresAt: c.expiresAt });
+const pub = c => ({ id: c.id, from: c.from.nick, to: c.to.nick, minutes: c.minutes, increment: c.increment, color: c.color, games: c.games || 1, revancha: !!c.revancha, expiresAt: c.expiresAt });
 
 export class ChallengeHub extends DurableObject {
   constructor(ctx, env) {
@@ -97,6 +98,8 @@ export class ChallengeHub extends DurableObject {
           const minutes = Number(b.minutes), increment = Number(b.increment), color = String(b.color || 'azar');
           requireThat(MINUTES.includes(minutes) && INCREMENTS.includes(increment), 'Elige un ritmo válido.');
           requireThat(COLORS.includes(color), 'Elige un color válido.');
+          const games = b.games === undefined ? 1 : Number(b.games);
+          requireThat(Number.isInteger(games) && games >= 1 && games <= MAX_GAMES, `Un match puede ser de 2 a ${MAX_GAMES} partidas.`);
           requireThat(key(b.nick), 'Escribe el nick del jugador al que quieres retar.');
           requireThat(key(b.nick) !== key(me.nick), 'No puedes retarte a ti mismo.');
           const target = [...this.online(now).values()].find(u => key(u.nick) === key(b.nick));
@@ -105,7 +108,7 @@ export class ChallengeHub extends DurableObject {
           // Un reto pendiente por persona: uno nuevo sustituye al anterior.
           for (const old of list.filter(c => c.from.id === me.id)) this.toUser(old.to.id, { type: 'retirado', id: old.id, nick: me.nick });
           list = list.filter(c => c.from.id !== me.id);
-          const c = { id: hex(8), from: me, fromTag: a.tag, to: target, minutes, increment, color, revancha: b.revancha === true, createdAt: now, expiresAt: now + RETO_MS };
+          const c = { id: hex(8), from: me, fromTag: a.tag, to: target, minutes, increment, color, games, revancha: b.revancha === true, createdAt: now, expiresAt: now + RETO_MS };
           list.push(c); await this.save(list);
           this.toUser(target.id, { type: 'reto', reto: pub(c) });
           this.toUser(me.id, { type: 'enviado', reto: pub(c) });
@@ -152,7 +155,8 @@ export class ChallengeHub extends DurableObject {
   }
   async createGame(c, now) {
     const id = hex(12), tokens = { from: hex(32), to: hex(32) };
-    const t = createTournament({ title: `${c.revancha ? 'Revancha' : 'Reto'}: ${c.from.nick} – ${c.to.nick}`, format: 'swiss', minutes: c.minutes, increment: c.increment, rounds: 1, capacity: 2 }, id, await sha(hex(32)), now);
+    const games = c.games || 1, kind = games > 1 ? `Match a ${games}` : c.revancha ? 'Revancha' : 'Reto';
+    const t = createTournament({ title: `${kind}: ${c.from.nick} – ${c.to.nick}`, format: 'swiss', minutes: c.minutes, increment: c.increment, rounds: games, capacity: 2 }, id, await sha(hex(32)), now);
     const pf = joinTournament(t, '', await sha(tokens.from), now, '', c.from);
     const pt = joinTournament(t, '', await sha(tokens.to), now, '', c.to);
     const fromWhite = c.color === 'w' ? true : c.color === 'b' ? false : crypto.getRandomValues(new Uint8Array(1))[0] < 128;

@@ -10,7 +10,7 @@
 <link rel="icon" type="image/svg+xml" href="assets/icon.svg">
 <link rel="stylesheet" href="css/style.css?v=20261112-torneo">
 <link rel="stylesheet" href="css/cuenta.css?v=20261114-retos1">
-<link rel="stylesheet" href="css/retar.css?v=20261115-jugadores1">
+<link rel="stylesheet" href="css/retar.css?v=20261115-match1">
 <script defer src="js/analytics.js?v=20261111-analytics"></script>
 </head>
 <body>
@@ -35,12 +35,21 @@
     <form id="rt-form" autocomplete="off">
       <label for="rt-nick">Nick del rival</label>
       <input id="rt-nick" list="rt-nicks" maxlength="20" required placeholder="Por ejemplo: MariaGM"><datalist id="rt-nicks"></datalist>
-      <label for="rt-pace">Ritmo</label>
-      <select id="rt-pace">
-        <optgroup label="Bala"><option value="1+0">1' + 0"</option><option value="1+1">1' + 1"</option><option value="2+0">2' + 0"</option><option value="2+1">2' + 1"</option></optgroup>
-        <optgroup label="Relámpago"><option value="3+0">3' + 0"</option><option value="3+2" selected>3' + 2"</option><option value="5+0">5' + 0"</option><option value="5+3">5' + 3"</option></optgroup>
-        <optgroup label="Rápidas"><option value="10+0">10' + 0"</option><option value="10+5">10' + 5"</option><option value="15+10">15' + 10"</option></optgroup>
-      </select>
+      <div class="rt-row">
+        <div class="rt-field"><label for="rt-pace">Ritmo</label>
+        <select id="rt-pace">
+          <optgroup label="Bala"><option value="1+0">1' + 0"</option><option value="1+1">1' + 1"</option><option value="2+0">2' + 0"</option><option value="2+1">2' + 1"</option></optgroup>
+          <optgroup label="Relámpago"><option value="3+0">3' + 0"</option><option value="3+2" selected>3' + 2"</option><option value="5+0">5' + 0"</option><option value="5+3">5' + 3"</option></optgroup>
+          <optgroup label="Rápidas"><option value="10+0">10' + 0"</option><option value="10+5">10' + 5"</option><option value="15+10">15' + 10"</option></optgroup>
+        </select></div>
+        <div class="rt-field"><span class="rt-label" id="rt-match-l">Match</span>
+          <div class="rt-match">
+            <label class="rt-switch" title="Jugar varias partidas seguidas contra el mismo rival"><input type="checkbox" id="rt-match" role="switch" aria-labelledby="rt-match-l" aria-describedby="rt-match-d"><span aria-hidden="true"></span></label>
+            <select id="rt-games" aria-label="Número de partidas del match" disabled><option value="2">2 partidas</option><option value="3">3 partidas</option><option value="4" selected>4 partidas</option><option value="5">5 partidas</option><option value="6">6 partidas</option><option value="7">7 partidas</option><option value="8">8 partidas</option><option value="9">9 partidas</option></select>
+          </div>
+        </div>
+      </div>
+      <small id="rt-match-d" class="muted rt-match-d">Desactivado: una sola partida. Activado: varias seguidas, alternando colores.</small>
       <fieldset class="rt-colors"><legend>Juegas con</legend>
         <label><input type="radio" name="rt-color" value="azar" checked><span><span class="rt-pz" aria-hidden="true"><img src="assets/pieces/wK.png" alt="" width="20" height="20"><img src="assets/pieces/bK.png" alt="" width="20" height="20"></span>Al azar</span></label>
         <label><input type="radio" name="rt-color" value="w"><span><span class="rt-pz" aria-hidden="true"><img src="assets/pieces/wK.png" alt="" width="20" height="20"></span>Blancas</span></label>
@@ -81,6 +90,6 @@
 <script src="js/menu.js?v=20261113-menus"></script>
 <script src="js/util.js?v=20261113-menus"></script>
 <script src="js/torneo-config.js?v=20261114-publicado"></script>
-<script type="module" src="js/retar.js?v=20261115-jugadores1"></script>
+<script type="module" src="js/retar.js?v=20261115-match1"></script>
 </body>
 </html>
