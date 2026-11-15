@@ -3,7 +3,6 @@ main = "src/index.js"
 compatibility_date = "2026-11-01"
 
 # Servicio independiente. No modifica el Worker de fotos, noticias ni Elo.
-# TORNEOS_CLAVE se configura como secreto antes de una futura publicación.
 [vars]
 SITE_URL = "https://apejupo.com"
 ALLOWED_ORIGINS = "https://apejupo.com,https://www.apejupo.com,http://127.0.0.1:8080,http://localhost:8080,http://127.0.0.1:8087,http://localhost:8087"

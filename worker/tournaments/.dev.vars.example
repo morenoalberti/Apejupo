@@ -1,0 +1,13 @@
+# Plantilla de worker/tournaments/.dev.vars (solo local). Copia este fichero como .dev.vars y pon tus claves.
+# En producción, CUENTAS_ADMIN y RESEND_API_KEY son secretos: npx wrangler secret put NOMBRE (desde esta carpeta).
+# Límite de torneos creados al mes (en producción, 200 si no se configura).
+TORNEOS_MAX_MES="1000"
+# Dirección de la web en local (enlaces de los correos).
+SITE_URL="http://localhost:8080"
+# Solo local: las respuestas de registro/recuperación incluyen el enlace del correo, que además sale en la consola.
+# Nunca configurarlo en producción.
+CUENTAS_DESARROLLO="1"
+# Clave de Resend para enviar correos (opcional en local: sin ella, los correos salen en la consola).
+RESEND_API_KEY="re_..."
+# Clave de la página admin-usuarios.html (mínimo 12 caracteres). En producción, una distinta.
+CUENTAS_ADMIN="cambia-esto-12-caracteres"

@@ -1,0 +1,6 @@
+# Plantilla de worker/.dev.vars (solo local). Copia este fichero como .dev.vars y pon tus claves.
+# En producción son secretos de Cloudflare: npx wrangler secret put NOMBRE --config worker/wrangler.toml
+# Clave del club para subir fotos.
+FOTOS_CLAVE="cambia-esto"
+# Clave de administración para borrar fotos.
+FOTOS_ADMIN="cambia-esto-tambien"

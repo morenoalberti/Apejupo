@@ -15,12 +15,12 @@ En otra terminal:
 ```powershell
 cd worker/tournaments
 npm ci
-# Solo desarrollo: crear .dev.vars si aún no existe.
-Set-Content .dev.vars 'TORNEOS_CLAVE="apejupo-local"'
+# Solo desarrollo: crear .dev.vars a partir de la plantilla si aún no existe.
+if (-not (Test-Path .dev.vars)) { Copy-Item .dev.vars.example .dev.vars }
 npm run dev
 ```
 
-Abrir `http://127.0.0.1:8087/jugar-torneo.html`. La clave del ejemplo solo sirve para el servidor local. `.dev.vars` está excluido de Git. No reutilizarla al publicar. La configuración también permite la web en el puerto 8080.
+Abrir `http://127.0.0.1:8087/jugar-torneo.html`. `.dev.vars.example` muestra todas las variables; cambia sus claves, que solo sirven para el servidor local. `.dev.vars` está excluido de Git. No reutilizar esas claves al publicar. La configuración también permite la web en el puerto 8080.
 
 ## Organizar torneos
 

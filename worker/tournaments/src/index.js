@@ -12,7 +12,6 @@ const PRESENCE_MS = 75000;
 const BROADCAST_MS = 300;
 // Jugadores, espectadores y pestañas de tableros conectados a la vez a un mismo torneo.
 const MAX_SOCKETS = 400;
-const keyRequired = env => env.TORNEOS_SIN_CLAVE !== '1';
 
 const TOKEN = /^[a-f0-9]{64}$/;
 const ROOM_ID = /^[a-f0-9]{24}$/;
@@ -38,23 +37,6 @@ export class TournamentDirectory extends DurableObject {
       try {
         const url = new URL(request.url), now = Date.now();
         let events = (await this.ctx.storage.get('events') || []).filter(e => now - e.createdAt < RETENTION_MS);
-        if (url.pathname === '/authorize') {
-          // Solo para pruebas locales (.dev.vars). Sin esa variable, la clave es obligatoria.
-          if (!keyRequired(this.env)) return json({ ok: true });
-          requireThat(this.env.TORNEOS_CLAVE, 'La organización de torneos aún no está configurada.', 503);
-          const { key, ip } = await body(request), rateKey = 'attempts:' + (await hash(String(ip || 'unknown'))).slice(0, 24);
-          let rate = await this.ctx.storage.get(rateKey) || { count: 0, until: now + 900000 };
-          if (rate.until <= now) rate = { count: 0, until: now + 900000 };
-          requireThat(rate.count < 8, 'Demasiados intentos. Espera 15 minutos.', 429);
-          const good = (await hash(String(key || ''))) === (await hash(this.env.TORNEOS_CLAVE));
-          if (!good) {
-            rate.count++; await this.ctx.storage.put(rateKey, rate);
-            await this.ctx.storage.setAlarm(now + 900000);
-            throw new GameError('La clave de organización no es correcta.', 403);
-          }
-          await this.ctx.storage.delete(rateKey);
-          return json({ ok: true });
-        }
         if (request.method === 'GET') {
           const results = await Promise.all(events.map(async e => {
             try {
