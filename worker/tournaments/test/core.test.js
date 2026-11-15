@@ -437,4 +437,5 @@ test('match entre dos a 3 partidas: no se limitan las rondas, colores alternos y
   assert.equal(createTournament({ title: 'Match a 20: A – B', minutes: 1, increment: 0, rounds: 20, capacity: 2, match: true }, 'd'.repeat(24), 'h', NOW).rounds, 20);
   assert.throws(() => createTournament({ title: 'Match a 21: A – B', minutes: 1, increment: 0, rounds: 21, capacity: 2, match: true }, 'd'.repeat(24), 'h', NOW), /20 partidas/);
   assert.throws(() => createTournament({ title: 'Suizo de 20 rondas', minutes: 1, increment: 0, rounds: 20, capacity: 2 }, 'd'.repeat(24), 'h', NOW), /9 rondas/);
+  assert.throws(() => createTournament({ title: 'Suizo disfrazado de match', minutes: 1, increment: 0, rounds: 20, capacity: 32, match: true }, 'd'.repeat(24), 'h', NOW), /dos jugadores/);
 });

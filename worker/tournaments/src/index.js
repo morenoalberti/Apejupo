@@ -55,7 +55,8 @@ export class TournamentDirectory extends DurableObject {
           requireThat(events.length < (Number(this.env.TORNEOS_MAX_MES) || 200), 'Se ha alcanzado el límite de torneos de este mes. Contacta con la organización.', 429);
           requireThat(TOKEN.test(b.hostToken), 'Identificación del organizador no válida.');
           const id = randomHex(), hostHash = await hash(b.hostToken);
-          const t = createTournament(b, id, hostHash, now);
+          // El match a varias partidas es solo para los retos personales: aquí nunca se acepta.
+          const t = createTournament({ ...b, match: false }, id, hostHash, now);
           t.hostAccountId = host.id; t.hostNick = host.nick;
           const res = await this.env.TOURNAMENTS.getByName(id).fetch('https://room/init', { method: 'POST', body: JSON.stringify(t) });
           requireThat(res.ok, 'No se pudo crear el torneo.', 503);
@@ -212,7 +213,7 @@ export class TournamentRoom extends DurableObject {
         if (url.pathname === '/config' || url.pathname === '/edit') {
           // Solo el organizador: /config devuelve los datos para rellenar el formulario; /edit los cambia.
           requireThat(TOKEN.test(b.hostToken) && this.isHost(await hash(b.hostToken)), 'Solo el organizador puede editar el torneo.', 403);
-          if (url.pathname === '/edit') { editTournament(this.t, b, Date.now()); await this.save(); this.broadcast(); }
+          if (url.pathname === '/edit') { editTournament(this.t, { ...b, match: false }, Date.now()); await this.save(); this.broadcast(); }
           return json({ ...summary(this.t), joinKey: this.t.joinKey || '' });
         }
         if (url.pathname === '/delete') {
