@@ -12,3 +12,6 @@ worker/tournaments/.wrangler/
 
 # Notas locales con claves: nunca al repositorio
 Claves*.txt
+# Copias de .dev.vars (p. ej. «Fichero .dev.vars.txt»): nunca al repositorio. Las plantillas sí.
+*.dev.vars*
+!.dev.vars.example
