@@ -423,3 +423,9 @@ body.to-focus .to-game-actions { padding-top: 12px; border-top: 1px solid var(--
 /* Reto: columna del marcador más estrecha (en móvil va debajo del tablero, a todo el ancho) */
 @media (min-width: 761px) { .to-challenge .to-room-layout { grid-template-columns: minmax(0, 1fr) 230px; } }
 .to-challenge .to-duel { padding: 16px; }
+
+/* Estado en la clasificación del arena: verde parpadeante = jugando, gris = sin partida ahora */
+.to-state { display: inline-block; width: 9px; height: 9px; margin-right: 7px; border-radius: 50%; vertical-align: 1px; background: #94a3b8; }
+.to-state.on { background: #22c55e; box-shadow: 0 0 0 3px #22c55e33; animation: to-blink 1.2s ease-in-out infinite; }
+@keyframes to-blink { 50% { opacity: .25; } }
+@media (prefers-reduced-motion: reduce) { .to-state.on { animation: none; } }
