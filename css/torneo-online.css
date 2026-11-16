@@ -697,10 +697,7 @@ body.to-pz-managing #to-standings-panel { display: none; }
 .to-pt-pending { color: var(--muted); }
 .to-pt tr.to-pt-bye td { background: color-mix(in srgb, #db9f38 8%, transparent); }
 .to-pt-rest { color: #dc2626; font-weight: 600; }
-.to-main .to-pt-select { min-height: 32px; width: 78px; padding: 3px 6px; border-radius: 9px; font-weight: 800; text-align: center; cursor: pointer; color: var(--muted); border: 1px solid var(--line); background: linear-gradient(180deg, color-mix(in srgb, var(--card) 85%, #fff 15%), var(--card)); box-shadow: 0 1px 0 #ffffff1a inset, 0 2px 5px -2px #0f1b2d66; }
-.to-main .to-pt-select.set { color: #c2410c; border-color: color-mix(in srgb, #c2410c 45%, var(--line)); }
-.to-main .to-pt-select:focus { outline: 2px solid var(--blue); outline-offset: 1px; }
-@media (prefers-color-scheme: dark) { .to-pt-score, .to-main .to-pt-select.set { color: #ff9b6b; } .to-pt-rest { color: #ff8a80; } }
+@media (prefers-color-scheme: dark) { .to-pt-score { color: #ff9b6b; } .to-pt-rest { color: #ff8a80; } }
 @media (max-width: 600px) {
   .to-pt { font-size: .82rem; }
   .to-pt td, .to-pt thead th, .to-pt-round th { padding: 6px 5px; }
@@ -711,7 +708,6 @@ body.to-pz-managing #to-standings-panel { display: none; }
   .to-pt-res { width: 62px; }
   .to-pt-name { min-width: 0; }
   .to-pt-name .flag { display: none; }
-  .to-main .to-pt-select { width: 58px; padding: 3px 2px; }
 }
 /* Pestañas del organizador con el torneo en marcha: Rondas / Jugadores */
 .to-pz-tabs { display: inline-flex; gap: 4px; padding: 4px; margin: 2px 0 12px; border-radius: 14px; background: color-mix(in srgb, var(--text) 6%, transparent); box-shadow: 0 1px 3px #0f1b2d55 inset; }
@@ -720,5 +716,15 @@ body.to-pz-managing #to-standings-panel { display: none; }
 .to-main .to-pz-tabs button[aria-selected="true"] { color: #fff; border-color: #2556c4; background: linear-gradient(180deg, #5b9dff, #2f6ae0); box-shadow: 0 1px 0 #ffffff55 inset, 0 6px 14px -6px #2f63d6; }
 .to-pz-out { padding: 2px 8px; border-radius: 99px; font-size: .74rem; font-weight: 700; color: #dc2626; background: #dc262618; }
 .to-main .to-pz-tool.small { min-height: 34px; padding: 5px 11px; font-size: .84rem; }
-.to-main .to-pt-select.wide { width: 98px; }
-@media (max-width: 600px) { .to-main .to-pt-select.wide { width: 78px; font-size: .78rem; } }
+/* Cuadro de resultados al pulsar una mesa */
+.to-pt tr.to-pt-edit { cursor: pointer; }
+.to-pt tr.to-pt-edit:hover td, .to-pt tr.to-pt-open td { background: color-mix(in srgb, var(--blue) 12%, transparent); }
+.to-pt tr.to-pt-edit:focus-visible { outline: 2px solid var(--blue); outline-offset: -2px; }
+.to-pt tr.to-pt-edit .to-pt-pending { padding: 3px 10px; border-radius: 8px; font-size: .78rem; font-weight: 700; color: var(--blue); border: 1px dashed color-mix(in srgb, var(--blue) 55%, transparent); }
+.to-pt-pop { position: fixed; z-index: 60; display: grid; gap: 2px; width: 168px; padding: 10px 8px 8px; border: 1px solid var(--line); border-radius: 14px; background: var(--card); color: var(--text); box-shadow: 0 24px 48px -12px #0b1422cc, 0 1px 0 #ffffff12 inset; animation: to-pt-pop .12s ease-out; }
+@keyframes to-pt-pop { from { opacity: 0; transform: translateY(-4px) scale(.98); } }
+.to-pt-pop strong { text-align: center; font-size: .9rem; color: var(--blue); }
+.to-pt-pop small { margin: 0 0 6px; text-align: center; font-size: .72rem; color: var(--muted); overflow-wrap: anywhere; }
+.to-pt-pop button { min-height: 34px; border: 1px solid transparent; border-radius: 9px; background: transparent; color: var(--text); font: inherit; font-weight: 700; font-variant-numeric: tabular-nums; cursor: pointer; }
+.to-pt-pop button:hover, .to-pt-pop button:focus-visible { outline: none; background: color-mix(in srgb, var(--blue) 14%, transparent); border-color: color-mix(in srgb, var(--blue) 35%, transparent); }
+.to-pt-pop button.on { color: #fff; border-color: #2556c4; background: linear-gradient(180deg, #5b9dff, #2f6ae0); }

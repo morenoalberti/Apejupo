@@ -16,6 +16,7 @@ const pieceNames = { k: 'rey', q: 'dama', r: 'torre', b: 'alfil', n: 'caballo', 
 const images = new Map();
 let state = null, socket = null, reconnectTimer = null, heartbeat = null, retry = 0, lastReceived = 0;
 let connected = false, pending = false, offset = 0, selected = null, flipped = false, manualFlip = false;
+let ptOptions = []; // resultados posibles de la mesa (según el formato), para el cuadro de resultados
 let presencialFilter = 'all', presencialView = 'rounds'; // pestañas del organizador con el torneo en marcha // tabla de rondas presenciales: todas o una
 let boardKey = '', lastRound = null, viewedRound = null, replay = null, replayPly = null, promotion = null;
 let confirmResolve = null, dropped = null, lobby = new Map();
@@ -527,6 +528,7 @@ function renderPresencial() {
   const options = games2 ? [['2-0', '2-0'], ['1.5-0.5', '1,5-0,5'], ['1-1', '1-1'], ['0.5-1.5', '0,5-1,5'], ['0-2', '0-2'], ['+-', '+-'], ['-+', '-+']]
     : [['1-0', '1-0'], ['1/2-1/2', '½-½'], ['0-1', '0-1'], ['+-', '+-'], ['-+', '-+']];
   const score = r => r ? (options.find(([v]) => v === r)?.[1] || r.replace('1/2-1/2', '½-½')) : '';
+  ptOptions = options;
   const whitePts = r => ({ '2-0': 2, '1.5-0.5': 1.5, '1-1': 1, '0.5-1.5': .5, '0-2': 0, '1-0': perTable, '+-': perTable, '0-1': 0, '-+': 0 })[r] ?? perTable / 2;
   const body = shown.map(r => {
     const games = t.games.filter(g => g.round === r), tables = games.filter(g => !g.bye), byes = games.filter(g => g.bye);
@@ -535,10 +537,9 @@ function renderPresencial() {
     const head = `<tr class="to-pt-round"><th colspan="8">Ronda ${r}${r === t.round && t.status !== 'finished' ? ` <span class="to-pt-state">${pending ? `${pending} ${pending === 1 ? 'resultado pendiente' : 'resultados pendientes'}` : 'completa'}</span>` : ''}</th></tr>`;
     const rows = tables.map((g, i) => {
       const w = info(g.white), b = info(g.black);
-      const result = editable
-        ? `<select class="to-pt-select${g.result ? ' set' : ''}${games2 ? ' wide' : ''}" data-result-game="${g.id}" aria-label="Resultado de la mesa ${i + 1}" ${!connected ? 'disabled' : ''}><option value="">—</option>${options.map(([v, l]) => `<option value="${v}"${g.result === v ? ' selected' : ''}>${l}</option>`).join('')}</select>`
-        : g.result ? `<span class="to-pt-score">${score(g.result)}</span>` : '<span class="to-pt-pending">—</span>';
-      return `<tr class="${g.white === t.me || g.black === t.me ? 'mine' : ''}"><td class="to-pt-num">${i + 1}</td><td class="to-pt-tit">${tit(w)}</td>${cellName(w, g.result && whitePts(g.result) > perTable / 2)}<td class="to-pt-elo">${w.rating || ''}</td><td class="to-pt-res">${result}</td><td class="to-pt-tit">${tit(b)}</td>${cellName(b, g.result && whitePts(g.result) < perTable / 2)}<td class="to-pt-elo">${b.rating || ''}</td></tr>`;
+      const result = g.result ? `<span class="to-pt-score">${score(g.result)}</span>` : `<span class="to-pt-pending">${editable ? 'Anotar' : '—'}</span>`;
+      // El organizador pulsa la fila de la mesa (o Intro sobre ella) y sale el cuadro de resultados.
+      return `<tr class="${g.white === t.me || g.black === t.me ? 'mine' : ''}${editable ? ' to-pt-edit' : ''}"${editable ? ` data-pt-game="${g.id}" data-pt-table="${i + 1}" tabindex="0" role="button" aria-haspopup="dialog" aria-label="Mesa ${i + 1}: ${esc(w.name)} contra ${esc(b.name)}. Anotar resultado"` : ''}><td class="to-pt-num">${i + 1}</td><td class="to-pt-tit">${tit(w)}</td>${cellName(w, g.result && whitePts(g.result) > perTable / 2)}<td class="to-pt-elo">${w.rating || ''}</td><td class="to-pt-res">${result}</td><td class="to-pt-tit">${tit(b)}</td>${cellName(b, g.result && whitePts(g.result) < perTable / 2)}<td class="to-pt-elo">${b.rating || ''}</td></tr>`;
     }).join('');
     const rests = byes.map(g => { const w = info(g.white);
       return `<tr class="to-pt-bye${g.white === t.me ? ' mine' : ''}"><td class="to-pt-num"></td><td class="to-pt-tit">${tit(w)}</td>${cellName(w, false)}<td class="to-pt-elo">${w.rating || ''}</td><td class="to-pt-res"><span class="to-pt-score">${g.rest ? '0' : perTable}</span></td><td class="to-pt-tit"></td><td class="to-pt-name to-pt-rest" colspan="2">${g.rest ? 'Descansa' : /retirad/i.test(g.reason || '') ? 'Rival retirado' : 'Descansa'}</td></tr>`; }).join('');
@@ -1328,10 +1329,37 @@ $('to-pz-tabs').addEventListener('click', event => {
   presencialView = b.dataset.pzView; renderPresencial();
 });
 $('to-presencial-round').addEventListener('change', event => { presencialFilter = event.target.value; renderPresencial(); });
-$('to-presencial-matches').addEventListener('change', event => {
-  const select = event.target.closest('select[data-result-game]');
-  if (select) send({ type: 'presencial-result', game: select.dataset.resultGame, result: select.value || null });
-});
+// Cuadro de resultados (como en RondaSwiss): sale junto a la mesa pulsada.
+function closeResultPop() { $('to-pt-pop')?.remove(); document.querySelector('tr.to-pt-open')?.classList.remove('to-pt-open'); }
+function openResultPop(row) {
+  closeResultPop();
+  const g = state.games.find(g => g.id === row.dataset.ptGame); if (!g) return;
+  row.classList.add('to-pt-open');
+  const pop = document.createElement('div');
+  pop.id = 'to-pt-pop'; pop.className = 'to-pt-pop'; pop.setAttribute('role', 'dialog'); pop.setAttribute('aria-label', `Resultado de la mesa ${row.dataset.ptTable}`);
+  pop.innerHTML = `<strong>Resultados</strong><small>Mesa ${esc(row.dataset.ptTable)} · ${esc(name(g.white))} – ${esc(name(g.black))}</small>`
+    + [...ptOptions, ['', '-']].map(([v, l]) => `<button type="button" data-pt-value="${v}" class="${(g.result || '') === v ? 'on' : ''}"${v ? '' : ' title="Sin resultado"'}>${l}</button>`).join('');
+  document.body.append(pop);
+  // Debajo de la casilla de resultado; si no cabe, encima.
+  const cell = row.querySelector('.to-pt-res').getBoundingClientRect(), h = pop.offsetHeight, w = pop.offsetWidth;
+  const top = cell.bottom + 6 + h > innerHeight ? Math.max(8, cell.top - 6 - h) : cell.bottom + 6;
+  pop.style.top = top + 'px'; pop.style.left = Math.min(innerWidth - w - 8, Math.max(8, cell.left + cell.width / 2 - w / 2)) + 'px';
+  (pop.querySelector('.on') || pop.querySelector('button')).focus();
+  pop.addEventListener('click', event => {
+    const b = event.target.closest('[data-pt-value]'); if (!b) return;
+    send({ type: 'presencial-result', game: g.id, result: b.dataset.ptValue || null });
+    closeResultPop(); row.focus();
+  });
+  pop.addEventListener('keydown', event => {
+    const items = [...pop.querySelectorAll('button')], i = items.indexOf(document.activeElement);
+    if (event.key === 'Escape') { closeResultPop(); row.focus(); }
+    else if (event.key === 'ArrowDown' || event.key === 'ArrowUp') { event.preventDefault(); items[(i + (event.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length].focus(); }
+  });
+}
+$('to-presencial-matches').addEventListener('click', event => { const row = event.target.closest('tr[data-pt-game]'); if (row && connected) openResultPop(row); });
+$('to-presencial-matches').addEventListener('keydown', event => { const row = event.target.closest('tr[data-pt-game]'); if (row && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); if (connected) openResultPop(row); } });
+document.addEventListener('pointerdown', event => { if ($('to-pt-pop') && !event.target.closest('#to-pt-pop, tr[data-pt-game]')) closeResultPop(); });
+addEventListener('scroll', () => closeResultPop(), { passive: true }); addEventListener('resize', () => closeResultPop());
 $('to-cancel').addEventListener('click', async () => {
   if (await confirmAction('Cancelar torneo', 'El torneo se cerrará y las partidas en juego terminarán en tablas. Esta acción no se puede deshacer.', true)) send({ type: 'cancel' });
 });
