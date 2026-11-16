@@ -117,7 +117,7 @@ $('rt-online').addEventListener('keydown', listKeys);
 function renderMatch() {
   const on = $('rt-match').checked;
   $('rt-games').disabled = !on;
-  $('rt-match-d').textContent = on ? `Match a ${$('rt-games').value} partidas seguidas contra el mismo rival, alternando colores.` : 'Desactivado: una sola partida. Activado: varias seguidas, alternando colores.';
+  $('rt-match-d').textContent = on ? `Match a ${$('rt-games').value} partidas seguidas contra el mismo rival, alternando colores.` : 'Una sola partida. Activa Match para jugar varias seguidas.';
 }
 $('rt-match').addEventListener('change', renderMatch);
 $('rt-games').addEventListener('change', renderMatch);

@@ -10,7 +10,7 @@
 <link rel="icon" type="image/svg+xml" href="assets/icon.svg">
 <link rel="stylesheet" href="css/style.css?v=20261116-colores-nativos1">
 <link rel="stylesheet" href="css/cuenta.css?v=20261116-movil1">
-<link rel="stylesheet" href="css/retar.css?v=20261115-match1">
+<link rel="stylesheet" href="css/retar.css?v=20261116-match-movil1">
 <script defer src="js/analytics.js?v=20261111-analytics"></script>
 </head>
 <body>
@@ -42,14 +42,13 @@
           <optgroup label="Relámpago"><option value="3+0">3' + 0"</option><option value="3+2" selected>3' + 2"</option><option value="5+0">5' + 0"</option><option value="5+3">5' + 3"</option></optgroup>
           <optgroup label="Rápidas"><option value="10+0">10' + 0"</option><option value="10+5">10' + 5"</option><option value="15+10">15' + 10"</option></optgroup>
         </select></div>
-        <div class="rt-field"><span class="rt-label" id="rt-match-l">Match</span>
+        <div class="rt-field"><div class="rt-match-heading"><span class="rt-label" id="rt-match-l">Match</span><label class="rt-switch" title="Jugar varias partidas seguidas contra el mismo rival"><input type="checkbox" id="rt-match" role="switch" aria-labelledby="rt-match-l" aria-describedby="rt-match-d"><span aria-hidden="true"></span></label></div>
           <div class="rt-match">
-            <label class="rt-switch" title="Jugar varias partidas seguidas contra el mismo rival"><input type="checkbox" id="rt-match" role="switch" aria-labelledby="rt-match-l" aria-describedby="rt-match-d"><span aria-hidden="true"></span></label>
             <select id="rt-games" aria-label="Número de partidas del match" disabled><option value="5" selected>5 partidas</option><option value="6">6 partidas</option><option value="7">7 partidas</option><option value="8">8 partidas</option><option value="9">9 partidas</option><option value="10">10 partidas</option><option value="11">11 partidas</option><option value="12">12 partidas</option><option value="13">13 partidas</option><option value="14">14 partidas</option><option value="15">15 partidas</option><option value="16">16 partidas</option><option value="17">17 partidas</option><option value="18">18 partidas</option><option value="19">19 partidas</option><option value="20">20 partidas</option></select>
           </div>
         </div>
       </div>
-      <small id="rt-match-d" class="muted rt-match-d">Desactivado: una sola partida. Activado: varias seguidas, alternando colores.</small>
+      <small id="rt-match-d" class="muted rt-match-d">Una sola partida. Activa Match para jugar varias seguidas.</small>
       <fieldset class="rt-colors"><legend>Juegas con</legend>
         <label><input type="radio" name="rt-color" value="azar" checked><span><span class="rt-pz" aria-hidden="true"><img src="assets/pieces/wK.png" alt="" width="20" height="20"><img src="assets/pieces/bK.png" alt="" width="20" height="20"></span>Al azar</span></label>
         <label><input type="radio" name="rt-color" value="w"><span><span class="rt-pz" aria-hidden="true"><img src="assets/pieces/wK.png" alt="" width="20" height="20"></span>Blancas</span></label>
@@ -90,6 +89,6 @@
 <script src="js/menu.js?v=20261113-menus"></script>
 <script src="js/util.js?v=20261116-movil1"></script>
 <script src="js/torneo-config.js?v=20261114-publicado"></script>
-<script type="module" src="js/retar.js?v=20261115-match2"></script>
+<script type="module" src="js/retar.js?v=20261116-match-movil1"></script>
 </body>
 </html>
