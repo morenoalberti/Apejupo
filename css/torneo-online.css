@@ -370,6 +370,7 @@ body.to-focus .to-focus-info { flex-wrap: wrap; }
 .to-focus-next { flex: 1 1 100%; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding-top: 10px; border-top: 1px solid var(--line); font-size: .88rem; font-weight: 600; }
 .to-focus-next button { font-size: .82rem !important; }
 .to-icon-btn { display: inline-flex; align-items: center; gap: 7px; }
+.to-icon-btn > svg { flex: none; }
 .to-half { font-weight: 800; font-size: 1.1rem; line-height: 1; }
 body.to-focus .to-game-actions { padding-top: 12px; border-top: 1px solid var(--line); margin-top: 4px; }
 .to-sidebar > .to-game-actions { margin-bottom: 18px; flex: none; }
