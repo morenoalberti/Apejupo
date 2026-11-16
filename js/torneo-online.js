@@ -534,7 +534,9 @@ function renderPresencial() {
   const oddRR = closed(t) && !waiting && t.standings.length % 2 === 1 ? ` Con ${t.standings.length} jugadores hay ${t.rounds} rondas: en cada una descansa un jugador.` : '';
   $('to-presencial-hint').textContent = (playersView ? (t.status === 'finished' ? 'Lista final de jugadores.' : lateEntry ? 'Corrige nombres y Elo, retira a quien se marche o inscribe a quien llegue tarde.' : 'Corrige nombres y Elo o retira a quien se marche. En el Round-Robin no hay inscripción tardía.') : waiting ? (t.host ? 'Cuando estén todos, pulsa «Cerrar inscripción y emparejar» para sortear la primera ronda.' : mine ? 'Ya tienes plaza. Las mesas aparecerán aquí al empezar.' : 'La organización está preparando la lista de jugadores.') : t.host ? 'Anota los resultados de cada mesa. Puedes corregirlos antes de emparejar la siguiente ronda.' : 'Los resultados se actualizan cuando los anota la organización.') + (playersView || waiting ? '' : oddRR);
   // Todas las rondas en una tabla, como las hojas de emparejamientos: Mesa · Tít. · Blancas · ELO · Resultado · Tít. · Negras · ELO.
-  const rounds = [...new Set(t.games.map(g => g.round))].sort((a, b) => a - b);
+  // Round-Robin: también las rondas que faltan por jugar (el calendario sale entero del sorteo).
+  const future = new Map((t.schedule || []).map(f => [f.round, f.pairs]));
+  const rounds = [...new Set([...t.games.map(g => g.round), ...future.keys()])].sort((a, b) => a - b);
   if (presencialFilter !== 'all' && !rounds.includes(Number(presencialFilter))) presencialFilter = 'all';
   $('to-presencial-round').hidden = rounds.length < 2;
   $('to-presencial-round').innerHTML = '<option value="all">Todas las rondas</option>' + rounds.map(r => `<option value="${r}">Ronda ${r}</option>`).join('');
@@ -553,6 +555,14 @@ function renderPresencial() {
   ptOptions = options;
   const whitePts = r => ({ '2-0': 2, '1.5-0.5': 1.5, '1-1': 1, '0.5-1.5': .5, '0-2': 0, '1-0': perTable, '+-': perTable, '0-1': 0, '-+': 0 })[r] ?? perTable / 2;
   const body = shown.map(r => {
+    if (future.has(r)) {
+      const pairs = future.get(r), tables = pairs.filter(([w, b]) => w && b), rests = pairs.filter(([w, b]) => !w || !b).map(([w, b]) => w || b);
+      return `<tr class="to-pt-round to-pt-future"><th colspan="8">Ronda ${r} <span class="to-pt-state">por jugar</span></th></tr>`
+        + tables.map(([wid, bid], i) => { const w = info(wid), b = info(bid);
+          return `<tr class="to-pt-later${wid === t.me || bid === t.me ? ' mine' : ''}"><td class="to-pt-num">${i + 1}</td><td class="to-pt-tit">${tit(w)}</td>${cellName(w, false)}<td class="to-pt-elo">${w.rating || ''}</td><td class="to-pt-res"><span class="to-pt-pending">—</span></td><td class="to-pt-tit">${tit(b)}</td>${cellName(b, false)}<td class="to-pt-elo">${b.rating || ''}</td></tr>`; }).join('')
+        + rests.map(id => { const w = info(id);
+          return `<tr class="to-pt-bye to-pt-later${id === t.me ? ' mine' : ''}"><td class="to-pt-num"></td><td class="to-pt-tit">${tit(w)}</td>${cellName(w, false)}<td class="to-pt-elo">${w.rating || ''}</td><td class="to-pt-res"><span class="to-pt-pending">—</span></td><td class="to-pt-tit"></td><td class="to-pt-name to-pt-rest" colspan="2">Descansa</td></tr>`; }).join('');
+    }
     const games = t.games.filter(g => g.round === r), tables = games.filter(g => !g.bye), byes = games.filter(g => g.bye);
     const editable = t.host && r === t.round && ['playing', 'between'].includes(t.status);
     const pending = tables.filter(g => !g.result).length;

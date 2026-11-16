@@ -786,3 +786,6 @@ body.to-pz-managing #to-standings-panel { display: none; }
 .to-tb-grip { flex: none; color: var(--muted); font-size: 1rem; line-height: 1; opacity: .7; }
 .to-tb-sorting, .to-tb-sorting * { cursor: grabbing !important; }
 li.to-tb-dragging { position: relative; z-index: 2; transform: scale(1.03); background: color-mix(in srgb, var(--blue) 18%, var(--card)) !important; border-color: var(--blue) !important; box-shadow: 0 12px 26px -10px #0b1422e6; }
+.to-pt tr.to-pt-later td { color: var(--muted); }
+.to-pt tr.to-pt-later .to-pt-name { color: color-mix(in srgb, var(--text) 70%, transparent); }
+.to-pt-future th { color: color-mix(in srgb, var(--blue) 70%, var(--muted)) !important; }

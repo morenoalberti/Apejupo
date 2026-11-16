@@ -189,3 +189,20 @@ test('torneo en marcha: corregir, retirar y volver a incluir; en el suizo, inscr
   act(rr, null, true, { type: 'start' }, NOW);
   assert.throws(() => act(rr, null, true, { type: 'presencial-player', name: 'Tarde' }, NOW), /cerradas/);
 });
+
+test('Round-Robin: el calendario de las rondas que faltan coincide con lo que se empareja después', async () => {
+  const { closedSchedule } = await import('../src/core.js');
+  for (const format of ['closed', 'double-closed']) {
+    const t = tournament(5, { format });
+    act(t, null, true, { type: 'start' }, NOW);
+    const plan = closedSchedule(t);
+    assert.equal(plan.length, t.rounds - 1);
+    assert.equal(snapshot(t).schedule.length, t.rounds - 1);
+    for (const { round, pairs } of plan) {
+      while (t.round < round) { for (const g of t.games.filter(g => !g.bye && !g.result)) act(t, null, true, { type: 'presencial-result', game: g.id, result: format === 'closed' ? '1-0' : '2-0' }, NOW); act(t, null, true, { type: 'presencial-next' }, NOW); }
+      const real = t.games.filter(g => g.round === round).map(g => [g.white, g.black].join('|')).sort();
+      assert.deepEqual(pairs.map(([w, b]) => (w === null ? [b, null] : b === null ? [w, null] : [w, b]).join('|')).sort(), real, 'ronda ' + round);
+    }
+    assert.equal(closedSchedule(tournament(5)).length, 0, 'el suizo no tiene calendario fijo');
+  }
+});

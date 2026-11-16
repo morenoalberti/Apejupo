@@ -216,6 +216,17 @@ export function closedPairs(players, round) {
   pairs.unshift(k % 2 ? [ids[k - 1], ids[n - 1]] : [ids[n - 1], ids[k - 1]]);
   return pairs;
 }
+// Round-Robin: el calendario entero sale del sorteo. Las rondas que faltan, para enseñarlas en la página:
+// [{ round, pairs: [[blancas, negras]] }] con null en el hueco del descanso.
+export function closedSchedule(t) {
+  if (!isClosed(t) || !['playing', 'between'].includes(t.status)) return [];
+  const legRounds = t.players.length % 2 ? t.players.length : t.players.length - 1, out = [];
+  for (let round = t.round + 1; round <= t.rounds; round++) {
+    const pairs = closedPairs(t.players, (round - 1) % legRounds + 1).map(pair => (round > legRounds ? [...pair].reverse() : pair).map(p => p?.id || null));
+    out.push({ round, pairs });
+  }
+  return out;
+}
 function beginClosedRound(t, now) {
   t.round++;
   t.nextRoundAt = null; t.status = 'playing'; t.notice = '';
@@ -646,6 +657,7 @@ export function sharedSnapshot(t, now = Date.now()) {
   return { type: 'state', ...summary(t), revision: t.revision, serverNow: now, nextRoundAt: t.nextRoundAt,
     finishedAt: t.finishedAt, notice: t.notice,
     standings: standings(t).map(({ opponents, colors, seed, ...p }) => p),
+    schedule: closedSchedule(t),
     games: t.games.map(g => ({ id: g.id, round: g.round, white: g.white, black: g.black, result: g.result, reason: g.reason, bye: g.bye, ...(g.rest ? { rest: true } : {}),
       berserkW: !!g.berserkW, berserkB: !!g.berserkB,
       // Suizo y cerrado: las terminadas de la ronda en curso llevan su posición final, para seguir
