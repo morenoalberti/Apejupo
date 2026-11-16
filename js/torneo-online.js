@@ -1012,11 +1012,11 @@ function drawTb() {
   const show = tbState && tbState.family !== 'arena';
   $('to-tb-field').hidden = !show;
   if (!show) return;
-  $('to-tb-summary').innerHTML = tbChosen().map(k => `<li title="${esc(TB[k][2])}">${esc(TB[k][0])}</li>`).join('');
+  $('to-tb-summary').innerHTML = tbChosen().map(k => `<li data-tb="${k}" tabindex="0" title="${esc(TB[k][2])}. Arrástralo para cambiar el orden (o usa ← y →).">${esc(TB[k][0])}</li>`).join('');
   let n = 0;
   $('to-tb-items').innerHTML = tbState.order.map((k, i) => {
     const on = tbState.on.has(k);
-    return `<li class="${on ? 'on' : ''}"><label><input type="checkbox" data-tb-on="${k}"${on ? ' checked' : ''}><span class="to-tb-num">${on ? ++n : ''}</span><span><strong>${esc(TB[k][0])}</strong><small>${esc(TB[k][2])}</small></span></label><span class="to-tb-move"><button type="button" data-tb-move="${k}" data-dir="-1" aria-label="Subir ${esc(TB[k][0])}"${i ? '' : ' disabled'}>▲</button><button type="button" data-tb-move="${k}" data-dir="1" aria-label="Bajar ${esc(TB[k][0])}"${i < tbState.order.length - 1 ? '' : ' disabled'}>▼</button></span></li>`;
+    return `<li class="${on ? 'on' : ''}" data-tb="${k}"><span class="to-tb-grip" aria-hidden="true">⠿</span><label><input type="checkbox" data-tb-on="${k}"${on ? ' checked' : ''}><span class="to-tb-num">${on ? ++n : ''}</span><span><strong>${esc(TB[k][0])}</strong><small>${esc(TB[k][2])}</small></span></label><span class="to-tb-move"><button type="button" data-tb-move="${k}" data-dir="-1" aria-label="Subir ${esc(TB[k][0])}"${i ? '' : ' disabled'}>▲</button><button type="button" data-tb-move="${k}" data-dir="1" aria-label="Bajar ${esc(TB[k][0])}"${i < tbState.order.length - 1 ? '' : ' disabled'}>▼</button></span></li>`;
   }).join('');
 }
 $('to-tb-toggle').addEventListener('click', () => {
@@ -1031,6 +1031,47 @@ $('to-tb-items').addEventListener('change', event => {
   if (!box.checked && tbState.on.size === 1) { box.checked = true; noticeBox('Hace falta un desempate', 'Deja al menos uno marcado.'); return; }
   if (box.checked) tbState.on.add(k); else tbState.on.delete(k);
   drawTb();
+});
+// Arrastrar para ordenar (ratón o dedo): la etiqueta o la tarjeta sigue al puntero y al soltar queda el nuevo orden.
+function sortable(list, onDrop) {
+  list.addEventListener('pointerdown', event => {
+    const item = event.target.closest('[data-tb]');
+    if (!item || event.button !== 0 || event.target.closest('input, button')) return;
+    event.preventDefault();
+    const start = [...list.children].map(el => el.dataset.tb);
+    let moved = false;
+    // Se escucha en la ventana: al recolocar la tarjeta en la lista el navegador le quitaría la captura del puntero.
+    const move = e => {
+      if (e.pointerId !== event.pointerId) return;
+      if (!moved) { moved = true; item.classList.add('to-tb-dragging'); list.classList.add('to-tb-sorting'); }
+      // Delante de la primera que quede «después» del puntero, en orden de lectura.
+      const target = [...list.children].find(el => {
+        if (el === item) return false;
+        const r = el.getBoundingClientRect();
+        return e.clientY < r.top || (e.clientY <= r.bottom && e.clientX < r.left + r.width / 2 && list.id === 'to-tb-summary') || (list.id !== 'to-tb-summary' && e.clientY < r.top + r.height / 2);
+      });
+      list.insertBefore(item, target || null);
+    };
+    const end = e => {
+      if (e.pointerId !== event.pointerId) return;
+      removeEventListener('pointermove', move); removeEventListener('pointerup', end); removeEventListener('pointercancel', end);
+      item.classList.remove('to-tb-dragging'); list.classList.remove('to-tb-sorting');
+      const keys = [...list.children].map(el => el.dataset.tb);
+      if (moved && keys.join() !== start.join()) onDrop(keys); else if (!moved && list.id === 'to-tb-items') item.querySelector('input')?.click();
+    };
+    addEventListener('pointermove', move); addEventListener('pointerup', end); addEventListener('pointercancel', end);
+  });
+}
+sortable($('to-tb-summary'), keys => { tbState.order = [...keys, ...tbState.order.filter(k => !tbState.on.has(k))]; drawTb(); });
+sortable($('to-tb-items'), keys => { tbState.order = keys; drawTb(); });
+$('to-tb-summary').addEventListener('keydown', event => {
+  const item = event.target.closest('[data-tb]'); if (!item || !['ArrowLeft', 'ArrowRight'].includes(event.key)) return;
+  event.preventDefault();
+  const keys = tbChosen(), i = keys.indexOf(item.dataset.tb), j = i + (event.key === 'ArrowRight' ? 1 : -1);
+  if (j < 0 || j >= keys.length) return;
+  [keys[i], keys[j]] = [keys[j], keys[i]];
+  tbState.order = [...keys, ...tbState.order.filter(k => !tbState.on.has(k))]; drawTb();
+  $('to-tb-summary').querySelector(`[data-tb="${item.dataset.tb}"]`)?.focus();
 });
 $('to-tb-items').addEventListener('click', event => {
   const b = event.target.closest('[data-tb-move]'); if (!b) return;
