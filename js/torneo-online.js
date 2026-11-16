@@ -238,7 +238,15 @@ function render() {
   const tag = p => (p.registered ? ' <span class="to-registered" title="Cuenta registrada">✓</span>' : '') + (!p.active ? ' <small>retirado</small>' : '');
   // Arena en marcha: delante del nombre, punto verde parpadeante si está jugando y gris fijo si no (esperando o partida terminada).
   const dot = p => arena(t) && t.status === 'playing' && p.active ? `<span class="to-state ${p.playing ? 'on' : 'off'}" title="${p.playing ? 'Jugando' : 'Sin partida ahora'}" aria-label="${p.playing ? 'Jugando' : 'Sin partida ahora'}"></span>` : '';
-  $('to-standings').innerHTML = listed(t).map((p, i) => `<tr class="${p.id === t.me ? 'me ' : ''}${t.status === 'finished' && i === 0 ? 'winner' : ''}"><td>${i + 1}</td><td>${dot(p)}${esc(p.name)}${p.rating ? ` <small class="to-elo" title="Elo">${p.rating}</small>` : ''}${p.id === t.me ? ' <small>(tú)</small>' : ''}${tag(p)}${sheet(p)}${registering && t.host ? `<button class="to-remove" type="button" data-remove="${p.id}" aria-label="Retirar a ${esc(p.name)}">×</button>` : ''}</td><td><strong>${formatPoints(p.points)}</strong></td><td>${arena(t) ? p.played : formatPoints(closed(t) ? p.sonneborn : p.buchholz)}</td></tr>`).join('') || '<tr><td colspan="4" class="muted">Aún no hay inscritos.</td></tr>';
+  // Desempate con decimales (Sonneborn-Berger de la doble vuelta): «0,75», no «0.75».
+  const tb = n => Number.isInteger(n) || n % 1 === .5 ? formatPoints(n) : n.toLocaleString('es-ES', { maximumFractionDigits: 2 });
+  // Presencial: foto, bandera, título y puntos en relieve (sin podio).
+  const rich = presencial(t), started = t.status !== 'waiting';
+  const who = p => rich
+    ? `<div class="to-st-id">${pzAvatar(p)}<div class="to-st-body"><div class="to-st-name">${pzFlag(p)}<span>${esc(p.name)}</span>${p.rating ? `<span class="to-st-elo">${p.rating}</span>` : ''}${p.id === t.me ? ' <small>(tú)</small>' : ''}${tag(p)}</div>${sheet(p)}</div></div>`
+    : `${dot(p)}${esc(p.name)}${p.rating ? ` <small class="to-elo" title="Elo">${p.rating}</small>` : ''}${p.id === t.me ? ' <small>(tú)</small>' : ''}${tag(p)}${sheet(p)}`;
+  $('to-standings').innerHTML = listed(t).map((p, i) => `<tr class="${p.id === t.me ? 'me ' : ''}${t.status === 'finished' && i === 0 ? 'winner' : ''}"><td>${rich && started ? `<span class="to-st-rank">${i + 1}</span>` : i + 1}</td><td>${who(p)}${registering && t.host ? `<button class="to-remove" type="button" data-remove="${p.id}" aria-label="Retirar a ${esc(p.name)}">×</button>` : ''}</td><td>${rich ? `<span class="to-st-pts">${formatPoints(p.points)}</span>` : `<strong>${formatPoints(p.points)}</strong>`}</td><td>${arena(t) ? p.played : tb(closed(t) ? p.sonneborn : p.buchholz)}</td></tr>`).join('') || '<tr><td colspan="4" class="muted">Aún no hay inscritos.</td></tr>';
+  if (rich) pzPhotos($('to-standings'));
   $('to-tiebreak').hidden = registering;
   $('to-tiebreak').textContent = arena(t) ? 'Desempates: victorias, menos partidas jugadas y número de sorteo.' : closed(t) ? 'Desempates: Sonneborn-Berger, victorias y número de sorteo.' : 'Desempates: Buchholz, Sonneborn-Berger, victorias y número de sorteo.';
   const rounds = arena(t) ? [] : [...new Set(t.games.map(g => g.round))];
@@ -302,7 +310,8 @@ function renderDuel(t) {
   $('to-duel-body').innerHTML = !p || !q ? '' : `${match}<ul class="to-duel-score${match ? ' small' : ''}">${row(p, wp + d / 2)}${row(q, wq + d / 2)}</ul>`;
 }
 function renderPodium() {
-  const t = state, show = !t.challenge && t.status === 'finished' && t.standings.length >= 2;
+  // Presencial: sin podio; la clasificación final ya ordena a todos.
+  const t = state, show = !t.challenge && !presencial(t) && t.status === 'finished' && t.standings.length >= 2;
   $('to-podium').hidden = !show;
   if (!show) return;
   const top = t.standings.slice(0, 3), order = [1, 0, 2].filter(i => top[i]);
