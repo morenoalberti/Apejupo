@@ -33,13 +33,23 @@ export const isClosed = t => t.format === 'closed';
 // Motor FIDE del suizo (bbpPairings). Lo instala el servidor al arrancar; sin él se usa el emparejamiento de club.
 let swissEngine = null;
 export function setSwissEngine(run) { swissEngine = run; }
-export const BERSERK_BONUS = .5;
-// Como en Lichess: se deja de emparejar cuando queda menos de la mitad del tiempo base de una partida
-// (entre 30 s y 2 min), y las partidas que acaban después del tiempo se juegan pero no cuentan.
+export const BERSERK_BONUS = 1;
+// Se deja de emparejar cuando queda menos de la mitad del tiempo base de una partida
+// (entre 30 s y 2 min). Las partidas en curso cuentan aunque terminen después del tiempo.
 export const arenaPairingsCloseAt = t => t.endsAt - Math.max(30, Math.min(t.minutes * 30, 120)) * 1000;
-const countsForArena = (t, g) => !isArena(t) || !t.endsAt || g.bye || !g.result || g.finishedAt <= t.endsAt;
-export const BERSERK_MIN_PLIES = 13; // al menos 7 jugadas de blancas para cobrar el extra
+export const BERSERK_MIN_PLIES = 14; // siete jugadas de cada bando para cobrar el extra
 const berserkBonus = (g, color) => !!(color === 'w' ? g.berserkW : g.berserkB) && g.moves.length >= BERSERK_MIN_PLIES;
+
+// Arena de Lichess: 2/1/0, puntuación doble tras dos victorias y Berserk aparte.
+function arenaScore(score, plies, run) {
+  const doubled = run.wins >= 2;
+  let points = score * (doubled ? 4 : 2);
+  if (score === .5 && (plies < 20 || (run.drawSinceWin && plies < 60))) points = 0;
+  run.wins = score === 1 ? run.wins + 1 : 0;
+  if (score === 1) run.drawSinceWin = false;
+  else if (score === .5) run.drawSinceWin = true;
+  return { points, doubled: doubled && points > 0 };
+}
 export function createTournament(input, id, hostHash, now = Date.now()) {
   const title = cleanName(input.title, 70);
   const format = ['arena', 'closed'].includes(input.format) ? input.format : 'swiss';
@@ -49,7 +59,7 @@ export function createTournament(input, id, hostHash, now = Date.now()) {
   const rounds = format === 'swiss' ? Number(input.rounds) : 0;
   const duration = format === 'arena' ? Number(input.duration) : null;
   requireThat(title.length >= 4, 'El nombre del torneo debe tener al menos 4 caracteres.');
-  requireThat([1, 2, 3, 5, 10, 15].includes(minutes), 'Elige un ritmo válido.');
+  requireThat([1, 2, 3, 5, 10, 15, 20, 30, 60, 90].includes(minutes), 'Elige un ritmo válido.');
   requireThat([0, 1, 2, 3, 5, 10].includes(increment), 'Elige un incremento válido.');
   if (format === 'arena') {
     requireThat(ARENA_DURATIONS.includes(duration), 'Elige una duración válida.');
@@ -81,8 +91,19 @@ export function standings(t) {
   const rows = t.players.map(p => ({ id: p.id, name: p.name, seed: p.seed, rating: p.rating || null, active: p.active, registered: !!p.accountId,
     points: 0, wins: 0, buchholz: 0, sonneborn: 0, played: 0, byes: 0, opponents: [], colors: [], sheet: [] }));
   const map = new Map(rows.map(p => [p.id, p]));
-  const counted = t.games.filter(g => countsForArena(t, g));
-  for (const g of counted) {
+  const arenaRuns = new Map(rows.map(p => [p.id, { wins: 0, drawSinceWin: false }]));
+  function recordResult(row, g, score, color) {
+    const bonus = isArena(t) && score === 1 && berserkBonus(g, color);
+    const entry = { s: score, berserk: !!(color === 'w' ? g.berserkW : g.berserkB), bonus };
+    if (isArena(t)) {
+      const value = arenaScore(score, g.moves.length, arenaRuns.get(row.id));
+      entry.points = value.points + (bonus ? BERSERK_BONUS : 0);
+      entry.doubled = value.doubled;
+      row.points += entry.points;
+    } else row.points += score;
+    row.sheet.push(entry);
+  }
+  for (const g of t.games) {
     const white = map.get(g.white), black = map.get(g.black);
     if (!white) continue;
     if (g.bye) { const s = g.rest ? 0 : 1; white.points += s; white.byes++; white.sheet.push({ s, bye: true }); continue; }
@@ -91,15 +112,11 @@ export function standings(t) {
     if (!g.result) continue;
     white.played++; black.played++;
     const a = g.result === '1-0' ? 1 : g.result === '0-1' ? 0 : .5;
-    white.points += a; black.points += 1 - a;
     if (a === 1) white.wins++; if (a === 0) black.wins++;
-    // Berserk: medio punto extra a quien gana tras jugar con la mitad del tiempo.
-    const bonusW = a === 1 && berserkBonus(g, 'w'), bonusB = a === 0 && berserkBonus(g, 'b');
-    if (bonusW) white.points += BERSERK_BONUS; if (bonusB) black.points += BERSERK_BONUS;
-    white.sheet.push({ s: a, berserk: !!g.berserkW, bonus: bonusW });
-    black.sheet.push({ s: 1 - a, berserk: !!g.berserkB, bonus: bonusB });
+    recordResult(white, g, a, 'w');
+    recordResult(black, g, 1 - a, 'b');
   }
-  for (const g of counted) {
+  for (const g of t.games) {
     if (!g.result || g.bye) continue;
     const a = map.get(g.white), b = map.get(g.black);
     const score = g.result === '1-0' ? 1 : g.result === '0-1' ? 0 : .5;
@@ -322,7 +339,7 @@ function finishTournament(t, now) {
 }
 export function afterResults(t, now) {
   if (isArena(t)) {
-    // Al cumplirse el tiempo la clasificación queda congelada; las partidas en juego se terminan, pero no cuentan.
+    // Al cumplirse el tiempo se espera a las partidas en juego: todas cuentan para la clasificación final.
     if (t.status === 'playing' && (now >= t.endsAt || t.players.filter(p => p.active).length < 2) && !t.games.some(g => !g.result)) finishTournament(t, now);
     return;
   }
@@ -389,7 +406,7 @@ export function nextAlarm(t, now = Date.now()) {
   if (t.status === 'waiting' && t.startsAt) times.push(t.startsAt);
   if (t.status === 'between') times.push(t.nextRoundAt);
   if (isArena(t) && t.status === 'playing') {
-    times.push(t.endsAt);
+    if (t.endsAt > now) times.push(t.endsAt);
     // Despertar cuando termine la pausa de quien acaba de jugar. Solo instantes futuros: si no, la alarma se repetiría sin parar.
     for (const p of t.players) { const ready = arenaReadyAt(t, p.id); if (p.active && ready > now && ready < arenaPairingsCloseAt(t)) times.push(ready); }
   }
@@ -438,7 +455,9 @@ export function act(t, playerId, host, action, now = Date.now()) {
     requireThat(isArena(t), 'Berserk solo existe en el modo arena.');
     requireThat(!g[flag], 'Ya has activado Berserk.');
     requireThat(g.moves.length < (color === 'w' ? 1 : 2), 'Berserk solo se puede activar antes de tu primera jugada.');
-    g[flag] = true; g[key] = Math.max(1000, g[key] - t.minutes * 30000);
+    g[flag] = true;
+    // Excepción de Lichess: 1+2 se convierte en 1+0, sin reducir el minuto inicial.
+    if (!(t.minutes === 1 && t.increment === 2)) g[key] = Math.max(1000, g[key] - t.minutes * 30000);
   } else if (action.type === 'resign') endGame(g, color === 'w' ? '0-1' : '1-0', 'Abandono', now);
   else if (action.type === 'offer-draw') { requireThat(g.offer !== p.id, 'Ya has ofrecido tablas.'); g.offer = p.id; }
   else if (action.type === 'decline-draw') { requireThat(g.offer && g.offer !== p.id, 'No hay una oferta de tablas del rival.'); g.offer = null; }
@@ -506,7 +525,6 @@ export function sharedSnapshot(t, now = Date.now()) {
     finishedAt: t.finishedAt, notice: t.notice,
     standings: standings(t).map(({ opponents, colors, seed, ...p }) => p),
     games: t.games.map(g => ({ id: g.id, round: g.round, white: g.white, black: g.black, result: g.result, reason: g.reason, bye: g.bye,
-      late: !countsForArena(t, g),
       berserkW: !!g.berserkW, berserkB: !!g.berserkB,
       // Suizo y cerrado: las terminadas de la ronda en curso llevan su posición final, para seguir
       // viéndolas en la página de tableros hasta que empiece la ronda siguiente.

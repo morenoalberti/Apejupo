@@ -1,5 +1,21 @@
 (function () {
   window.U = {
+    // Etiquetas para conservar todos los datos de las tablas Elo al mostrarlas como fichas en móvil.
+    eloLabels: function (table, labels) {
+      table.classList.add('elo-responsive'); table.setAttribute('role', 'table');
+      Array.prototype.forEach.call(table.tBodies, function (body) {
+        Array.prototype.forEach.call(body.rows, function (row) {
+          row.setAttribute('role', 'row');
+          Array.prototype.forEach.call(row.cells, function (cell, index) {
+            cell.dataset.label = labels[index] || '';
+            cell.setAttribute('role', 'cell');
+            cell.classList.toggle('elo-player-cell', labels[index] === 'Jugador');
+            cell.classList.toggle('elo-position-cell', index === 0);
+            cell.classList.toggle('elo-stats-cell', labels[index] === 'Estadísticas');
+          });
+        });
+      });
+    },
     // Nombre de ronda siempre en español («Round 3», «Runde 3», «Rodada 3»… → «Ronda 3»)
     ronda: function (n) {
       n = String(n || "").replace(/^\s*(\d+)\s*[.ºª°]*\s*(?:Round|Runde|Rodada|Ronde|Rond|Runda|Rundan|Kolo|Kierros|Tour|Turn|Turno|Raund|Раунд|Тур|Forduló|Tur)(?![A-Za-zÀ-ÿ])/i, "Ronda $1"); // «2.ª Rodada» → «Ronda 2»

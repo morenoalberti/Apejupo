@@ -17,13 +17,26 @@ let state = null, socket = null, reconnectTimer = null, heartbeat = null, retry 
 let connected = false, pending = false, offset = 0, selected = null, flipped = false, manualFlip = false;
 let boardKey = '', lastRound = null, viewedRound = null, replay = null, replayPly = null, promotion = null;
 let confirmResolve = null, dropped = null, lobby = new Map();
+let lastArenaClosing = false;
+let gameFitFrame = null;
 let editingId = null, keyFieldRequired = false; // formulario de organizar: torneo que se edita y si se pide la clave de organización
+let tournamentAdmin = false;
 // Jugada propia mostrada al instante, antes de que la confirme el servidor (como en Lichess).
 let optimistic = null, rendered = { game: null, fen: null }, skipSlide = false, drag = null;
 // Premovimiento (como en Lichess): jugada elegida mientras piensa el rival; se juega sola en cuanto te toca, si es legal.
 let premove = null;
 
 function read(key) { try { return localStorage.getItem(key) || ''; } catch { return ''; } }
+function adminKey() {
+  try { return sessionStorage.getItem('apejupoAdminCuentas') || read('apejupoAdminCuentas'); }
+  catch { return read('apejupoAdminCuentas'); }
+}
+async function checkTournamentAdmin() {
+  const key = adminKey();
+  if (!key) return false;
+  try { return (await (await request('/api/tournaments/admin/comprobar', { method: 'POST', key })).json()).ok === true; }
+  catch { return false; }
+}
 function write(key, value) {
   try { localStorage.setItem(key, value); }
   catch { throw new Error('Permite el almacenamiento de este sitio para conservar tu inscripción y recuperar tus partidas.'); }
@@ -43,6 +56,7 @@ async function request(path, { key, ...options } = {}) {
   return response;
 }
 const arena = t => t?.format === 'arena';
+const arenaClosing = (t, now = Date.now() + offset) => arena(t) && t.status === 'playing' && now >= t.endsAt;
 const closed = t => t?.format === 'closed';
 function duration(minutes) { return minutes % 60 ? (minutes > 60 ? `${Math.floor(minutes / 60)} h ${minutes % 60} min` : `${minutes} min`) : `${minutes / 60} h`; }
 const isMatch = t => !!t.challenge && t.rounds > 1;
@@ -79,14 +93,15 @@ const icons = {
 };
 const emptyLobby = `<div class="to-empty"><div class="to-empty-art" aria-hidden="true"><svg viewBox="0 0 64 64"><path d="M32 5v10M27 10h10M22 27c0-6 4-11 10-11s10 5 10 11c0 5-3 8-4 12H26c-1-4-4-7-4-12zM24 39h16l3 9H21zM17 48h30v7H17z"/></svg></div><strong>El próximo torneo puede ser el nuestro</strong><p>Todavía no hay torneos. Cuando la organización abra uno, aparecerá aquí.</p><button class="btn" type="button" data-create>Organizar torneo</button></div>`;
 function eventCard(t) {
-  const trash = read(hostKey(t.id)) ? `<button class="to-delete" type="button" data-delete="${t.id}" aria-label="Borrar el torneo ${esc(t.title)}" title="Borrar torneo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M5 7l1 13h12l1-13M9 7V4h6v3"/></svg></button>` : '';
+  const organizer = !!read(hostKey(t.id));
+  const trash = organizer || tournamentAdmin ? `<button class="to-delete" type="button" data-delete="${t.id}" aria-label="Borrar el torneo ${esc(t.title)}" title="Borrar torneo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M5 7l1 13h12l1-13M9 7V4h6v3"/></svg></button>` : '';
   // Lápiz para editar: solo el organizador y mientras no haya empezado.
-  const pencil = trash && t.status === 'waiting' ? `<button class="to-delete to-edit" type="button" data-edit="${t.id}" aria-label="Editar el torneo ${esc(t.title)}" title="Editar torneo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></button>` : '';
+  const pencil = organizer && t.status === 'waiting' ? `<button class="to-delete to-edit" type="button" data-edit="${t.id}" aria-label="Editar el torneo ${esc(t.title)}" title="Editar torneo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></button>` : '';
   const count = t.listed ?? t.count, full = Math.min(100, Math.round(count / t.capacity * 100));
-  return `<article class="to-event ${t.status}">${pencil}${trash}<div class="to-event-top"><span class="to-status ${t.status}">${esc(statuses[t.status])}</span><span class="to-event-clock">${icons.clock}${t.minutes} + ${t.increment}</span></div>`
+  return `<article class="to-event ${t.status}"><div class="to-event-top"><span class="to-status ${t.status}">${esc(statuses[t.status])}</span><span class="to-event-clock">${icons.clock}${t.minutes} + ${t.increment}</span></div>`
     + `<h3>${esc(t.title)}</h3><ul class="to-event-meta"><li>${icons.format}${formatLabel(t)}</li>${t.locked ? `<li>${icons.lock}Inscripción con clave</li>` : ''}<li>${icons.calendar}${t.startsAt ? esc(date(t.startsAt)) : 'Inicio a cargo del organizador'}</li></ul>`
     + `<div class="to-event-fill"><span>${icons.people}${count}/${t.capacity} jugadores</span><i><b style="width:${full}%"></b></i></div>`
-    + `<a class="btn" href="jugar-torneo.html?id=${t.id}">${t.status === 'waiting' ? 'Entrar e inscribirme' : 'Ver torneo'}</a></article>`;
+    + `<div class="to-event-actions"><a class="btn" href="jugar-torneo.html?id=${t.id}"><span>${t.status === 'waiting' ? 'Entrar e inscribirme' : 'Ver torneo'}</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-5-5 5 5-5 5"/></svg></a>${pencil || trash ? `<div class="to-event-tools">${pencil}${trash}</div>` : ''}</div></article>`;
 }
 async function loadLobby() {
   if (!API) {
@@ -95,7 +110,10 @@ async function loadLobby() {
   }
   $('to-refresh').disabled = true;
   try {
-    const { tournaments, keyRequired } = await (await request('/api/tournaments')).json();
+    const [data, admin] = await Promise.all([request('/api/tournaments').then(res => res.json()), checkTournamentAdmin()]);
+    const { tournaments, keyRequired } = data;
+    tournamentAdmin = admin;
+    $('to-admin-note').hidden = !admin;
     setKeyMode(keyRequired !== false);
     lobby = new Map(tournaments.map(t => [t.id, t]));
     $('to-events').innerHTML = tournaments.length ? tournaments.map(eventCard).join('') : emptyLobby;
@@ -116,6 +134,7 @@ function applyMove(m) {
     pending = false;
     if (d.ply === g.moves.length + 1) {
       g.moves.push(d.san); Object.assign(g, clock, { offer: d.offer, legal: d.legal });
+      moveAlert(g, d.ply - 1);
       if (optimistic && optimistic.game === d.id && d.ply >= optimistic.ply) optimistic = null;
       if (!drag && !keepSelection(d.fen)) selected = null; boardKey = '';
     } else if (d.ply > g.moves.length + 1) { send({ type: 'watch', game: g.id }); return; } // se perdió algo: pedir el tablero completo
@@ -148,6 +167,7 @@ function connect() {
     if (state && next.revision < state.revision) return;
     const oldGame = state?.game, oldMe = state?.me;
     offset = next.serverNow - Date.now(); pending = false; state = next;
+    if (oldGame?.id === next.game?.id && oldGame && !oldGame.result) moveAlert(next.game, oldGame.moves.length);
     if (optimistic && (next.game?.id !== optimistic.game || next.game.moves.length >= optimistic.ply)) optimistic = null;
     if (oldGame?.id !== next.game?.id || oldGame?.fen !== next.game?.fen) { if (!drag && !(oldGame?.id === next.game?.id && keepSelection(next.game.fen))) selected = null; boardKey = ''; }
     if (premove && (premove.game !== next.game?.id || next.game?.result)) premove = null;
@@ -167,7 +187,7 @@ function connect() {
     if (socket !== ws) return;
     clearInterval(heartbeat); pending = false;
     setConnection('Reconectando…');
-    if (event.reason === 'El organizador ha borrado el torneo.') { setConnection('Torneo borrado'); message('El organizador ha borrado este torneo.', true); return; }
+    if (['El organizador ha borrado el torneo.', 'El administrador ha borrado el torneo.'].includes(event.reason)) { setConnection('Torneo borrado'); message(event.reason, true); return; }
     if (event.reason === 'El torneo ha caducado.') { setConnection('Torneo archivado'); message('Este torneo ha caducado y ya no está disponible.'); return; }
     reconnectTimer = setTimeout(async () => {
       try {
@@ -249,8 +269,8 @@ function canJoin(t) { return !t.challenge && (t.status === 'waiting' || (arena(t
 // Hoja de resultados, como en Lichess: una cifra por partida; resaltadas las ganadas con Berserk.
 function sheet(p) {
   if (!p.sheet?.length) return '';
-  const label = r => (r.bye ? 'Descanso' : r.s === 1 ? 'Victoria' : r.s === 0 ? 'Derrota' : 'Tablas') + (r.berserk ? ' con Berserk' : '') + (r.bonus ? ' (+½)' : '');
-  return `<span class="to-sheet">${p.sheet.map(r => `<i class="${r.s === 1 ? 'w' : r.s === 0 ? 'l' : 'd'}${r.bonus ? ' b' : ''}" title="${label(r)}">${r.s === .5 ? '½' : r.s}</i>`).join('')}</span>`;
+  const label = r => (r.bye ? 'Descanso' : r.s === 1 ? 'Victoria' : r.s === 0 ? 'Derrota' : 'Tablas') + (r.berserk ? ' con Berserk' : '') + (r.doubled ? ' · Puntuación doble por racha' : '') + (r.bonus ? ' (+1 por Berserk)' : '') + (r.points !== undefined ? ` · ${r.points} ${r.points === 1 ? 'punto' : 'puntos'}` : '');
+  return `<span class="to-sheet">${p.sheet.map(r => `<i class="${r.s === 1 ? 'w' : r.s === 0 ? 'l' : 'd'}${r.bonus ? ' b' : ''}" title="${label(r)}">${r.points ?? (r.s === .5 ? '½' : r.s)}</i>`).join('')}</span>`;
 }
 // Reto: en lugar de clasificación y podio, el marcador acumulado entre los dos jugadores (todas sus partidas).
 function renderDuel(t) {
@@ -414,15 +434,33 @@ function miniBoard(g) {
   }
   return `<span class="to-mini" aria-hidden="true">${cells.join('')}</span>`;
 }
-let audio = null;
+let audio = null, moveSound = false;
+function prepareAudio() {
+  audio ||= new (window.AudioContext || window.webkitAudioContext)();
+  if (audio.state === 'suspended') audio.resume().catch(() => {});
+  return audio;
+}
+function beep(frequency, duration, volume, sustained = false) {
+  try {
+    const context = prepareAudio(), o = context.createOscillator(), v = context.createGain(), now = context.currentTime;
+    o.frequency.value = frequency;
+    o.type = sustained ? 'square' : 'sine';
+    v.gain.setValueAtTime(.001, now); v.gain.linearRampToValueAtTime(volume, now + .005);
+    // El aviso de jugada mantiene el volumen casi hasta el final, para que no se desvanezca enseguida.
+    if (sustained) v.gain.setValueAtTime(volume, now + duration * .8);
+    v.gain.exponentialRampToValueAtTime(.001, now + duration);
+    o.connect(v).connect(context.destination); o.start(now); o.stop(now + duration);
+    o.onended = () => { o.disconnect(); v.disconnect(); };
+  } catch {}
+}
+// Solo las jugadas nuevas y confirmadas de tu partida: no suena al abrir un tablero ni al revisar.
+function moveAlert(g, previousPly) {
+  if (!moveSound || boardsMode || !state?.me || !g || (g.white !== state.me && g.black !== state.me) || g.moves.length <= previousPly) return;
+  beep(880, .32, .65, true);
+}
 // Aviso de partida nueva: sonido corto y el tablero a la vista, como en Lichess.
 function newGameAlert() {
-  try {
-    audio ||= new AudioContext();
-    const o = audio.createOscillator(), v = audio.createGain();
-    o.frequency.value = 660; v.gain.setValueAtTime(.12, audio.currentTime); v.gain.exponentialRampToValueAtTime(.001, audio.currentTime + .35);
-    o.connect(v).connect(audio.destination); o.start(); o.stop(audio.currentTime + .35);
-  } catch {}
+  beep(660, .35, .12);
   requestAnimationFrame(() => {
     $('to-game-panel').scrollIntoView({ behavior: 'smooth', block: 'start' });
     $('to-game-panel').classList.remove('to-flash'); void $('to-game-panel').offsetWidth; $('to-game-panel').classList.add('to-flash');
@@ -457,7 +495,8 @@ function renderControls() {
   const g = t.game, ownGame = g && (g.white === t.me || g.black === t.me);
   $('to-game-actions').hidden = !g || !ownGame || !!g.result;
   $('to-offer').disabled = !connected || g?.offer === t.me || pending;
-  $('to-offer-label').textContent = g?.offer === t.me ? 'Tablas ofrecidas' : 'Ofrecer tablas';
+  const offerLabel = g?.offer === t.me ? 'Tablas ofrecidas al rival' : 'Ofrecer tablas';
+  $('to-offer').title = offerLabel; $('to-offer').setAttribute('aria-label', offerLabel);
   $('to-resign').disabled = !connected || pending;
   const color = g && (g.white === t.me ? 'w' : g.black === t.me ? 'b' : null), berserked = color && (color === 'w' ? g.berserkW : g.berserkB);
   $('to-berserk').hidden = !arena(t) || !color || !!g.result || !!berserked || g.moves.length >= (color === 'w' ? 1 : 2);
@@ -469,6 +508,7 @@ function renderControls() {
   $('to-rematch-box').hidden = !t.challenge || !g || !ownGame || !g.result || t.status !== 'finished';
   if ($('to-rematch-box').hidden) { rematch = null; $('to-rematch-msg').textContent = ''; }
   $('to-rematch').textContent = rematch ? 'Cancelar revancha' : 'Revancha';
+  scheduleGameFit();
 }
 // Revancha: se manda como un reto normal al rival, que tiene esta misma página abierta.
 let rematch = null;
@@ -551,7 +591,8 @@ function renderWaiting() {
   if (!show) return;
   const bye = !arena(t) && t.games.some(g => g.bye && g.round === t.round && g.white === t.me);
   const [title, text] = arena(t)
-    ? mine.paused ? ['Has salido del torneo', 'No se te empareja y conservas tus puntos. Pulsa «Entrar en el torneo» cuando quieras seguir.']
+    ? arenaClosing(t) ? ['Esperando las últimas partidas', 'El tiempo ha terminado. Las partidas en juego cuentan para la clasificación final, que se decidirá cuando terminen todas.']
+      : mine.paused ? ['Has salido del torneo', 'No se te empareja y conservas tus puntos. Pulsa «Entrar en el torneo» cuando quieras seguir.']
       : ['Buscando rival…', 'Ahora mismo no queda nadie libre: sois un número impar o los demás están jugando. Jugarás en cuanto termine una partida.']
     : bye ? ['Descansas esta ronda', closed(t) ? 'Con un número impar de jugadores, a cada uno le toca descansar una ronda. No suma punto.' : 'Te toca descanso y sumas un punto. Jugarás en la siguiente ronda.']
       : ['Esperando la siguiente ronda', 'Tu partida de esta ronda ha terminado.'];
@@ -573,14 +614,13 @@ function renderGame() {
   const bz = color => (color === 'w' ? g.berserkW : g.berserkB) ? ' ⚡ Berserk' : '';
   $('to-player-top').querySelector('span').textContent = `${top === 'w' ? '♔' : '♚'} ${name(top === 'w' ? g.white : g.black)}${bz(top)}`;
   $('to-player-bottom').querySelector('span').textContent = `${bottom === 'w' ? '♔' : '♚'} ${name(bottom === 'w' ? g.white : g.black)}${bz(bottom)}`;
-  const late = arena(state) && state.endsAt && (g.result ? state.games.find(x => x.id === g.id)?.late : Date.now() + offset >= state.endsAt);
-  let status = late ? (g.result ? `${g.result.replace('1/2-1/2', '½–½')} · ${g.reason} · No cuenta: terminó después del tiempo` : 'Tiempo del torneo cumplido: esta partida ya no cuenta') : g.result ? `${g.result.replace('1/2-1/2', '½–½')} · ${g.reason}` : pending ? 'Turno de tu rival' : !connected ? 'Recuperando conexión. Tu reloj sigue corriendo.' : canMove() ? 'Tu turno' : own ? 'Turno de tu rival' : `Juegan ${g.turn === 'w' ? 'blancas' : 'negras'}`;
+  const status = g.result ? `${g.result.replace('1/2-1/2', '½–½')} · ${g.reason}` : pending ? 'Turno de tu rival' : !connected ? 'Recuperando conexión. Tu reloj sigue corriendo.' : canMove() ? 'Tu turno' : own ? 'Turno de tu rival' : `Juegan ${g.turn === 'w' ? 'blancas' : 'negras'}`;
   // Con la partida terminada, el resultado se ve en grande sobre el tablero, como una marca de agua.
   if (g.result) $('to-board').dataset.result = g.result.replace('1/2-1/2', '½–½'); else delete $('to-board').dataset.result;
   $('to-game-status').textContent = status; $('to-game-status').classList.toggle('my-turn', canMove());
   // En tu partida no hace falta «Tu turno» / «Turno de tu rival»: lo indica el reloj en verde.
   // Con la partida terminada basta la marca de agua: fuera el texto del resultado y el repaso.
-  $('to-game-status').hidden = g.result ? !late : own && connected && !late;
+  $('to-game-status').hidden = !!g.result || (own && connected);
   $('to-replay').hidden = true;
   if (g.result && !replay) {
     const c = new Chess(); replay = [c.fen()];
@@ -593,6 +633,60 @@ function renderGame() {
     $('to-replay-prev').disabled = replayPly === 0; $('to-replay-next').disabled = replayPly === g.moves.length;
   }
   renderBoard();
+  scheduleGameFit();
+}
+// El tablero usa el menor espacio disponible entre ancho y alto. Se miden los
+// relojes y controles reales, incluidos los botones que pasan a una segunda fila.
+function scheduleGameFit() {
+  if (gameFitFrame !== null) return;
+  gameFitFrame = requestAnimationFrame(() => { gameFitFrame = null; fitGame(); });
+}
+function fitGame() {
+  placeGameActions();
+  const panel = $('to-game-panel'), room = $('to-room');
+  if (boardsMode || panel.hidden || !document.body.classList.contains('to-focus')) {
+    panel.style.removeProperty('--to-game-width');
+    panel.style.removeProperty('--to-board-size');
+    room.style.removeProperty('--to-play-height');
+    room.style.removeProperty('--to-standings-height');
+    return;
+  }
+  const column = panel.parentElement, board = $('to-board');
+  if (!column.clientWidth) return;
+  const viewportHeight = window.visualViewport?.height || innerHeight;
+  const top = panel.getBoundingClientRect().top + scrollY;
+  const availableHeight = Math.max(0, viewportHeight - top - 16);
+  const style = getComputedStyle(panel);
+  const edges = parseFloat(style.paddingLeft) + parseFloat(style.paddingRight) + parseFloat(style.borderLeftWidth) + parseFloat(style.borderRightWidth);
+  const width = Math.min(640, column.clientWidth);
+  panel.style.setProperty('--to-game-width', `${width}px`);
+  let size = Math.min(width - edges, parseFloat(style.getPropertyValue('--to-board-max-size')));
+  panel.style.setProperty('--to-board-size', `${size}px`);
+  const actions = $('to-game-actions'), buttons = [...actions.children].filter(button => !button.hidden);
+  const gap = parseFloat(getComputedStyle(actions).columnGap) || 0;
+  const buttonsWidth = actions.hidden || !panel.contains(actions) ? 0 : buttons.reduce((sum, button) => sum + button.getBoundingClientRect().width, 0) + gap * Math.max(0, buttons.length - 1);
+  const minimumPanelWidth = Math.min(width, Math.max(260, buttonsWidth + edges + 2));
+  // Mantener espacio para los botones: reducir el tablero no debe apilarlos innecesariamente.
+  for (let i = 0; i < 5; i++) {
+    const overhead = panel.getBoundingClientRect().height - board.getBoundingClientRect().height;
+    const next = Math.min(size, Math.floor(Math.max(160, availableHeight - overhead)));
+    panel.style.setProperty('--to-game-width', `${Math.min(width, Math.max(minimumPanelWidth, next + edges))}px`);
+    panel.style.setProperty('--to-board-size', `${next}px`);
+    if (next >= size - .5 && panel.getBoundingClientRect().height <= availableHeight + .5) break;
+    size = next;
+  }
+  const boardRect = board.getBoundingClientRect(), sidebar = room.querySelector('.to-sidebar');
+  // En dos columnas, la clasificación nunca baja más allá del borde del tablero.
+  const sidebarHeight = Math.max(0, boardRect.bottom - sidebar.getBoundingClientRect().top);
+  room.style.setProperty('--to-play-height', `${Math.floor(Math.min(availableHeight, sidebarHeight))}px`);
+  room.style.setProperty('--to-standings-height', `${Math.floor(boardRect.height)}px`);
+}
+function placeGameActions() {
+  const actions = $('to-game-actions');
+  // Con dos columnas, quedan entre la información y la clasificación. En móvil,
+  // siguen junto al tablero para que los controles de la partida estén a mano.
+  const before = matchMedia('(min-width: 761px)').matches ? $('to-duel') : $('to-rematch-box');
+  if (actions.parentElement !== before.parentElement || actions.nextElementSibling !== before) before.before(actions);
 }
 function renderBoard() {
   const g = state?.game; if (!g) return;
@@ -689,13 +783,15 @@ function clock(ms) {
 function updateClocks() {
   if (!state) return;
   const now = Date.now() + offset, t = state;
+  const closing = arenaClosing(t, now);
+  if (closing !== lastArenaClosing) { lastArenaClosing = closing; renderWaiting(); }
   const me = t.standings.find(p => p.id === t.me);
   // En la sala de espera la cuenta atrás grande ya dice cuándo empieza.
   $('to-phase').textContent = isMatch(t) && t.status === 'between' ? `Siguiente partida en ${Math.max(0, Math.ceil((t.nextRoundAt - now) / 1000))} s`
     : isMatch(t) && t.status === 'playing' ? `Partida ${t.round} de ${t.rounds}`
     : isMatch(t) && t.status === 'finished' ? 'Match terminado'
     : t.status === 'waiting' || t.challenge ? ''
-    : arena(t) && t.status === 'playing' ? (now >= t.endsAt ? 'Tiempo cumplido: las partidas en juego se terminan, pero ya no cuentan' : t.pairingsCloseAt && now >= t.pairingsCloseAt ? (me?.active && !me.playing ? 'Ya no hay emparejamientos nuevos' : '') : me?.active && !me.playing && !me.paused ? 'Buscando rival…' : '')
+    : arena(t) && t.status === 'playing' ? (closing ? 'Tiempo cumplido: esperando las últimas partidas, que cuentan para la clasificación final' : t.pairingsCloseAt && now >= t.pairingsCloseAt ? (me?.active && !me.playing ? 'Ya no hay emparejamientos nuevos' : '') : me?.active && !me.playing && !me.paused ? 'Buscando rival…' : '')
     : t.status === 'between' ? `Siguiente ronda en ${Math.max(0, Math.ceil((t.nextRoundAt - now) / 1000))} s` : t.status === 'playing' ? `Ronda ${t.round} de ${t.rounds}` : t.status === 'finished' ? 'Clasificación final' : 'Torneo cancelado';
   // Cuenta atrás grande del arena, como en Lichess.
   const counting = arena(t) && t.status === 'playing' && now < t.endsAt;
@@ -717,7 +813,7 @@ function updateClocks() {
   }
   if (!$('to-registration').hidden && !canJoin(t)) render();
   const playingNow = !!t.me && t.games.some(x => !x.result && !x.bye && (x.white === t.me || x.black === t.me));
-  if (!$('to-focus-next').hidden) $('to-focus-status').textContent = me?.paused ? 'Has salido del torneo' : playingNow ? 'Partida en juego' : $('to-phase').textContent || 'Partida terminada';
+  if (!$('to-focus-next').hidden) $('to-focus-status').textContent = closing ? (playingNow ? 'Tu partida cuenta para la clasificación final' : 'Esperando las últimas partidas') : me?.paused ? 'Has salido del torneo' : playingNow ? 'Partida en juego' : $('to-phase').textContent || 'Partida terminada';
   const g = t.game; if (!g) return;
   for (const id of ['to-player-top', 'to-player-bottom']) {
     const el = $(id), color = el.dataset.color, running = !g.result && g.turn === color;
@@ -975,6 +1071,13 @@ window.addEventListener('online', () => { if (roomId && !connected) { socket?.cl
 window.addEventListener('pagehide', () => { clearTimeout(reconnectTimer); clearInterval(heartbeat); if (socket) { socket.onclose = null; socket.close(); } });
 window.addEventListener('pageshow', event => { if (event.persisted && roomId && API) connect(); });
 document.addEventListener('visibilitychange', () => { if (!document.hidden && roomId && socket?.readyState === WebSocket.OPEN) hello(); });
+window.addEventListener('resize', scheduleGameFit);
+window.addEventListener('pageshow', scheduleGameFit);
+window.visualViewport?.addEventListener('resize', scheduleGameFit);
+const gameSizeObserver = new ResizeObserver(scheduleGameFit);
+for (const selector of ['.to-play-column', '.to-room-bar', '.site-header', '#to-game-actions', '#to-game-status', '#to-message']) {
+  const element = document.querySelector(selector); if (element) gameSizeObserver.observe(element);
+}
 
 $('to-name').value = read('apejupoTorneoNombre');
 if (roomId) {
@@ -985,8 +1088,17 @@ if (roomId) {
   else { connect(); checkKeyMode(); }
 } else loadLobby();
 setInterval(() => { updateClocks(); updateMiniClocks(); }, 100);
-// Los navegadores solo permiten sonido tras un gesto del usuario: se prepara con el primer clic.
-document.addEventListener('pointerdown', () => { try { audio ||= new AudioContext(); audio.resume(); } catch {} }, { once: true });
+// Los navegadores solo permiten sonido tras un gesto del usuario: clic, toque o teclado.
+function unlockAudio() { try { prepareAudio(); } catch {} }
+document.addEventListener('pointerdown', unlockAudio, { once: true });
+document.addEventListener('keydown', unlockAudio, { once: true });
+$('to-sound').addEventListener('click', () => {
+  moveSound = !moveSound;
+  $('to-sound').setAttribute('aria-checked', String(moveSound));
+  $('to-sound-state').textContent = moveSound ? 'ON' : 'OFF';
+  $('to-sound').title = `${moveSound ? 'Desactivar' : 'Activar'} sonido de jugadas. El aviso de inicio de partida se mantiene.`;
+  if (moveSound) unlockAudio();
+});
 
 $('to-events').addEventListener('click', async event => {
   if (event.target.closest('[data-create]')) { $('to-create-open').click(); return; }
@@ -994,14 +1106,15 @@ $('to-events').addEventListener('click', async event => {
   if (pencil) { try { await openEdit(pencil.dataset.edit); } catch (error) { message(error.message, true); } return; }
   const button = event.target.closest('[data-delete]'); if (!button) return;
   const id = button.dataset.delete, t = lobby.get(id); if (!t) return;
+  const ended = ['finished', 'cancelled'].includes(t.status);
   const n = t.count, players = n === 1 ? 'Hay 1 jugador inscrito' : `Hay ${n} jugadores inscritos`;
-  const text = (n ? `${players} en «${t.title}». ` : `Vas a borrar «${t.title}». `)
+  const text = ended ? '' : (n ? `${players} en «${t.title}». ` : `Vas a borrar «${t.title}». `)
     + (['playing', 'between'].includes(t.status) ? 'El torneo está en juego y se perderán las partidas. ' : '')
     + 'Desaparecerá para todos y no se puede deshacer.';
-  if (!await confirmAction(n ? 'Hay jugadores inscritos' : 'Borrar torneo', text, true)) return;
+  if (!await confirmAction(ended ? `Se va a borrar el torneo «${t.title}»` : n ? 'Hay jugadores inscritos' : 'Borrar torneo', text, true)) return;
   button.disabled = true;
   try {
-    await request(`/api/tournaments/${id}/delete`, { method: 'POST', body: JSON.stringify({ hostToken: read(hostKey(id)) }) });
+    await request(`/api/tournaments/${id}/delete`, { method: 'POST', ...(tournamentAdmin ? { key: adminKey() } : {}), body: JSON.stringify({ hostToken: read(hostKey(id)) }) });
     try { localStorage.removeItem(hostKey(id)); } catch {}
     message(''); await loadLobby();
   } catch (error) { button.disabled = false; message(error.message, true); }

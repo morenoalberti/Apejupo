@@ -217,9 +217,10 @@ export class TournamentRoom extends DurableObject {
           return json({ ...summary(this.t), joinKey: this.t.joinKey || '' });
         }
         if (url.pathname === '/delete') {
-          // Solo el organizador. Se avisa a quien tenga la sala abierta y desaparece de la lista.
-          requireThat(TOKEN.test(b.hostToken) && this.isHost(await hash(b.hostToken)), 'Solo el organizador puede borrar el torneo.', 403);
-          for (const ws of this.ctx.getWebSockets()) { try { ws.close(1000, 'El organizador ha borrado el torneo.'); } catch {} }
+          // El router comprueba la clave antes de conceder el permiso de administrador.
+          requireThat(b.admin === true || (TOKEN.test(b.hostToken) && this.isHost(await hash(b.hostToken))), 'Solo el organizador o el administrador pueden borrar el torneo.', 403);
+          const reason = b.admin === true ? 'El administrador ha borrado el torneo.' : 'El organizador ha borrado el torneo.';
+          for (const ws of this.ctx.getWebSockets()) { try { ws.close(1000, reason); } catch {} }
           await this.ctx.storage.deleteAll(); this.t = null;
           return json({ ok: true });
         }
@@ -323,6 +324,7 @@ export default {
       const directory = env.DIRECTORY.getByName('public');
       const accounts = env.ACCOUNTS.getByName('cuentas');
       const askAccounts = async (action, data) => accounts.fetch('https://cuentas/' + action, { method: 'POST', body: JSON.stringify(data) });
+      const checkAdmin = () => askAccounts('admin/comprobar', { key: bearer(request), ip: request.headers.get('CF-Connecting-IP') || 'local' });
       // Retos: una conexión en vivo por pestaña; la sesión viaja en el primer mensaje, nunca en la URL.
       if (path === '/api/retos/socket') {
         requireThat(request.method === 'GET' && request.headers.get('Upgrade')?.toLowerCase() === 'websocket', 'Se necesita una conexión WebSocket.', 426);
@@ -353,6 +355,10 @@ export default {
         return withCors(await askAccounts(account[1], { ...b, session: bearer(request), ip: request.headers.get('CF-Connecting-IP') || 'local' }));
       }
       const room = /^\/api\/tournaments\/([a-f0-9]{24})(?:\/(join|socket|pgn|delete|config|edit))?$/.exec(path);
+      if (path === '/api/tournaments/admin/comprobar') {
+        requireThat(request.method === 'POST', 'Método no permitido.', 405);
+        return withCors(await checkAdmin());
+      }
       if (path === '/api/tournaments' && request.method === 'GET') return withCors(await directory.fetch('https://directory/'));
       if (path === '/api/tournaments' && request.method === 'POST') {
         // Organizar pide la sesión de una cuenta con el correo confirmado (va en Authorization).
@@ -367,6 +373,17 @@ export default {
       requireThat(!['join', 'delete', 'config', 'edit'].includes(suffix) || request.method === 'POST', 'Método no permitido.', 405);
       requireThat(!['socket', 'pgn', ''].includes(suffix) || request.method === 'GET', 'Método no permitido.', 405);
       if (suffix === 'socket') requireThat(origin && allowed.includes(origin), 'Conexión no autorizada.', 403);
+      if (suffix === 'delete') {
+        const b = await body(request);
+        let admin = false;
+        if (bearer(request)) {
+          const verified = await checkAdmin();
+          if (!verified.ok) return withCors(verified);
+          admin = true;
+        }
+        // No aceptar permisos enviados por el navegador: solo los verificados aquí.
+        return withCors(await env.TOURNAMENTS.getByName(room[1]).fetch('https://room/delete', { method: 'POST', body: JSON.stringify({ hostToken: b.hostToken, admin }) }));
+      }
       if (suffix === 'join') {
         // Con sesión, el jugador se inscribe con el nick de su cuenta; sin ella, su alias no puede ser el nick de otra cuenta.
         const b = await body(request), session = bearer(request); delete b.account;

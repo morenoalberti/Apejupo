@@ -8,6 +8,7 @@
     "test:integration": "node --test test/network.integration.js",
     "test:retos": "node --test test/retos.integration.js",
     "test:admin": "node --test test/admin.integration.js",
+    "test:admin-torneos": "node --test test/tournaments-admin.integration.js",
     "test:browser": "node test/browser.e2e.js",
     "check": "wrangler deploy --dry-run --outdir .wrangler/check",
     "simular": "node scripts/simular.js"

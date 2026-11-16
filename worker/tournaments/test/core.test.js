@@ -30,6 +30,19 @@ test('validación de torneos, inscripción, capacidad, duplicados e identidad', 
   assert.throws(() => joinTournament(t, 'Tercero', 'secret-3'), /completo/);
 });
 
+test('los ritmos largos se pueden crear, editar e iniciar con el reloj correcto', () => {
+  for (const format of ['swiss', 'closed']) {
+    for (const minutes of [20, 30, 60, 90]) {
+      const t = tournament(2, { format, minutes });
+      assert.equal(t.minutes, minutes);
+      editTournament(t, { title: t.title, format, minutes, increment: 3, rounds: 5, capacity: 32 }, NOW);
+      startTournament(t, NOW);
+      assert.equal(t.games[0].whiteMs, minutes * 60000);
+      assert.equal(t.games[0].blackMs, minutes * 60000);
+    }
+  }
+});
+
 test('solo el organizador inicia, el sorteo no cambia plazas y se ajustan rondas', () => {
   const t = tournament();
   assert.throws(() => act(t, t.players[0].id, false, { type: 'start' }, NOW), /organizador/);
@@ -224,15 +237,21 @@ test('arena: validación, emparejamiento continuo de libres y fin por tiempo', a
   const end = t.endsAt;
   assert.equal(arenaPairingsCloseAt(t), end - 120000);
   assert.equal(pairArena(t, end - 120000, new Set(ids)), false);
-  // Al cumplirse el tiempo la clasificación se congela: lo que acaba después se juega, pero no cuenta.
-  for (const x of t.games.filter(x => !x.result)) x.lastAt = end - 1000; // partida viva al acabar el tiempo
-  const before = standings(t).map(p => [p.id, p.points, p.played]);
+  // Al cumplirse el tiempo se espera a las partidas en juego y se suman sus resultados.
+  const remaining = t.games.filter(x => !x.result);
+  for (const x of remaining) x.lastAt = end - 1000; // partida viva al acabar el tiempo
+  const expected = new Map(standings(t).map(p => [p.id, { points: p.points, played: p.played }]));
+  for (const x of remaining) {
+    expected.get(x.white).points += 2;
+    expected.get(x.white).played++;
+    expected.get(x.black).played++;
+  }
   advance(t, end);
   assert.equal(t.status, 'playing');
   for (const x of t.games.filter(x => !x.result)) act(t, x.black, false, { type: 'resign', game: x.id }, end + 1000);
   assert.equal(t.status, 'finished');
-  assert.deepEqual(standings(t).map(p => [p.id, p.points, p.played]), before);
-  assert.ok(snapshot(t, null, false, null, end + 2000).games.some(x => x.late));
+  for (const p of standings(t)) assert.deepEqual({ points: p.points, played: p.played }, expected.get(p.id));
+  assert.ok(snapshot(t, null, false, null, end + 2000).games.every(x => !x.late));
   assert.ok(t.games.filter(x => !x.bye).every(x => x.result));
   assert.equal(snapshot(t, null, false, null, end + 2000).format, 'arena');
 });
@@ -245,8 +264,68 @@ test('arena sin partidas en juego termina justo al cumplirse el tiempo', () => {
   assert.equal(t.status, 'finished');
 });
 
-test('arena: berserk (mitad de tiempo, sin incremento, medio punto extra) y entrada tardía', async () => {
-  const { pairArena, BERSERK_BONUS } = await import('../src/core.js');
+test('arena espera a todas las partidas, cuenta las banderas posteriores y no programa alarmas pasadas', () => {
+  const t = tournament(4, { format: 'arena', duration: 30 });
+  startTournament(t, NOW);
+  const ids = new Set(t.players.map(p => p.id));
+  pairArena(t, NOW, ids);
+  const [first, last] = t.games, end = t.endsAt;
+  for (const g of t.games) { g.lastAt = end - 1000; g.whiteMs = 10000; g.blackMs = 10000; }
+  advance(t, end);
+  assert.equal(t.status, 'playing');
+  assert.equal(t.finishedAt, null);
+  assert.equal(nextAlarm(t, end), end + 9000);
+  assert.equal(pairArena(t, end, ids), false);
+  assert.throws(() => joinTournament(t, 'Tardío', 'late-secret', end), /cerradas/);
+  act(t, first.black, false, { type: 'resign', game: first.id }, end + 1000);
+  assert.equal(t.status, 'playing', 'Una partida pendiente impide cerrar el torneo');
+  assert.equal(standings(t).find(p => p.id === first.white).points, 2);
+  assert.equal(pairArena(t, end + 1000, ids), false);
+  assert.equal(t.games.length, 2);
+  assert.equal(nextAlarm(t, end + 1000), end + 9000);
+  advance(t, end + 8999);
+  assert.equal(t.status, 'playing');
+  advance(t, end + 9000);
+  assert.equal(last.result, '0-1');
+  assert.equal(t.status, 'finished');
+  assert.equal(t.finishedAt, end + 9000);
+  assert.equal(standings(t).find(p => p.id === last.black).points, 2);
+  assert.ok(standings(t).every(p => p.played === 1));
+  assert.equal(nextAlarm(t, end + 9000), t.expiresAt);
+});
+
+test('arena cuenta mate, tablas y bonus Berserk aunque terminen después del tiempo', () => {
+  const longLine = ['e4', 'e5', 'Nf3', 'Nc6', 'Bc4', 'Bc5', 'd3', 'd6', 'Nc3', 'Nf6', 'Bg5', 'h6', 'Bh4', 'g5', 'Bg3', 'a6', 'a3', 'b6', 'b3', 'a5'];
+  for (const kind of ['mate', 'draw', 'berserk']) {
+    const t = tournament(2, { format: 'arena', duration: 30 });
+    startTournament(t, NOW);
+    pairArena(t, NOW, new Set(t.players.map(p => p.id)));
+    const g = t.games[0], end = t.endsAt;
+    if (kind === 'berserk') act(t, g.white, false, { type: 'berserk', game: g.id }, NOW);
+    const line = kind === 'mate' ? ['e4', 'e5', 'Qh5', 'Nc6', 'Bc4', 'Nf6'] : longLine.slice(0, kind === 'draw' ? 20 : 14);
+    for (const [i, san] of line.entries()) play(t, san, NOW + (i + 1) * 1000);
+    g.lastAt = end - 1000;
+    advance(t, end);
+    assert.equal(t.status, 'playing');
+    if (kind === 'mate') play(t, 'Qxf7#', end + 1000);
+    else if (kind === 'draw') {
+      act(t, g.white, false, { type: 'offer-draw', game: g.id }, end + 1000);
+      act(t, g.black, false, { type: 'accept-draw', game: g.id }, end + 1000);
+    } else act(t, g.black, false, { type: 'resign', game: g.id }, end + 1000);
+    assert.equal(t.status, 'finished');
+    assert.equal(t.finishedAt, end + 1000);
+    const rows = snapshot(t, null, false, null, end + 2000).standings;
+    const white = rows.find(p => p.id === g.white), black = rows.find(p => p.id === g.black);
+    assert.equal(white.points, kind === 'mate' ? 2 : kind === 'draw' ? 1 : 3);
+    assert.equal(black.points, kind === 'draw' ? 1 : 0);
+    assert.equal(white.sheet[0].bonus, kind === 'berserk');
+    assert.equal(white.played, 1);
+    assert.equal(black.played, 1);
+  }
+});
+
+test('arena: berserk sin bonificación antes de 14 medias jugadas y entrada tardía', async () => {
+  const { pairArena } = await import('../src/core.js');
   const t = tournament(2, { format: 'arena', duration: 30, minutes: 5, increment: 3 });
   startTournament(t, NOW);
   const ids = t.players.map(p => p.id);
@@ -256,14 +335,14 @@ test('arena: berserk (mitad de tiempo, sin incremento, medio punto extra) y entr
   act(t, g.white, false, { type: 'berserk', game: g.id }, NOW + 1000);
   assert.equal(g.whiteMs, 150000);
   assert.throws(() => act(t, g.white, false, { type: 'berserk', game: g.id }, NOW + 1500), /Ya has/);
-  // Mate rápido del pastor (7 jugadas de blancas): sin incremento para quien hizo berserk.
+  // Mate en 13 medias jugadas: aún falta la séptima jugada de negras para cobrar el extra.
   const sans = ['e4', 'e5', 'Bc4', 'Nc6', 'Qh5', 'a6', 'a3', 'a5', 'a4', 'b6', 'b3', 'Ra7', 'Qxf7#'];
   for (const [i, san] of sans.entries()) play(t, san, NOW + 2000 + i * 1000);
   assert.ok(g.whiteMs < 150000);
   assert.equal(g.result, '1-0');
   const rows = standings(t), w = rows.find(r => r.id === g.white);
-  assert.equal(w.points, 1 + BERSERK_BONUS);
-  assert.deepEqual(w.sheet[0], { s: 1, berserk: true, bonus: true });
+  assert.equal(w.points, 2);
+  assert.deepEqual(w.sheet[0], { s: 1, berserk: true, bonus: false, points: 2, doubled: false });
   // Con el arena en marcha se puede entrar; en suizo, no.
   joinTournament(t, 'Tardío', 'secret-late', NOW + 60000);
   assert.equal(t.players.length, 3);
@@ -273,6 +352,78 @@ test('arena: berserk (mitad de tiempo, sin incremento, medio punto extra) y entr
   assert.throws(() => joinTournament(swiss, 'Tardío', 'secret-late', NOW), /cerradas/);
   const view = snapshot(t, null, false, null, NOW + 70000);
   assert.ok(view.standings[0].sheet);
+});
+
+test('arena: relojes Berserk de ambos colores, excepción 1+2 e incremento intacto del rival', () => {
+  for (const [minutes, increment] of [[1, 2], [1, 0], [1, 3], [5, 3], [20, 10], [30, 0]]) {
+    for (const color of ['w', 'b']) {
+      const t = tournament(2, { format: 'arena', duration: 120, minutes, increment });
+      startTournament(t, NOW);
+      pairArena(t, NOW, new Set(t.players.map(p => p.id)));
+      const g = t.games[0], player = color === 'w' ? g.white : g.black;
+      const key = color === 'w' ? 'whiteMs' : 'blackMs', other = color === 'w' ? 'blackMs' : 'whiteMs';
+      if (color === 'b') play(t, 'e4', NOW + 1000);
+      act(t, player, false, { type: 'berserk', game: g.id }, NOW + (color === 'b' ? 1000 : 0));
+      const initial = minutes * 60000 / (minutes === 1 && increment === 2 ? 1 : 2);
+      assert.equal(g[key], initial);
+      if (color === 'w') play(t, 'e4', NOW + 1000);
+      play(t, 'e5', NOW + 2000);
+      assert.equal(g[key], initial - 1000);
+      assert.equal(g[other], minutes * 60000 - 1000 + increment * 1000);
+    }
+  }
+});
+
+test('arena: bonus Berserk desde 14 medias jugadas para ambos colores, nunca para el perdedor', () => {
+  const sans = ['e4', 'e5', 'Nf3', 'Nc6', 'Bc4', 'Bc5', 'd3', 'd6', 'Nc3', 'Nf6', 'Bg5', 'h6', 'Bh4', 'g5', 'Bg3'];
+  for (const plies of [0, 13, 14, 15]) {
+    for (const color of ['w', 'b']) {
+      const t = tournament(2, { format: 'arena', duration: 30 });
+      startTournament(t, NOW);
+      pairArena(t, NOW, new Set(t.players.map(p => p.id)));
+      const g = t.games[0];
+      for (const player of [g.white, g.black]) act(t, player, false, { type: 'berserk', game: g.id }, NOW);
+      for (const [i, san] of sans.slice(0, plies).entries()) play(t, san, NOW + (i + 1) * 1000);
+      const winnerId = color === 'w' ? g.white : g.black, loserId = color === 'w' ? g.black : g.white;
+      act(t, loserId, false, { type: 'resign', game: g.id }, NOW + (plies + 1) * 1000);
+      const rows = standings(t), winner = rows.find(p => p.id === winnerId), loser = rows.find(p => p.id === loserId);
+      assert.equal(winner.points, plies >= 14 ? 3 : 2);
+      assert.equal(winner.sheet[0].bonus, plies >= 14);
+      assert.equal(loser.points, 0);
+      assert.equal(loser.sheet[0].bonus, false);
+    }
+  }
+});
+
+test('arena: 2/1/0, rachas dobles y extra Berserk que no se duplica', () => {
+  const t = tournament(2, { format: 'arena', duration: 30 });
+  const [white, black] = t.players.map(p => p.id);
+  // Resultados consecutivos del mismo jugador; la cuarta victoria activa Berserk.
+  t.games = ['1-0', '1-0', '1-0', '1-0', '1/2-1/2', '1-0', '0-1'].map((result, i) => ({
+    white, black, result, moves: Array(20).fill(''), berserkW: i === 3, finishedAt: NOW + i
+  }));
+  const rows = standings(t), winner = rows.find(p => p.id === white), rival = rows.find(p => p.id === black);
+  assert.deepEqual(winner.sheet.map(s => s.points), [2, 2, 4, 5, 2, 2, 0]);
+  assert.equal(winner.points, 17);
+  assert.deepEqual(rival.sheet.map(s => s.points), [0, 0, 0, 0, 1, 0, 2]);
+  assert.equal(rival.points, 3);
+  assert.equal(winner.sheet[3].bonus, true);
+  assert.equal(winner.sheet[3].doubled, true);
+  assert.equal(winner.sheet[4].bonus, false);
+});
+
+test('arena: tablas rápidas, tablas repetidas y reinicio de la restricción solo al ganar', () => {
+  const t = tournament(2, { format: 'arena', duration: 30 });
+  const [white, black] = t.players.map(p => p.id);
+  const results = [['1/2-1/2', 19], ['1/2-1/2', 20], ['0-1', 20], ['1/2-1/2', 59], ['1/2-1/2', 60], ['1-0', 20], ['1/2-1/2', 20]];
+  t.games = results.map(([result, plies], i) => ({ white, black, result, moves: Array(plies).fill(''), berserkW: true, finishedAt: NOW + i }));
+  const row = standings(t).find(p => p.id === white);
+  assert.deepEqual(row.sheet.map(s => s.points), [0, 0, 0, 0, 1, 3, 1]);
+  assert.equal(row.points, 5);
+  assert.ok(row.sheet.filter(s => s.s === .5).every(s => !s.bonus));
+  // Una primera tabla de al menos 20 medias jugadas sí puntúa.
+  t.games = [{ white, black, result: '1/2-1/2', moves: Array(20).fill(''), finishedAt: NOW }];
+  assert.ok(standings(t).every(p => p.points === 1));
 });
 
 test('arena 1+0: se deja de emparejar 30 s antes y la bandera caída a tiempo cuenta', async () => {
@@ -288,7 +439,7 @@ test('arena 1+0: se deja de emparejar 30 s antes y la bandera caída a tiempo cu
   advance(t, t.endsAt + 5000);
   assert.equal(g.result, '0-1');
   assert.equal(t.status, 'finished');
-  assert.equal(standings(t).find(p => p.id === g.black).points, 1);
+  assert.equal(standings(t).find(p => p.id === g.black).points, 2);
 });
 
 test('clave de inscripción: se pide al apuntarse, solo la ve el organizador y se puede cambiar', () => {

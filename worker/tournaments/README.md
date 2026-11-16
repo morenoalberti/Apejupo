@@ -31,7 +31,10 @@ Crear un torneo pide la sesión de una cuenta con el correo confirmado. El torne
 - Listado público. Como en Lichess, organiza cualquier cuenta con el correo confirmado (como mucho 5 torneos cada 24 horas por cuenta); inicio manual o programado.
 - Entre 2 y 128 jugadores; inscripción por nombre o alias, sin cuentas ni correo. La identidad es una credencial aleatoria de 256 bits guardada en el navegador; el servidor solo conserva su SHA-256.
 - Sistema suizo de club, entre 1 y 9 rondas, ajustado a los inscritos. Aproxima puntuaciones y colores, busca emparejamientos sin repeticiones y reparte descansos. Si las retiradas obligan a repetir un enfrentamiento, lo comunica. No es un emparejador homologado FIDE.
-- Ritmos 1, 2, 3, 5, 10 y 15 minutos; incrementos de 0, 2, 3, 5 y 10 segundos. Arena de 3 minutos a 2 horas.
+- Ritmos 1, 2, 3, 5, 10, 15, 20, 30, 60 y 90 minutos; incrementos de 0, 2, 3, 5 y 10 segundos. Arena de 3 minutos a 2 horas.
+- Arena: victoria de 2 puntos, tablas de 1 y derrota de 0. Tras dos victorias seguidas, las siguientes partidas puntúan doble hasta dejar de ganar. Las tablas antes de 20 medias jugadas no puntúan; después de unas tablas, las siguientes necesitan al menos 60 medias jugadas para puntuar, hasta conseguir una victoria (perder no reinicia esa restricción).
+- Al agotarse el tiempo del Arena se espera a que terminen todas las partidas en curso: sus resultados también cuentan. La clasificación es definitiva y se muestra el podio cuando acaba la última partida; no se crean emparejamientos nuevos después del cierre.
+- Berserk en Arena, antes de la primera jugada propia: mitad del tiempo y sin incremento, salvo 1+2, que pasa a 1+0. Ganar da 1 punto extra a partir de 14 medias jugadas (siete de cada bando); ese extra no se duplica con las rachas.
 - Jugadas validadas por chess.js 1.4.0 en el servidor. Jaque mate, ahogado, material insuficiente, enroque, captura al paso, promoción a las cuatro piezas y tablas automáticas por triple repetición o 50 movimientos.
 - Relojes controlados por el servidor. Una alarma agenda el próximo vencimiento; no necesita jugadores conectados ni un proceso ejecutándose cada segundo.
 - Tablas ofrecidas/aceptadas/rechazadas, abandono y retirada de futuras rondas.
@@ -59,6 +62,8 @@ Prueba: `npm run test:retos` (dos clientes: reto a desconectado, rechazo, acepta
 `admin-usuarios.html` (sin enlace en el menú y fuera de los buscadores) lista las cuentas registradas: nick, correo, si está confirmada, fecha de alta, última actividad y sesiones abiertas, con totales, búsqueda, filtros y descarga en CSV. Desde ahí se puede confirmar una cuenta a mano, reenviar el correo de confirmación o borrar una cuenta.
 
 Todo pide la clave `CUENTAS_ADMIN` (secreto del Worker, mínimo 12 caracteres), que viaja en la cabecera `Authorization`. Diez claves erróneas en 15 minutos desde la misma IP bloquean el acceso un rato. Sin el secreto configurado, la página responde que la administración no está disponible. En local se lee de `.dev.vars`; al publicar: `npx wrangler secret put CUENTAS_ADMIN`, con una clave distinta de la local.
+
+Con esa misma clave, el administrador puede borrar cualquier torneo, sea quien sea su organizador y esté pendiente, en juego, finalizado o cancelado. Desde la administración, «Gestionar torneos» abre el listado con una papelera en todos los torneos. El borrado pide confirmación y avisa a quienes estén en la sala. El servidor valida la clave en cada borrado; una sesión de jugador o un permiso declarado por el navegador no conceden administración.
 
 La «última actividad» se apunta al crear la cuenta, al entrar y al abrir la web con la sesión iniciada (como mucho una vez por hora). Las cuentas creadas antes de este cambio aparecen sin actividad hasta que vuelvan a entrar. Prueba: `npm run test:admin`.
 

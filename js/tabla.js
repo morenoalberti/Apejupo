@@ -117,6 +117,7 @@
       return '<tr><td class="pos">' + (base + i + 1) + '</td><td class="num">' + esc(r.id) + "</td>" + jugador + "<td>" + esc(r.club || "") + "</td><td>" + esc(r.federado || "") + "</td>" +
         "<td>" + esc(r.titulo || "") + '</td><td class="num elo">' + n(r.elo_fada) + "</td><td>" + esc(r.provincia || "") + "</td>" + celdaOjo(r) + "</tr>";
     }).join("");
+    U.eloLabels($("tbl"), BASES[state.modo].cols);
     U.fotos($("tbl-body"));
     $("tbl-prev").disabled = state.page === 0;
     $("tbl-next").disabled = !more;

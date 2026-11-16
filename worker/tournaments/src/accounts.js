@@ -106,6 +106,7 @@ export class AccountStore extends DurableObject {
     const lock = 'admin:' + ip, max = this.env.CUENTAS_DESARROLLO === '1' ? 1000 : 10, tried = this.one('SELECT count, until FROM attempts WHERE key = ?', lock);
     requireThat(!(tried && tried.until > now && tried.count >= max), 'Demasiados intentos. Espera unos minutos y vuelve a probar.', 429);
     if (!(await sameSecret(String(b.key || ''), secret))) { this.limit(lock, 10, 900000, now); throw new GameError('La clave de administración no es correcta.', 401); }
+    if (action === 'comprobar') return { ok: true };
     if (action === 'lista') {
       const users = this.sql.exec(`SELECT u.id, u.nick, u.email, u.verified, u.created_at, u.last_seen, p.updated_at AS photo_at,
           (SELECT COUNT(*) FROM sessions s WHERE s.user_id = u.id AND s.expires_at > ?) AS sessions
@@ -190,7 +191,7 @@ export class AccountStore extends DurableObject {
       }
       const b = request.method === 'POST' ? await request.json() : {};
       const ip = String(b.ip || 'local').slice(0, 64), dev = this.env.CUENTAS_DESARROLLO === '1';
-      const adminAction = /^\/admin\/(lista|confirmar|reenviar|borrar)$/.exec(url.pathname);
+      const adminAction = /^\/admin\/(comprobar|lista|confirmar|reenviar|borrar)$/.exec(url.pathname);
       if (adminAction) return json(await this.admin(adminAction[1], b, ip, now));
       switch (url.pathname) {
         case '/registro': {

@@ -104,3 +104,12 @@
 .rt-actions .btn-ghost { padding: 11px 16px; border: 1px solid var(--line); border-radius: 8px; background: transparent; color: var(--text); font: inherit; font-weight: 600; cursor: pointer; }
 .rt-actions button:disabled { opacity: .55; cursor: default; }
 .rt-dialog .cu-msg { margin: 0 0 14px; text-align: left; }
+
+@media (max-width: 480px) {
+  .cu-dialog { max-height: calc(100dvh - 24px); overflow-y: auto; }
+  .cu-box { padding: 20px 16px; }
+  .cu-close { top: 6px; right: 6px; width: 40px; height: 40px; }
+  .cu-tabs { margin-right: 44px; }
+  .cu-tabs button { min-height: 44px; padding: 8px; font-size: .85rem; }
+  .cu-link { min-height: 40px; }
+}

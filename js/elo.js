@@ -17,6 +17,7 @@
       cell("lb", p.lichess ? "…" : null) + cell("lr", p.lichess ? "…" : null) +
       cell("cb", p.chesscom ? "…" : null) + cell("cr", p.chesscom ? "…" : null) + "</tr>";
   }).join("");
+  U.eloLabels(body.closest('table'), ['Puesto', 'Jugador', 'Elo club', 'Lichess blitz', 'Lichess rápidas', 'Chess.com blitz', 'Chess.com rápidas']);
   U.fotos(body);
 
   function set(i, id, v) {

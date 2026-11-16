@@ -8,9 +8,9 @@
 <meta name="description" content="Administración de las cuentas de jugador de Apejupo Chess Club.">
 <meta name="robots" content="noindex, nofollow">
 <link rel="icon" type="image/svg+xml" href="assets/icon.svg">
-<link rel="stylesheet" href="css/style.css?v=20261112-torneo">
-<link rel="stylesheet" href="css/cuenta.css?v=20261114-retos1">
-<link rel="stylesheet" href="css/admin-usuarios.css?v=20261114-admin1">
+<link rel="stylesheet" href="css/style.css?v=20261116-movil1">
+<link rel="stylesheet" href="css/cuenta.css?v=20261116-movil1">
+<link rel="stylesheet" href="css/admin-usuarios.css?v=20261116-movil1">
 <script defer src="js/analytics.js?v=20261111-analytics"></script>
 </head>
 <body>
@@ -42,7 +42,7 @@
   <section id="au-panel" hidden>
     <div class="au-head">
       <div><h1>Usuarios registrados</h1><p class="muted" id="au-updated"></p></div>
-      <div class="cu-actions"><button id="au-reload" class="btn-ghost" type="button">Actualizar</button><button id="au-csv" class="btn-ghost" type="button">Descargar CSV</button><button id="au-logout" class="btn-ghost" type="button">Salir</button></div>
+      <div class="cu-actions"><a href="jugar-torneo.html" class="btn-ghost">Gestionar torneos</a><button id="au-reload" class="btn-ghost" type="button">Actualizar</button><button id="au-csv" class="btn-ghost" type="button">Descargar CSV</button><button id="au-logout" class="btn-ghost" type="button">Salir</button></div>
     </div>
     <dl class="au-stats" id="au-stats"></dl>
     <div class="au-tools">
@@ -53,7 +53,7 @@
     </div>
     <p id="au-msg" class="cu-msg" role="status" hidden></p>
     <div class="au-table-wrap">
-      <table class="au-table">
+      <table class="au-table" role="table">
         <thead><tr><th scope="col">Usuario</th><th scope="col">Correo</th><th scope="col">Estado</th><th scope="col">Alta</th><th scope="col">Última actividad</th><th scope="col"><span class="cu-sr">Acciones</span></th></tr></thead>
         <tbody id="au-rows"></tbody>
       </table>
@@ -62,8 +62,8 @@
   </section>
 </main>
 <script src="js/menu.js?v=20261113-menus"></script>
-<script src="js/util.js?v=20261113-menus"></script>
+<script src="js/util.js?v=20261116-movil1"></script>
 <script src="js/torneo-config.js?v=20261114-publicado"></script>
-<script type="module" src="js/admin-usuarios.js?v=20261115-match1"></script>
+<script type="module" src="js/admin-usuarios.js?v=20261116-movil1"></script>
 </body>
 </html>
