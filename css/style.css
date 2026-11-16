@@ -892,8 +892,6 @@ body.card-dragging .tour-tip { display: none !important; }
 .lv-thumbs .lv-addrow .lv-tt { padding-right: 60px; }
 .lv-vpop { top: 64px; right: 10px; }
 .th { touch-action: manipulation; }
-/* Las miniaturas permiten desplazar la página con el dedo; el tablero de análisis conserva su arrastre de piezas. */
-.lv-grid .th-board { touch-action: pan-y pinch-zoom; }
 @media (hover: none), (pointer: coarse) {
   .th-del { display: flex; width: 36px; height: 36px; top: 6px; right: 6px; }
   .th-p .th-eye { visibility: visible; flex: 0 0 36px; width: 36px; height: 36px; }
