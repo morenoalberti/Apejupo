@@ -530,7 +530,9 @@ function renderPresencial() {
   if (t.myRequest) $('to-pz-ask-text').textContent = `Como ${t.myRequest.name}${t.myRequest.rating ? ` (Elo ${t.myRequest.rating})` : ''}. Cuando la organización la apruebe aparecerás en la lista de inscritos.`;
   $('to-presencial-next').hidden = !t.host || t.status !== 'between';
   $('to-presencial-next').disabled = !connected;
-  $('to-presencial-hint').textContent = playersView ? (t.status === 'finished' ? 'Lista final de jugadores.' : lateEntry ? 'Corrige nombres y Elo, retira a quien se marche o inscribe a quien llegue tarde.' : 'Corrige nombres y Elo o retira a quien se marche. En el Round-Robin no hay inscripción tardía.') : waiting ? (t.host ? 'Cuando estén todos, pulsa «Cerrar inscripción y emparejar» para sortear la primera ronda.' : mine ? 'Ya tienes plaza. Las mesas aparecerán aquí al empezar.' : 'La organización está preparando la lista de jugadores.') : t.host ? 'Anota los resultados de cada mesa. Puedes corregirlos antes de emparejar la siguiente ronda.' : 'Los resultados se actualizan cuando los anota la organización.';
+  // Round-Robin con número impar de jugadores: tantas rondas como jugadores, porque en cada una descansa uno.
+  const oddRR = closed(t) && !waiting && t.standings.length % 2 === 1 ? ` Con ${t.standings.length} jugadores hay ${t.rounds} rondas: en cada una descansa un jugador.` : '';
+  $('to-presencial-hint').textContent = (playersView ? (t.status === 'finished' ? 'Lista final de jugadores.' : lateEntry ? 'Corrige nombres y Elo, retira a quien se marche o inscribe a quien llegue tarde.' : 'Corrige nombres y Elo o retira a quien se marche. En el Round-Robin no hay inscripción tardía.') : waiting ? (t.host ? 'Cuando estén todos, pulsa «Cerrar inscripción y emparejar» para sortear la primera ronda.' : mine ? 'Ya tienes plaza. Las mesas aparecerán aquí al empezar.' : 'La organización está preparando la lista de jugadores.') : t.host ? 'Anota los resultados de cada mesa. Puedes corregirlos antes de emparejar la siguiente ronda.' : 'Los resultados se actualizan cuando los anota la organización.') + (playersView || waiting ? '' : oddRR);
   // Todas las rondas en una tabla, como las hojas de emparejamientos: Mesa · Tít. · Blancas · ELO · Resultado · Tít. · Negras · ELO.
   const rounds = [...new Set(t.games.map(g => g.round))].sort((a, b) => a - b);
   if (presencialFilter !== 'all' && !rounds.includes(Number(presencialFilter))) presencialFilter = 'all';
@@ -1458,7 +1460,7 @@ function openResultPop(row) {
   row.classList.add('to-pt-open');
   const pop = document.createElement('div');
   pop.id = 'to-pt-pop'; pop.className = 'to-pt-pop'; pop.setAttribute('role', 'dialog'); pop.setAttribute('aria-label', `Resultado de la mesa ${row.dataset.ptTable}`);
-  pop.innerHTML = `<strong>Resultados</strong><small>Mesa ${esc(row.dataset.ptTable)} · ${esc(name(g.white))} – ${esc(name(g.black))}</small>`
+  pop.innerHTML = '<strong>Resultados</strong>'
     + [...ptOptions, ['', '-']].map(([v, l]) => `<button type="button" data-pt-value="${v}" class="${(g.result || '') === v ? 'on' : ''}"${v ? '' : ' title="Sin resultado"'}>${l}</button>`).join('');
   document.body.append(pop);
   // Debajo de la casilla de resultado; si no cabe, encima.

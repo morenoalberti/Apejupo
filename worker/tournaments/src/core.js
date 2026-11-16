@@ -522,6 +522,7 @@ export function act(t, playerId, host, action, now = Date.now()) {
       }
       t.requests = t.requests.filter(x => x !== r);
     } else if (action.type === 'presencial-next') {
+      requireThat(t.status !== 'finished', `El torneo ya ha terminado: se han jugado sus ${t.rounds} rondas.`);
       requireThat(t.status === 'between', 'Completa todos los resultados antes de la siguiente ronda.');
       beginRound(t, now);
     } else {
