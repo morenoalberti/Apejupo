@@ -753,11 +753,11 @@ body.card-dragging .tour-tip { display: none !important; }
 /* Miniaturas completas: nombres, relojes, tablero y barra */
 .lv-grid { grid-template-columns: repeat(auto-fill, minmax(255px, 1fr)); gap: 13px; }
 .th { flex-direction: column; align-items: stretch; gap: 5px; text-align: left; font: inherit; }
-.th-row { display: flex; gap: 5px; }
+.th-row { position: relative; display: flex; gap: 5px; }
 .th-p { display: flex; justify-content: space-between; align-items: center; gap: 7px; font-size: 11.5px; color: #bababa; }
 .th-p .nm { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .th-p .ttl { font-style: normal; font-weight: 700; color: #e8a33d; }
-.th-p .ck { flex: none; font-family: ui-monospace, Consolas, monospace; font-weight: 700; font-size: 12.5px; color: #9a9a9a; background: #1c1b19; border-radius: 3px; padding: 1px 6px; }
+.th-p .ck { flex: none; margin-left: auto; font-family: ui-monospace, Consolas, monospace; font-weight: 700; font-size: 12.5px; color: #9a9a9a; background: #1c1b19; border-radius: 3px; padding: 1px 6px; }
 .th-p .ck.run { background: #3692e7; color: #fff; }
 /* Pastillas de jugadas más pequeñas */
 .lv-moves { grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 4px; padding: 6px; font-size: 12.5px; }
@@ -792,8 +792,9 @@ body.card-dragging .tour-tip { display: none !important; }
 .lv-addrow { display: flex; gap: 10px; align-items: center; margin: 0 0 10px; }
 .lv-addrow select { padding: 6px 8px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--text); }
 .th { position: relative; }
-.th-del { position: absolute; top: 4px; right: 4px; width: 26px; height: 26px; display: none; align-items: center; justify-content: center; border-radius: 6px; background: rgba(20, 20, 20, .85); color: #e5484d; cursor: pointer; z-index: 2; }
-.th:hover .th-del { display: flex; }
+.th-tools { position: absolute; top: 6px; right: 6px; z-index: 4; display: flex; gap: 4px; padding: 3px; border: 1px solid #ffffff25; border-radius: 10px; background: #0b1422ed; box-shadow: 0 4px 14px #0004; visibility: hidden; pointer-events: none; }
+.th:hover .th-tools { visibility: visible; pointer-events: auto; }
+.th-del { width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border-radius: 6px; color: #f87171; cursor: pointer; }
 .th-del:hover { background: #e5484d; color: #fff; }
 .wrap.wide { max-width: none; width: 100%; padding-left: 24px; padding-right: 24px; }
 #viewer-more { flex: 0 1 427px; }
@@ -804,7 +805,7 @@ body.card-dragging .tour-tip { display: none !important; }
 .lv-addrow { align-items: flex-end; margin-bottom: 6px; }
 .lv-addrow select, .lv-addrow button { margin-bottom: 0; }
 #viewer-add { display: inline-flex; align-items: center; gap: 6px; }
-.th-eye { flex: 0 0 24px; align-self: flex-start; display: flex; align-items: center; justify-content: center; height: 24px; border-radius: 6px; color: #9a9a9a; cursor: pointer; }
+.th-eye { display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 6px; color: #c5d2e5; cursor: pointer; }
 .th-eye:hover { background: #3a3936; color: #fff; }
 .lv-fbd { position: fixed; inset: 0; z-index: 1200; background: rgba(4, 9, 20, .65); }
 .lv-fide { position: fixed; z-index: 1210; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(560px, 94vw); max-height: 92vh; overflow: auto; background: #162039; border: 1px solid #2a3654; border-radius: 12px; box-shadow: 0 24px 70px rgba(0, 0, 0, .65); }
@@ -824,9 +825,6 @@ body.card-dragging .tour-tip { display: none !important; }
 .lv-ftab .win small { font-size: .72rem; }
 .lv-ftab a { color: #60a5fa; font-size: .85rem; }
 .lv-ffoot { margin: 0; padding: 10px 16px; font-size: .78rem; color: #9fb0c8; border-top: 1px solid #2a3654; }
-.th-p .th-eye { flex: 0 0 22px; margin-left: auto; align-self: center; height: 22px; visibility: hidden; }
-.th:hover .th-p .th-eye { visibility: visible; }
-.th-p .th-eye + .ck { margin-left: 0; }
 #viewer-games { flex: 0 1 320px; }
 .lv-moves .ev { font-style: normal; font-size: 1em; font-weight: 400; margin-left: 4px; color: inherit; white-space: nowrap; }
 .lv-eyebtn { flex: none; width: 34px; height: 34px; display: inline-flex; align-items: center; justify-content: center; border-radius: 8px; border: 1px solid #2a3654; background: transparent; color: #cfd8e6; cursor: pointer; padding: 0; }
@@ -860,33 +858,34 @@ body.card-dragging .tour-tip { display: none !important; }
 .lv-addrow .btn-ghost { display: inline-flex; align-items: center; gap: 6px; }
 #viewer-round { padding: 6px 8px; border-radius: 8px; border: 1px solid #2a3654; background: var(--bg); color: var(--text); }
 .lv-round-trigger { display: none; }
-.lv-round-dialog { position: fixed; inset: auto 0 max(12px, env(safe-area-inset-bottom)); width: calc(100% - 24px); max-width: 460px; max-height: calc(100dvh - 24px); margin: 0 auto; padding: 0; overflow: hidden; border: 1px solid var(--line); border-radius: 22px; background: var(--card); color: var(--text); box-shadow: 0 24px 80px #0007; }
+.lv-round-dialog { position: fixed; inset: auto 0 max(12px, env(safe-area-inset-bottom)); width: calc(100% - 24px); max-width: 440px; max-height: calc(100dvh - 24px); margin: 0 auto; padding: 0; overflow: hidden; border: 1px solid var(--line); border-radius: 20px; background: var(--card); color: var(--text); box-shadow: 0 24px 80px #0007; }
 .lv-round-dialog::backdrop { background: #040914aa; backdrop-filter: blur(5px); }
 .lv-round-dialog[open] { display: flex; flex-direction: column; }
 .lv-round-handle { width: 36px; height: 4px; margin: 10px auto 0; border-radius: 9px; background: var(--line); }
-.lv-round-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 18px 8px; }
-.lv-round-eyebrow { margin: 0 0 4px; color: var(--amber); font-size: .62rem; font-weight: 700; letter-spacing: .14em; }
-.lv-round-head h2 { margin: 0; font-size: 1.25rem; line-height: 1.3; }
-#lv-round-close { display: grid; place-items: center; flex: none; width: 40px; height: 40px; padding: 0; border: 1px solid var(--line); border-radius: 12px; color: var(--muted); background: transparent; }
-.lv-round-tournament { margin: 0; padding: 0 18px 14px; color: var(--muted); font-size: .78rem; line-height: 1.45; overflow-wrap: anywhere; }
-.lv-round-list { flex: 0 1 auto; min-height: 0; max-height: min(58dvh, 460px); padding: 4px 10px 12px; border-top: 1px solid var(--line); overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; }
-.lv-round-handle, .lv-round-head, .lv-round-tournament { flex-shrink: 0; }
-.lv-round-option { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 64px; margin-top: 6px; padding: 10px; border: 1px solid transparent; border-radius: 12px; text-align: left; color: var(--text); background: transparent; font: inherit; cursor: pointer; }
+.lv-round-head { display: flex; align-items: center; gap: 10px; padding: 10px 16px 8px; }
+.lv-round-icon { display: grid; place-items: center; flex: none; width: 34px; height: 34px; border: 1px solid #3b82f633; border-radius: 10px; color: var(--blue); background: #3b82f612; }
+.lv-round-head h2 { flex: 1; margin: 0; font-size: 1.08rem; line-height: 1.3; }
+#lv-round-close { display: grid; place-items: center; flex: none; width: 40px; height: 40px; padding: 0; border: 0; border-radius: 10px; color: var(--muted); background: transparent; }
+#lv-round-close:hover { background: var(--bg); }
+.lv-round-tournament { margin: 0; padding: 0 16px 12px; color: var(--muted); font-size: .75rem; line-height: 1.45; overflow-wrap: anywhere; }
+.lv-round-summary { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 9px 16px; border-block: 1px solid var(--line); background: #3b82f606; color: var(--muted); font-size: .7rem; }
+#lv-round-live { color: #16865a; font-weight: 600; }
+.lv-round-list { flex: 0 1 auto; min-height: 0; max-height: min(54dvh, 440px); padding: 4px 10px 10px; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; }
+.lv-round-handle, .lv-round-head, .lv-round-tournament, .lv-round-summary { flex-shrink: 0; }
+.lv-round-option { display: grid; grid-template-columns: minmax(0, 1fr) auto 20px; align-items: center; gap: 10px; width: 100%; min-height: 48px; margin-top: 4px; padding: 9px 10px; border: 1px solid transparent; border-radius: 10px; text-align: left; color: var(--text); background: transparent; font: inherit; cursor: pointer; }
 .lv-round-option:hover { background: var(--bg); }
-.lv-round-option[aria-selected="true"] { border-color: #3b82f66b; background: #3b82f614; }
-.lv-round-number { display: grid; place-items: center; flex: none; width: 36px; height: 36px; border: 1px solid var(--line); border-radius: 10px; font-size: .82rem; font-weight: 700; color: var(--muted); font-variant-numeric: tabular-nums; }
-.lv-round-option[aria-selected="true"] .lv-round-number { background: var(--blue); border-color: var(--blue); color: #fff; }
-.lv-round-name { flex: 1; min-width: 0; font-size: .94rem; font-weight: 650; line-height: 1.35; overflow-wrap: anywhere; }
-.lv-round-state { display: flex; align-items: center; gap: 5px; margin-top: 4px; font-size: .7rem; font-weight: 400; color: var(--muted); }
+.lv-round-option[aria-selected="true"] { border-color: #3b82f650; background: #3b82f619; box-shadow: inset 2px 0 var(--blue); }
+.lv-round-name { min-width: 0; font-size: .89rem; font-weight: 600; line-height: 1.35; overflow-wrap: anywhere; }
+.lv-round-state { display: inline-flex; align-items: center; gap: 5px; padding: 3px 7px; border-radius: 6px; background: #93a4bd0d; font-size: .65rem; font-weight: 500; white-space: nowrap; color: var(--muted); }
 .lv-round-state i { width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
-.lv-round-state.live { color: #16865a; }
-.lv-round-check { display: grid; place-items: center; flex: none; width: 22px; height: 22px; border-radius: 50%; color: #fff; }
+.lv-round-state.live { color: #16865a; background: #16865a12; }
+.lv-round-check { display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; color: #fff; }
 .lv-round-option[aria-selected="true"] .lv-round-check { background: var(--blue); }
 .lv-round-option:focus-visible, #lv-round-close:focus-visible, .lv-round-trigger:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
-@media (prefers-color-scheme: dark) { .lv-round-state.live { color: #4ade80; } }
+@media (prefers-color-scheme: dark) { .lv-round-state.live, #lv-round-live { color: #4ade80; } }
 @media (hover: none), (pointer: coarse) {
   .lv-round-picker-ready #viewer-round { display: none; }
-  .lv-round-picker-ready #viewer-round-open:not([hidden]) { display: flex; align-items: center; gap: 8px; grid-column: 1 / -1; min-height: 44px; width: 100%; padding: 8px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); color: var(--text); font: inherit; font-size: .88rem; text-align: left; }
+  .lv-round-picker-ready #viewer-round-open:not([hidden]) { display: flex; align-items: center; gap: 6px; flex: 0 1 190px; min-width: 0; min-height: 40px; width: 190px; max-width: 190px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); color: var(--text); font: inherit; font-size: .8rem; text-align: left; }
   .lv-round-trigger > svg { flex: none; color: var(--muted); }
   #viewer-round-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 }
@@ -923,29 +922,34 @@ body.card-dragging .tour-tip { display: none !important; }
 .lv-thumbs .lv-voice svg { width: 28px; height: 28px; }
 .lv-thumbs .lv-addrow .lv-tt { padding-right: 60px; }
 .lv-vpop { top: 64px; right: 10px; }
-.th { touch-action: manipulation; }
+.th { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
 /* Las miniaturas permiten desplazar la página con el dedo; el tablero de análisis conserva su arrastre de piezas. */
 .lv-grid .th-board { touch-action: pan-y pinch-zoom; }
 @media (hover: none), (pointer: coarse) {
-  .th .th-del, .th:hover .th-del { display: none; width: 36px; height: 36px; top: 6px; right: 6px; }
-  .th .th-p .th-eye, .th:hover .th-p .th-eye { visibility: hidden; pointer-events: none; flex: 0 0 36px; width: 36px; height: 36px; }
-  .th.touch-selected .th-del { display: flex; }
-  .th.touch-selected .th-p .th-eye { visibility: visible; pointer-events: auto; }
-  .th-del svg, .th-p .th-eye svg { width: 22px; height: 22px; }
-  .th > .th-p:first-child { padding-right: 42px; }
+  .th .th-tools, .th:hover .th-tools { visibility: hidden; pointer-events: none; }
+  .th.touch-selected .th-tools { visibility: visible; pointer-events: auto; }
+  .th-tools .th-eye, .th-tools .th-del { width: 36px; height: 36px; }
+  .th-tools svg { width: 22px; height: 22px; }
   .th-eye, .th-del { -webkit-tap-highlight-color: transparent; }
   .lv-eyebtn, .lv-addrow .btn-ghost, #viewer-round, #viewer-more { min-height: 40px; }
 }
-.th-p .nm { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.th-p .mt { flex: none; display: inline-flex; align-items: center; gap: 6px; margin-right: auto; margin-left: 6px; }
+.th-p .nm { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.th-p .mt { flex: none; display: inline-flex; align-items: center; gap: 4px; margin: 0; }
 .th-p .mt .el { color: #8fa3bf; font-size: 11px; }
-.th-p .th-eye { margin-left: 0; }
+.th-p .lv-score { margin-left: 0; padding: 1px 5px; font-size: 11px; }
+.th-p .lv-flag { width: 20px; height: 14px; margin-right: 4px; vertical-align: -2px; }
 .lv-addrow .lv-tt { flex: 1 0 auto; max-width: 100%; }
 @media (min-width: 760px) { .lv-addrow .lv-tt strong, .lv-addrow .lv-tt .lv-info { white-space: nowrap; } }
 .lv-addrow .lv-tt strong { overflow-wrap: anywhere; }
 .lv-addrow { justify-content: flex-start; }
 .lv-addrow .lv-tt { flex: 1 0 100%; margin-right: 0; }
-.lv-addrow .lv-tools { margin-left: auto; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.lv-addrow .lv-tools { margin-left: auto; display: flex; align-items: center; gap: 10px; max-width: 100%; flex-wrap: nowrap; }
+.lv-tools > .btn-ghost { flex: none; white-space: nowrap; }
+@media (min-width: 601px) and (max-width: 760px) {
+  .lv-addrow .lv-tools { gap: 6px; }
+  .lv-tools > .btn-ghost { padding-left: 8px; padding-right: 8px; }
+  .lv-round-picker-ready #viewer-round-open:not([hidden]) { flex-basis: 160px; width: 160px; max-width: 160px; }
+}
 /* La cabecera del torneo queda debajo de la barra del logo durante el scroll. */
 .lv-sticky-header { position: sticky; top: 64px; z-index: 9; margin: -12px -12px 0; padding: 12px 12px 6px; border-radius: 11px 11px 0 0; background: var(--card); }
 .lv-sticky-header .lv-addrow { margin-bottom: 0; }
@@ -967,7 +971,8 @@ body.card-dragging .tour-tip { display: none !important; }
   .live-tournament .lv-pick { flex: 1 1 140px; }
   .live-tournament .lv-addrow > #viewer-add { flex: none; }
   .live-tournament .lv-addrow .lv-tools { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); width: 100%; gap: 8px; }
-  .live-tournament #viewer-round { grid-column: 1 / -1; width: 100%; }
+  .live-tournament #viewer-round { grid-column: 1 / -1; width: auto; max-width: 240px; justify-self: start; }
+  .live-tournament #viewer-round-open:not([hidden]) { grid-column: 1 / -1; width: 100%; max-width: 240px; justify-self: start; }
   .live-tournament .lv-tools .btn-ghost { justify-content: center; min-height: 44px; padding: 6px 8px; font-size: .78rem; }
   .live-tournament .lv-vpop { max-width: calc(100vw - 48px); }
 }

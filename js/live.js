@@ -489,7 +489,7 @@
       grid.setAttribute("data-k", key);
       grid.innerHTML = ids.map(function (id) {
         var g = games[id];
-        return '<button type="button" class="th" data-g="' + esc(id) + '" title="' + esc(optLabel(g)) + '"><span class="th-p"><span class="nm">' + thumbName(g, "b") + '</span><span class="mt">' + thumbMeta(g, "b") + '</span><span class="th-eye" role="button" data-eye="1" title="Ver la ficha de los jugadores" aria-label="Ver la ficha de los jugadores">'+EYE+'</span><span class="ck" data-c="b">--:--</span></span><span class="th-row"><span class="th-bar"><i class="th-w"></i></span><span class="th-board ent-board"></span></span><span class="th-p"><span class="nm">' + thumbName(g, "w") + '</span><span class="mt">' + thumbMeta(g, "w") + '</span><span class="ck" data-c="w">--:--</span></span><span class="th-del" role="button" data-del="1" title="Quitar esta partida" aria-label="Quitar esta partida">'+TRASH+'</span></button>';
+        return '<button type="button" class="th" data-g="' + esc(id) + '" title="' + esc(optLabel(g)) + '"><span class="th-p"><span class="nm">' + thumbName(g, "b") + '</span><span class="mt">' + thumbMeta(g, "b") + '</span><span class="ck" data-c="b">--:--</span></span><span class="th-row"><span class="th-bar"><i class="th-w"></i></span><span class="th-board ent-board"></span><span class="th-tools"><span class="th-eye" role="button" data-eye="1" title="Ver la ficha de los jugadores" aria-label="Ver la ficha de los jugadores">'+EYE+'</span><span class="th-del" role="button" data-del="1" title="Quitar esta partida" aria-label="Quitar esta partida">'+TRASH+'</span></span></span><span class="th-p"><span class="nm">' + thumbName(g, "w") + '</span><span class="mt">' + thumbMeta(g, "w") + '</span><span class="ck" data-c="w">--:--</span></span></button>';
       }).join("");
     }
     ids.forEach(function (id) {
@@ -1105,10 +1105,14 @@
   function showRoundPicker() {
     if (!roundDialog || !touchRoundPicker.matches || !tourRounds.length) return;
     $("lv-round-tournament").textContent = $("viewer-title").textContent;
+    $("lv-round-count").textContent = tourRounds.length + (tourRounds.length === 1 ? " ronda" : " rondas");
+    var liveRound = tourRounds.filter(function (r) { return r.ongoing && !r.finished; })[0];
+    $("lv-round-live").hidden = !liveRound;
+    $("lv-round-live").textContent = liveRound ? es2(liveRound.name) + " en juego" : "";
     $("lv-round-list").innerHTML = tourRounds.map(function (r) {
       var selected = r.id === roundSelect.value, state = r.finished ? "done" : r.ongoing ? "live" : "next";
       var status = r.finished ? "Terminada" : r.ongoing ? "En juego" : "Pendiente";
-      return '<button type="button" class="lv-round-option" role="option" aria-selected="' + selected + '" data-round="' + esc(r.id) + '"><span class="lv-round-number" aria-hidden="true">' + String(numRonda(r)).padStart(2, "0") + '</span><span class="lv-round-name">' + esc(es2(r.name)) + '<small class="lv-round-state ' + state + '"><i aria-hidden="true"></i>' + status + '</small></span><span class="lv-round-check" aria-hidden="true">' + (selected ? '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m5 12 4 4L19 6"/></svg>' : "") + '</span></button>';
+      return '<button type="button" class="lv-round-option" role="option" aria-selected="' + selected + '" data-round="' + esc(r.id) + '"><span class="lv-round-name">' + esc(es2(r.name)) + '</span><span class="lv-round-state ' + state + '"><i aria-hidden="true"></i>' + status + '</span><span class="lv-round-check" aria-hidden="true">' + (selected ? '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m5 12 4 4L19 6"/></svg>' : "") + '</span></button>';
     }).join("");
     roundDialog.showModal(); roundTrigger.setAttribute("aria-expanded", "true");
     var current = $("lv-round-list").querySelector('[aria-selected="true"]');

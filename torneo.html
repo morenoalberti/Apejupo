@@ -18,7 +18,7 @@
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" type="image/svg+xml" href="assets/icon.svg">
 <meta name="description" content="Torneos de ajedrez en directo: tableros en vivo de Lichess y streams de Twitch y YouTube.">
-<link rel="stylesheet" href="css/style.css?v=20261116-selector-rondas1">
+<link rel="stylesheet" href="css/style.css?v=20261116-barra-tablet1">
 <script defer src="js/analytics.js?v=20261111-analytics"></script>
 <link rel="stylesheet" href="css/cuenta.css?v=20261116-movil1">
 </head>
@@ -86,8 +86,9 @@
 
 <dialog id="lv-round-dialog" class="lv-round-dialog" aria-labelledby="lv-round-heading">
   <div class="lv-round-handle" aria-hidden="true"></div>
-  <header class="lv-round-head"><div><p class="lv-round-eyebrow">RETRANSMISIÓN</p><h2 id="lv-round-heading">Rondas del torneo</h2></div><button type="button" id="lv-round-close" aria-label="Cerrar selector de rondas"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button></header>
+  <header class="lv-round-head"><span class="lv-round-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M7 3v4M17 3v4M3 11h18M8 15h3"/></svg></span><h2 id="lv-round-heading">Rondas del torneo</h2><button type="button" id="lv-round-close" aria-label="Cerrar selector de rondas"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button></header>
   <p id="lv-round-tournament" class="lv-round-tournament"></p>
+  <div class="lv-round-summary"><span id="lv-round-count"></span><span id="lv-round-live" hidden></span></div>
   <div id="lv-round-list" class="lv-round-list" role="listbox" aria-label="Rondas del torneo"></div>
 </dialog>
 
@@ -96,7 +97,7 @@
 <script src="js/data.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
 <script src="js/game-review.js?v=20261110-notacion-rapida"></script>
-<script src="js/live.js?v=20261116-selector-rondas1"></script>
+<script src="js/live.js?v=20261116-barra-tablet1"></script>
 <script src="js/torneo-config.js?v=20261114-publicado"></script>
 <script type="module" src="js/cuenta.js?v=20261115-match1"></script>
 </body>
