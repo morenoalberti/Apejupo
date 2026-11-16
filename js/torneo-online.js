@@ -16,7 +16,7 @@ const pieceNames = { k: 'rey', q: 'dama', r: 'torre', b: 'alfil', n: 'caballo', 
 const images = new Map();
 let state = null, socket = null, reconnectTimer = null, heartbeat = null, retry = 0, lastReceived = 0;
 let connected = false, pending = false, offset = 0, selected = null, flipped = false, manualFlip = false;
-let presencialFilter = 'all'; // tabla de rondas presenciales: todas o una
+let presencialFilter = 'all', presencialView = 'rounds'; // pestañas del organizador con el torneo en marcha // tabla de rondas presenciales: todas o una
 let boardKey = '', lastRound = null, viewedRound = null, replay = null, replayPly = null, promotion = null;
 let confirmResolve = null, dropped = null, lobby = new Map();
 let lastArenaClosing = false;
@@ -283,8 +283,9 @@ function canJoin(t) { return !presencial(t) && !t.challenge && (t.status === 'wa
 // Hoja de resultados, como en Lichess: una cifra por partida; resaltadas las ganadas con Berserk.
 function sheet(p) {
   if (!p.sheet?.length) return '';
-  const label = r => (r.bye ? 'Descanso' : r.s === 1 ? 'Victoria' : r.s === 0 ? 'Derrota' : 'Tablas') + (r.berserk ? ' con Berserk' : '') + (r.doubled ? ' · Puntuación doble por racha' : '') + (r.bonus ? ' (+1 por Berserk)' : '') + (r.points !== undefined ? ` · ${r.points} ${r.points === 1 ? 'punto' : 'puntos'}` : '');
-  return `<span class="to-sheet">${p.sheet.map(r => `<i class="${r.s === 1 ? 'w' : r.s === 0 ? 'l' : 'd'}${r.bonus ? ' b' : ''}" title="${label(r)}">${r.points ?? (r.s === .5 ? '½' : r.s)}</i>`).join('')}</span>`;
+  const half = r => (r.n || 1) / 2, kind = r => r.s > half(r) ? 'w' : r.s < half(r) ? 'l' : 'd';
+  const label = r => (r.bye ? 'Descanso' : (kind(r) === 'w' ? 'Victoria' : kind(r) === 'l' ? 'Derrota' : 'Empate') + (r.forfeit ? ' por incomparecencia' : '') + (r.n > 1 ? ` (${formatPoints(r.s)} de ${r.n})` : '')) + (r.berserk ? ' con Berserk' : '') + (r.doubled ? ' · Puntuación doble por racha' : '') + (r.bonus ? ' (+1 por Berserk)' : '') + (r.points !== undefined ? ` · ${r.points} ${r.points === 1 ? 'punto' : 'puntos'}` : '');
+  return `<span class="to-sheet">${p.sheet.map(r => `<i class="${kind(r)}${r.bonus ? ' b' : ''}" title="${label(r)}">${r.points ?? (r.forfeit ? (kind(r) === 'w' ? '+' : '-') : formatPoints(r.s) || '0')}</i>`).join('')}</span>`;
 }
 // Reto: en lugar de clasificación y podio, el marcador acumulado entre los dos jugadores (todas sus partidas).
 function renderDuel(t) {
@@ -486,7 +487,18 @@ function renderPresencial() {
   const t = state, show = presencial(t), waiting = t.status === 'waiting';
   $('to-presencial').hidden = !show;
   if (!show) return;
-  const managing = t.host && waiting, mine = t.standings.some(p => p.id === t.me);
+  const running = ['playing', 'between', 'finished'].includes(t.status);
+  // Con el torneo emparejado, el organizador vuelve a la lista de jugadores con la pestaña «Jugadores».
+  $('to-pz-tabs').hidden = !t.host || !running;
+  if (!t.host || !running) presencialView = 'rounds';
+  for (const b of $('to-pz-tabs').querySelectorAll('[data-pz-view]')) b.setAttribute('aria-selected', String(b.dataset.pzView === presencialView));
+  const playersView = t.host && running && presencialView === 'players';
+  const managing = t.host && (waiting || playersView), mine = t.standings.some(p => p.id === t.me);
+  const lateEntry = t.format === 'swiss' && ['playing', 'between'].includes(t.status);
+  $('to-pz-host').querySelector('.to-pz-add').hidden = !waiting && !lateEntry;
+  $('to-pz-qr-open').hidden = !waiting;
+  $('to-pz-host').querySelector('.to-pz-label').textContent = waiting ? 'Añadir jugador' : 'Inscripción tardía (entra en la ronda siguiente)';
+  $('to-presencial-matches').hidden = playersView;
   document.body.classList.toggle('to-pz-managing', managing);
   $('to-pz-host').hidden = !managing;
   if (managing) renderRoster(t);
@@ -497,19 +509,25 @@ function renderPresencial() {
   if (t.myRequest) $('to-pz-ask-text').textContent = `Como ${t.myRequest.name}${t.myRequest.rating ? ` (Elo ${t.myRequest.rating})` : ''}. Cuando la organización la apruebe aparecerás en la lista de inscritos.`;
   $('to-presencial-next').hidden = !t.host || t.status !== 'between';
   $('to-presencial-next').disabled = !connected;
-  $('to-presencial-hint').textContent = waiting ? (t.host ? 'Cuando estén todos, pulsa «Cerrar inscripción y emparejar» para sortear la primera ronda.' : mine ? 'Ya tienes plaza. Las mesas aparecerán aquí al empezar.' : 'La organización está preparando la lista de jugadores.') : t.host ? 'Anota los resultados de cada mesa. Puedes corregirlos antes de emparejar la siguiente ronda.' : 'Los resultados se actualizan cuando los anota la organización.';
+  $('to-presencial-hint').textContent = playersView ? (t.status === 'finished' ? 'Lista final de jugadores.' : lateEntry ? 'Corrige nombres y Elo, retira a quien se marche o inscribe a quien llegue tarde.' : 'Corrige nombres y Elo o retira a quien se marche. En el Round-Robin no hay inscripción tardía.') : waiting ? (t.host ? 'Cuando estén todos, pulsa «Cerrar inscripción y emparejar» para sortear la primera ronda.' : mine ? 'Ya tienes plaza. Las mesas aparecerán aquí al empezar.' : 'La organización está preparando la lista de jugadores.') : t.host ? 'Anota los resultados de cada mesa. Puedes corregirlos antes de emparejar la siguiente ronda.' : 'Los resultados se actualizan cuando los anota la organización.';
   // Todas las rondas en una tabla, como las hojas de emparejamientos: Mesa · Tít. · Blancas · ELO · Resultado · Tít. · Negras · ELO.
   const rounds = [...new Set(t.games.map(g => g.round))].sort((a, b) => a - b);
   if (presencialFilter !== 'all' && !rounds.includes(Number(presencialFilter))) presencialFilter = 'all';
   $('to-presencial-round').hidden = rounds.length < 2;
   $('to-presencial-round').innerHTML = '<option value="all">Todas las rondas</option>' + rounds.map(r => `<option value="${r}">Ronda ${r}</option>`).join('');
   $('to-presencial-round').value = String(presencialFilter);
+  if (presencialView === 'players' && t.host) $('to-presencial-round').hidden = true;
   const shown = presencialFilter === 'all' ? rounds : [Number(presencialFilter)];
   const info = id => t.standings.find(p => p.id === id) || { name: name(id) };
   const tit = p => p.title ? `<span class="to-pz-title${/^A[GIFC]M$/.test(p.title) ? ' arena' : ''}">${esc(p.title)}</span>` : '';
   const flag = p => p.fed && window.U?.flag ? window.U.flag(p.fed) : '';
   const cellName = (p, won) => `<td class="to-pt-name${won ? ' won' : ''}">${flag(p)}<span class="to-pt-inline">${tit(p)}</span>${esc(p.name)}</td>`;
-  const score = r => r ? r.replace('1/2-1/2', '½-½') : '';
+  // Doble vuelta presencial: cada mesa es un mini-match de dos partidas (2-0, 1,5-0,5, 1-1…), como en RondaSwiss.
+  const games2 = closed(t) && t.format === 'double-closed', perTable = games2 ? 2 : 1;
+  const options = games2 ? [['2-0', '2-0'], ['1.5-0.5', '1,5-0,5'], ['1-1', '1-1'], ['0.5-1.5', '0,5-1,5'], ['0-2', '0-2'], ['+-', '+-'], ['-+', '-+']]
+    : [['1-0', '1-0'], ['1/2-1/2', '½-½'], ['0-1', '0-1'], ['+-', '+-'], ['-+', '-+']];
+  const score = r => r ? (options.find(([v]) => v === r)?.[1] || r.replace('1/2-1/2', '½-½')) : '';
+  const whitePts = r => ({ '2-0': 2, '1.5-0.5': 1.5, '1-1': 1, '0.5-1.5': .5, '0-2': 0, '1-0': perTable, '+-': perTable, '0-1': 0, '-+': 0 })[r] ?? perTable / 2;
   const body = shown.map(r => {
     const games = t.games.filter(g => g.round === r), tables = games.filter(g => !g.bye), byes = games.filter(g => g.bye);
     const editable = t.host && r === t.round && ['playing', 'between'].includes(t.status);
@@ -518,12 +536,12 @@ function renderPresencial() {
     const rows = tables.map((g, i) => {
       const w = info(g.white), b = info(g.black);
       const result = editable
-        ? `<select class="to-pt-select${g.result ? ' set' : ''}" data-result-game="${g.id}" aria-label="Resultado de la mesa ${i + 1}" ${!connected ? 'disabled' : ''}><option value="">—</option>${[['1-0', '1-0'], ['1/2-1/2', '½-½'], ['0-1', '0-1']].map(([v, l]) => `<option value="${v}"${g.result === v ? ' selected' : ''}>${l}</option>`).join('')}</select>`
+        ? `<select class="to-pt-select${g.result ? ' set' : ''}${games2 ? ' wide' : ''}" data-result-game="${g.id}" aria-label="Resultado de la mesa ${i + 1}" ${!connected ? 'disabled' : ''}><option value="">—</option>${options.map(([v, l]) => `<option value="${v}"${g.result === v ? ' selected' : ''}>${l}</option>`).join('')}</select>`
         : g.result ? `<span class="to-pt-score">${score(g.result)}</span>` : '<span class="to-pt-pending">—</span>';
-      return `<tr class="${g.white === t.me || g.black === t.me ? 'mine' : ''}"><td class="to-pt-num">${i + 1}</td><td class="to-pt-tit">${tit(w)}</td>${cellName(w, g.result === '1-0')}<td class="to-pt-elo">${w.rating || ''}</td><td class="to-pt-res">${result}</td><td class="to-pt-tit">${tit(b)}</td>${cellName(b, g.result === '0-1')}<td class="to-pt-elo">${b.rating || ''}</td></tr>`;
+      return `<tr class="${g.white === t.me || g.black === t.me ? 'mine' : ''}"><td class="to-pt-num">${i + 1}</td><td class="to-pt-tit">${tit(w)}</td>${cellName(w, g.result && whitePts(g.result) > perTable / 2)}<td class="to-pt-elo">${w.rating || ''}</td><td class="to-pt-res">${result}</td><td class="to-pt-tit">${tit(b)}</td>${cellName(b, g.result && whitePts(g.result) < perTable / 2)}<td class="to-pt-elo">${b.rating || ''}</td></tr>`;
     }).join('');
     const rests = byes.map(g => { const w = info(g.white);
-      return `<tr class="to-pt-bye${g.white === t.me ? ' mine' : ''}"><td class="to-pt-num"></td><td class="to-pt-tit">${tit(w)}</td>${cellName(w, false)}<td class="to-pt-elo">${w.rating || ''}</td><td class="to-pt-res"><span class="to-pt-score">${g.rest ? '0' : '1'}</span></td><td class="to-pt-tit"></td><td class="to-pt-name to-pt-rest" colspan="2">${g.rest ? 'Descansa' : /retirad/i.test(g.reason || '') ? 'Rival retirado' : 'Descansa'}</td></tr>`; }).join('');
+      return `<tr class="to-pt-bye${g.white === t.me ? ' mine' : ''}"><td class="to-pt-num"></td><td class="to-pt-tit">${tit(w)}</td>${cellName(w, false)}<td class="to-pt-elo">${w.rating || ''}</td><td class="to-pt-res"><span class="to-pt-score">${g.rest ? '0' : perTable}</span></td><td class="to-pt-tit"></td><td class="to-pt-name to-pt-rest" colspan="2">${g.rest ? 'Descansa' : /retirad/i.test(g.reason || '') ? 'Rival retirado' : 'Descansa'}</td></tr>`; }).join('');
     return head + rows + rests;
   }).join('');
   $('to-presencial-matches').innerHTML = rounds.length ? `<div class="to-pt-wrap"><table class="to-pt"><thead><tr><th class="to-pt-num">Mesa</th><th class="to-pt-tit">Tít.</th><th>Blancas</th><th class="to-pt-elo">ELO</th><th class="to-pt-res">Resultado</th><th class="to-pt-tit">Tít.</th><th>Negras</th><th class="to-pt-elo">ELO</th></tr></thead><tbody>${body}</tbody></table></div>` : '';
@@ -1045,7 +1063,8 @@ const pzIcons = {
   edit: pzSvg('<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>'),
   trash: pzSvg('<path d="M4 7h16M10 11v6M14 11v6M5 7l1 13h12l1-13M9 7V4h6v3"/>'),
   check: pzSvg('<path d="m5 12 5 5 9-10"/>'),
-  x: pzSvg('<path d="M6 6l12 12M18 6 6 18"/>')
+  x: pzSvg('<path d="M6 6l12 12M18 6 6 18"/>'),
+  out: pzSvg('<path d="M9 5H5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h4M16 8l4 4-4 4M9 12h11"/>')
 };
 let askChanging = false;
 // Iniciales: en las listas va «Apellidos, Nombre».
@@ -1108,7 +1127,12 @@ const byRating = (a, b) => (b.rating || 0) - (a.rating || 0) || a.name.localeCom
 function renderRoster(t) {
   const players = [...t.standings].sort(byRating), requests = t.requests || [];
   $('to-pz-count').textContent = `${players.length}/${t.capacity}`;
-  $('to-pz-roster').innerHTML = players.map((p, i) => playerRow(p, i, `<button type="button" class="to-pz-icon" data-pz-edit="${p.id}" aria-label="Editar a ${esc(p.name)}" title="Editar">${pzIcons.edit}</button><button type="button" class="to-pz-icon danger" data-pz-remove="${p.id}" aria-label="Quitar a ${esc(p.name)}" title="Quitar">${pzIcons.trash}</button>`)).join('')
+  const waiting = t.status === 'waiting', ended = ['finished', 'cancelled'].includes(t.status);
+  const tools = p => ended ? '' : `<button type="button" class="to-pz-icon" data-pz-edit="${p.id}" aria-label="Editar a ${esc(p.name)}" title="Editar">${pzIcons.edit}</button>`
+    + (waiting ? `<button type="button" class="to-pz-icon danger" data-pz-remove="${p.id}" aria-label="Quitar a ${esc(p.name)}" title="Quitar">${pzIcons.trash}</button>`
+      : p.active ? `<button type="button" class="to-pz-icon danger" data-pz-active="${p.id}" data-active="false" aria-label="Retirar a ${esc(p.name)} de las próximas rondas" title="Retirar del torneo">${pzIcons.out}</button>`
+        : `<button type="button" class="to-pz-tool small" data-pz-active="${p.id}" data-active="true" title="Volver a incluirlo en las próximas rondas">Reincluir</button>`);
+  $('to-pz-roster').innerHTML = players.map((p, i) => playerRow(p, i, (p.active === false ? '<span class="to-pz-out">Retirado</span>' : '') + tools(p))).join('')
     || '<p class="to-pz-empty">Busca a los jugadores arriba, pega una lista o enseña el QR en la entrada.</p>';
   $('to-pz-requests').hidden = !requests.length;
   $('to-pz-req-count').textContent = requests.length || '';
@@ -1201,6 +1225,12 @@ $('to-pz-ask-change').addEventListener('click', () => { askChanging = true; rend
 $('to-pz-host').addEventListener('click', async event => {
   const edit = event.target.closest('[data-pz-edit]')?.dataset.pzEdit, remove = event.target.closest('[data-pz-remove]')?.dataset.pzRemove;
   const approve = event.target.closest('[data-pz-approve]')?.dataset.pzApprove, reject = event.target.closest('[data-pz-reject]')?.dataset.pzReject;
+  const toggle = event.target.closest('[data-pz-active]');
+  if (toggle) {
+    const back = toggle.dataset.active === 'true', who = name(toggle.dataset.pzActive);
+    if (back || await confirmAction('Retirar jugador', `${who} no se emparejará en las próximas rondas. Si tiene una partida sin terminar, anota su resultado en la ronda. Podrás volver a incluirlo.`, true)) send({ type: 'presencial-active', playerId: toggle.dataset.pzActive, active: back });
+    return;
+  }
   if (approve) send({ type: 'presencial-approve', requestId: approve });
   else if (reject) { const r = state.requests?.find(r => r.id === reject); if (r && await confirmAction('Rechazar solicitud', `¿Rechazar la solicitud de ${r.name}?`, true)) send({ type: 'presencial-reject', requestId: reject }); }
   else if (remove) { if (await confirmAction('Quitar jugador', `¿Quitar a ${name(remove)} de la lista de inscritos?`, true)) send({ type: 'remove', playerId: remove }); }
@@ -1292,6 +1322,10 @@ $('to-pz-qr-copy').addEventListener('click', async () => {
 });
 $('to-presencial-next').addEventListener('click', async () => {
   if (await confirmAction('Emparejar siguiente ronda', 'Se generarán los nuevos emparejamientos con los resultados actuales. Los resultados de la ronda anterior quedarán cerrados.')) send({ type: 'presencial-next' });
+});
+$('to-pz-tabs').addEventListener('click', event => {
+  const b = event.target.closest('[data-pz-view]'); if (!b) return;
+  presencialView = b.dataset.pzView; renderPresencial();
 });
 $('to-presencial-round').addEventListener('change', event => { presencialFilter = event.target.value; renderPresencial(); });
 $('to-presencial-matches').addEventListener('change', event => {

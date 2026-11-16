@@ -713,3 +713,12 @@ body.to-pz-managing #to-standings-panel { display: none; }
   .to-pt-name .flag { display: none; }
   .to-main .to-pt-select { width: 58px; padding: 3px 2px; }
 }
+/* Pestañas del organizador con el torneo en marcha: Rondas / Jugadores */
+.to-pz-tabs { display: inline-flex; gap: 4px; padding: 4px; margin: 2px 0 12px; border-radius: 14px; background: color-mix(in srgb, var(--text) 6%, transparent); box-shadow: 0 1px 3px #0f1b2d55 inset; }
+.to-main .to-pz-tabs button { min-height: 38px; padding: 6px 18px; border: 1px solid transparent; border-radius: 11px; background: transparent; color: var(--muted); font-weight: 700; }
+.to-main .to-pz-tabs button:hover { color: var(--text); }
+.to-main .to-pz-tabs button[aria-selected="true"] { color: #fff; border-color: #2556c4; background: linear-gradient(180deg, #5b9dff, #2f6ae0); box-shadow: 0 1px 0 #ffffff55 inset, 0 6px 14px -6px #2f63d6; }
+.to-pz-out { padding: 2px 8px; border-radius: 99px; font-size: .74rem; font-weight: 700; color: #dc2626; background: #dc262618; }
+.to-main .to-pz-tool.small { min-height: 34px; padding: 5px 11px; font-size: .84rem; }
+.to-main .to-pt-select.wide { width: 98px; }
+@media (max-width: 600px) { .to-main .to-pt-select.wide { width: 78px; font-size: .78rem; } }

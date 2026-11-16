@@ -1,5 +1,7 @@
 import { Chess } from 'chess.js';
 import { toTrf, parsePairs, orderByRating } from './swiss-dutch.js';
+import { gamesPerTable, validResults, whiteScore, isForfeit } from './results.js';
+export { gamesPerTable, validResults, whiteScore };
 
 // Comprobado con la prueba de carga: 128 jugadores y 32 espectadores sin retrasos apreciables.
 export const MAX_PLAYERS = 128;
@@ -101,7 +103,7 @@ export function standings(t) {
   const arenaRuns = new Map(rows.map(p => [p.id, { wins: 0, drawSinceWin: false }]));
   function recordResult(row, g, score, color) {
     const bonus = isArena(t) && score === 1 && berserkBonus(g, color);
-    const entry = { s: score, berserk: !!(color === 'w' ? g.berserkW : g.berserkB), bonus };
+    const entry = { s: score, berserk: !!(color === 'w' ? g.berserkW : g.berserkB), bonus, ...(gamesPerTable(t) > 1 ? { n: gamesPerTable(t) } : {}), ...(isForfeit(g.result) ? { forfeit: true } : {}) };
     if (isArena(t)) {
       const value = arenaScore(score, g.moves.length, arenaRuns.get(row.id));
       entry.points = value.points + (bonus ? BERSERK_BONUS : 0);
@@ -113,22 +115,23 @@ export function standings(t) {
   for (const g of t.games) {
     const white = map.get(g.white), black = map.get(g.black);
     if (!white) continue;
-    if (g.bye) { const s = g.rest ? 0 : 1; white.points += s; white.byes++; white.sheet.push({ s, bye: true }); continue; }
+    const n = gamesPerTable(t);
+    if (g.bye) { const s = g.rest ? 0 : n; white.points += s; white.byes++; white.sheet.push({ s, bye: true, ...(n > 1 ? { n } : {}) }); continue; }
     white.colors.push('w'); black.colors.push('b');
     white.opponents.push(black.id); black.opponents.push(white.id);
     if (!g.result) continue;
     white.played++; black.played++;
-    const a = g.result === '1-0' ? 1 : g.result === '0-1' ? 0 : .5;
-    if (a === 1) white.wins++; if (a === 0) black.wins++;
+    const a = whiteScore(t, g.result);
+    if (a > n / 2) white.wins++; if (a < n / 2) black.wins++;
     recordResult(white, g, a, 'w');
-    recordResult(black, g, 1 - a, 'b');
+    recordResult(black, g, n - a, 'b');
   }
   for (const g of t.games) {
     if (!g.result || g.bye) continue;
     const a = map.get(g.white), b = map.get(g.black);
-    const score = g.result === '1-0' ? 1 : g.result === '0-1' ? 0 : .5;
+    const score = whiteScore(t, g.result);
     a.buchholz += b.points; b.buchholz += a.points;
-    a.sonneborn += b.points * score; b.sonneborn += a.points * (1 - score);
+    a.sonneborn += b.points * score; b.sonneborn += a.points * (gamesPerTable(t) - score);
   }
   for (const p of t.players) { const row = map.get(p.id); row.paused = !!p.paused; row.playing = t.games.some(g => !g.result && (g.white === p.id || g.black === p.id)); }
   // Arena: con número de partidas desigual, Buchholz no es comparable; desempatan victorias y eficacia.
@@ -221,7 +224,7 @@ function beginClosedRound(t, now) {
     const g = newGame(t, present[0], null, now);
     // Hueco de número impar: descansa sin punto. Rival retirado: el punto es para quien sigue.
     const rest = !a || !b;
-    g.result = '1-0'; g.reason = rest ? 'Descanso' : 'Rival retirado: un punto'; g.finishedAt = now;
+    g.result = '1-0'; g.reason = rest ? 'Descanso' : gamesPerTable(t) > 1 ? 'Rival retirado: dos puntos' : 'Rival retirado: un punto'; g.finishedAt = now;
     if (rest) g.rest = true;
     t.games.push(g);
   }
@@ -366,7 +369,8 @@ export function startTournament(t, now = Date.now()) {
   requireThat(t.players.length >= 2, 'Se necesitan al menos dos jugadores.');
   delete t.requests; // las solicitudes sin aprobar se quedan fuera al empezar
   const n = t.players.length;
-  if (isClosed(t)) t.rounds = (n % 2 ? n : n - 1) * (t.format === 'double-closed' ? 2 : 1);
+  // Doble vuelta presencial: las dos partidas de cada emparejamiento se juegan en la misma ronda.
+  if (isClosed(t)) t.rounds = (n % 2 ? n : n - 1) * (t.format === 'double-closed' && gamesPerTable(t) === 1 ? 2 : 1);
   // Un reto (también a varias partidas) enfrenta siempre a los mismos dos: no se limitan las rondas.
   else if (!isArena(t) && !t.challenge) t.rounds = Math.min(t.rounds, n % 2 ? n : n - 1);
   if (isArena(t) || isClosed(t)) {
@@ -470,14 +474,16 @@ export function nextAlarm(t, now = Date.now()) {
 
 export function act(t, playerId, host, action, now = Date.now()) {
   const p = t.players.find(p => p.id === playerId);
-  if (['presencial-player', 'presencial-players', 'presencial-edit', 'presencial-approve', 'presencial-reject', 'presencial-result', 'presencial-next'].includes(action.type)) {
+  if (['presencial-player', 'presencial-players', 'presencial-edit', 'presencial-active', 'presencial-approve', 'presencial-reject', 'presencial-result', 'presencial-next'].includes(action.type)) {
     requireThat(host && isPresencial(t), 'Solo el organizador del torneo presencial puede realizar esta acción.', 403);
+    // Suizo ya empezado: quien llega tarde entra en la ronda siguiente (las rondas que no jugó, sin puntos).
+    const lateEntry = t.format === 'swiss' && ['playing', 'between'].includes(t.status);
     if (action.type === 'presencial-player') {
-      requireThat(t.status === 'waiting', 'Las inscripciones están cerradas.');
+      requireThat(t.status === 'waiting' || lateEntry, 'Las inscripciones están cerradas.');
       addPresencial(t, presencialEntry(action), now);
     } else if (action.type === 'presencial-players') {
       // Lista pegada: se valida entera antes de inscribir a nadie.
-      requireThat(t.status === 'waiting', 'Las inscripciones están cerradas.');
+      requireThat(t.status === 'waiting' || lateEntry, 'Las inscripciones están cerradas.');
       requireThat(Array.isArray(action.players) && action.players.length > 0 && action.players.length <= MAX_PLAYERS, 'La lista está vacía.');
       const entries = action.players.map(presencialEntry);
       const names = [...t.players.map(p => p.name), ...entries.map(e => e.name)].map(n => n.toLocaleLowerCase('es'));
@@ -485,6 +491,12 @@ export function act(t, playerId, host, action, now = Date.now()) {
       requireThat(!repeated, `«${repeated?.name}» está repetido o ya inscrito.`);
       requireThat(t.players.length + entries.length <= t.capacity, `Solo quedan ${t.capacity - t.players.length} plazas.`);
       for (const e of entries) addPresencial(t, e, now);
+    } else if (action.type === 'presencial-active') {
+      // Retirar a un jugador de las próximas rondas (o volver a incluirlo). Su partida en curso se anota aparte.
+      requireThat(['playing', 'between'].includes(t.status), 'Solo se puede retirar a un jugador con el torneo en marcha.');
+      const p = t.players.find(p => p.id === action.playerId);
+      requireThat(p, 'No se encuentra a ese jugador.', 404);
+      p.active = action.active === true;
     } else if (action.type === 'presencial-edit') {
       requireThat(!['finished', 'cancelled'].includes(t.status), 'El torneo ya ha terminado.');
       const p = t.players.find(p => p.id === action.playerId);
@@ -511,7 +523,7 @@ export function act(t, playerId, host, action, now = Date.now()) {
       const g = t.games.find(g => g.id === action.game);
       requireThat(g && !g.bye && g.round === t.round, 'Solo se puede corregir un resultado de la ronda actual.', 409);
       requireThat(['playing', 'between', 'finished'].includes(t.status), 'No puedes anotar resultados ahora.');
-      requireThat(['1-0', '1/2-1/2', '0-1', null].includes(action.result), 'Elige un resultado válido.');
+      requireThat(action.result === null || validResults(t).includes(action.result), 'Elige un resultado válido.');
       g.result = action.result; g.reason = action.result ? 'Resultado anotado por la organización' : ''; g.finishedAt = action.result ? now : null;
       t.status = 'playing'; t.finishedAt = null; t.nextRoundAt = null;
       afterResults(t, now);
@@ -628,7 +640,7 @@ export function sharedSnapshot(t, now = Date.now()) {
   return { type: 'state', ...summary(t), revision: t.revision, serverNow: now, nextRoundAt: t.nextRoundAt,
     finishedAt: t.finishedAt, notice: t.notice,
     standings: standings(t).map(({ opponents, colors, seed, ...p }) => p),
-    games: t.games.map(g => ({ id: g.id, round: g.round, white: g.white, black: g.black, result: g.result, reason: g.reason, bye: g.bye,
+    games: t.games.map(g => ({ id: g.id, round: g.round, white: g.white, black: g.black, result: g.result, reason: g.reason, bye: g.bye, ...(g.rest ? { rest: true } : {}),
       berserkW: !!g.berserkW, berserkB: !!g.berserkB,
       // Suizo y cerrado: las terminadas de la ronda en curso llevan su posición final, para seguir
       // viéndolas en la página de tableros hasta que empiece la ronda siguiente.

@@ -82,27 +82,47 @@ test('resultados: permisos, corrección y borrado de la ronda actual, clasificac
   assert.throws(() => act(t, null, true, { type: 'presencial-result', game: g.id, result: '1-0' }, NOW + 4), /ahora/);
 });
 
-test('Round-Robin doble vuelta: cada rival dos veces con colores opuestos y dos descansos si son impares', () => {
+test('Round-Robin doble vuelta: un mini-match de dos partidas por emparejamiento y ronda', () => {
   for (const count of [2, 3, 4, 5, 8]) {
     const t = tournament(count, { format: 'double-closed' });
     act(t, null, true, { type: 'start' }, NOW);
     const leg = count % 2 ? count : count - 1;
-    assert.equal(t.rounds, leg * 2);
+    assert.equal(t.rounds, leg, 'una ronda por emparejamiento');
+    assert.throws(() => act(t, null, true, { type: 'presencial-result', game: t.games.find(g => !g.bye).id, result: '1-0' }, NOW), /válido/);
     while (t.status !== 'finished') {
-      for (const g of t.games.filter(g => !g.bye && !g.result)) act(t, null, true, { type: 'presencial-result', game: g.id, result: '1/2-1/2' }, NOW);
+      for (const g of t.games.filter(g => !g.bye && !g.result)) act(t, null, true, { type: 'presencial-result', game: g.id, result: '1-1' }, NOW);
       if (t.status === 'between') act(t, null, true, { type: 'presencial-next' }, NOW);
     }
     const games = t.games.filter(g => !g.bye);
-    assert.equal(games.length, count * (count - 1));
-    for (const g of games.filter(g => g.round <= leg)) {
-      const back = games.find(b => b.round === g.round + leg && b.white === g.black && b.black === g.white);
-      assert.ok(back, 'La vuelta invierte ambos colores');
-    }
+    assert.equal(games.length, count * (count - 1) / 2, 'cada pareja se enfrenta una vez (dos partidas)');
     for (const p of t.players) {
-      assert.equal(standings(t).find(x => x.id === p.id).points, count - 1);
-      assert.equal(t.games.filter(g => g.bye && g.white === p.id).length, count % 2 ? 2 : 0);
+      assert.equal(standings(t).find(x => x.id === p.id).points, count - 1); // 1-1 en cada mini-match
+      assert.equal(t.games.filter(g => g.bye && g.white === p.id).length, count % 2 ? 1 : 0);
     }
   }
+});
+
+test('marcadores de doble vuelta e incomparecencias: puntos, victorias y desempates', () => {
+  const t = tournament(4, { format: 'double-closed' });
+  act(t, null, true, { type: 'start' }, NOW);
+  const [g1, g2] = t.games.filter(g => g.round === 1 && !g.bye);
+  act(t, null, true, { type: 'presencial-result', game: g1.id, result: '1.5-0.5' }, NOW);
+  act(t, null, true, { type: 'presencial-result', game: g2.id, result: '-+' }, NOW);
+  const rows = standings(t), row = id => rows.find(r => r.id === id);
+  assert.equal(row(g1.white).points, 1.5); assert.equal(row(g1.black).points, .5);
+  assert.equal(row(g2.white).points, 0); assert.equal(row(g2.black).points, 2);
+  assert.equal(row(g1.white).wins, 1); assert.equal(row(g2.black).wins, 1);
+  assert.equal(row(g2.black).sheet[0].forfeit, true); assert.equal(row(g1.white).sheet[0].n, 2);
+  // Partida normal: +- y -+ valen un punto; los marcadores de doble vuelta no se aceptan.
+  const s = tournament(4);
+  act(s, null, true, { type: 'start' }, NOW);
+  const [h1, h2] = s.games.filter(g => !g.bye);
+  act(s, null, true, { type: 'presencial-result', game: h1.id, result: '+-' }, NOW);
+  assert.throws(() => act(s, null, true, { type: 'presencial-result', game: h2.id, result: '2-0' }, NOW), /válido/);
+  act(s, null, true, { type: 'presencial-result', game: h2.id, result: '1/2-1/2' }, NOW);
+  assert.equal(standings(s).find(r => r.id === h1.white).points, 1);
+  act(s, null, true, { type: 'presencial-next' }, NOW); // el suizo FIDE acepta la incomparecencia en el TRF
+  assert.equal(s.round, 2);
 });
 
 test('inscripción rápida: listas FIDE/FADA, lista pegada, edición y solicitudes por QR', async () => {
@@ -144,4 +164,28 @@ test('inscripción rápida: listas FIDE/FADA, lista pegada, edición y solicitud
   act(t, null, true, { type: 'start' }, NOW);
   assert.equal(t.requests, undefined);
   assert.throws(() => requestPresencial(t, { name: 'Más tarde' }, 'hash-x', NOW), /cerradas/);
+});
+
+test('torneo en marcha: corregir, retirar y volver a incluir; en el suizo, inscripción tardía', () => {
+  const t = tournament(4);
+  act(t, null, true, { type: 'start' }, NOW);
+  const [a, b] = t.players;
+  act(t, null, true, { type: 'presencial-edit', playerId: a.id, name: 'Jugador cero corregido', rating: 2250 }, NOW);
+  assert.equal(a.name, 'Jugador cero corregido');
+  act(t, null, true, { type: 'presencial-player', name: 'Llega tarde', rating: 1500 }, NOW);
+  assert.equal(t.players.length, 5);
+  act(t, null, true, { type: 'presencial-active', playerId: b.id, active: false }, NOW);
+  assert.equal(b.active, false);
+  for (const g of t.games.filter(g => !g.bye && !g.result)) act(t, null, true, { type: 'presencial-result', game: g.id, result: '1-0' }, NOW);
+  act(t, null, true, { type: 'presencial-next' }, NOW);
+  const r2 = t.games.filter(g => g.round === 2);
+  assert.ok(!r2.some(g => g.white === b.id || g.black === b.id), 'el retirado no se empareja');
+  assert.ok(r2.some(g => g.white === t.players[4].id || g.black === t.players[4].id), 'el que llegó tarde juega la ronda 2');
+  act(t, null, true, { type: 'presencial-active', playerId: b.id, active: true }, NOW);
+  assert.equal(b.active, true);
+  assert.throws(() => act(t, null, false, { type: 'presencial-active', playerId: b.id, active: false }, NOW), /organizador/);
+  // Round-Robin: el calendario queda fijado al empezar, no hay inscripción tardía.
+  const rr = tournament(4, { format: 'closed' });
+  act(rr, null, true, { type: 'start' }, NOW);
+  assert.throws(() => act(rr, null, true, { type: 'presencial-player', name: 'Tarde' }, NOW), /cerradas/);
 });

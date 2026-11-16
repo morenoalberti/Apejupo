@@ -27,9 +27,12 @@ export function toTrf(t) {
       if (g.bye) { cells.push('0000 - U'); score += 1; continue; } // descanso por emparejamiento: un punto
       if (!g.result) throw new Error('Hay partidas sin terminar en la ronda ' + r + '.');
       const white = g.white === p.id, rival = byId.get(white ? g.black : g.white);
-      const s = g.result === '1-0' ? (white ? 1 : 0) : g.result === '0-1' ? (white ? 0 : 1) : 0.5;
+      const whiteWins = g.result === '1-0' || g.result === '+-', blackWins = g.result === '0-1' || g.result === '-+';
+      const s = whiteWins ? (white ? 1 : 0) : blackWins ? (white ? 0 : 1) : 0.5;
       score += s;
-      cells.push(`${pad(rival.seed, 4)} ${white ? 'w' : 'b'} ${s === 1 ? '1' : s === 0 ? '0' : '='}`);
+      // Incomparecencia: en el TRF, «+» y «-» (no cuenta como partida jugada para los colores).
+      const forfeit = g.result === '+-' || g.result === '-+';
+      cells.push(`${pad(rival.seed, 4)} ${white ? 'w' : 'b'} ${forfeit ? (s === 1 ? '+' : '-') : s === 1 ? '1' : s === 0 ? '0' : '='}`);
     }
     // Quien se ha retirado no entra en la ronda que se empareja.
     if (!p.active) cells.push('0000 - Z');
