@@ -93,7 +93,7 @@ const icons = {
   lock: svg('<rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>'),
   calendar: svg('<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>')
 };
-const emptyLobby = `<div class="to-empty"><div class="to-empty-art" aria-hidden="true"><svg viewBox="0 0 64 64"><path d="M32 5v10M27 10h10M22 27c0-6 4-11 10-11s10 5 10 11c0 5-3 8-4 12H26c-1-4-4-7-4-12zM24 39h16l3 9H21zM17 48h30v7H17z"/></svg></div><strong>El próximo torneo puede ser el nuestro</strong><p>Todavía no hay torneos. Cuando la organización abra uno, aparecerá aquí.</p><button class="btn" type="button" data-create>Organizar torneo</button></div>`;
+const emptyLobby = `<div class="to-empty"><div class="to-empty-art" aria-hidden="true"><svg viewBox="0 0 64 64"><path d="M32 5v10M27 10h10M22 27c0-6 4-11 10-11s10 5 10 11c0 5-3 8-4 12H26c-1-4-4-7-4-12zM24 39h16l3 9H21zM17 48h30v7H17z"/></svg></div><strong>El próximo torneo puede ser el nuestro</strong><p>Todavía no hay torneos. Cuando la organización abra uno, aparecerá aquí.</p><button class="btn" type="button" data-create>Crear torneo</button></div>`;
 function eventCard(t) {
   const organizer = !!read(hostKey(t.id));
   const trash = organizer || tournamentAdmin ? `<button class="to-delete" type="button" data-delete="${t.id}" aria-label="Borrar el torneo ${esc(t.title)}" title="Borrar torneo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M5 7l1 13h12l1-13M9 7V4h6v3"/></svg></button>` : '';
