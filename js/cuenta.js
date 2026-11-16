@@ -54,8 +54,8 @@ const DIALOG = `<dialog id="cu-dialog" class="cu-dialog" aria-labelledby="cu-tit
     <label for="cu-pass">Contraseña</label><input id="cu-pass" name="password" type="password" autocomplete="current-password" required>
     <button class="btn cu-submit" type="submit">Entrar</button>
     <button type="button" class="cu-link" data-cu-tab="recuperar">¿Has olvidado la contraseña?</button></form>
-  <form data-cu-form="registro" novalidate><label for="cu-nick">Nick</label><input id="cu-nick" name="nick" autocomplete="username" minlength="2" maxlength="20" required placeholder="Así te verán los demás">
-    <small class="muted">De 2 a 20 caracteres: letras sin acentos, números, guion o guion bajo. No se puede cambiar después.</small>
+  <form data-cu-form="registro" novalidate><label for="cu-nick">Nick</label><input id="cu-nick" name="nick" autocomplete="username" minlength="6" maxlength="20" required placeholder="Así te verán los demás">
+    <small class="muted">De 6 a 20 caracteres: letras sin acentos, números, guion o guion bajo. No se puede cambiar después.</small>
     <label for="cu-email">Correo electrónico</label><input id="cu-email" name="email" type="email" autocomplete="email" required>
     <small class="muted">Solo para confirmar la cuenta y recuperar la contraseña. No se muestra a nadie.</small>
     <label for="cu-newpass">Contraseña</label><input id="cu-newpass" name="password" type="password" autocomplete="new-password" minlength="8" maxlength="128" required>

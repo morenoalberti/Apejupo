@@ -1,7 +1,7 @@
 // Administración de cuentas: lista de usuarios registrados, con búsqueda, CSV y acciones
 // (confirmar a mano, reenviar el correo de confirmación, borrar). Todo pide la clave CUENTAS_ADMIN,
 // que se guarda solo en esta pestaña, o en este dispositivo si se marca «Recordarla».
-import { avatar } from './cuenta.js?v=20261116-registro1';
+import { avatar } from './cuenta.js?v=20261116-registro2';
 
 const API = (window.APEJUPO_TORNEOS_API || '').replace(/\/$/, '');
 const KEY = 'apejupoAdminCuentas';

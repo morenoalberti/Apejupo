@@ -18,7 +18,7 @@ export async function sha256(value) { return hex(await crypto.subtle.digest('SHA
 
 export function cleanNick(value) {
   const nick = String(value || '').trim();
-  requireThat(/^[A-Za-z][A-Za-z0-9_-]{1,19}$/.test(nick), 'El nick debe tener de 2 a 20 caracteres, empezar por una letra y usar solo letras sin acentos, números, guion o guion bajo.');
+  requireThat(/^[A-Za-z][A-Za-z0-9_-]{5,19}$/.test(nick), 'El nick debe tener de 6 a 20 caracteres, empezar por una letra y usar solo letras sin acentos, números, guion o guion bajo.');
   requireThat(!/[_-]{2}/.test(nick) && !/[_-]$/.test(nick), 'El nick no puede terminar en guion ni tener dos guiones seguidos.');
   requireThat(!RESERVED.has(nick.toLowerCase()), 'Ese nick está reservado. Elige otro.');
   return nick;
