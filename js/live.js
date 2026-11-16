@@ -464,8 +464,7 @@
   }
   function thumbMeta(g, col) {
     var el = g.tags[col === "w" ? "WhiteElo" : "BlackElo"];
-    var pt = g.over ? ({ "1-0": { w: "1", b: "0" }, "0-1": { w: "0", b: "1" }, "1/2-1/2": { w: "½", b: "½" } }[g.tags.Result] || {})[col] : "";
-    return (el ? '<span class="el">' + esc(el) + "</span>" : "") + (pt ? '<b class="lv-score">' + pt + "</b>" : "");
+    return el ? '<span class="el">' + esc(el) + "</span>" : "";
   }
   // Relojes de las miniaturas: el del jugador al que le toca corre en vivo
   function thumbClocks() {
