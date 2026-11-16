@@ -123,12 +123,13 @@ export class TournamentRoom extends DurableObject {
   }
   // Organizador: el navegador que creó el torneo o, con su cuenta, cualquier otro dispositivo (ver «hello»).
   isHost(h) { return !!h && (h === this.t.hostHash || (this.t.hostHashes || []).includes(h)); }
-  capabilities(playerHash, hostHash) {
-    return { playerId: this.t.players.find(p => p.hash === playerHash)?.id || null, host: this.isHost(hostHash) };
+  capabilities(playerHash, hostHash, accountId = null) {
+    const registered = accountId && this.t.players.find(p => p.accountId === accountId);
+    return { playerId: registered?.id || this.t.players.find(p => p.hash === playerHash)?.id || null, host: this.isHost(hostHash) };
   }
   send(ws) {
     const a = ws.deserializeAttachment() || {};
-    const c = this.capabilities(a.playerHash, a.hostHash);
+    const c = this.capabilities(a.playerHash, a.hostHash, a.accountId);
     ws.send(JSON.stringify(snapshot(this.t, c.playerId, c.host, a.game)));
   }
   broadcast() {
@@ -141,11 +142,11 @@ export class TournamentRoom extends DurableObject {
   flush() {
     this.lastFlush = Date.now();
     if (!this.t) return;
-    const shared = JSON.stringify(sharedSnapshot(this.t, this.lastFlush)).slice(0, -1), players = new Map(this.t.players.map(p => [p.hash, p.id])), details = new Map();
+    const shared = JSON.stringify(sharedSnapshot(this.t, this.lastFlush)).slice(0, -1), players = new Map(this.t.players.map(p => [p.hash, p.id])), accounts = new Map(this.t.players.filter(p => p.accountId).map(p => [p.accountId, p.id])), details = new Map();
     for (const ws of this.ctx.getWebSockets()) {
       try {
         const a = ws.deserializeAttachment() || {};
-        const host = this.isHost(a.hostHash), playerId = players.get(a.playerHash) || null;
+        const host = this.isHost(a.hostHash), playerId = accounts.get(a.accountId) || players.get(a.playerHash) || null;
         const key = `${playerId}|${host}|${a.game}`;
         let personal = details.get(key);
         if (!personal) { personal = JSON.stringify(personalPart(this.t, playerId, host, a.game)).slice(1); details.set(key, personal); }
@@ -165,10 +166,10 @@ export class TournamentRoom extends DurableObject {
     for (const ws of this.ctx.getWebSockets()) {
       try {
         const a = ws.deserializeAttachment() || {};
-        if (!a.playerHash) continue;
+        if (!a.playerHash && !a.accountId) continue;
         const ping = this.ctx.getWebSocketAutoResponseTimestamp(ws)?.getTime() || 0;
         if (now - Math.max(ping, a.seenAt || 0) > PRESENCE_MS) continue;
-        const id = this.t.players.find(p => p.hash === a.playerHash)?.id;
+        const id = this.capabilities(a.playerHash, a.hostHash, a.accountId).playerId;
         if (id) ids.add(id);
       } catch {}
     }
@@ -200,7 +201,7 @@ export class TournamentRoom extends DurableObject {
           requireThat(this.ctx.getWebSockets().length < MAX_SOCKETS, 'La sala está llena. Inténtalo más tarde.', 429);
           const pair = new WebSocketPair(), [client, server] = Object.values(pair);
           this.ctx.acceptWebSocket(server);
-          server.serializeAttachment({ playerHash: null, hostHash: null, game: null, window: Date.now(), count: 0, seenAt: Date.now() });
+          server.serializeAttachment({ playerHash: null, accountId: null, hostHash: null, game: null, window: Date.now(), count: 0, seenAt: Date.now() });
           this.send(server);
           return new Response(null, { status: 101, webSocket: client });
         }
@@ -256,10 +257,14 @@ export class TournamentRoom extends DurableObject {
         if (b.type === 'hello') {
           a.playerHash = TOKEN.test(b.token) ? await hash(b.token) : null;
           a.hostHash = TOKEN.test(b.hostToken) ? await hash(b.hostToken) : null;
-          // El organizador que abre su torneo desde otro dispositivo con su cuenta recibe una credencial propia.
-          if (!this.isHost(a.hostHash) && this.t.hostAccountId && /^[a-f0-9]{64}$/.test(String(b.session || ''))) {
+          a.accountId = null;
+          // La sesión identifica al jugador desde cualquier dispositivo, sin volver a inscribirse
+          // ni sustituir la credencial del navegador donde se apuntó. Nunca se confía en un id o nick del cliente.
+          if (TOKEN.test(String(b.session || ''))) {
             const { user } = await (await this.env.ACCOUNTS.getByName('cuentas').fetch('https://cuentas/sesion', { method: 'POST', body: JSON.stringify({ session: b.session }) })).json();
-            if (user?.id === this.t.hostAccountId) {
+            a.accountId = user?.id || null;
+            // El organizador recupera además sus controles en el nuevo dispositivo.
+            if (user && user.id === this.t.hostAccountId && !this.isHost(a.hostHash)) {
               const fresh = randomHex(32);
               this.t.hostHashes = [...(this.t.hostHashes || []).slice(-9), await hash(fresh)];
               a.hostHash = await hash(fresh); await this.save();
@@ -278,7 +283,7 @@ export class TournamentRoom extends DurableObject {
           requireThat(typeof b.game === 'string' && this.t.games.some(g => g.id === b.game && !g.bye), 'Partida no válida.');
           a.game = b.game; ws.serializeAttachment(a); this.send(ws); return;
         }
-        const c = this.capabilities(a.playerHash, a.hostHash);
+        const c = this.capabilities(a.playerHash, a.hostHash, a.accountId);
         const moved = b.type === 'move' ? this.t.games.find(g => g.id === b.game) : null;
         act(this.t, c.playerId, c.host, b, now);
         const paired = this.pair(now);

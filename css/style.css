@@ -260,6 +260,13 @@ body.card-dragging .tour-tip { display: none !important; }
 .local-players-empty { line-height: 1.6; }
 .local-players-footer { flex: none; margin: 0; padding: 12px 20px; border-top: 1px solid var(--line); background: var(--bg); font-size: .8rem; }
 @media (prefers-color-scheme: dark) { #local-players { --players-accent: #81e6d9; } }
+@media (max-width: 600px), (max-height: 500px) and (pointer: coarse) {
+  /* En móvil se desplaza el cuadro completo, incluida la cabecera y el buscador. */
+  #local-players { max-height: 90dvh; overflow-y: auto; overscroll-behavior-y: contain; }
+  #local-players[open] { display: block; }
+  #local-players-list { overflow-x: auto; }
+  .local-players-table th { position: static; }
+}
 @media (max-width: 600px) {
   .local-players-table th, .local-players-table td { padding: 9px 10px; }
   .local-players-table th:nth-child(2), .local-players-table td:nth-child(2) { min-width: 155px; }

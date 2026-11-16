@@ -73,7 +73,7 @@ function send(action) {
   if (!socket || socket.readyState !== WebSocket.OPEN || !connected) { message('Espera a recuperar la conexión antes de continuar.', true); return false; }
   socket.send(JSON.stringify(action)); return true;
 }
-// Con la sesión abierta, quien organizó el torneo recupera los controles también desde otro dispositivo.
+// La sesión recupera la inscripción y, si corresponde, los controles de organización en cualquier dispositivo.
 function hello() { send(boardsMode ? { type: 'hello' } : { type: 'hello', token: read(playerKey()), hostToken: read(hostKey(roomId)), ...(currentUser() ? { session: session() } : {}) }); }
 
 // En pruebas locales el servidor puede no pedir clave de organización: entonces se ocultan sus campos.
@@ -975,7 +975,11 @@ $('to-create-form').addEventListener('submit', async event => {
   finally { button.disabled = false; }
 });
 $('to-join-account').addEventListener('click', () => openAuth('entrar'));
-addEventListener('apejupo:cuenta', () => { if (state) render(); });
+addEventListener('apejupo:cuenta', () => {
+  if (state) render();
+  // Si se entra en la cuenta con el torneo ya abierto, hay que volver a identificarse en la sala.
+  if (roomId && connected && !boardsMode) hello();
+});
 $('to-join-form').addEventListener('submit', async event => {
   event.preventDefault(); const button = event.currentTarget.querySelector('button'); button.disabled = true;
   try {

@@ -184,6 +184,7 @@
       pintaInscritos();
       $("local-players").showModal();
       $("local-players-search").focus();
+      $("local-players").scrollTop = 0;
       return;
     }
     var button = event.target.closest("button[data-rules]"); if (!button) return;
