@@ -225,6 +225,12 @@
 .to-standings tr.winner { color: #a57320; font-weight: 700; }
 .to-standings .to-remove { border: 0; background: none; color: var(--muted); float: right; padding: 0 3px; }
 .to-roster-heading { display: flex; align-items: center; gap: 10px; min-width: 0; }
+#to-standings-panel > .to-section-head { flex-wrap: nowrap; }
+#to-standings-panel .to-roster-heading { flex: 1; }
+#to-player-count { flex: none; }
+.to-standings-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.to-main #to-print-standings { min-height: 40px; font-size: .82rem; background: color-mix(in srgb, var(--blue) 12%, var(--card)); border-color: color-mix(in srgb, var(--blue) 35%, var(--line)); }
+.to-main #to-print-standings:hover:not(:disabled) { background: color-mix(in srgb, var(--blue) 21%, var(--card)); }
 .to-roster-icon { display: none; }
 .to-registration-panel {
   background: linear-gradient(145deg, color-mix(in srgb, var(--blue) 6%, var(--card)), var(--card) 65%);
@@ -243,9 +249,6 @@
 .to-registration-panel .to-standings td:first-child { border-radius: 9px 0 0 9px; }
 .to-registration-panel .to-standings td:nth-child(2) { border-radius: 0 9px 9px 0; font-weight: 500; }
 .to-registration-panel .to-standings th:nth-child(n+3), .to-registration-panel .to-standings td:nth-child(n+3) { display: none; }
-.to-registration-panel .to-standings tr.me { background: none; }
-.to-registration-panel .to-standings tr.me td { background: color-mix(in srgb, var(--blue) 15%, var(--card)); }
-.to-registration-panel .to-standings tr.me td:first-child { box-shadow: inset 2px 0 0 var(--blue); }
 .to-registration-panel .to-standings td[colspan] { padding: 16px 10px; border-radius: 9px; text-align: center; font-size: .8rem; }
 @media (prefers-color-scheme: dark) { .to-registration-panel .to-roster-icon { color: #e5b766; } }
 .to-small { font-size: .72rem; margin-bottom: 0; }
@@ -263,6 +266,20 @@
 .to-mode-track::after { content: ''; position: absolute; top: 3px; left: 3px; width: 14px; height: 14px; border-radius: 50%; background: #fff; transition: transform .15s; }
 .to-mode-switch[aria-checked="true"] .to-mode-track::after { transform: translateX(14px); }
 .to-presencial { margin: 18px 0; }
+.to-presencial > .to-section-head:first-child { align-items: flex-start; }
+.to-presencial-actions { flex-direction: column; align-items: flex-end; gap: 8px; }
+.to-presencial-toolbar { display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-bottom: 10px; }
+.to-presencial-toolbar #to-presencial-round { flex: 0 1 160px; min-height: 38px; font-size: .8rem; }
+.to-presencial-toolbar #to-cancel { min-height: 38px; white-space: nowrap; font-size: .8rem; }
+.to-presencial .to-host { justify-content: flex-end; flex: 0 0 auto; max-width: 100%; margin: 0; padding: 0; border: 0; border-radius: 0; background: transparent; }
+.to-presencial .to-host > span { display: none; }
+.to-presencial .to-host > .to-actions { justify-content: flex-end; }
+@media (max-width: 380px) {
+  .to-presencial-toolbar #to-presencial-round, .to-presencial-toolbar #to-cancel { padding: 6px 8px; font-size: .75rem; }
+}
+.to-main #to-presencial-reset { display: inline-flex; align-items: center; gap: 7px; background: color-mix(in srgb, #d66b7d 12%, var(--card)); border-color: color-mix(in srgb, #d66b7d 38%, var(--line)); }
+#to-presencial-reset svg { flex: none; }
+.to-main #to-presencial-reset:hover:not(:disabled) { background: color-mix(in srgb, #d66b7d 22%, var(--card)); }
 .to-presencial-room .to-play-column { display: none; }
 .to-presencial-room .to-room-layout { display: block; }
 .to-presencial-room .to-sidebar { width: 100%; max-width: none; }
@@ -789,3 +806,25 @@ li.to-tb-dragging { position: relative; z-index: 2; transform: scale(1.03); back
 .to-pt tr.to-pt-later td { color: var(--muted); }
 .to-pt tr.to-pt-later .to-pt-name { color: color-mix(in srgb, var(--text) 70%, transparent); }
 .to-pt-future th { color: color-mix(in srgb, var(--blue) 70%, var(--muted)) !important; }
+#to-print-sheet { display: none; }
+@media print {
+  @page { size: A4 portrait; margin: 14mm; }
+  body.to-printing-standings { margin: 0 !important; background: #fff !important; color: #111 !important; }
+  body.to-printing-standings > :not(#to-print-sheet) { display: none !important; }
+  body.to-printing-standings #to-print-sheet { display: block; color-scheme: only light; background: #fff; color: #111; font: 10pt/1.3 Arial, sans-serif; }
+  #to-print-sheet header { margin-bottom: 7mm; break-inside: avoid; }
+  #to-print-sheet h1 { margin: 0 0 3mm; font-size: 19pt; line-height: 1.2; overflow-wrap: anywhere; }
+  #to-print-sheet h2 { margin: 0 0 2mm; font-size: 13pt; }
+  #to-print-sheet p { margin: 0; }
+  #to-print-sheet .to-print-brand { margin-bottom: 3mm; font-size: 8pt; font-weight: bold; letter-spacing: .1em; color: #555; }
+  #to-print-sheet .to-print-meta, #to-print-sheet .to-print-note { color: #444; font-size: 9pt; }
+  #to-print-sheet table { width: 100%; border-collapse: collapse; }
+  #to-print-sheet thead { display: table-header-group; }
+  #to-print-sheet tr { break-inside: avoid; }
+  #to-print-sheet th, #to-print-sheet td { padding: 1.25mm 2mm; border-bottom: 1px solid #ccc; text-align: right; vertical-align: top; }
+  #to-print-sheet th { border-bottom: 2px solid #555; color: #111; font-size: 9pt; }
+  #to-print-sheet th:first-child, #to-print-sheet td:first-child { width: 9mm; text-align: center; }
+  #to-print-sheet .to-print-name { text-align: left; overflow-wrap: anywhere; }
+  #to-print-sheet .to-print-name small { display: block; color: #555; font-size: 8pt; }
+  #to-print-sheet .to-print-note { margin-top: 5mm; }
+}

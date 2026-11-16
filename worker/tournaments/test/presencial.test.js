@@ -10,6 +10,151 @@ function tournament(count = 4, options = {}) {
   return t;
 }
 
+test('sin resultados se puede cambiar la lista presencial y se regeneran las rondas, incluso con descansos', () => {
+  for (const format of ['swiss', 'closed', 'double-closed']) {
+    let t = tournament(5, { format });
+    act(t, null, true, { type: 'start' }, NOW);
+    t = JSON.parse(JSON.stringify(t)); // al volver a entrar en un torneo ya emparejado
+    assert.ok(t.games.some(g => g.bye && g.result));
+    const oldGames = t.games.map(g => g.id), oldPlayers = t.players.map(p => p.id);
+    const before = JSON.stringify(t);
+    assert.throws(() => act(t, null, false, { type: 'presencial-player', name: 'Intruso' }, NOW), /organizador/);
+    assert.throws(() => act(t, null, true, { type: 'presencial-player', name: t.players[0].name }, NOW), /ese nombre/);
+    assert.equal(JSON.stringify(t), before, 'Un intento inválido no cambia el sorteo');
+    act(t, null, true, { type: 'presencial-player', name: 'Olvidado', rating: 1800 }, NOW);
+    assert.equal(t.players.length, 6); assert.equal(t.round, 1); assert.equal(t.status, 'playing');
+    assert.ok(oldPlayers.every(id => t.players.some(p => p.id === id)));
+    assert.ok(t.games.every(g => !oldGames.includes(g.id) && !g.result));
+    assert.equal(t.games.length, 3);
+    const added = t.players.at(-1).id;
+    assert.ok(t.games.some(g => g.white === added || g.black === added));
+    assert.throws(() => act(t, null, false, { type: 'remove', playerId: added }, NOW), /quitar inscritos/);
+    act(t, null, true, { type: 'remove', playerId: added }, NOW);
+    assert.equal(t.players.length, 5); assert.ok(!t.games.some(g => g.white === added || g.black === added));
+    act(t, null, true, { type: 'presencial-players', players: [{ name: 'Nuevo uno' }, { name: 'Nuevo dos' }] }, NOW);
+    assert.equal(t.players.length, 7); assert.equal(t.round, 1);
+    assert.equal(t.rounds, format === 'swiss' ? 5 : 7);
+    const played = t.games.find(g => !g.bye);
+    act(t, null, true, { type: 'presencial-result', game: played.id, result: format === 'double-closed' ? '1-1' : '1/2-1/2' }, NOW);
+    const withResults = JSON.stringify(t);
+    assert.throws(() => act(t, null, true, { type: 'remove', playerId: t.players[0].id }, NOW), /antes de anotar resultados/);
+    if (format !== 'swiss') assert.throws(() => act(t, null, true, { type: 'presencial-player', name: 'Demasiado tarde' }, NOW), /cerradas/);
+    assert.equal(JSON.stringify(t), withResults, 'No borra resultados al cambiar inscritos fuera de plazo');
+  }
+  const small = tournament(2, { format: 'double-closed' });
+  act(small, null, true, { type: 'start' }, NOW);
+  act(small, null, true, { type: 'remove', playerId: small.players[0].id }, NOW);
+  assert.equal(small.status, 'waiting'); assert.equal(small.games.length, 0); assert.equal(small.players.length, 1);
+});
+
+test('Round-Robin presencial avanza solo al completar cada ronda, sin botón ni pausa, y termina al completar la última', () => {
+  for (const format of ['closed', 'double-closed']) for (const count of [4, 5]) {
+    const t = tournament(count, { format });
+    act(t, null, true, { type: 'start' }, NOW);
+    const result = format === 'closed' ? '1/2-1/2' : '1-1';
+    assert.throws(() => act(t, null, true, { type: 'presencial-next' }, NOW), /automáticamente/);
+    while (t.status !== 'finished') {
+      const round = t.round, pending = t.games.filter(g => g.round === round && !g.result);
+      assert.ok(pending.length > 0);
+      for (const [i, g] of pending.entries()) {
+        act(t, null, true, { type: 'presencial-result', game: g.id, result }, NOW);
+        if (i < pending.length - 1) assert.equal(t.round, round, 'Espera a todos los resultados de la ronda');
+      }
+      assert.equal(t.nextRoundAt, null);
+      if (round < t.rounds) { assert.equal(t.round, round + 1); assert.equal(t.status, 'playing'); }
+      else assert.equal(t.status, 'finished');
+      assert.equal(advance(t, NOW + 60000), false, 'No duplica rondas al actualizar la sala');
+    }
+    assert.equal(t.round, t.rounds);
+    assert.equal(t.games.filter(g => !g.bye).length, count * (count - 1) / 2);
+    assert.ok(standings(t).every(p => p.points === (count - 1) * (format === 'closed' ? .5 : 1)));
+  }
+});
+
+test('Round-Robin recupera una pausa guardada por la versión anterior y salta rondas de retirados sin bloquearse', () => {
+  let t = tournament(4, { format: 'closed' });
+  act(t, null, true, { type: 'start' }, NOW);
+  for (const g of t.games) { g.result = '1/2-1/2'; g.finishedAt = NOW; }
+  t.status = 'between'; t.nextRoundAt = null;
+  t = JSON.parse(JSON.stringify(t));
+  assert.equal(advance(t, NOW + 1000), true);
+  assert.equal(t.round, 2); assert.equal(t.status, 'playing');
+  assert.equal(advance(t, NOW + 2000), false);
+  for (const p of t.players.slice(2)) act(t, null, true, { type: 'presencial-active', playerId: p.id, active: false }, NOW);
+  while (t.status !== 'finished') {
+    const pending = t.games.filter(g => !g.result);
+    assert.ok(pending.length > 0, 'No queda esperando una ronda de resultados automáticos');
+    for (const g of pending) act(t, null, true, { type: 'presencial-result', game: g.id, result: '1/2-1/2' }, NOW);
+  }
+  assert.equal(t.round, t.rounds);
+  // El cambio afecta solo al presencial: en el Round-Robin online se conserva la pausa entre rondas.
+  const online = createTournament({ ...input, mode: 'online', format: 'closed' }, 'b'.repeat(24), 'host', NOW);
+  for (let i = 0; i < 4; i++) joinTournament(online, 'Online ' + i, 'hash-' + i, NOW);
+  act(online, null, true, { type: 'start' }, NOW);
+  for (const g of online.games) act(online, g.white, false, { type: 'resign', game: g.id }, NOW);
+  assert.equal(online.status, 'between'); assert.equal(online.round, 1); assert.ok(online.nextRoundAt > NOW);
+});
+
+test('borrar rondas reabre la inscripción, conserva jugadores y configuración y permite volver a emparejar', () => {
+  for (const format of ['swiss', 'closed', 'double-closed']) for (const phase of (format === 'swiss' ? ['playing', 'between', 'finished'] : ['playing', 'finished'])) {
+    let t = tournament(4, { format, joinKey: 'clave-club' });
+    Object.assign(t.players[0], { source: 'FIDE', fideId: '123456', fed: 'ESP', title: 'IM', accountId: 'cuenta-1' });
+    const roster = t.players.map(({ active, seed, ...p }) => p), settings = { title: t.title, minutes: t.minutes, increment: t.increment, joinKey: t.joinKey, tiebreaks: t.tiebreaks };
+    act(t, null, true, { type: 'start' }, NOW);
+    act(t, null, true, { type: 'presencial-active', playerId: t.players[3].id, active: false }, NOW);
+    const result = format === 'double-closed' ? '1-1' : '1/2-1/2';
+    if (phase !== 'playing') {
+      do {
+        for (const g of t.games.filter(g => !g.result)) act(t, null, true, { type: 'presencial-result', game: g.id, result }, NOW);
+        if (phase === 'finished' && t.status === 'between') act(t, null, true, { type: 'presencial-next' }, NOW);
+      } while (phase === 'finished' && t.status !== 'finished');
+    }
+    assert.equal(t.status, phase);
+    const oldGame = t.games[0].id;
+    t = JSON.parse(JSON.stringify(t)); // también funciona con el torneo recuperado del almacenamiento
+    act(t, null, true, { type: 'presencial-reset' }, NOW + 10000);
+    assert.equal(t.status, 'waiting'); assert.equal(t.round, 0); assert.equal(t.games.length, 0);
+    assert.equal(t.finishedAt, null); assert.equal(t.nextRoundAt, null); assert.equal(t.pairing, null);
+    assert.equal(t.rounds, format === 'swiss' ? 5 : 0);
+    assert.deepEqual(t.players.map(({ active, seed, ...p }) => p), roster);
+    assert.ok(t.players.every(p => p.active));
+    assert.deepEqual({ title: t.title, minutes: t.minutes, increment: t.increment, joinKey: t.joinKey, tiebreaks: t.tiebreaks }, settings);
+    assert.ok(standings(t).every(p => p.points === 0 && p.played === 0 && p.sheet.length === 0));
+    assert.deepEqual(snapshot(t).schedule, []);
+    assert.equal(advance(t, NOW + 20000), false);
+    assert.throws(() => act(t, null, true, { type: 'presencial-result', game: oldGame, result }, NOW), /ronda actual/);
+    act(t, null, true, { type: 'remove', playerId: t.players[3].id }, NOW);
+    act(t, null, true, { type: 'presencial-player', name: 'Jugador olvidado', rating: 1700 }, NOW);
+    act(t, null, true, { type: 'presencial-player', name: 'Otro jugador', rating: 1600 }, NOW);
+    act(t, null, true, { type: 'start' }, NOW + 30000);
+    assert.equal(t.players.length, 5); assert.equal(t.rounds, 5); assert.equal(t.round, 1);
+    assert.ok(t.games.every(g => g.id !== oldGame));
+  }
+});
+
+test('borrar rondas: solo el organizador de un presencial con rondas generadas y sin reinicios repetidos', () => {
+  const t = tournament();
+  assert.throws(() => act(t, null, true, { type: 'presencial-reset' }, NOW), /No hay rondas/);
+  act(t, null, true, { type: 'start' }, NOW);
+  const before = JSON.stringify(t);
+  assert.throws(() => act(t, t.players[0].id, false, { type: 'presencial-reset' }, NOW), /organizador/);
+  assert.equal(JSON.stringify(t), before);
+  const online = createTournament({ ...input, mode: 'online' }, 'b'.repeat(24), 'host', NOW);
+  assert.throws(() => act(online, null, true, { type: 'presencial-reset' }, NOW), /organizador/);
+  const cancelled = JSON.parse(before); act(cancelled, null, true, { type: 'cancel' }, NOW);
+  assert.throws(() => act(cancelled, null, true, { type: 'presencial-reset' }, NOW), /No hay rondas/);
+  act(t, null, true, { type: 'presencial-reset' }, NOW);
+  assert.throws(() => act(t, null, true, { type: 'presencial-reset' }, NOW), /No hay rondas/);
+  editTournament(t, { ...input, rounds: 2 }, NOW);
+  act(t, null, true, { type: 'start' }, NOW);
+  act(t, null, true, { type: 'presencial-reset' }, NOW);
+  assert.equal(t.rounds, 2, 'Se usa la configuración editada al reabrir');
+  act(t, null, true, { type: 'start' }, NOW);
+  delete t.plannedRounds; // compatibilidad con los torneos existentes antes de esta función
+  act(t, null, true, { type: 'presencial-reset' }, NOW);
+  assert.equal(t.rounds, 2);
+});
+
 test('modalidades, formatos y cuatro minutos: creación, edición y compatibilidad online', () => {
   for (const format of ['swiss', 'closed', 'double-closed']) {
     const t = tournament(0, { format });
@@ -184,9 +329,10 @@ test('torneo en marcha: corregir, retirar y volver a incluir; en el suizo, inscr
   act(t, null, true, { type: 'presencial-active', playerId: b.id, active: true }, NOW);
   assert.equal(b.active, true);
   assert.throws(() => act(t, null, false, { type: 'presencial-active', playerId: b.id, active: false }, NOW), /organizador/);
-  // Round-Robin: el calendario queda fijado al empezar, no hay inscripción tardía.
+  // Round-Robin: tras anotar un resultado, no hay inscripción tardía.
   const rr = tournament(4, { format: 'closed' });
   act(rr, null, true, { type: 'start' }, NOW);
+  act(rr, null, true, { type: 'presencial-result', game: rr.games[0].id, result: '1-0' }, NOW);
   assert.throws(() => act(rr, null, true, { type: 'presencial-player', name: 'Tarde' }, NOW), /cerradas/);
 });
 
@@ -199,7 +345,7 @@ test('Round-Robin: el calendario de las rondas que faltan coincide con lo que se
     assert.equal(plan.length, t.rounds - 1);
     assert.equal(snapshot(t).schedule.length, t.rounds - 1);
     for (const { round, pairs } of plan) {
-      while (t.round < round) { for (const g of t.games.filter(g => !g.bye && !g.result)) act(t, null, true, { type: 'presencial-result', game: g.id, result: format === 'closed' ? '1-0' : '2-0' }, NOW); act(t, null, true, { type: 'presencial-next' }, NOW); }
+      while (t.round < round) { for (const g of t.games.filter(g => !g.bye && !g.result)) act(t, null, true, { type: 'presencial-result', game: g.id, result: format === 'closed' ? '1-0' : '2-0' }, NOW); }
       const real = t.games.filter(g => g.round === round).map(g => [g.white, g.black].join('|')).sort();
       assert.deepEqual(pairs.map(([w, b]) => (w === null ? [b, null] : b === null ? [w, null] : [w, b]).join('|')).sort(), real, 'ronda ' + round);
     }

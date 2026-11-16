@@ -385,6 +385,8 @@ export function startTournament(t, now = Date.now()) {
   requireThat(t.players.length >= 2, 'Se necesitan al menos dos jugadores.');
   delete t.requests; // las solicitudes sin aprobar se quedan fuera al empezar
   const n = t.players.length;
+  // Se conserva la configuración del suizo por si se borran las rondas y se reabre la inscripción.
+  if (isPresencial(t) && t.format === 'swiss') t.plannedRounds = t.rounds;
   // Doble vuelta presencial: las dos partidas de cada emparejamiento se juegan en la misma ronda.
   if (isClosed(t)) t.rounds = (n % 2 ? n : n - 1) * (t.format === 'double-closed' && gamesPerTable(t) === 1 ? 2 : 1);
   // Un reto (también a varias partidas) enfrenta siempre a los mismos dos: no se limitan las rondas.
@@ -412,6 +414,15 @@ export function afterResults(t, now) {
   if (isArena(t)) {
     // Al cumplirse el tiempo se espera a las partidas en juego: todas cuentan para la clasificación final.
     if (t.status === 'playing' && (now >= t.endsAt || t.players.filter(p => p.active).length < 2) && !t.games.some(g => !g.result)) finishTournament(t, now);
+    return;
+  }
+  if (isPresencial(t) && isClosed(t)) {
+    // El calendario ya está sorteado: no hay que volver a emparejar entre rondas.
+    // Si una ronda solo tiene descansos o rivales retirados, pasa también a la siguiente.
+    while (['playing', 'between'].includes(t.status) && !t.games.some(g => g.round === t.round && !g.result)) {
+      if (t.round >= t.rounds || t.players.filter(p => p.active).length < 2) { finishTournament(t, now); break; }
+      beginRound(t, now);
+    }
     return;
   }
   if (t.status !== 'playing' || t.games.some(g => g.round === t.round && !g.result)) return;
@@ -466,6 +477,12 @@ export function expireGames(t, now = Date.now()) {
 }
 export function advance(t, now = Date.now()) {
   let changed = expireGames(t, now);
+  // Recupera también los Round-Robin que quedaron entre rondas antes de este cambio.
+  if (isPresencial(t) && isClosed(t) && ['playing', 'between'].includes(t.status)) {
+    const round = t.round, status = t.status;
+    afterResults(t, now);
+    changed ||= round !== t.round || status !== t.status;
+  }
   if (!isPresencial(t) && t.status === 'waiting' && t.startsAt && now >= t.startsAt) {
     if (t.players.length >= 2) startTournament(t, now);
     else { t.status = 'cancelled'; t.notice = 'Cancelado: no se alcanzaron dos inscritos.'; t.finishedAt = now; }
@@ -488,18 +505,35 @@ export function nextAlarm(t, now = Date.now()) {
   return Math.min(...times);
 }
 
+const canChangeInitialRoster = t => isPresencial(t) && ['playing', 'between'].includes(t.status) && !t.games.some(g => !g.bye && g.result);
+function resetPresencialPairings(t, now) {
+  t.rounds = isClosed(t) ? 0 : (t.plannedRounds || t.rounds);
+  t.games = []; t.round = 0; t.status = 'waiting';
+  t.nextRoundAt = null; t.endsAt = null; t.finishedAt = null; t.pairing = null; t.notice = '';
+  t.expiresAt = now + RETENTION_MS;
+  t.players.forEach((p, i) => { p.active = true; p.seed = i + 1; });
+}
+function regenerateInitialPairings(t, now) {
+  resetPresencialPairings(t, now);
+  if (t.players.length >= 2) startTournament(t, now);
+}
 export function act(t, playerId, host, action, now = Date.now()) {
   const p = t.players.find(p => p.id === playerId);
-  if (['presencial-player', 'presencial-players', 'presencial-edit', 'presencial-active', 'presencial-approve', 'presencial-reject', 'presencial-result', 'presencial-next'].includes(action.type)) {
+  if (['presencial-player', 'presencial-players', 'presencial-edit', 'presencial-active', 'presencial-approve', 'presencial-reject', 'presencial-result', 'presencial-next', 'presencial-reset'].includes(action.type)) {
     requireThat(host && isPresencial(t), 'Solo el organizador del torneo presencial puede realizar esta acción.', 403);
     // Suizo ya empezado: quien llega tarde entra en la ronda siguiente (las rondas que no jugó, sin puntos).
     const lateEntry = t.format === 'swiss' && ['playing', 'between'].includes(t.status);
-    if (action.type === 'presencial-player') {
-      requireThat(t.status === 'waiting' || lateEntry, 'Las inscripciones están cerradas.');
+    const initialRoster = canChangeInitialRoster(t);
+    if (action.type === 'presencial-reset') {
+      requireThat(['playing', 'between', 'finished'].includes(t.status) && t.round > 0 && t.games.length > 0, 'No hay rondas que borrar.', 409);
+      resetPresencialPairings(t, now);
+    } else if (action.type === 'presencial-player') {
+      requireThat(t.status === 'waiting' || initialRoster || lateEntry, 'Las inscripciones están cerradas.');
       addPresencial(t, presencialEntry(action), now);
+      if (initialRoster) regenerateInitialPairings(t, now);
     } else if (action.type === 'presencial-players') {
       // Lista pegada: se valida entera antes de inscribir a nadie.
-      requireThat(t.status === 'waiting' || lateEntry, 'Las inscripciones están cerradas.');
+      requireThat(t.status === 'waiting' || initialRoster || lateEntry, 'Las inscripciones están cerradas.');
       requireThat(Array.isArray(action.players) && action.players.length > 0 && action.players.length <= MAX_PLAYERS, 'La lista está vacía.');
       const entries = action.players.map(presencialEntry);
       const names = [...t.players.map(p => p.name), ...entries.map(e => e.name)].map(n => n.toLocaleLowerCase('es'));
@@ -507,6 +541,7 @@ export function act(t, playerId, host, action, now = Date.now()) {
       requireThat(!repeated, `«${repeated?.name}» está repetido o ya inscrito.`);
       requireThat(t.players.length + entries.length <= t.capacity, `Solo quedan ${t.capacity - t.players.length} plazas.`);
       for (const e of entries) addPresencial(t, e, now);
+      if (initialRoster) regenerateInitialPairings(t, now);
     } else if (action.type === 'presencial-active') {
       // Retirar a un jugador de las próximas rondas (o volver a incluirlo). Su partida en curso se anota aparte.
       requireThat(['playing', 'between'].includes(t.status), 'Solo se puede retirar a un jugador con el torneo en marcha.');
@@ -534,6 +569,7 @@ export function act(t, playerId, host, action, now = Date.now()) {
       t.requests = t.requests.filter(x => x !== r);
     } else if (action.type === 'presencial-next') {
       requireThat(t.status !== 'finished', `El torneo ya ha terminado: se han jugado sus ${t.rounds} rondas.`);
+      requireThat(t.format === 'swiss', 'En Round-Robin las rondas avanzan automáticamente.');
       requireThat(t.status === 'between', 'Completa todos los resultados antes de la siguiente ronda.');
       beginRound(t, now);
     } else {
@@ -565,8 +601,12 @@ export function act(t, playerId, host, action, now = Date.now()) {
     t.joinKey = cleanJoinKey(action.key); return;
   }
   if (action.type === 'remove') {
-    requireThat(host && t.status === 'waiting', 'Solo se pueden retirar inscritos antes del inicio.', 403);
-    t.players = t.players.filter(p => p.id !== action.playerId); return;
+    const initialRoster = canChangeInitialRoster(t);
+    requireThat(host && (t.status === 'waiting' || initialRoster), 'Solo se pueden quitar inscritos antes de anotar resultados.', 403);
+    requireThat(t.players.some(p => p.id === action.playerId), 'No se encuentra a ese jugador.', 404);
+    t.players = t.players.filter(p => p.id !== action.playerId);
+    if (initialRoster) regenerateInitialPairings(t, now);
+    return;
   }
   requireThat(!isPresencial(t), 'Los resultados presenciales los anota el organizador.', 403);
   requireThat(p, 'Primero debes inscribirte en el torneo.', 403);

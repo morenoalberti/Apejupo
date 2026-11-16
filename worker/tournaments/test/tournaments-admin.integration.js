@@ -78,9 +78,9 @@ test('el administrador borra torneos ajenos en cualquier estado; el navegador no
       for (const data of [{}, { admin: true }, { admin: true, hostToken: token() }, { key: ADMIN }]) {
         assert.equal((await call(path + '/delete', data)).status, 403, 'No se aceptan permisos declarados por el cliente');
       }
-      assert.equal((await call(path + '/delete', {}, other.session)).status, 401);
+      assert.equal((await call(path + '/delete', {}, other.session)).status, 403);
       assert.equal((await call(path + '/delete', {}, 'clave-incorrecta-de-prueba')).status, 401);
-      assert.equal((await call(path + '/config', {}, ADMIN)).status, 403, 'El borrado no concede permisos para editar');
+      assert.equal((await call(path + '/config', {}, ADMIN)).status, 200, 'El administrador también puede consultar la configuración');
       assert.equal((await fetch(BASE + path)).status, 200, 'Los intentos no autorizados no borran el torneo');
       const closed = new Promise(resolve => client.ws.once('close', (code, reason) => resolve({ code, reason: String(reason) })));
       assert.equal((await call(path + '/delete', {}, ADMIN)).status, 200);

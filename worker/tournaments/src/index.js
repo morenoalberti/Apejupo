@@ -38,10 +38,11 @@ export class TournamentDirectory extends DurableObject {
         const url = new URL(request.url), now = Date.now();
         let events = (await this.ctx.storage.get('events') || []).filter(e => now - e.createdAt < RETENTION_MS);
         if (request.method === 'GET') {
+          const accountId = request.headers.get('X-Account-Id');
           const results = await Promise.all(events.map(async e => {
             try {
               const r = await this.env.TOURNAMENTS.getByName(e.id).fetch('https://room/summary');
-              return r.ok ? await r.json() : null;
+              return r.ok ? { ...await r.json(), mine: !!accountId && e.host === accountId } : null;
             } catch { return null; }
           }));
           return json({ tournaments: results.filter(Boolean).sort((a, b) => b.createdAt - a.createdAt), keyRequired: false, accountRequired: true });
@@ -123,13 +124,14 @@ export class TournamentRoom extends DurableObject {
   }
   // Organizador: el navegador que creó el torneo o, con su cuenta, cualquier otro dispositivo (ver «hello»).
   isHost(h) { return !!h && (h === this.t.hostHash || (this.t.hostHashes || []).includes(h)); }
-  capabilities(playerHash, hostHash, accountId = null) {
+  capabilities(playerHash, hostHash, accountId = null, admin = false) {
     const registered = accountId && this.t.players.find(p => p.accountId === accountId);
-    return { playerId: registered?.id || this.t.players.find(p => p.hash === playerHash)?.id || null, host: this.isHost(hostHash) };
+    const host = this.isHost(hostHash) || !!(accountId && accountId === this.t.hostAccountId) || admin === true;
+    return { playerId: registered?.id || this.t.players.find(p => p.hash === playerHash)?.id || null, host };
   }
   send(ws) {
     const a = ws.deserializeAttachment() || {};
-    const c = this.capabilities(a.playerHash, a.hostHash, a.accountId);
+    const c = this.capabilities(a.playerHash, a.hostHash, a.accountId, a.admin);
     ws.send(JSON.stringify(snapshot(this.t, c.playerId, c.host, a.game, Date.now(), a.playerHash)));
   }
   broadcast() {
@@ -146,7 +148,8 @@ export class TournamentRoom extends DurableObject {
     for (const ws of this.ctx.getWebSockets()) {
       try {
         const a = ws.deserializeAttachment() || {};
-        const host = this.isHost(a.hostHash), playerId = accounts.get(a.accountId) || players.get(a.playerHash) || null;
+        const { host } = this.capabilities(a.playerHash, a.hostHash, a.accountId, a.admin);
+        const playerId = accounts.get(a.accountId) || players.get(a.playerHash) || null;
         // Quien espera a que aprueben su solicitud presencial recibe también la suya.
         const pending = !playerId && a.playerHash && this.t.requests?.some(r => r.hash === a.playerHash) ? a.playerHash : null;
         const key = `${playerId}|${host}|${a.game}|${pending}`;
@@ -203,7 +206,7 @@ export class TournamentRoom extends DurableObject {
           requireThat(this.ctx.getWebSockets().length < MAX_SOCKETS, 'La sala está llena. Inténtalo más tarde.', 429);
           const pair = new WebSocketPair(), [client, server] = Object.values(pair);
           this.ctx.acceptWebSocket(server);
-          server.serializeAttachment({ playerHash: null, accountId: null, hostHash: null, game: null, window: Date.now(), count: 0, seenAt: Date.now() });
+          server.serializeAttachment({ playerHash: null, accountId: null, hostHash: null, admin: false, ip: request.headers.get('CF-Connecting-IP') || 'local', game: null, window: Date.now(), count: 0, seenAt: Date.now() });
           this.send(server);
           return new Response(null, { status: 101, webSocket: client });
         }
@@ -214,14 +217,14 @@ export class TournamentRoom extends DurableObject {
         if (request.method === 'GET') return json(snapshot(this.t, null, false, url.searchParams.get('game')));
         const b = await body(request);
         if (url.pathname === '/config' || url.pathname === '/edit') {
-          // Solo el organizador: /config devuelve los datos para rellenar el formulario; /edit los cambia.
-          requireThat(TOKEN.test(b.hostToken) && this.isHost(await hash(b.hostToken)), 'Solo el organizador puede editar el torneo.', 403);
+          // El router verifica la identidad del creador o la clave de administrador.
+          requireThat(b.admin === true || !!(b.actorId && b.actorId === this.t.hostAccountId) || (TOKEN.test(b.hostToken) && this.isHost(await hash(b.hostToken))), 'Solo el creador o el administrador pueden editar el torneo.', 403);
           if (url.pathname === '/edit') { editTournament(this.t, { ...b, match: false }, Date.now()); await this.save(); this.broadcast(); }
           return json({ ...summary(this.t), joinKey: this.t.joinKey || '' });
         }
         if (url.pathname === '/delete') {
           // El router comprueba la clave antes de conceder el permiso de administrador.
-          requireThat(b.admin === true || (TOKEN.test(b.hostToken) && this.isHost(await hash(b.hostToken))), 'Solo el organizador o el administrador pueden borrar el torneo.', 403);
+          requireThat(b.admin === true || !!(b.actorId && b.actorId === this.t.hostAccountId) || (TOKEN.test(b.hostToken) && this.isHost(await hash(b.hostToken))), 'Solo el organizador o el administrador pueden borrar el torneo.', 403);
           const reason = b.admin === true ? 'El administrador ha borrado el torneo.' : 'El organizador ha borrado el torneo.';
           for (const ws of this.ctx.getWebSockets()) { try { ws.close(1000, reason); } catch {} }
           await this.ctx.storage.deleteAll(); this.t = null;
@@ -265,6 +268,14 @@ export class TournamentRoom extends DurableObject {
           a.playerHash = TOKEN.test(b.token) ? await hash(b.token) : null;
           a.hostHash = TOKEN.test(b.hostToken) ? await hash(b.hostToken) : null;
           a.accountId = null;
+          a.admin = false;
+          ws.serializeAttachment(a);
+          // Nunca se aceptan roles declarados por el cliente: la clave se comprueba en cuentas.
+          // Solo se guarda el permiso verificado en esta conexión, nunca la clave ni un token de organizador.
+          if (typeof b.adminKey === 'string' && b.adminKey.length > 0 && b.adminKey.length <= 256) {
+            const checked = await this.env.ACCOUNTS.getByName('cuentas').fetch('https://cuentas/admin/comprobar', { method: 'POST', body: JSON.stringify({ key: b.adminKey, ip: a.ip || 'local' }) });
+            a.admin = checked.ok && (await checked.json()).ok === true;
+          }
           // La sesión identifica al jugador desde cualquier dispositivo, sin volver a inscribirse
           // ni sustituir la credencial del navegador donde se apuntó. Nunca se confía en un id o nick del cliente.
           if (TOKEN.test(String(b.session || ''))) {
@@ -290,7 +301,7 @@ export class TournamentRoom extends DurableObject {
           requireThat(typeof b.game === 'string' && this.t.games.some(g => g.id === b.game && !g.bye), 'Partida no válida.');
           a.game = b.game; ws.serializeAttachment(a); this.send(ws); return;
         }
-        const c = this.capabilities(a.playerHash, a.hostHash, a.accountId);
+        const c = this.capabilities(a.playerHash, a.hostHash, a.accountId, a.admin);
         const moved = b.type === 'move' ? this.t.games.find(g => g.id === b.game) : null;
         act(this.t, c.playerId, c.host, b, now);
         const paired = this.pair(now);
@@ -371,7 +382,10 @@ export default {
         requireThat(request.method === 'POST', 'Método no permitido.', 405);
         return withCors(await checkAdmin());
       }
-      if (path === '/api/tournaments' && request.method === 'GET') return withCors(await directory.fetch('https://directory/'));
+      if (path === '/api/tournaments' && request.method === 'GET') {
+        const { user } = bearer(request) ? await (await askAccounts('sesion', { session: bearer(request) })).json() : {};
+        return withCors(await directory.fetch('https://directory/', { headers: { 'X-Account-Id': user?.id || '' } }));
+      }
       if (path === '/api/tournaments' && request.method === 'POST') {
         // Organizar pide la sesión de una cuenta con el correo confirmado (va en Authorization).
         const { user, unverified } = await (await askAccounts('sesion', { session: bearer(request) })).json();
@@ -385,16 +399,20 @@ export default {
       requireThat(!['join', 'delete', 'config', 'edit'].includes(suffix) || request.method === 'POST', 'Método no permitido.', 405);
       requireThat(!['socket', 'pgn', ''].includes(suffix) || request.method === 'GET', 'Método no permitido.', 405);
       if (suffix === 'socket') requireThat(origin && allowed.includes(origin), 'Conexión no autorizada.', 403);
-      if (suffix === 'delete') {
+      if (['delete', 'config', 'edit'].includes(suffix)) {
         const b = await body(request);
-        let admin = false;
+        // Se sobrescriben los permisos del cuerpo: solo cuentan la sesión o la clave verificadas.
+        b.admin = false; b.actorId = null;
         if (bearer(request)) {
-          const verified = await checkAdmin();
-          if (!verified.ok) return withCors(verified);
-          admin = true;
+          const { user } = await (await askAccounts('sesion', { session: bearer(request) })).json();
+          if (user) b.actorId = user.id;
+          else {
+            const verified = await checkAdmin();
+            if (!verified.ok) return withCors(verified);
+            b.admin = true;
+          }
         }
-        // No aceptar permisos enviados por el navegador: solo los verificados aquí.
-        return withCors(await env.TOURNAMENTS.getByName(room[1]).fetch('https://room/delete', { method: 'POST', body: JSON.stringify({ hostToken: b.hostToken, admin }) }));
+        return withCors(await env.TOURNAMENTS.getByName(room[1]).fetch('https://room/' + suffix, { method: 'POST', body: JSON.stringify(b) }));
       }
       if (suffix === 'join') {
         // Con sesión, el jugador se inscribe con el nick de su cuenta; sin ella, su alias no puede ser el nick de otra cuenta.

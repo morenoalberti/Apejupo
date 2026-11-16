@@ -56,11 +56,26 @@ test('presencial real: guardar modalidad, permisos, resultados manuales, doble v
       assert.equal(host.state.game, null); assert.equal(host.state.minutes, 4);
       assert.equal(host.state.rounds, 3); // doble vuelta: las dos partidas de cada pareja en la misma ronda
       for (const g of host.state.games) { assert.equal(g.fen, undefined); assert.equal(g.whiteMs, undefined); }
+      const originalGames = host.state.games.map(g => g.id);
+      await host.action({ type: 'presencial-player', name: 'Añadido sin resultados', rating: 1800 });
+      const initialAdded = host.state.standings.find(p => p.name === 'Añadido sin resultados');
+      assert.equal(host.state.count, 5); assert.equal(host.state.round, 1);
+      assert.ok(host.state.games.every(g => !originalGames.includes(g.id)));
+      if (format === 'double-closed') assert.equal(host.state.rounds, 5);
+      const cannotRemove = await viewer.action({ type: 'remove', playerId: initialAdded.id, host: true }, true);
+      assert.match(cannotRemove.message, /quitar inscritos/);
+      await host.action({ type: 'remove', playerId: initialAdded.id });
+      assert.equal(host.state.count, 4); assert.equal(host.state.rounds, 3);
+      assert.ok(host.state.games.every(g => g.white !== initialAdded.id && g.black !== initialAdded.id));
       const first = host.state.games[0];
       const forged = await viewer.action({ type: 'presencial-result', game: first.id, result: '1-0', host: true }, true);
       assert.match(forged.message, /organizador/);
       while (host.state.status !== 'finished') {
+        const round = host.state.round;
         for (const g of host.state.games.filter(g => !g.result)) await host.action({ type: 'presencial-result', game: g.id, result: format === 'double-closed' ? '1-1' : '1/2-1/2' });
+        if (format === 'double-closed' && round < host.state.rounds) {
+          assert.equal(host.state.status, 'playing'); assert.equal(host.state.round, round + 1);
+        }
         if (host.state.status === 'between') {
           assert.equal(host.state.nextRoundAt, null);
           await host.action({ type: 'presencial-next' });
@@ -70,6 +85,24 @@ test('presencial real: guardar modalidad, permisos, resultados manuales, doble v
       const persisted = await (await fetch(`${BASE}/api/tournaments/${id}`, { headers: { Origin: ORIGIN } })).json();
       assert.equal(persisted.mode, 'presencial'); assert.equal(persisted.status, 'finished');
       assert.ok(persisted.standings.every(p => p.points === (format === 'double-closed' ? 3 : 1.5)));
+      const forbidden = await viewer.action({ type: 'presencial-reset', host: true }, true);
+      assert.match(forbidden.message, /organizador/);
+      const ids = persisted.standings.map(p => p.id).sort();
+      await host.action({ type: 'presencial-reset' });
+      assert.equal(host.state.status, 'waiting'); assert.equal(host.state.round, 0);
+      assert.deepEqual(host.state.games, []); assert.deepEqual(host.state.schedule, []);
+      assert.deepEqual(host.state.standings.map(p => p.id).sort(), ids);
+      assert.ok(host.state.standings.every(p => p.points === 0 && p.active));
+      const reopened = await (await fetch(`${BASE}/api/tournaments/${id}`, { headers: { Origin: ORIGIN } })).json();
+      assert.equal(reopened.status, 'waiting'); assert.equal(reopened.count, 4);
+      await host.action({ type: 'presencial-player', name: 'Jugador olvidado', rating: 1500 });
+      const added = host.state.standings.find(p => p.name === 'Jugador olvidado');
+      await host.action({ type: 'remove', playerId: added.id });
+      assert.equal(host.state.count, 4);
+      await host.action({ type: 'presencial-player', name: 'Jugador definitivo', rating: 1600 });
+      await host.action({ type: 'start' });
+      assert.equal(host.state.round, 1); assert.equal(host.state.count, 5);
+      assert.equal(host.state.rounds, format === 'double-closed' ? 5 : 3);
     } finally {
       host?.ws.close(); viewer?.ws.close();
       await post(`/api/tournaments/${id}/delete`, { hostToken });
