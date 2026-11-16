@@ -960,6 +960,15 @@ body.card-dragging .tour-tip { display: none !important; }
   .lv-modal #lv-big > .lv-mvwrap { display: flex; width: 100%; flex: none; }
   .lv-modal #lv-big .lv-review { margin-bottom: 8px; }
 }
+/* Anotación continua en pantallas pequeñas, con cada jugada todavía seleccionable. */
+@media (max-width: 650px), (max-height: 500px) and (pointer: coarse) {
+  .lv-modal #lv-moves { position: relative; display: block; max-height: min(34dvh, 260px); padding: 8px; font-size: 14px; line-height: 1.85; }
+  .lv-modal #lv-moves .pr { display: inline; padding: 0; margin: 0; background: none; border-radius: 0; white-space: normal; }
+  .lv-modal #lv-moves .pr .n { display: inline-block; margin: 0 0 0 5px; padding: 0 1px 0 0; font-size: .8em; font-weight: 400; }
+  .lv-modal #lv-moves .pr > span[data-p] { display: inline-block; padding: 2px 4px; font-weight: 500; line-height: 1.6; white-space: nowrap; }
+  .lv-modal #lv-moves .pr .fg { margin: 0 1px 0 0; padding: 0; }
+  .lv-modal #lv-moves .rp { display: inline-block; margin: 4px; }
+}
 #lv-closebig { position: absolute; top: 10px; right: 10px; width: 34px; height: 34px; z-index: 2; }
 #lv-review-go { border: 1px solid #3b82f6; color: #bfdbfe; }
 #lv-review-go[aria-pressed="true"] { background: #1d4ed8; color: #fff; }
