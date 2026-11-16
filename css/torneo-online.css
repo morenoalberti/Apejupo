@@ -41,7 +41,7 @@
 .to-event h3 { font-size: 1.1rem; line-height: 1.3; letter-spacing: -.015em; margin: 0; overflow-wrap: anywhere; }
 .to-event-meta { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 3px; color: var(--muted); font-size: .83rem; }
 .to-event-meta li, .to-event-fill span { display: inline-flex; align-items: center; gap: 8px; }
-.to-event svg, .to-how-ic svg { width: 17px; height: 17px; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.to-event svg { width: 17px; height: 17px; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .to-event-fill { width: 100%; display: flex; align-items: center; gap: 10px; padding-top: 8px; border-top: 1px solid var(--line); font-size: .78rem; color: var(--muted); }
 .to-event-fill span { flex: none; }
 .to-event-fill i { display: block; flex: 1; min-width: 36px; max-width: 110px; height: 4px; margin-left: auto; border-radius: 99px; background: color-mix(in srgb, var(--muted) 18%, transparent); overflow: hidden; }
@@ -66,13 +66,6 @@
 .to-empty strong { display: block; color: var(--text); font-size: 1.25rem; margin-bottom: 6px; }
 .to-empty p { margin: 0 auto 18px; max-width: 460px; }
 .to-empty .btn { position: relative; z-index: 1; box-shadow: 0 10px 22px -10px #3b82f6cc; }
-.to-how { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; margin-top: 26px; }
-.to-how article { padding: 20px; border: 1px solid var(--line); border-radius: 16px; background: linear-gradient(160deg, #db9f380d, transparent 60%), var(--card); box-shadow: 0 8px 22px -16px #0f1b2d80; }
-.to-how-ic { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
-.to-how-ic svg { width: 40px; height: 40px; padding: 9px; border-radius: 12px; color: #fff; background: linear-gradient(145deg, #e5b766, #b9832a); box-shadow: 0 8px 18px -8px #db9f38cc; }
-.to-how-ic span { font-size: 1.6rem; font-weight: 800; letter-spacing: .02em; color: color-mix(in srgb, var(--muted) 35%, transparent); }
-.to-how h3 { font-size: 1.02rem; margin: 0 0 6px; }
-.to-how p { color: var(--muted); font-size: .9rem; margin: 0; }
 .to-status { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 99px; font-size: .74rem; font-weight: 700; background: #3b82f619; color: var(--blue); }
 .to-status.waiting { background: #15803d18; color: #15803d; }
 .to-status.playing, .to-status.between { background: #db9f3820; color: #956311; }
@@ -297,7 +290,7 @@
 .to-promotion-options img { width: 100%; }
 @media (prefers-color-scheme: dark) {
   .to-status.waiting, .to-game-status.my-turn { color: #75d9a7; }
-  .to-status.playing, .to-status.between, .to-standings tr.winner, .to-how span { color: #e5b766; }
+  .to-status.playing, .to-status.between, .to-standings tr.winner { color: #e5b766; }
   .to-message.error, .to-form-error { color: #ffaaa2; }
 }
 @media (max-width: 1000px) { .to-room-layout { gap: 18px; } }
@@ -309,7 +302,6 @@
   .to-hero-mark svg { width: 44px; height: 44px; }
   .to-hero p:last-child { font-size: .9rem; }
   .to-events, .to-room-layout { grid-template-columns: 1fr; }
-  .to-how { grid-template-columns: 1fr; gap: 12px; }
   #to-lobby { padding: 16px; border-radius: 16px; }
   .to-join { align-items: stretch; flex-direction: column; gap: 14px; padding: 18px; }
   .to-countdown strong { font-size: 1.6rem; }
