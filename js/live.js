@@ -50,6 +50,14 @@
   var vari = null, curCh = null, dragging = false, pendingRender = false; // variante propuesta por el usuario al mover piezas
   var reviewState = null, reviewController = null;
 
+  var mobileOptions = $("viewer-options");
+  if (mobileOptions) mobileOptions.addEventListener("click", function () {
+    var expanded = mobileOptions.getAttribute("aria-expanded") !== "true";
+    mobileOptions.setAttribute("aria-expanded", String(expanded));
+    mobileOptions.textContent = expanded ? "Ocultar detalles y controles" : "Detalles y controles";
+    mobileOptions.closest(".lv-sticky-header").classList.toggle("lv-options-open", expanded);
+  });
+
   function parseGame(txt) {
     var g = { tags: {}, san: [], clk: [], over: false };
     txt.replace(/^\[(\w+) "([^"]*)"\]/gm, function (_, k, v) { g.tags[k] = v; return ""; });

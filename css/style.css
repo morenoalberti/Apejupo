@@ -913,6 +913,28 @@ body.card-dragging .tour-tip { display: none !important; }
 /* La cabecera del torneo queda debajo de la barra del logo durante el scroll. */
 .lv-sticky-header { position: sticky; top: 64px; z-index: 9; margin: -12px -12px 0; padding: 12px 12px 6px; border-radius: 11px 11px 0 0; background: var(--card); }
 .lv-sticky-header .lv-addrow { margin-bottom: 0; }
+.lv-mobile-options { display: none; }
+/* En teléfono, la cabecera del visor se desplaza y sus controles se despliegan a petición. */
+@media (max-width: 600px), (max-height: 500px) and (pointer: coarse) {
+  .live-tournament .site-header { position: relative; }
+  .live-tournament .wrap.wide { padding-left: 12px; padding-right: 12px; }
+  .live-tournament .lv-sticky-header { position: relative; top: auto; padding: 10px 12px; }
+  .live-tournament .lv-addrow { gap: 8px; }
+  .live-tournament .lv-addrow .lv-tt { min-height: 44px; padding-right: 52px; justify-content: center; }
+  .live-tournament .lv-addrow .lv-tt strong { font-size: .95rem; line-height: 1.35; }
+  .live-tournament .lv-info { font-size: .75rem; line-height: 1.4; }
+  .live-tournament .lv-thumbs .lv-voice { width: 44px; height: 44px; }
+  .live-tournament .lv-mobile-options { display: inline-flex; align-items: center; min-height: 44px; margin-top: 8px; padding: 6px 10px; font-size: .82rem; }
+  .live-tournament .lv-sticky-header:not(.lv-options-open) .lv-info,
+  .live-tournament .lv-sticky-header:not(.lv-options-open) #viewer-add,
+  .live-tournament .lv-sticky-header:not(.lv-options-open) .lv-addrow > :not(.lv-tt) { display: none; }
+  .live-tournament .lv-pick { flex: 1 1 140px; }
+  .live-tournament .lv-addrow > #viewer-add { flex: none; }
+  .live-tournament .lv-addrow .lv-tools { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); width: 100%; gap: 8px; }
+  .live-tournament #viewer-round { grid-column: 1 / -1; width: 100%; }
+  .live-tournament .lv-tools .btn-ghost { justify-content: center; min-height: 44px; padding: 6px 8px; font-size: .78rem; }
+  .live-tournament .lv-vpop { max-width: calc(100vw - 48px); }
+}
 .lv-modal .viewer-bar { padding-right: 42px; }
 .lv-controls { display: flex; align-items: center; justify-content: flex-start; gap: 8px; margin-bottom: 4px; }
 .lv-controls #viewer-games { flex: 0 1 320px; min-width: 0; max-width: 100%; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--text); }
