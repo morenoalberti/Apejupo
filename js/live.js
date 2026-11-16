@@ -521,10 +521,9 @@
   }
   // Arrastrar una miniatura con el ratón la cambia de posición
   $("lv-grid").addEventListener("pointerdown", function (e) {
-    if (e.button !== 0 || thDrag) return;
+    if (e.pointerType === "touch" || e.button !== 0 || thDrag) return;
     var el = e.target.closest(".th"); if (!el || e.target.closest("[data-del],[data-eye]")) return;
-    var touch = e.pointerType === "touch";
-    var st = { el: el, x: e.clientX, y: e.clientY, lx: e.clientX, ly: e.clientY, on: false, armed: !touch, timer: null, ghost: null, dx: 0, dy: 0 };
+    var st = { el: el, x: e.clientX, y: e.clientY, lx: e.clientX, ly: e.clientY, on: false, ghost: null, dx: 0, dy: 0 };
     thDrag = st;
     function begin() {
       st.on = true;
@@ -533,17 +532,9 @@
       var g = el.cloneNode(true); g.className = "th th-ghost"; g.style.width = r.width + "px"; g.style.height = r.height + "px";
       g.style.left = st.lx - st.dx + "px"; g.style.top = st.ly - st.dy + "px";
       document.body.appendChild(g); paintPieces(g); st.ghost = g; el.classList.add("dragging");
-      if (navigator.vibrate) { try { navigator.vibrate(15); } catch (_) {} }
     }
-    function cancel() {
-      clearTimeout(st.timer);
-      document.removeEventListener("pointermove", move); document.removeEventListener("pointerup", up); document.removeEventListener("pointercancel", up);
-      thDrag = null;
-    }
-    if (touch) st.timer = setTimeout(function () { st.armed = true; begin(); }, 380);
     function move(ev) {
       st.lx = ev.clientX; st.ly = ev.clientY;
-      if (!st.armed) { if (Math.abs(ev.clientX - st.x) + Math.abs(ev.clientY - st.y) > 10) cancel(); return; } // el dedo se mueve antes de tiempo: es un desplazamiento
       if (!st.on) {
         if (Math.abs(ev.clientX - st.x) + Math.abs(ev.clientY - st.y) < 7) return;
         begin();
@@ -573,7 +564,6 @@
       }
     }
     function up() {
-      clearTimeout(st.timer);
       document.removeEventListener("pointermove", move); document.removeEventListener("pointerup", up); document.removeEventListener("pointercancel", up);
       if (st.on) {
         if (st.ghost.parentNode) st.ghost.parentNode.removeChild(st.ghost);
@@ -588,8 +578,6 @@
     document.addEventListener("pointermove", move); document.addEventListener("pointerup", up); document.addEventListener("pointercancel", up);
   });
 
-  // Con el dedo, mientras se arrastra una miniatura no debe desplazarse la página
-  document.addEventListener("touchmove", function (e) { if (thDrag && thDrag.on) e.preventDefault(); }, { passive: false });
   // Flecha circular: los tableros vuelven al orden de origen (el que da la retransmisión)
   $("viewer-reset").addEventListener("click", function () {
     userOrder = []; try { localStorage.removeItem(orderKey()); } catch (_) {}
