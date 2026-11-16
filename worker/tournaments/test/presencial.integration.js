@@ -54,23 +54,22 @@ test('presencial real: guardar modalidad, permisos, resultados manuales, doble v
       assert.equal(host.state.count, 4);
       await host.action({ type: 'start' });
       assert.equal(host.state.game, null); assert.equal(host.state.minutes, 4);
-      assert.equal(host.state.rounds, format === 'double-closed' ? 6 : 3);
+      assert.equal(host.state.rounds, 3); // doble vuelta: las dos partidas de cada pareja en la misma ronda
       for (const g of host.state.games) { assert.equal(g.fen, undefined); assert.equal(g.whiteMs, undefined); }
       const first = host.state.games[0];
       const forged = await viewer.action({ type: 'presencial-result', game: first.id, result: '1-0', host: true }, true);
       assert.match(forged.message, /organizador/);
       while (host.state.status !== 'finished') {
-        for (const g of host.state.games.filter(g => !g.result)) await host.action({ type: 'presencial-result', game: g.id, result: '1/2-1/2' });
+        for (const g of host.state.games.filter(g => !g.result)) await host.action({ type: 'presencial-result', game: g.id, result: format === 'double-closed' ? '1-1' : '1/2-1/2' });
         if (host.state.status === 'between') {
           assert.equal(host.state.nextRoundAt, null);
           await host.action({ type: 'presencial-next' });
         }
       }
-      assert.equal(host.state.games.length, format === 'double-closed' ? 12 : 6);
+      assert.equal(host.state.games.length, 6);
       const persisted = await (await fetch(`${BASE}/api/tournaments/${id}`, { headers: { Origin: ORIGIN } })).json();
       assert.equal(persisted.mode, 'presencial'); assert.equal(persisted.status, 'finished');
       assert.ok(persisted.standings.every(p => p.points === (format === 'double-closed' ? 3 : 1.5)));
-      if (format === 'double-closed') for (const g of persisted.games.filter(g => g.round <= 3)) assert.ok(persisted.games.some(b => b.round === g.round + 3 && b.white === g.black && b.black === g.white));
     } finally {
       host?.ws.close(); viewer?.ws.close();
       await post(`/api/tournaments/${id}/delete`, { hostToken });
