@@ -1,6 +1,7 @@
 import { Chess } from '../assets/chess/chess.js';
 import { session, currentUser, openAuth } from './cuenta.js?v=20261116-registro2';
 import { send as sendReto } from './retos.js?v=20261115-match1';
+import { searchPlayers, findExact, warmUp } from './torneo-elo.js?v=20261116-presencial1';
 
 const $ = id => document.getElementById(id);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -94,16 +95,20 @@ const icons = {
   calendar: svg('<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>')
 };
 const emptyLobby = `<div class="to-empty"><div class="to-empty-art" aria-hidden="true"><svg viewBox="0 0 64 64"><path d="M32 5v10M27 10h10M22 27c0-6 4-11 10-11s10 5 10 11c0 5-3 8-4 12H26c-1-4-4-7-4-12zM24 39h16l3 9H21zM17 48h30v7H17z"/></svg></div><strong>El próximo torneo puede ser el nuestro</strong><p>Todavía no hay torneos. Cuando la organización abra uno, aparecerá aquí.</p><button class="btn to-icon-btn" type="button" data-create><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>Crear torneo</span></button></div>`;
+// Modalidad del torneo, siempre a la vista: en la tarjeta del lobby y en la cabecera de la sala.
+const modeBadge = t => t.challenge ? '' : presencial(t)
+  ? `<span class="to-mode-badge presencial" title="Se juega en los tableros del club">${svg('<path d="M12 21s-7-6.1-7-11.5A7 7 0 0 1 19 9.5C19 14.9 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/>')}Presencial</span>`
+  : `<span class="to-mode-badge online" title="Se juega en esta web">${svg('<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/>')}Online</span>`;
 function eventCard(t) {
   const organizer = !!read(hostKey(t.id));
   const trash = organizer || tournamentAdmin ? `<button class="to-delete" type="button" data-delete="${t.id}" aria-label="Borrar el torneo ${esc(t.title)}" title="Borrar torneo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M5 7l1 13h12l1-13M9 7V4h6v3"/></svg></button>` : '';
   // Lápiz para editar: solo el organizador y mientras no haya empezado.
   const pencil = organizer && t.status === 'waiting' ? `<button class="to-delete to-edit" type="button" data-edit="${t.id}" aria-label="Editar el torneo ${esc(t.title)}" title="Editar torneo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></button>` : '';
   const count = t.listed ?? t.count, full = Math.min(100, Math.round(count / t.capacity * 100));
-  return `<article class="to-event ${t.status}"><div class="to-event-top"><span class="to-status ${t.status}">${esc(statuses[t.status])}</span><span class="to-event-clock">${icons.clock}${t.minutes} + ${t.increment}</span></div>`
-    + `<h3>${esc(t.title)}</h3><ul class="to-event-meta"><li>${icons.format}${presencial(t) ? 'Presencial · ' : ''}${formatLabel(t)}</li>${t.locked ? `<li>${icons.lock}Inscripción con clave</li>` : ''}<li>${icons.calendar}${t.startsAt ? esc(date(t.startsAt)) : 'Inicio a cargo del organizador'}</li></ul>`
+  return `<article class="to-event ${t.status}"><div class="to-event-top"><span class="to-event-badges"><span class="to-status ${t.status}">${esc(statuses[t.status])}</span>${modeBadge(t)}</span><span class="to-event-clock">${icons.clock}${t.minutes} + ${t.increment}</span></div>`
+    + `<h3>${esc(t.title)}</h3><ul class="to-event-meta"><li>${icons.format}${formatLabel(t)}</li>${t.locked ? `<li>${icons.lock}Inscripción con clave</li>` : ''}<li>${icons.calendar}${t.startsAt ? esc(date(t.startsAt)) : 'Inicio a cargo del organizador'}</li></ul>`
     + `<div class="to-event-fill"><span>${icons.people}${count}/${t.capacity} jugadores</span><i><b style="width:${full}%"></b></i></div>`
-    + `<div class="to-event-actions"><a class="btn" href="jugar-torneo.html?id=${t.id}"><span>${t.status === 'waiting' && !presencial(t) ? 'Entrar e inscribirme' : 'Ver torneo'}</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-5-5 5 5-5 5"/></svg></a>${pencil || trash ? `<div class="to-event-tools">${pencil}${trash}</div>` : ''}</div></article>`;
+    + `<div class="to-event-actions"><a class="btn" href="jugar-torneo.html?id=${t.id}"><span>${t.status === 'waiting' ? 'Entrar e inscribirme' : 'Ver torneo'}</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-5-5 5 5-5 5"/></svg></a>${pencil || trash ? `<div class="to-event-tools">${pencil}${trash}</div>` : ''}</div></article>`;
 }
 async function loadLobby() {
   if (!API) {
@@ -209,7 +214,7 @@ function render() {
   $('to-subtitle').hidden = !$('to-subtitle').textContent;
   // Reto: solo el tablero (y el marcador entre los dos) bajo la cabecera de la web.
   document.body.classList.toggle('to-challenge', !!t.challenge);
-  $('to-summary').innerHTML = `<span class="to-status ${t.status}">${esc(t.challenge && t.status === 'waiting' ? 'Esperando al rival' : statuses[t.status])}</span><span>${icons.clock}${t.minutes} + ${t.increment}</span><span>${icons.format}${formatLabel(t)}</span>${t.challenge ? '' : `<span>${arena(t) ? 'Emparejamiento continuo' : closed(t) ? 'Todos contra todos' : t.pairing === 'club' ? 'Suizo de club' : 'Suizo FIDE (sistema holandés)'}</span>`}`
+  $('to-summary').innerHTML = `<span class="to-status ${t.status}">${esc(t.challenge && t.status === 'waiting' ? 'Esperando al rival' : statuses[t.status])}</span>${modeBadge(t)}<span>${icons.clock}${t.minutes} + ${t.increment}</span><span>${icons.format}${formatLabel(t)}</span>${t.challenge ? '' : `<span>${arena(t) ? 'Emparejamiento continuo' : closed(t) ? 'Todos contra todos' : t.pairing === 'club' ? 'Suizo de club' : 'Suizo FIDE (sistema holandés)'}</span>`}`
     + (t.status === 'waiting' ? `<span>${icons.people}Hasta ${t.capacity} jugadores</span><span>${icons.calendar}${t.startsAt ? esc(date(t.startsAt)) : 'Inicio a cargo del organizador'}</span>${t.locked ? `<span>${icons.lock}Con clave</span>` : ''}` : '');
   document.body.classList.toggle('to-presencial-room', presencial(t));
   placeWaiting(t.status === 'waiting' && !presencial(t));
@@ -480,11 +485,18 @@ function renderPresencial() {
   const t = state, show = presencial(t), waiting = t.status === 'waiting';
   $('to-presencial').hidden = !show;
   if (!show) return;
-  $('to-presencial-player-form').hidden = !t.host || !waiting;
-  $('to-presencial-player-form').querySelector('button').disabled = !connected || t.count >= t.capacity;
+  const managing = t.host && waiting, mine = t.standings.some(p => p.id === t.me);
+  document.body.classList.toggle('to-pz-managing', managing);
+  $('to-pz-host').hidden = !managing;
+  if (managing) renderRoster(t);
+  $('to-start').textContent = 'Cerrar inscripción y emparejar';
+  $('to-pz-ask').hidden = t.host || !waiting || mine || (t.count >= t.capacity && !t.myRequest);
+  $('to-pz-ask-form').hidden = !!t.myRequest && !askChanging;
+  $('to-pz-ask-sent').hidden = !t.myRequest || askChanging;
+  if (t.myRequest) $('to-pz-ask-text').textContent = `Como ${t.myRequest.name}${t.myRequest.rating ? ` (Elo ${t.myRequest.rating})` : ''}. Cuando la organización la apruebe aparecerás en la lista de inscritos.`;
   $('to-presencial-next').hidden = !t.host || t.status !== 'between';
   $('to-presencial-next').disabled = !connected;
-  $('to-presencial-hint').textContent = waiting ? (t.host ? 'Añade a los jugadores y su Elo antes de generar la primera ronda.' : 'La organización está preparando la lista de jugadores.') : t.host ? 'Anota los resultados de cada mesa. Puedes corregirlos antes de emparejar la siguiente ronda.' : 'Los resultados se actualizan cuando los anota la organización.';
+  $('to-presencial-hint').textContent = waiting ? (t.host ? 'Cuando estén todos, pulsa «Cerrar inscripción y emparejar» para sortear la primera ronda.' : mine ? 'Ya tienes plaza. Las mesas aparecerán aquí al empezar.' : 'La organización está preparando la lista de jugadores.') : t.host ? 'Anota los resultados de cada mesa. Puedes corregirlos antes de emparejar la siguiente ronda.' : 'Los resultados se actualizan cuando los anota la organización.';
   const rounds = [...new Set(t.games.map(g => g.round))];
   $('to-presencial-round').hidden = !rounds.length;
   $('to-presencial-round').innerHTML = rounds.map(r => `<option value="${r}">Ronda ${r}</option>`).join('');
@@ -1005,9 +1017,182 @@ $('to-join-form').addEventListener('submit', async event => {
 $('to-start').addEventListener('click', async () => {
   if (await confirmAction('Empezar torneo', presencial(state) ? `Se cerrarán las inscripciones y se generará la primera ronda para ${state.count} jugadores. Las partidas se juegan en los tableros del club.` : arena(state) ? `Se cerrarán las inscripciones y empezará la cuenta atrás de ${duration(state.duration)}. Se emparejará a los jugadores que tengan la página abierta.` : `Se cerrarán las inscripciones y arrancarán los relojes de ${state.count} jugadores. Las rondas se ajustarán al número de inscritos.`, false)) { message(''); send({ type: 'start' }); }
 });
-$('to-presencial-player-form').addEventListener('submit', event => {
+// ——— Inscripción presencial: buscador FIDE/FADA, lista pegada, QR y solicitudes ———
+const pzSvg = d => `<svg viewBox="0 0 24 24" aria-hidden="true">${d}</svg>`;
+const pzIcons = {
+  plus: pzSvg('<path d="M12 5v14M5 12h14"/>'),
+  edit: pzSvg('<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>'),
+  trash: pzSvg('<path d="M4 7h16M10 11v6M14 11v6M5 7l1 13h12l1-13M9 7V4h6v3"/>'),
+  check: pzSvg('<path d="m5 12 5 5 9-10"/>'),
+  x: pzSvg('<path d="M6 6l12 12M18 6 6 18"/>')
+};
+let askChanging = false;
+// Iniciales: en las listas va «Apellidos, Nombre».
+function initials(n) {
+  const [last, first] = n.includes(',') ? n.split(',').map(x => x.trim()) : [n.split(' ').slice(1).join(' '), n.split(' ')[0]];
+  return (((first || '')[0] || '') + ((last || '')[0] || '')).toUpperCase() || n.slice(0, 2).toUpperCase();
+}
+const chip = (kind, value) => `<span class="to-pz-chip ${kind.toLowerCase()}">${kind} ${value}</span>`;
+const ratingChips = p => p.fide || p.fada ? (p.fide ? chip('FIDE', p.fide) : '') + (p.fada ? chip('FADA', p.fada) : '') : p.rating ? chip(p.source || 'Elo', p.rating) : '<span class="to-pz-chip none">Sin Elo</span>';
+const playerRow = (p, i, tools) => `<div class="to-pz-row">${i == null ? '' : `<span class="to-pz-num">${i + 1}</span>`}<span class="to-pz-avatar" aria-hidden="true">${esc(initials(p.name))}</span><span class="to-pz-name"><strong>${esc(p.name)}</strong>${p.fideId ? `<small>FIDE ${esc(p.fideId)}</small>` : ''}</span><span class="to-pz-chips">${ratingChips(p)}</span><span class="to-pz-row-tools">${tools}</span></div>`;
+const byRating = (a, b) => (b.rating || 0) - (a.rating || 0) || a.name.localeCompare(b.name, 'es');
+function renderRoster(t) {
+  const players = [...t.standings].sort(byRating), requests = t.requests || [];
+  $('to-pz-count').textContent = `${players.length}/${t.capacity}`;
+  $('to-pz-roster').innerHTML = players.map((p, i) => playerRow(p, i, `<button type="button" class="to-pz-icon" data-pz-edit="${p.id}" aria-label="Editar a ${esc(p.name)}" title="Editar">${pzIcons.edit}</button><button type="button" class="to-pz-icon danger" data-pz-remove="${p.id}" aria-label="Quitar a ${esc(p.name)}" title="Quitar">${pzIcons.trash}</button>`)).join('')
+    || '<p class="to-pz-empty">Busca a los jugadores arriba, pega una lista o enseña el QR en la entrada.</p>';
+  $('to-pz-requests').hidden = !requests.length;
+  $('to-pz-req-count').textContent = requests.length || '';
+  $('to-pz-req-list').innerHTML = requests.map(r => playerRow(r, null, `<button type="button" class="to-pz-primary small" data-pz-approve="${r.id}">${pzIcons.check}<span>Aprobar</span></button><button type="button" class="to-pz-icon" data-pz-reject="${r.id}" aria-label="Rechazar a ${esc(r.name)}" title="Rechazar">${pzIcons.x}</button>`)).join('');
+}
+// Buscador con sugerencias (flechas, Intro y Esc). onPick recibe { name, rating, source, fideId }.
+function attachSearch(inputId, listId, onPick, manualLabel) {
+  const input = $(inputId), list = $(listId), spin = input.parentElement.querySelector('.to-pz-spin');
+  let seq = 0, timer = 0, items = [], active = -1, loading = false;
+  const options = () => [...list.querySelectorAll('[data-i]')];
+  const close = () => { list.hidden = true; input.setAttribute('aria-expanded', 'false'); active = -1; };
+  function draw() {
+    const text = input.value.trim();
+    const manual = text.length >= 2 && !/^\d+$/.test(text) ? `<button type="button" class="to-pz-sug manual" role="option" data-i="-1"><span class="to-pz-avatar plain">${pzIcons.plus}</span><span class="to-pz-name"><strong>${manualLabel(esc(text))}</strong><small>Sin Elo; se puede editar después</small></span></button>` : '';
+    list.innerHTML = items.map((p, i) => `<button type="button" class="to-pz-sug" role="option" data-i="${i}"><span class="to-pz-avatar" aria-hidden="true">${esc(initials(p.name))}</span><span class="to-pz-name"><strong>${esc(p.name)}</strong><small>${[p.title, p.place, p.fideId ? 'FIDE ' + p.fideId : ''].filter(Boolean).map(esc).join(' · ')}</small></span><span class="to-pz-chips">${ratingChips(p)}</span></button>`).join('')
+      + (loading ? '<div class="to-pz-sug-wait">Buscando en las listas FIDE y FADA…</div>' : !items.length && text.length >= 3 ? '<div class="to-pz-sug-wait">No aparece en las listas.</div>' : '') + manual;
+    list.hidden = !list.innerHTML; input.setAttribute('aria-expanded', String(!list.hidden)); active = -1;
+  }
+  function pick(i) {
+    const p = i >= 0 ? items[i] : { name: input.value.trim(), rating: null, source: null, fideId: null };
+    if (!p?.name) return;
+    onPick(p); input.value = ''; items = []; close();
+  }
+  input.addEventListener('focus', warmUp, { once: true });
+  input.addEventListener('input', () => {
+    clearTimeout(timer); const mine = ++seq, text = input.value.trim(); items = [];
+    loading = text.length >= 3; spin.hidden = !loading; draw();
+    if (!loading) return;
+    timer = setTimeout(async () => {
+      let found = []; try { found = await searchPlayers(text); } catch {}
+      if (mine !== seq) return;
+      items = found; loading = false; spin.hidden = true; draw();
+    }, 250);
+  });
+  input.addEventListener('keydown', event => {
+    const opts = options();
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      if (!opts.length) return; event.preventDefault();
+      active = (active + (event.key === 'ArrowDown' ? 1 : -1) + opts.length) % opts.length;
+      opts.forEach((o, i) => o.classList.toggle('active', i === active)); opts[active].scrollIntoView({ block: 'nearest' });
+    } else if (event.key === 'Enter') {
+      event.preventDefault();
+      if (active >= 0) pick(Number(opts[active].dataset.i)); else if (items.length === 1) pick(0); else if (input.value.trim().length >= 2 && !loading) pick(-1);
+    } else if (event.key === 'Escape') close();
+  });
+  list.addEventListener('click', event => { const b = event.target.closest('[data-i]'); if (b) pick(Number(b.dataset.i)); });
+  document.addEventListener('click', event => { if (!input.parentElement.contains(event.target) && !list.contains(event.target)) close(); });
+}
+const taken = n => state.standings.some(p => p.name.toLocaleLowerCase('es') === n.toLocaleLowerCase('es'));
+attachSearch('to-pz-search', 'to-pz-sugs', p => {
+  if (taken(p.name)) { message(`${p.name} ya está inscrito.`, true); return; }
+  if (send({ type: 'presencial-player', name: p.name, rating: p.rating ?? '', source: p.source, fideId: p.fideId })) message('');
+  $('to-pz-search').focus();
+}, text => `Añadir «${text}»`);
+attachSearch('to-pz-ask-search', 'to-pz-ask-sugs', async p => {
+  try {
+    const id = read(playerKey()) || token(), user = currentUser(); write(playerKey(), id);
+    await request(`/api/tournaments/${roomId}/join`, { method: 'POST', key: user ? session() : '', body: JSON.stringify({ name: p.name, rating: p.rating ?? '', source: p.source, fideId: p.fideId, token: id }) });
+    askChanging = false; hello(); message('');
+  } catch (e) { message(e.message, true); }
+}, text => `Pedir plaza como «${text}»`);
+$('to-pz-ask-change').addEventListener('click', () => { askChanging = true; renderPresencial(); $('to-pz-ask-search').focus(); });
+
+$('to-pz-host').addEventListener('click', async event => {
+  const edit = event.target.closest('[data-pz-edit]')?.dataset.pzEdit, remove = event.target.closest('[data-pz-remove]')?.dataset.pzRemove;
+  const approve = event.target.closest('[data-pz-approve]')?.dataset.pzApprove, reject = event.target.closest('[data-pz-reject]')?.dataset.pzReject;
+  if (approve) send({ type: 'presencial-approve', requestId: approve });
+  else if (reject) { const r = state.requests?.find(r => r.id === reject); if (r && await confirmAction('Rechazar solicitud', `¿Rechazar la solicitud de ${r.name}?`, true)) send({ type: 'presencial-reject', requestId: reject }); }
+  else if (remove) { if (await confirmAction('Quitar jugador', `¿Quitar a ${name(remove)} de la lista de inscritos?`, true)) send({ type: 'remove', playerId: remove }); }
+  else if (edit) {
+    const p = state.standings.find(p => p.id === edit); if (!p) return;
+    $('to-pz-edit-form').dataset.id = p.id;
+    $('to-pz-edit-name').value = p.name; $('to-pz-edit-rating').value = p.rating ?? '';
+    $('to-pz-edit-source').textContent = p.source ? `Elo de la lista ${p.source}${p.fideId ? ` · FIDE ${p.fideId}` : ''}. Si lo cambias, quedará como Elo manual.` : '';
+    $('to-pz-edit-dialog').showModal(); $('to-pz-edit-name').select();
+  }
+});
+$('to-pz-edit-form').addEventListener('submit', event => {
   event.preventDefault();
-  if (send({ type: 'presencial-player', name: $('to-presencial-name').value, rating: $('to-presencial-rating').value })) event.currentTarget.reset();
+  const p = state.standings.find(p => p.id === event.currentTarget.dataset.id); if (!p) return;
+  const rating = $('to-pz-edit-rating').value === '' ? null : Number($('to-pz-edit-rating').value);
+  const sameRating = rating === (p.rating ?? null);
+  if (send({ type: 'presencial-edit', playerId: p.id, name: $('to-pz-edit-name').value, rating: rating ?? '', source: sameRating ? p.source : null, fideId: p.fideId })) $('to-pz-edit-dialog').close();
+});
+
+// Lista pegada: «Nombre; Elo», «Nombre<Tab>Elo» o solo el nombre (el Elo se busca en las listas).
+let pasted = [];
+function parseList(text) {
+  return text.split(/\r?\n/).map(line => line.trim()).filter(Boolean).map(line => {
+    const m = line.match(/^(.*?)[\s;,]+(\d{3,4})\s*$/);
+    const name = (m ? m[1] : line).replace(/^\d{1,3}\s*[.)\-]\s*/, '').replace(/[;,\s]+$/, '').trim();
+    return { name, rating: m ? Number(m[2]) : null, source: null, fideId: null };
+  }).filter(p => p.name.length >= 2);
+}
+function drawPaste(status = '') {
+  const ok = pasted.filter(p => !p.problem), free = state.capacity - state.count;
+  $('to-pz-paste-preview').hidden = false;
+  $('to-pz-paste-preview').innerHTML = (status ? `<p class="to-pz-tip">${esc(status)}</p>` : '')
+    + pasted.map(p => playerRow(p, null, p.problem ? `<span class="to-pz-problem">${esc(p.problem)}</span>` : p.found ? '<span class="to-pz-found">En la lista</span>' : '')).join('');
+  $('to-pz-paste-add').disabled = !ok.length || !!status || ok.length > free;
+  $('to-pz-paste-add').textContent = ok.length > free ? `Solo quedan ${free} plazas` : `Añadir ${ok.length} jugador${ok.length === 1 ? '' : 'es'}`;
+}
+$('to-pz-paste-open').addEventListener('click', () => {
+  pasted = []; $('to-pz-paste-text').value = ''; $('to-pz-paste-preview').hidden = true;
+  $('to-pz-paste-add').disabled = true; $('to-pz-paste-add').textContent = 'Añadir';
+  $('to-pz-paste-dialog').showModal(); warmUp();
+});
+$('to-pz-paste-text').addEventListener('input', () => { $('to-pz-paste-add').disabled = true; });
+$('to-pz-paste-check').addEventListener('click', async () => {
+  pasted = parseList($('to-pz-paste-text').value);
+  if (!pasted.length) { $('to-pz-paste-preview').hidden = false; $('to-pz-paste-preview').innerHTML = '<p class="to-pz-tip">Escribe o pega al menos un nombre.</p>'; return; }
+  const seen = new Set();
+  for (const p of pasted) {
+    const key = p.name.toLocaleLowerCase('es');
+    p.problem = taken(p.name) ? 'Ya inscrito' : seen.has(key) ? 'Repetido' : p.name.length > 48 ? 'Nombre muy largo' : '';
+    seen.add(key);
+  }
+  const missing = pasted.filter(p => !p.problem && !p.rating);
+  $('to-pz-paste-check').disabled = true;
+  for (let i = 0; i < missing.length; i++) {
+    drawPaste(`Buscando el Elo en las listas… ${i + 1} de ${missing.length}`);
+    const hit = await findExact(missing[i].name).catch(() => null);
+    if (hit) Object.assign(missing[i], { rating: hit.rating, source: hit.source, fideId: hit.fideId, fide: hit.fide, fada: hit.fada, found: true });
+  }
+  $('to-pz-paste-check').disabled = false;
+  drawPaste();
+});
+$('to-pz-paste-form').addEventListener('submit', event => {
+  event.preventDefault();
+  const players = pasted.filter(p => !p.problem).map(({ name, rating, source, fideId }) => ({ name, rating: rating ?? '', source, fideId }));
+  if (players.length && send({ type: 'presencial-players', players })) $('to-pz-paste-dialog').close();
+});
+
+// QR con el enlace del torneo (biblioteca qrcode-generator, MIT, desde cdnjs; se carga solo al abrirlo).
+let qrLib = null;
+const loadQr = () => qrLib ||= new Promise((resolve, reject) => {
+  const s = document.createElement('script');
+  s.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js';
+  s.onload = () => resolve(window.qrcode); s.onerror = () => { qrLib = null; reject(new Error('No se pudo generar el QR. Comprueba la conexión.')); };
+  document.head.append(s);
+});
+const roomLink = () => new URL('jugar-torneo.html?id=' + roomId, location.href).href;
+$('to-pz-qr-open').addEventListener('click', async () => {
+  $('to-pz-qr-link').textContent = roomLink(); $('to-pz-qr').innerHTML = '<span class="to-pz-spin"></span>';
+  $('to-pz-qr-dialog').showModal();
+  try { const qr = (await loadQr())(0, 'M'); qr.addData(roomLink()); qr.make(); $('to-pz-qr').innerHTML = qr.createSvgTag({ cellSize: 6, margin: 2, scalable: true }); }
+  catch (e) { $('to-pz-qr').innerHTML = `<p class="to-pz-tip">${esc(e.message)}</p>`; }
+});
+$('to-pz-qr-copy').addEventListener('click', async () => {
+  try {
+    await navigator.clipboard.writeText(roomLink());
+    $('to-pz-qr-copy').textContent = 'Enlace copiado'; setTimeout(() => { $('to-pz-qr-copy').textContent = 'Copiar enlace'; }, 1800);
+  } catch { message('No se pudo copiar el enlace.', true); }
 });
 $('to-presencial-next').addEventListener('click', async () => {
   if (await confirmAction('Emparejar siguiente ronda', 'Se generarán los nuevos emparejamientos con los resultados actuales. Los resultados de la ronda anterior quedarán cerrados.')) send({ type: 'presencial-next' });

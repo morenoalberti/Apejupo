@@ -3,7 +3,7 @@ export { AccountStore } from './accounts.js';
 export { ChallengeHub } from './retos.js';
 import bbpWasm from './bbp/bbp.wasm';
 import { loadBbp, runDutch } from './bbp-engine.js';
-import { GameError, requireThat, isArena, setSwissEngine, startTournament, createTournament, editTournament, joinTournament, act, advance, pairArena, nextAlarm, snapshot, sharedSnapshot, personalPart, moveMessage, summary, exportPgn, RETENTION_MS } from './core.js';
+import { GameError, requireThat, isArena, setSwissEngine, startTournament, createTournament, editTournament, joinTournament, requestPresencial, isPresencial, act, advance, pairArena, nextAlarm, snapshot, sharedSnapshot, personalPart, moveMessage, summary, exportPgn, RETENTION_MS } from './core.js';
 
 // El navegador manda "ping" cada 30 s; sin señal en este margen, el jugador no se considera presente.
 const PRESENCE_MS = 75000;
@@ -130,7 +130,7 @@ export class TournamentRoom extends DurableObject {
   send(ws) {
     const a = ws.deserializeAttachment() || {};
     const c = this.capabilities(a.playerHash, a.hostHash, a.accountId);
-    ws.send(JSON.stringify(snapshot(this.t, c.playerId, c.host, a.game)));
+    ws.send(JSON.stringify(snapshot(this.t, c.playerId, c.host, a.game, Date.now(), a.playerHash)));
   }
   broadcast() {
     if (this.flushTimer) return;
@@ -147,9 +147,11 @@ export class TournamentRoom extends DurableObject {
       try {
         const a = ws.deserializeAttachment() || {};
         const host = this.isHost(a.hostHash), playerId = accounts.get(a.accountId) || players.get(a.playerHash) || null;
-        const key = `${playerId}|${host}|${a.game}`;
+        // Quien espera a que aprueben su solicitud presencial recibe también la suya.
+        const pending = !playerId && a.playerHash && this.t.requests?.some(r => r.hash === a.playerHash) ? a.playerHash : null;
+        const key = `${playerId}|${host}|${a.game}|${pending}`;
         let personal = details.get(key);
-        if (!personal) { personal = JSON.stringify(personalPart(this.t, playerId, host, a.game)).slice(1); details.set(key, personal); }
+        if (!personal) { personal = JSON.stringify(personalPart(this.t, playerId, host, a.game, pending)).slice(1); details.set(key, personal); }
         ws.send(shared + ',' + personal);
       } catch { try { ws.close(1011, 'Reconecta para recuperar la partida.'); } catch {} }
     }
@@ -231,6 +233,11 @@ export class TournamentRoom extends DurableObject {
           // Freno a quien prueba claves a ciegas: 10 fallos y espera 10 minutos.
           if (!this.keyFails || this.keyFails.until <= now) this.keyFails = { count: 0, until: now + 600000 };
           requireThat(this.keyFails.count < 10, 'Demasiados intentos con la clave. Espera unos minutos.', 429);
+          if (isPresencial(this.t)) {
+            const r = requestPresencial(this.t, b, playerHash, now, b.account || null);
+            await this.save(); this.broadcast();
+            return json(r.player ? { playerId: r.player.id } : { requested: true }, r.player ? 200 : 202);
+          }
           let p;
           try { p = joinTournament(this.t, b.name, playerHash, now, b.joinKey, b.account || null); }
           catch (error) { if (/clave/.test(error.message)) this.keyFails.count++; throw error; }
@@ -244,7 +251,7 @@ export class TournamentRoom extends DurableObject {
   async webSocketMessage(ws, message) {
     return this.ctx.blockConcurrencyWhile(async () => {
       try {
-        requireThat(typeof message === 'string' && message.length <= 2048, 'Mensaje no válido.');
+        requireThat(typeof message === 'string' && message.length <= 24576, 'Mensaje no válido.');
         let b; try { b = JSON.parse(message); } catch { throw new GameError('Mensaje no válido.'); }
         requireThat(b && typeof b === 'object', 'Mensaje no válido.');
         await this.checkTime();

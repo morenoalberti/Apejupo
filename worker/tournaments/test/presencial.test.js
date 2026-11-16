@@ -104,3 +104,44 @@ test('Round-Robin doble vuelta: cada rival dos veces con colores opuestos y dos 
     }
   }
 });
+
+test('inscripción rápida: listas FIDE/FADA, lista pegada, edición y solicitudes por QR', async () => {
+  const { requestPresencial } = await import('../src/core.js');
+  const t = tournament(0, { capacity: 6 });
+  act(t, null, true, { type: 'presencial-player', name: 'García Moreno, Antonio Jesús de la Torre', rating: 1984, source: 'FIDE', fideId: '2201234' }, NOW);
+  assert.equal(t.players[0].name, 'García Moreno, Antonio Jesús de la Torre');
+  assert.equal(t.players[0].source, 'FIDE'); assert.equal(t.players[0].fideId, '2201234');
+  assert.equal(snapshot(t).standings[0].fideId, '2201234');
+  // Lista pegada: todo o nada.
+  assert.throws(() => act(t, null, true, { type: 'presencial-players', players: [{ name: 'Ana' }, { name: 'ana' }] }, NOW), /repetido/);
+  assert.throws(() => act(t, null, true, { type: 'presencial-players', players: Array.from({ length: 6 }, (_, i) => ({ name: 'J' + i })) }, NOW), /plazas/);
+  assert.equal(t.players.length, 1);
+  act(t, null, true, { type: 'presencial-players', players: [{ name: 'Ana', rating: 1500, source: 'FADA' }, { name: 'Bea', rating: '' }] }, NOW);
+  assert.equal(t.players.length, 3);
+  // Editar
+  const ana = t.players.find(p => p.name === 'Ana');
+  act(t, null, true, { type: 'presencial-edit', playerId: ana.id, name: 'Ana Ruiz', rating: 1550 }, NOW);
+  assert.equal(ana.name, 'Ana Ruiz'); assert.equal(ana.rating, 1550); assert.equal(ana.source, undefined);
+  assert.throws(() => act(t, null, true, { type: 'presencial-edit', playerId: ana.id, name: 'bea' }, NOW), /Ya hay/);
+  assert.throws(() => act(t, null, false, { type: 'presencial-edit', playerId: ana.id, name: 'X Y' }, NOW), /organizador/);
+  // Solicitudes
+  requestPresencial(t, { name: 'Carlos', rating: 1700, source: 'FADA' }, 'hash-c', NOW);
+  requestPresencial(t, { name: 'Carlos Pérez', rating: 1700 }, 'hash-c', NOW); // la misma persona corrige su solicitud
+  requestPresencial(t, { name: 'Dani' }, 'hash-d', NOW);
+  assert.equal(t.requests.length, 2);
+  assert.throws(() => requestPresencial(t, { name: 'ana ruiz' }, 'hash-e', NOW), /inscrito/);
+  const hostView = snapshot(t, null, true), guest = snapshot(t, null, false, null, NOW, 'hash-c');
+  assert.equal(hostView.requests.length, 2); assert.ok(!JSON.stringify(hostView.requests).includes('hash-'));
+  assert.equal(guest.myRequest.name, 'Carlos Pérez'); assert.equal(guest.requests, undefined);
+  const carlos = t.requests.find(r => r.name === 'Carlos Pérez');
+  act(t, null, true, { type: 'presencial-approve', requestId: carlos.id }, NOW);
+  act(t, null, true, { type: 'presencial-reject', requestId: t.requests[0].id }, NOW);
+  assert.equal(t.requests.length, 0);
+  const p = t.players.find(p => p.name === 'Carlos Pérez');
+  assert.equal(p.hash, 'hash-c'); assert.equal(p.rating, 1700);
+  assert.equal(requestPresencial(t, { name: 'Otro' }, 'hash-c', NOW).player, p);
+  requestPresencial(t, { name: 'Tarde' }, 'hash-t', NOW);
+  act(t, null, true, { type: 'start' }, NOW);
+  assert.equal(t.requests, undefined);
+  assert.throws(() => requestPresencial(t, { name: 'Más tarde' }, 'hash-x', NOW), /cerradas/);
+});

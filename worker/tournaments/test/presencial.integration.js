@@ -40,10 +40,14 @@ test('presencial real: guardar modalidad, permisos, resultados manuales, doble v
     try {
       const config = await post(`/api/tournaments/${id}/config`, { hostToken });
       assert.equal((await config.json()).mode, 'presencial');
-      const joined = await post(`/api/tournaments/${id}/join`, { token: token(), name: 'Intruso' });
-      assert.equal(joined.status, 403);
+      // Quien escanea el QR no se inscribe: deja una solicitud que solo ve el organizador.
+      const asker = token(), joined = await post(`/api/tournaments/${id}/join`, { token: asker, name: 'Intruso' });
+      assert.equal(joined.status, 202);
       host = await connect(id, { hostToken }); viewer = await connect(id);
       assert.equal(host.state.host, true); assert.equal(viewer.state.host, false);
+      assert.equal(host.state.count, 0); assert.equal(host.state.requests.length, 1); assert.equal(viewer.state.requests, undefined);
+      await host.action({ type: 'presencial-reject', requestId: host.state.requests[0].id });
+      assert.equal(host.state.requests.length, 0);
       const bad = await viewer.action({ type: 'presencial-player', name: 'Intruso', host: true }, true);
       assert.match(bad.message, /organizador/);
       for (let i = 0; i < 4; i++) await host.action({ type: 'presencial-player', name: 'Jugador ' + i, rating: 2000 - i * 100 });

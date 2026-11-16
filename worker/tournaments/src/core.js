@@ -95,7 +95,7 @@ export function editTournament(t, input, now = Date.now()) {
 }
 
 export function standings(t) {
-  const rows = t.players.map(p => ({ id: p.id, name: p.name, seed: p.seed, rating: p.rating || null, active: p.active, registered: !!p.accountId,
+  const rows = t.players.map(p => ({ id: p.id, name: p.name, seed: p.seed, rating: p.rating || null, source: p.source || null, fideId: p.fideId || null, active: p.active, registered: !!p.accountId,
     points: 0, wins: 0, buchholz: 0, sonneborn: 0, played: 0, byes: 0, opponents: [], colors: [], sheet: [] }));
   const map = new Map(rows.map(p => [p.id, p]));
   const arenaRuns = new Map(rows.map(p => [p.id, { wins: 0, drawSinceWin: false }]));
@@ -260,6 +260,41 @@ export function pairRound(t) {
 
 // «account» solo lo pone el servidor tras comprobar la sesión: { id, nick, elo? } de una cuenta confirmada.
 // El Elo de la cuenta se guarda en la inscripción y ordena a los jugadores en el suizo.
+// Presencial: nombre como en las listas oficiales («Apellidos, Nombre»), Elo y, si viene de una lista, su origen.
+export const PRESENCIAL_NAME = 48;
+export const MAX_REQUESTS = 64;
+function presencialEntry(input) {
+  const name = cleanName(input?.name, PRESENCIAL_NAME);
+  requireThat(name.length >= 2, 'Escribe un nombre de al menos 2 caracteres.');
+  const rating = input?.rating === '' || input?.rating == null ? null : Number(input.rating);
+  requireThat(rating === null || (Number.isInteger(rating) && rating >= 0 && rating <= 4000), 'El Elo debe estar entre 0 y 4000.');
+  const source = ['FIDE', 'FADA'].includes(input?.source) ? input.source : null;
+  const fideId = /^\d{1,12}$/.test(String(input?.fideId ?? '')) ? String(input.fideId) : null;
+  return { name, rating: rating || null, source: rating ? source : null, fideId };
+}
+function addPresencial(t, entry, now, extra = {}) {
+  requireThat(!t.players.some(p => sameKey(p.name, entry.name)), `Ya hay un jugador con ese nombre («${entry.name}»). Añade un apellido.`);
+  requireThat(t.players.length < t.capacity, 'El torneo está completo.');
+  const p = { id: crypto.randomUUID(), hash: extra.hash || crypto.randomUUID(), name: entry.name, active: true, seed: t.players.length + 1, joinedAt: now,
+    rating: entry.rating, ...(entry.source ? { source: entry.source } : {}), ...(entry.fideId ? { fideId: entry.fideId } : {}), ...(extra.accountId ? { accountId: extra.accountId } : {}) };
+  t.players.push(p);
+  return p;
+}
+// Un jugador pide plaza desde su móvil (QR de la sala); la organización la aprueba o la rechaza.
+export function requestPresencial(t, input, playerHash, now = Date.now(), account = null) {
+  requireThat(isPresencial(t), 'Este torneo no admite solicitudes.');
+  requireThat(t.status === 'waiting', 'Las inscripciones están cerradas.');
+  const mine = t.players.find(p => p.hash === playerHash || (account && p.accountId === account.id));
+  if (mine) { mine.hash = playerHash; return { player: mine }; }
+  const entry = presencialEntry(input);
+  requireThat(!t.players.some(p => sameKey(p.name, entry.name)), 'Ya hay un jugador inscrito con ese nombre. Habla con la organización.');
+  t.requests = (t.requests || []).filter(r => r.hash !== playerHash);
+  requireThat(t.requests.length < MAX_REQUESTS, 'Hay demasiadas solicitudes pendientes. Habla con la organización.', 429);
+  const r = { id: crypto.randomUUID(), hash: playerHash, ...entry, at: now, ...(account ? { accountId: account.id } : {}) };
+  t.requests.push(r);
+  return { request: r };
+}
+
 export function joinTournament(t, name, playerHash, now = Date.now(), key = '', account = null, organizer = false) {
   requireThat(!isPresencial(t) || organizer, 'En un torneo presencial, el organizador inscribe a los jugadores.', 403);
   const existing = t.players.find(p => p.hash === playerHash);
@@ -273,7 +308,7 @@ export function joinTournament(t, name, playerHash, now = Date.now(), key = '', 
   }
   // Como en Lichess, en el arena se puede entrar con el torneo ya empezado mientras quede tiempo.
   requireThat(t.status === 'waiting' || (isArena(t) && t.status === 'playing' && now < t.endsAt), 'Las inscripciones están cerradas.');
-  name = account ? account.nick : cleanName(name);
+  name = account ? account.nick : cleanName(name, isPresencial(t) ? PRESENCIAL_NAME : 28);
   requireThat(name.length >= 2, 'Escribe un nombre de al menos 2 caracteres.');
   requireThat(!t.players.some(p => p.name.toLocaleLowerCase('es') === name.toLocaleLowerCase('es')), 'Ya hay un jugador con ese nombre. Añade un apellido.');
   requireThat(t.players.length < t.capacity, 'El torneo está completo.');
@@ -327,6 +362,7 @@ export function beginRound(t, now) {
 export function startTournament(t, now = Date.now()) {
   requireThat(t.status === 'waiting', 'El torneo ya ha comenzado.');
   requireThat(t.players.length >= 2, 'Se necesitan al menos dos jugadores.');
+  delete t.requests; // las solicitudes sin aprobar se quedan fuera al empezar
   const n = t.players.length;
   if (isClosed(t)) t.rounds = (n % 2 ? n : n - 1) * (t.format === 'double-closed' ? 2 : 1);
   // Un reto (también a varias partidas) enfrenta siempre a los mismos dos: no se limitan las rondas.
@@ -432,14 +468,38 @@ export function nextAlarm(t, now = Date.now()) {
 
 export function act(t, playerId, host, action, now = Date.now()) {
   const p = t.players.find(p => p.id === playerId);
-  if (['presencial-player', 'presencial-result', 'presencial-next'].includes(action.type)) {
+  if (['presencial-player', 'presencial-players', 'presencial-edit', 'presencial-approve', 'presencial-reject', 'presencial-result', 'presencial-next'].includes(action.type)) {
     requireThat(host && isPresencial(t), 'Solo el organizador del torneo presencial puede realizar esta acción.', 403);
     if (action.type === 'presencial-player') {
       requireThat(t.status === 'waiting', 'Las inscripciones están cerradas.');
-      const rating = action.rating === '' || action.rating == null ? null : Number(action.rating);
-      requireThat(rating === null || (Number.isInteger(rating) && rating >= 0 && rating <= 4000), 'El Elo debe estar entre 0 y 4000.');
-      const added = joinTournament(t, action.name, crypto.randomUUID(), now, t.joinKey || '', null, true);
-      added.rating = rating || null;
+      addPresencial(t, presencialEntry(action), now);
+    } else if (action.type === 'presencial-players') {
+      // Lista pegada: se valida entera antes de inscribir a nadie.
+      requireThat(t.status === 'waiting', 'Las inscripciones están cerradas.');
+      requireThat(Array.isArray(action.players) && action.players.length > 0 && action.players.length <= MAX_PLAYERS, 'La lista está vacía.');
+      const entries = action.players.map(presencialEntry);
+      const names = [...t.players.map(p => p.name), ...entries.map(e => e.name)].map(n => n.toLocaleLowerCase('es'));
+      const repeated = entries.find((e, i) => names.indexOf(e.name.toLocaleLowerCase('es')) !== t.players.length + i);
+      requireThat(!repeated, `«${repeated?.name}» está repetido o ya inscrito.`);
+      requireThat(t.players.length + entries.length <= t.capacity, `Solo quedan ${t.capacity - t.players.length} plazas.`);
+      for (const e of entries) addPresencial(t, e, now);
+    } else if (action.type === 'presencial-edit') {
+      requireThat(!['finished', 'cancelled'].includes(t.status), 'El torneo ya ha terminado.');
+      const p = t.players.find(p => p.id === action.playerId);
+      requireThat(p, 'No se encuentra a ese jugador.', 404);
+      const e = presencialEntry(action);
+      requireThat(!t.players.some(x => x !== p && sameKey(x.name, e.name)), `Ya hay un jugador llamado «${e.name}».`);
+      p.name = e.name; p.rating = e.rating;
+      if (e.source) p.source = e.source; else delete p.source;
+      if (e.fideId) p.fideId = e.fideId; else delete p.fideId;
+    } else if (action.type === 'presencial-approve' || action.type === 'presencial-reject') {
+      const r = (t.requests || []).find(r => r.id === action.requestId);
+      requireThat(r, 'Esa solicitud ya no está pendiente.', 404);
+      if (action.type === 'presencial-approve') {
+        requireThat(t.status === 'waiting', 'Las inscripciones están cerradas.');
+        addPresencial(t, r, now, { hash: r.hash, accountId: r.accountId });
+      }
+      t.requests = t.requests.filter(x => x !== r);
     } else if (action.type === 'presencial-next') {
       requireThat(t.status === 'between', 'Completa todos los resultados antes de la siguiente ronda.');
       beginRound(t, now);
@@ -572,11 +632,16 @@ export function sharedSnapshot(t, now = Date.now()) {
       ...(g.result || g.bye || isPresencial(t) ? {} : { fen: g.fen, lastMove: g.lastMove || null, turn: g.turn, whiteMs: g.whiteMs, blackMs: g.blackMs, lastAt: g.lastAt, ply: g.moves.length }) })) };
 }
 // Parte de cada conexión: quién es, si organiza y su tablero.
-export function personalPart(t, playerId, host, gameId) {
-  return { me: playerId || null, host: !!host, ...(host ? { joinKey: t.joinKey || '' } : {}), game: gameDetail(selectedGame(t, playerId, gameId)) };
+// Presencial: el organizador ve las solicitudes pendientes y quien pidió plaza, la suya.
+export function personalPart(t, playerId, host, gameId, playerHash = null) {
+  const requests = t.requests || [], pending = !playerId && playerHash ? requests.find(r => r.hash === playerHash) : null;
+  return { me: playerId || null, host: !!host, ...(host ? { joinKey: t.joinKey || '' } : {}),
+    ...(host && isPresencial(t) ? { requests: requests.map(({ hash, accountId, ...r }) => r) } : {}),
+    ...(pending ? { myRequest: { name: pending.name, rating: pending.rating } } : {}),
+    game: gameDetail(selectedGame(t, playerId, gameId)) };
 }
-export function snapshot(t, playerId, host, gameId, now = Date.now()) {
-  return { ...sharedSnapshot(t, now), ...personalPart(t, playerId, host, gameId) };
+export function snapshot(t, playerId, host, gameId, now = Date.now(), playerHash = null) {
+  return { ...sharedSnapshot(t, now), ...personalPart(t, playerId, host, gameId, playerHash) };
 }
 // Una jugada sin final de partida viaja sola, en unos cientos de bytes, en lugar del torneo entero.
 export function moveMessage(t, g, now = Date.now()) {
