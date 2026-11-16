@@ -859,6 +859,37 @@ body.card-dragging .tour-tip { display: none !important; }
 .lv-addrow { flex-wrap: wrap; }
 .lv-addrow .btn-ghost { display: inline-flex; align-items: center; gap: 6px; }
 #viewer-round { padding: 6px 8px; border-radius: 8px; border: 1px solid #2a3654; background: var(--bg); color: var(--text); }
+.lv-round-trigger { display: none; }
+.lv-round-dialog { position: fixed; inset: auto 0 max(12px, env(safe-area-inset-bottom)); width: calc(100% - 24px); max-width: 460px; max-height: calc(100dvh - 24px); margin: 0 auto; padding: 0; overflow: hidden; border: 1px solid var(--line); border-radius: 22px; background: var(--card); color: var(--text); box-shadow: 0 24px 80px #0007; }
+.lv-round-dialog::backdrop { background: #040914aa; backdrop-filter: blur(5px); }
+.lv-round-dialog[open] { display: flex; flex-direction: column; }
+.lv-round-handle { width: 36px; height: 4px; margin: 10px auto 0; border-radius: 9px; background: var(--line); }
+.lv-round-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 18px 8px; }
+.lv-round-eyebrow { margin: 0 0 4px; color: var(--amber); font-size: .62rem; font-weight: 700; letter-spacing: .14em; }
+.lv-round-head h2 { margin: 0; font-size: 1.25rem; line-height: 1.3; }
+#lv-round-close { display: grid; place-items: center; flex: none; width: 40px; height: 40px; padding: 0; border: 1px solid var(--line); border-radius: 12px; color: var(--muted); background: transparent; }
+.lv-round-tournament { margin: 0; padding: 0 18px 14px; color: var(--muted); font-size: .78rem; line-height: 1.45; overflow-wrap: anywhere; }
+.lv-round-list { flex: 0 1 auto; min-height: 0; max-height: min(58dvh, 460px); padding: 4px 10px 12px; border-top: 1px solid var(--line); overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; }
+.lv-round-handle, .lv-round-head, .lv-round-tournament { flex-shrink: 0; }
+.lv-round-option { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 64px; margin-top: 6px; padding: 10px; border: 1px solid transparent; border-radius: 12px; text-align: left; color: var(--text); background: transparent; font: inherit; cursor: pointer; }
+.lv-round-option:hover { background: var(--bg); }
+.lv-round-option[aria-selected="true"] { border-color: #3b82f66b; background: #3b82f614; }
+.lv-round-number { display: grid; place-items: center; flex: none; width: 36px; height: 36px; border: 1px solid var(--line); border-radius: 10px; font-size: .82rem; font-weight: 700; color: var(--muted); font-variant-numeric: tabular-nums; }
+.lv-round-option[aria-selected="true"] .lv-round-number { background: var(--blue); border-color: var(--blue); color: #fff; }
+.lv-round-name { flex: 1; min-width: 0; font-size: .94rem; font-weight: 650; line-height: 1.35; overflow-wrap: anywhere; }
+.lv-round-state { display: flex; align-items: center; gap: 5px; margin-top: 4px; font-size: .7rem; font-weight: 400; color: var(--muted); }
+.lv-round-state i { width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+.lv-round-state.live { color: #16865a; }
+.lv-round-check { display: grid; place-items: center; flex: none; width: 22px; height: 22px; border-radius: 50%; color: #fff; }
+.lv-round-option[aria-selected="true"] .lv-round-check { background: var(--blue); }
+.lv-round-option:focus-visible, #lv-round-close:focus-visible, .lv-round-trigger:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+@media (prefers-color-scheme: dark) { .lv-round-state.live { color: #4ade80; } }
+@media (hover: none), (pointer: coarse) {
+  .lv-round-picker-ready #viewer-round { display: none; }
+  .lv-round-picker-ready #viewer-round-open:not([hidden]) { display: flex; align-items: center; gap: 8px; grid-column: 1 / -1; min-height: 44px; width: 100%; padding: 8px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); color: var(--text); font: inherit; font-size: .88rem; text-align: left; }
+  .lv-round-trigger > svg { flex: none; color: var(--muted); }
+  #viewer-round-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+}
 .lv-fide.wide { width: min(780px, 95vw); }
 .lv-ptab { width: 100%; border-collapse: collapse; font-size: .9rem; }
 .lv-ptab th { color: #9fb0c8; font-weight: 400; font-size: .78rem; padding: 8px 8px; text-align: center; background: rgba(255, 255, 255, .03); }
@@ -896,8 +927,10 @@ body.card-dragging .tour-tip { display: none !important; }
 /* Las miniaturas permiten desplazar la página con el dedo; el tablero de análisis conserva su arrastre de piezas. */
 .lv-grid .th-board { touch-action: pan-y pinch-zoom; }
 @media (hover: none), (pointer: coarse) {
-  .th-del { display: flex; width: 36px; height: 36px; top: 6px; right: 6px; }
-  .th-p .th-eye { visibility: visible; flex: 0 0 36px; width: 36px; height: 36px; }
+  .th .th-del, .th:hover .th-del { display: none; width: 36px; height: 36px; top: 6px; right: 6px; }
+  .th .th-p .th-eye, .th:hover .th-p .th-eye { visibility: hidden; pointer-events: none; flex: 0 0 36px; width: 36px; height: 36px; }
+  .th.touch-selected .th-del { display: flex; }
+  .th.touch-selected .th-p .th-eye { visibility: visible; pointer-events: auto; }
   .th-del svg, .th-p .th-eye svg { width: 22px; height: 22px; }
   .th > .th-p:first-child { padding-right: 42px; }
   .th-eye, .th-del { -webkit-tap-highlight-color: transparent; }

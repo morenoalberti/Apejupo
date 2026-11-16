@@ -45,6 +45,7 @@
   // Visor propio: partida en vivo desde el PGN de la ronda (Lichess), con Stockfish y reloj en vivo.
   var viewer = $("viewer"), sel = $("viewer-games");
   var roundId = "", games = {}, curId = "", ply = -1, follow = true, poll = null, tick = null;
+  var thumbControlsId = ""; // Los controles táctiles se muestran solo tras seleccionar una miniatura.
   var roundDone = false; // la ronda ya está terminada en Lichess: ninguna de sus partidas puede estar en juego
   var orient = "w", order = [], mode = "grid";
   var vari = null, curCh = null, dragging = false, pendingRender = false; // variante propuesta por el usuario al mover piezas
@@ -494,6 +495,7 @@
     ids.forEach(function (id) {
       var g = games[id], b = grid.querySelector('[data-g="' + id + '"]'); if (!g || !b) return;
       b.title = optLabel(g); b.classList.toggle("sel", id === curId);
+      b.classList.toggle("touch-selected", id === thumbControlsId);
       var nms = b.querySelectorAll(".nm"), hb = thumbName(g, "b"), hw = thumbName(g, "w"); // el resultado aparece cuando la partida termina
       var mts = b.querySelectorAll(".mt"), mb = thumbMeta(g, "b"), mw = thumbMeta(g, "w");
       if (nms[0].innerHTML !== hb) nms[0].innerHTML = hb;
@@ -588,10 +590,12 @@
   var lastTap = { id: null, t: 0 };
   $("lv-grid").addEventListener("click", function (e) {
     var ey = e.target.closest("[data-eye]");
-    if (ey) { openFide(ey.closest("[data-g]").getAttribute("data-g")); return; }
+    if (ey) { lastTap.id = null; openFide(ey.closest("[data-g]").getAttribute("data-g")); return; }
     var d = e.target.closest("[data-del]");
     if (d) {
+      lastTap.id = null;
       var id = d.closest("[data-g]").getAttribute("data-g");
+      if (thumbControlsId === id) thumbControlsId = "";
       removed.push(id); extras = extras.filter(function (x) { return x !== id; });
       try { localStorage.setItem("apejupoDel" + roundId, JSON.stringify(removed)); localStorage.setItem("apejupoExtra" + roundId, JSON.stringify(extras)); } catch (_) {}
       if (curId === id) curId = null;
@@ -600,11 +604,17 @@
     }
     var b = e.target.closest("[data-g]"); if (!b || justDragged) return;
     var gid = b.getAttribute("data-g"), now = Date.now();
+    thumbControlsId = gid;
     if (lastTap.id === gid && now - lastTap.t < 420) { lastTap.id = null; openBig(gid); return; } // doble toque
     lastTap = { id: gid, t: now };
     curId = gid; renderGrid();
   });
+  document.addEventListener("click", function (e) {
+    if (!thumbControlsId || e.target.closest("#lv-grid .th")) return;
+    thumbControlsId = ""; lastTap.id = null; renderGrid();
+  });
   $("lv-grid").addEventListener("dblclick", function (e) {
+    if (e.target.closest("[data-del],[data-eye]")) return;
     var b = e.target.closest("[data-g]"); if (!b || justDragged) return;
     openBig(b.getAttribute("data-g"));
   });
@@ -1081,6 +1091,53 @@
 
   // ---------- Rondas, clasificación, emparejamientos y avisos ----------
   var tourId = null, tourRounds = [];
+  var roundSelect = $("viewer-round"), roundTrigger = $("viewer-round-open"), roundDialog = $("lv-round-dialog");
+  var touchRoundPicker = window.matchMedia("(hover: none), (pointer: coarse)");
+  function syncRoundPicker() {
+    if (!roundTrigger || !roundDialog) return;
+    var ready = !roundSelect.hidden && roundSelect.options.length > 0;
+    roundTrigger.hidden = !ready;
+    document.body.classList.toggle("lv-round-picker-ready", ready);
+    var selected = roundSelect.options[roundSelect.selectedIndex];
+    $("viewer-round-label").textContent = selected ? selected.textContent : "Elegir ronda";
+    if (!ready && roundDialog.open) roundDialog.close();
+  }
+  function showRoundPicker() {
+    if (!roundDialog || !touchRoundPicker.matches || !tourRounds.length) return;
+    $("lv-round-tournament").textContent = $("viewer-title").textContent;
+    $("lv-round-list").innerHTML = tourRounds.map(function (r) {
+      var selected = r.id === roundSelect.value, state = r.finished ? "done" : r.ongoing ? "live" : "next";
+      var status = r.finished ? "Terminada" : r.ongoing ? "En juego" : "Pendiente";
+      return '<button type="button" class="lv-round-option" role="option" aria-selected="' + selected + '" data-round="' + esc(r.id) + '"><span class="lv-round-number" aria-hidden="true">' + String(numRonda(r)).padStart(2, "0") + '</span><span class="lv-round-name">' + esc(es2(r.name)) + '<small class="lv-round-state ' + state + '"><i aria-hidden="true"></i>' + status + '</small></span><span class="lv-round-check" aria-hidden="true">' + (selected ? '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m5 12 4 4L19 6"/></svg>' : "") + '</span></button>';
+    }).join("");
+    roundDialog.showModal(); roundTrigger.setAttribute("aria-expanded", "true");
+    var current = $("lv-round-list").querySelector('[aria-selected="true"]');
+    if (current) { current.focus({ preventScroll: true }); current.scrollIntoView({ block: "nearest" }); }
+  }
+  if (roundTrigger && roundDialog) {
+    roundTrigger.addEventListener("click", showRoundPicker);
+    $("lv-round-close").addEventListener("click", function () { roundDialog.close(); });
+    roundDialog.addEventListener("close", function () { roundTrigger.setAttribute("aria-expanded", "false"); });
+    roundDialog.addEventListener("click", function (e) {
+      if (e.target !== roundDialog) return;
+      var r = roundDialog.getBoundingClientRect();
+      if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) roundDialog.close();
+    });
+    $("lv-round-list").addEventListener("click", function (e) {
+      var option = e.target.closest("[data-round]"); if (!option) return;
+      roundSelect.value = option.getAttribute("data-round");
+      roundDialog.close();
+      roundSelect.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    $("lv-round-list").addEventListener("keydown", function (e) {
+      if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(e.key)) return;
+      e.preventDefault();
+      var options = Array.prototype.slice.call(this.children), index = options.indexOf(document.activeElement);
+      var next = e.key === "Home" ? 0 : e.key === "End" ? options.length - 1 : Math.max(0, Math.min(options.length - 1, index + (e.key === "ArrowDown" ? 1 : -1)));
+      if (options[next]) options[next].focus();
+    });
+    touchRoundPicker.addEventListener("change", function (e) { if (!e.matches && roundDialog.open) roundDialog.close(); });
+  }
   // Número de una ronda: el que lleve su nombre («Round 3», «Ronda 3») o, si no lleva, su posición en el torneo
   function numRonda(r) { var m = /(\d+)/.exec(r.name || ""); return m ? +m[1] : tourRounds.indexOf(r) + 1; }
   function standTitle() {
@@ -1117,7 +1174,8 @@
     loadFeds();
     fetch("https://lichess.org/api/broadcast/" + encodeURIComponent(tourId)).then(function (r) { return r.json(); }).then(function (t) {
       var rs = U.rondas(t.rounds), s = $("viewer-round"); tourRounds = rs; setTimeout(prefetchRounds, 4000);
-      if (!rs.length) { s.hidden = true; return; }
+      if (!rs.length) { s.hidden = true; syncRoundPicker(); return; }
+      s.hidden = false;
       var cur = rs.filter(function (r) { return r.id === roundId; })[0];
       if (cur && cur.finished && !roundDone) { // ronda sin cerrar en Lichess pero ya superada: sus partidas no están en juego
         roundDone = true;
@@ -1129,9 +1187,11 @@
         return '<option value="' + esc(r.id) + '">' + esc(es2(r.name)) + " · " + st + "</option>";
       }).join("");
       s.value = roundId;
-    }).catch(function () { $("viewer-round").hidden = true; });
+      syncRoundPicker();
+    }).catch(function () { $("viewer-round").hidden = true; syncRoundPicker(); });
   }
   $("viewer-round").addEventListener("change", function () {
+    syncRoundPicker();
     var v = this.value; if (!v || v === roundId) return;
     var t = $("viewer-title").textContent;
     try { history.pushState(null, "", "?r=" + encodeURIComponent(v) + "&t=" + encodeURIComponent(t)); } catch (_) { location.search = "?r=" + encodeURIComponent(v) + "&t=" + encodeURIComponent(t); return; }
@@ -1379,6 +1439,7 @@
   // Abre una ronda (la página torneo.html la recibe por la dirección: ?r=id&t=título)
   var qs = new URLSearchParams(location.search), rid = qs.get("r");
   function openRound(rid, title, inPlace) {
+    thumbControlsId = "";
     reviewStop(); reviewState = null; rvVer++; listKey = "";
     if (inPlace) { stop(); if (!viewer.hidden) closeBig(); curId = ""; ply = -1; order = []; $("lv-grid").innerHTML = ""; }
     roundId = rid; roundDone = false; games = {}; evalCache = {}; order = []; userOrder = loadUserOrder(); try { extras = JSON.parse(localStorage.getItem("apejupoExtra" + rid)) || []; } catch (_) { extras = []; } try { removed = JSON.parse(localStorage.getItem("apejupoDel" + rid)) || []; } catch (_) { removed = []; } miniStop(); setMode("open");
