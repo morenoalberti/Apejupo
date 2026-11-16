@@ -206,3 +206,19 @@ test('Round-Robin: el calendario de las rondas que faltan coincide con lo que se
     assert.equal(closedSchedule(tournament(5)).length, 0, 'el suizo no tiene calendario fijo');
   }
 });
+
+test('Round-Robin: se corrige el resultado de cualquier ronda jugada, también con el torneo terminado; el suizo no', () => {
+  const t = tournament(4, { format: 'closed' });
+  act(t, null, true, { type: 'start' }, NOW);
+  while (t.status !== 'finished') { for (const g of t.games.filter(g => !g.bye && !g.result)) act(t, null, true, { type: 'presencial-result', game: g.id, result: '1-0' }, NOW); if (t.status === 'between') act(t, null, true, { type: 'presencial-next' }, NOW); }
+  const first = t.games.find(g => g.round === 1 && !g.bye), before = standings(t).find(r => r.id === first.black).points;
+  act(t, null, true, { type: 'presencial-result', game: first.id, result: '0-1' }, NOW);
+  assert.equal(t.status, 'finished'); assert.equal(first.result, '0-1');
+  assert.equal(standings(t).find(r => r.id === first.black).points, before + 1);
+  assert.throws(() => act(t, null, true, { type: 'presencial-result', game: first.id, result: null }, NOW), /no se puede dejar/);
+  const s = tournament(4);
+  act(s, null, true, { type: 'start' }, NOW);
+  for (const g of s.games.filter(g => !g.bye)) act(s, null, true, { type: 'presencial-result', game: g.id, result: '1-0' }, NOW);
+  act(s, null, true, { type: 'presencial-next' }, NOW);
+  assert.throws(() => act(s, null, true, { type: 'presencial-result', game: s.games.find(g => g.round === 1 && !g.bye).id, result: '0-1' }, NOW), /ronda actual/);
+});

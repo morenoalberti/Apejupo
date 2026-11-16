@@ -538,10 +538,15 @@ export function act(t, playerId, host, action, now = Date.now()) {
       beginRound(t, now);
     } else {
       const g = t.games.find(g => g.id === action.game);
-      requireThat(g && !g.bye && g.round === t.round, 'Solo se puede corregir un resultado de la ronda actual.', 409);
+      // Round-Robin: el calendario no depende de los resultados, así que se corrige cualquier ronda jugada.
+      // Suizo: solo la ronda en curso (los resultados anteriores ya decidieron los emparejamientos).
+      const earlier = isClosed(t) && g && g.round < t.round;
+      requireThat(g && !g.bye && (g.round === t.round || earlier), 'Solo se puede corregir un resultado de la ronda actual.', 409);
       requireThat(['playing', 'between', 'finished'].includes(t.status), 'No puedes anotar resultados ahora.');
       requireThat(action.result === null || validResults(t).includes(action.result), 'Elige un resultado válido.');
+      requireThat(!earlier || action.result !== null, 'En una ronda anterior, cambia el resultado por otro: no se puede dejar sin resultado.');
       g.result = action.result; g.reason = action.result ? 'Resultado anotado por la organización' : ''; g.finishedAt = action.result ? now : null;
+      if (earlier) return; // la ronda en curso y el estado del torneo no cambian; la clasificación se recalcula sola
       t.status = 'playing'; t.finishedAt = null; t.nextRoundAt = null;
       afterResults(t, now);
     }

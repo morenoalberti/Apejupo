@@ -532,7 +532,7 @@ function renderPresencial() {
   $('to-presencial-next').disabled = !connected;
   // Round-Robin con número impar de jugadores: tantas rondas como jugadores, porque en cada una descansa uno.
   const oddRR = closed(t) && !waiting && t.standings.length % 2 === 1 ? ` Con ${t.standings.length} jugadores hay ${t.rounds} rondas: en cada una descansa un jugador.` : '';
-  $('to-presencial-hint').textContent = (playersView ? (t.status === 'finished' ? 'Lista final de jugadores.' : lateEntry ? 'Corrige nombres y Elo, retira a quien se marche o inscribe a quien llegue tarde.' : 'Corrige nombres y Elo o retira a quien se marche. En el Round-Robin no hay inscripción tardía.') : waiting ? (t.host ? 'Cuando estén todos, pulsa «Cerrar inscripción y emparejar» para sortear la primera ronda.' : mine ? 'Ya tienes plaza. Las mesas aparecerán aquí al empezar.' : 'La organización está preparando la lista de jugadores.') : t.host ? 'Anota los resultados de cada mesa. Puedes corregirlos antes de emparejar la siguiente ronda.' : 'Los resultados se actualizan cuando los anota la organización.') + (playersView || waiting ? '' : oddRR);
+  $('to-presencial-hint').textContent = (playersView ? (t.status === 'finished' ? 'Lista final de jugadores.' : lateEntry ? 'Corrige nombres y Elo, retira a quien se marche o inscribe a quien llegue tarde.' : 'Corrige nombres y Elo o retira a quien se marche. En el Round-Robin no hay inscripción tardía.') : waiting ? (t.host ? 'Cuando estén todos, pulsa «Cerrar inscripción y emparejar» para sortear la primera ronda.' : mine ? 'Ya tienes plaza. Las mesas aparecerán aquí al empezar.' : 'La organización está preparando la lista de jugadores.') : t.host ? (closed(t) ? 'Pulsa una mesa para anotar o corregir su resultado, de cualquier ronda ya jugada.' : 'Anota los resultados de cada mesa. Puedes corregirlos antes de emparejar la siguiente ronda.') : 'Los resultados se actualizan cuando los anota la organización.') + (playersView || waiting ? '' : oddRR);
   // Todas las rondas en una tabla, como las hojas de emparejamientos: Mesa · Tít. · Blancas · ELO · Resultado · Tít. · Negras · ELO.
   // Round-Robin: también las rondas que faltan por jugar (el calendario sale entero del sorteo).
   const future = new Map((t.schedule || []).map(f => [f.round, f.pairs]));
@@ -564,14 +564,16 @@ function renderPresencial() {
           return `<tr class="to-pt-bye to-pt-later${id === t.me ? ' mine' : ''}"><td class="to-pt-num"></td><td class="to-pt-tit">${tit(w)}</td>${cellName(w, false)}<td class="to-pt-elo">${w.rating || ''}</td><td class="to-pt-res"><span class="to-pt-pending">—</span></td><td class="to-pt-tit"></td><td class="to-pt-name to-pt-rest" colspan="2">Descansa</td></tr>`; }).join('');
     }
     const games = t.games.filter(g => g.round === r), tables = games.filter(g => !g.bye), byes = games.filter(g => g.bye);
-    const editable = t.host && r === t.round && ['playing', 'between'].includes(t.status);
+    // Ronda en curso: siempre. Round-Robin: también cualquier ronda anterior, para corregir errores (no cambia los emparejamientos).
+    const earlier = closed(t) && r < t.round;
+    const editable = t.host && ['playing', 'between', 'finished'].includes(t.status) && (r === t.round || earlier);
     const pending = tables.filter(g => !g.result).length;
     const head = `<tr class="to-pt-round"><th colspan="8">Ronda ${r}${r === t.round && t.status !== 'finished' ? ` <span class="to-pt-state">${pending ? `${pending} ${pending === 1 ? 'resultado pendiente' : 'resultados pendientes'}` : 'completa'}</span>` : ''}</th></tr>`;
     const rows = tables.map((g, i) => {
       const w = info(g.white), b = info(g.black);
       const result = g.result ? `<span class="to-pt-score">${score(g.result)}</span>` : `<span class="to-pt-pending">${editable ? 'Anotar' : '—'}</span>`;
       // El organizador pulsa la fila de la mesa (o Intro sobre ella) y sale el cuadro de resultados.
-      return `<tr class="${g.white === t.me || g.black === t.me ? 'mine' : ''}${editable ? ' to-pt-edit' : ''}"${editable ? ` data-pt-game="${g.id}" data-pt-table="${i + 1}" tabindex="0" role="button" aria-haspopup="dialog" aria-label="Mesa ${i + 1}: ${esc(w.name)} contra ${esc(b.name)}. Anotar resultado"` : ''}><td class="to-pt-num">${i + 1}</td><td class="to-pt-tit">${tit(w)}</td>${cellName(w, g.result && whitePts(g.result) > perTable / 2)}<td class="to-pt-elo">${w.rating || ''}</td><td class="to-pt-res">${result}</td><td class="to-pt-tit">${tit(b)}</td>${cellName(b, g.result && whitePts(g.result) < perTable / 2)}<td class="to-pt-elo">${b.rating || ''}</td></tr>`;
+      return `<tr class="${g.white === t.me || g.black === t.me ? 'mine' : ''}${editable ? ' to-pt-edit' : ''}"${editable ? ` data-pt-game="${g.id}" data-pt-table="${i + 1}"${earlier ? ' data-pt-earlier="1"' : ''} tabindex="0" role="button" aria-haspopup="dialog" aria-label="Mesa ${i + 1}: ${esc(w.name)} contra ${esc(b.name)}. Anotar resultado"` : ''}><td class="to-pt-num">${i + 1}</td><td class="to-pt-tit">${tit(w)}</td>${cellName(w, g.result && whitePts(g.result) > perTable / 2)}<td class="to-pt-elo">${w.rating || ''}</td><td class="to-pt-res">${result}</td><td class="to-pt-tit">${tit(b)}</td>${cellName(b, g.result && whitePts(g.result) < perTable / 2)}<td class="to-pt-elo">${b.rating || ''}</td></tr>`;
     }).join('');
     const rests = byes.map(g => { const w = info(g.white);
       return `<tr class="to-pt-bye${g.white === t.me ? ' mine' : ''}"><td class="to-pt-num"></td><td class="to-pt-tit">${tit(w)}</td>${cellName(w, false)}<td class="to-pt-elo">${w.rating || ''}</td><td class="to-pt-res"><span class="to-pt-score">${g.rest ? '0' : perTable}</span></td><td class="to-pt-tit"></td><td class="to-pt-name to-pt-rest" colspan="2">${g.rest ? 'Descansa' : /retirad/i.test(g.reason || '') ? 'Rival retirado' : 'Descansa'}</td></tr>`; }).join('');
@@ -1471,7 +1473,7 @@ function openResultPop(row) {
   const pop = document.createElement('div');
   pop.id = 'to-pt-pop'; pop.className = 'to-pt-pop'; pop.setAttribute('role', 'dialog'); pop.setAttribute('aria-label', `Resultado de la mesa ${row.dataset.ptTable}`);
   pop.innerHTML = '<strong>Resultados</strong>'
-    + [...ptOptions, ['', '-']].map(([v, l]) => `<button type="button" data-pt-value="${v}" class="${(g.result || '') === v ? 'on' : ''}"${v ? '' : ' title="Sin resultado"'}>${l}</button>`).join('');
+    + [...ptOptions, ...(row.dataset.ptEarlier ? [] : [['', '-']])].map(([v, l]) => `<button type="button" data-pt-value="${v}" class="${(g.result || '') === v ? 'on' : ''}"${v ? '' : ' title="Sin resultado"'}>${l}</button>`).join('');
   document.body.append(pop);
   // Debajo de la casilla de resultado; si no cabe, encima.
   const cell = row.querySelector('.to-pt-res').getBoundingClientRect(), h = pop.offsetHeight, w = pop.offsetWidth;
