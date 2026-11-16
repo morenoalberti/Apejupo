@@ -168,7 +168,7 @@ function connect() {
     if (event.data === 'pong') return;
     let next; try { next = JSON.parse(event.data); } catch { return; }
     if (next.type === 'host-token') { try { write(hostKey(roomId), next.token); } catch {} return; }
-    if (next.type === 'error') { pending = false; optimistic = null; boardKey = ''; message(next.message, true); if (state) renderGame(); return; }
+    if (next.type === 'error') { pending = false; optimistic = null; boardKey = ''; if (isDupError(next.message)) noticeBox('Jugador repetido', next.message); else message(next.message, true); if (state) renderGame(); return; }
     if (next.type === 'move') { if (state) applyMove(next); return; }
     if (next.type !== 'state') return;
     if (state && next.revision < state.revision) return;
@@ -881,7 +881,7 @@ function confirmAction(title, text, danger = false) {
     : '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg>';
   $('to-confirm-dialog').dataset.tone = danger ? 'danger' : 'info';
   $('to-confirm-title').textContent = title; $('to-confirm-text').textContent = text; $('to-confirm-text').hidden = !text;
-  $('to-confirm-yes').textContent = label; $('to-confirm-no').textContent = cancel;
+  $('to-confirm-yes').textContent = label; $('to-confirm-no').textContent = cancel; $('to-confirm-no').hidden = false;
   $('to-confirm-yes').classList.toggle('danger', danger);
   // El botón activo al abrir es siempre «Cancelar», el más seguro: con Intro no se acepta sin querer.
   $('to-confirm-dialog').showModal(); $('to-confirm-no').focus();
@@ -1145,9 +1145,33 @@ function attachSearch(inputId, listId, onPick, manualLabel) {
   list.addEventListener('click', event => { const b = event.target.closest('[data-i]'); if (b) pick(Number(b.dataset.i)); });
   document.addEventListener('click', event => { if (!input.parentElement.contains(event.target) && !list.contains(event.target)) close(); });
 }
-const taken = n => state.standings.some(p => p.name.toLocaleLowerCase('es') === n.toLocaleLowerCase('es'));
+// Mismo jugador: mismo número FIDE o mismo nombre, sin distinguir mayúsculas ni tildes.
+const sameName = (a, b) => a.normalize('NFD').replace(/\p{M}/gu, '').toLocaleLowerCase('es').trim() === b.normalize('NFD').replace(/\p{M}/gu, '').toLocaleLowerCase('es').trim();
+const findDup = (p, list) => list.find(x => (p.fideId && x.fideId === p.fideId) || sameName(x.name, p.name));
+const taken = n => !!findDup({ name: n }, state.standings);
+// Aviso con un solo botón (el mismo recuadro que las confirmaciones).
+function noticeBox(title, text) {
+  $('to-confirm-icon').className = 'to-dialog-icon gold';
+  $('to-confirm-icon').innerHTML = '<svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="4"/><path d="M2 21v-1a6 6 0 0 1 6-6h2"/><path d="M18 14v3M18 20h.01"/></svg>';
+  $('to-confirm-dialog').dataset.tone = 'info';
+  $('to-confirm-title').textContent = title; $('to-confirm-text').textContent = text; $('to-confirm-text').hidden = !text;
+  $('to-confirm-no').hidden = true; $('to-confirm-yes').textContent = 'Entendido'; $('to-confirm-yes').classList.remove('danger');
+  $('to-confirm-dialog').showModal(); $('to-confirm-yes').focus();
+  return new Promise(resolve => { confirmResolve = resolve; });
+}
+const isDupError = text => /Ya hay un jugador|repetido o ya inscrito|ya está inscrito/i.test(text || '');
+function warnDuplicate(p) {
+  const inList = findDup(p, state.standings), asked = findDup(p, state.requests || []);
+  if (inList) {
+    const pos = [...state.standings].sort(byRating).indexOf(inList) + 1;
+    noticeBox('Este jugador ya está inscrito', `${inList.name}${inList.rating ? ` (Elo ${inList.rating})` : ''} ya figura en la lista de inscritos, en el puesto ${pos}. No se ha añadido otra vez.`);
+    return true;
+  }
+  if (asked) { noticeBox('Ya ha pedido plaza', `${asked.name} tiene una solicitud pendiente por QR. Apruébala en «Solicitudes por QR».`); return true; }
+  return false;
+}
 attachSearch('to-pz-search', 'to-pz-sugs', p => {
-  if (taken(p.name)) { message(`${p.name} ya está inscrito.`, true); return; }
+  if (warnDuplicate(p)) return;
   if (send({ type: 'presencial-player', name: p.name, rating: p.rating ?? '', source: p.source, fideId: p.fideId, fed: p.fed, title: p.title })) message('');
   $('to-pz-search').focus();
 }, text => `Añadir «${text}»`);
@@ -1156,7 +1180,7 @@ attachSearch('to-pz-ask-search', 'to-pz-ask-sugs', async p => {
     const id = read(playerKey()) || token(), user = currentUser(); write(playerKey(), id);
     await request(`/api/tournaments/${roomId}/join`, { method: 'POST', key: user ? session() : '', body: JSON.stringify({ name: p.name, rating: p.rating ?? '', source: p.source, fideId: p.fideId, fed: p.fed, title: p.title, token: id }) });
     askChanging = false; hello(); message('');
-  } catch (e) { message(e.message, true); }
+  } catch (e) { if (isDupError(e.message)) noticeBox('Ese nombre ya está inscrito', e.message); else message(e.message, true); }
 }, text => `Pedir plaza como «${text}»`);
 $('to-pz-ask-change').addEventListener('click', () => { askChanging = true; renderPresencial(); $('to-pz-ask-search').focus(); });
 
@@ -1211,8 +1235,8 @@ $('to-pz-paste-check').addEventListener('click', async () => {
   if (!pasted.length) { $('to-pz-paste-preview').hidden = false; $('to-pz-paste-preview').innerHTML = '<p class="to-pz-tip">Escribe o pega al menos un nombre.</p>'; return; }
   const seen = new Set();
   for (const p of pasted) {
-    const key = p.name.toLocaleLowerCase('es');
-    p.problem = taken(p.name) ? 'Ya inscrito' : seen.has(key) ? 'Repetido' : p.name.length > 48 ? 'Nombre muy largo' : '';
+    const key = p.name.normalize('NFD').replace(/\p{M}/gu, '').toLocaleLowerCase('es');
+    p.problem = findDup(p, state.standings) ? 'Ya inscrito' : seen.has(key) ? 'Repetido' : p.name.length > 48 ? 'Nombre muy largo' : '';
     seen.add(key);
   }
   const missing = pasted.filter(p => !p.problem && !p.rating);

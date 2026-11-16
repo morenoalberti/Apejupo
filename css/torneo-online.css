@@ -432,7 +432,7 @@ body.to-focus #to-standings-panel th { position: sticky; top: 0; background: var
 @keyframes to-dlg-in { from { opacity: 0; transform: translateY(10px) scale(.97); } }
 @keyframes to-dlg-fade { from { opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .to-dialog[open], .to-dialog[open]::backdrop { animation: none; } }
-.to-confirm-dialog { position: relative; text-align: center; padding: 30px 26px 22px; }
+.to-confirm-dialog { position: fixed; text-align: center; padding: 30px 26px 22px; }
 .to-confirm-dialog::before { content: ""; position: absolute; inset: 0 0 auto; height: 4px; background: #e5b766; }
 .to-confirm-dialog[data-tone="danger"]::before { background: #ef4444; }
 .to-confirm-dialog[data-tone="info"]::before { background: #3b82f6; }
