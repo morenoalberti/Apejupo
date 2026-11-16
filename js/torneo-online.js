@@ -20,6 +20,7 @@ let confirmResolve = null, dropped = null, lobby = new Map();
 let lastArenaClosing = false;
 let gameFitFrame = null;
 let editingId = null, keyFieldRequired = false; // formulario de organizar: torneo que se edita y si se pide la clave de organización
+let createModeChoices = {};
 let tournamentAdmin = false;
 // Jugada propia mostrada al instante, antes de que la confirme el servidor (como en Lichess).
 let optimistic = null, rendered = { game: null, fen: null }, skipSlide = false, drag = null;
@@ -57,13 +58,14 @@ async function request(path, { key, ...options } = {}) {
 }
 const arena = t => t?.format === 'arena';
 const arenaClosing = (t, now = Date.now() + offset) => arena(t) && t.status === 'playing' && now >= t.endsAt;
-const closed = t => t?.format === 'closed';
+const closed = t => ['closed', 'double-closed'].includes(t?.format);
+const presencial = t => t?.mode === 'presencial';
 function duration(minutes) { return minutes % 60 ? (minutes > 60 ? `${Math.floor(minutes / 60)} h ${minutes % 60} min` : `${minutes} min`) : `${minutes / 60} h`; }
 const isMatch = t => !!t.challenge && t.rounds > 1;
 // Quien ha salido del torneo no aparece en las listas ni en los contadores hasta que vuelve a entrar
 // (en la clasificación final sí, con sus puntos).
 const listed = t => t.standings.filter(p => !p.paused || t.status === 'finished');
-function formatLabel(t) { return t.challenge ? (isMatch(t) ? `Match a ${t.rounds} partidas` : 'Reto') : arena(t) ? `Arena de ${duration(t.duration)}` : closed(t) ? (t.rounds ? `Round-Robin a ${t.rounds} rondas` : 'Round-Robin: todos contra todos') : `${t.rounds} rondas`; }
+function formatLabel(t) { return t.challenge ? (isMatch(t) ? `Match a ${t.rounds} partidas` : 'Reto') : arena(t) ? `Arena de ${duration(t.duration)}` : t.format === 'double-closed' ? 'Round-Robin doble vuelta' : closed(t) ? (t.rounds ? `Round-Robin a ${t.rounds} rondas` : 'Round-Robin: todos contra todos') : `${t.rounds} rondas`; }
 // «15 nov, 16:00 h.»
 function date(value) { return new Intl.DateTimeFormat('es', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(value) + ' h.'; }
 function name(id) { return state?.standings.find(p => p.id === id)?.name || 'Jugador'; }
@@ -99,9 +101,9 @@ function eventCard(t) {
   const pencil = organizer && t.status === 'waiting' ? `<button class="to-delete to-edit" type="button" data-edit="${t.id}" aria-label="Editar el torneo ${esc(t.title)}" title="Editar torneo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></button>` : '';
   const count = t.listed ?? t.count, full = Math.min(100, Math.round(count / t.capacity * 100));
   return `<article class="to-event ${t.status}"><div class="to-event-top"><span class="to-status ${t.status}">${esc(statuses[t.status])}</span><span class="to-event-clock">${icons.clock}${t.minutes} + ${t.increment}</span></div>`
-    + `<h3>${esc(t.title)}</h3><ul class="to-event-meta"><li>${icons.format}${formatLabel(t)}</li>${t.locked ? `<li>${icons.lock}Inscripción con clave</li>` : ''}<li>${icons.calendar}${t.startsAt ? esc(date(t.startsAt)) : 'Inicio a cargo del organizador'}</li></ul>`
+    + `<h3>${esc(t.title)}</h3><ul class="to-event-meta"><li>${icons.format}${presencial(t) ? 'Presencial · ' : ''}${formatLabel(t)}</li>${t.locked ? `<li>${icons.lock}Inscripción con clave</li>` : ''}<li>${icons.calendar}${t.startsAt ? esc(date(t.startsAt)) : 'Inicio a cargo del organizador'}</li></ul>`
     + `<div class="to-event-fill"><span>${icons.people}${count}/${t.capacity} jugadores</span><i><b style="width:${full}%"></b></i></div>`
-    + `<div class="to-event-actions"><a class="btn" href="jugar-torneo.html?id=${t.id}"><span>${t.status === 'waiting' ? 'Entrar e inscribirme' : 'Ver torneo'}</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-5-5 5 5-5 5"/></svg></a>${pencil || trash ? `<div class="to-event-tools">${pencil}${trash}</div>` : ''}</div></article>`;
+    + `<div class="to-event-actions"><a class="btn" href="jugar-torneo.html?id=${t.id}"><span>${t.status === 'waiting' && !presencial(t) ? 'Entrar e inscribirme' : 'Ver torneo'}</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-5-5 5 5-5 5"/></svg></a>${pencil || trash ? `<div class="to-event-tools">${pencil}${trash}</div>` : ''}</div></article>`;
 }
 async function loadLobby() {
   if (!API) {
@@ -203,13 +205,14 @@ function connect() {
 function render() {
   const t = state;
   $('to-title').textContent = t.title; document.title = t.title + ' · Torneo Apejupo';
-  $('to-subtitle').textContent = canJoin(t) && arena(t) && t.status === 'playing' && !t.standings.some(p => p.id === t.me) ? 'El arena está en marcha: únete y empieza a jugar ya.' : t.challenge ? (t.status === 'waiting' ? 'La partida empieza en cuanto los dos tengáis el tablero abierto.' : '') : t.status === 'waiting' ? 'Las inscripciones están abiertas. Reserva tu sitio en el tablero.' : 'Sigue tus partidas, los tableros y la clasificación en directo.';
+  $('to-subtitle').textContent = presencial(t) ? 'Consulta las mesas, los resultados y la clasificación. La organización gestiona las inscripciones y las rondas.' : canJoin(t) && arena(t) && t.status === 'playing' && !t.standings.some(p => p.id === t.me) ? 'El arena está en marcha: únete y empieza a jugar ya.' : t.challenge ? (t.status === 'waiting' ? 'La partida empieza en cuanto los dos tengáis el tablero abierto.' : '') : t.status === 'waiting' ? 'Las inscripciones están abiertas. Reserva tu sitio en el tablero.' : 'Sigue tus partidas, los tableros y la clasificación en directo.';
   $('to-subtitle').hidden = !$('to-subtitle').textContent;
   // Reto: solo el tablero (y el marcador entre los dos) bajo la cabecera de la web.
   document.body.classList.toggle('to-challenge', !!t.challenge);
   $('to-summary').innerHTML = `<span class="to-status ${t.status}">${esc(t.challenge && t.status === 'waiting' ? 'Esperando al rival' : statuses[t.status])}</span><span>${icons.clock}${t.minutes} + ${t.increment}</span><span>${icons.format}${formatLabel(t)}</span>${t.challenge ? '' : `<span>${arena(t) ? 'Emparejamiento continuo' : closed(t) ? 'Todos contra todos' : t.pairing === 'club' ? 'Suizo de club' : 'Suizo FIDE (sistema holandés)'}</span>`}`
     + (t.status === 'waiting' ? `<span>${icons.people}Hasta ${t.capacity} jugadores</span><span>${icons.calendar}${t.startsAt ? esc(date(t.startsAt)) : 'Inicio a cargo del organizador'}</span>${t.locked ? `<span>${icons.lock}Con clave</span>` : ''}` : '');
-  placeWaiting(t.status === 'waiting');
+  document.body.classList.toggle('to-presencial-room', presencial(t));
+  placeWaiting(t.status === 'waiting' && !presencial(t));
   $('to-notice').hidden = !t.notice; $('to-notice').textContent = t.notice;
   const mine = t.standings.find(p => p.id === t.me), registering = t.status === 'waiting';
   $('to-registration').hidden = !canJoin(t) || !!mine || t.count >= t.capacity;
@@ -219,13 +222,13 @@ function render() {
   $('to-membership-text').textContent = mine ? `Juegas como ${mine.name}${mine.active ? '' : ' · Retirado del torneo'}` : '';
   $('to-standings-title').textContent = registering ? 'Inscritos' : 'Clasificación';
   $('to-player-count').textContent = `${listed(t).length}/${t.capacity}`;
-  $('to-extra-col').innerHTML = arena(t) ? '<abbr title="Partidas jugadas">PJ</abbr>' : '<abbr title="Buchholz: suma de puntos de los rivales">BH</abbr>';
+  $('to-extra-col').innerHTML = arena(t) ? '<abbr title="Partidas jugadas">PJ</abbr>' : closed(t) ? '<abbr title="Sonneborn-Berger">SB</abbr>' : '<abbr title="Buchholz: suma de puntos de los rivales">BH</abbr>';
   const tag = p => (p.registered ? ' <span class="to-registered" title="Cuenta registrada">✓</span>' : '') + (!p.active ? ' <small>retirado</small>' : '');
   // Arena en marcha: delante del nombre, punto verde parpadeante si está jugando y gris fijo si no (esperando o partida terminada).
   const dot = p => arena(t) && t.status === 'playing' && p.active ? `<span class="to-state ${p.playing ? 'on' : 'off'}" title="${p.playing ? 'Jugando' : 'Sin partida ahora'}" aria-label="${p.playing ? 'Jugando' : 'Sin partida ahora'}"></span>` : '';
-  $('to-standings').innerHTML = listed(t).map((p, i) => `<tr class="${p.id === t.me ? 'me ' : ''}${t.status === 'finished' && i === 0 ? 'winner' : ''}"><td>${i + 1}</td><td>${dot(p)}${esc(p.name)}${p.rating ? ` <small class="to-elo" title="Elo">${p.rating}</small>` : ''}${p.id === t.me ? ' <small>(tú)</small>' : ''}${tag(p)}${sheet(p)}${registering && t.host ? `<button class="to-remove" type="button" data-remove="${p.id}" aria-label="Retirar a ${esc(p.name)}">×</button>` : ''}</td><td><strong>${formatPoints(p.points)}</strong></td><td>${arena(t) ? p.played : formatPoints(p.buchholz)}</td></tr>`).join('') || '<tr><td colspan="4" class="muted">Aún no hay inscritos.</td></tr>';
+  $('to-standings').innerHTML = listed(t).map((p, i) => `<tr class="${p.id === t.me ? 'me ' : ''}${t.status === 'finished' && i === 0 ? 'winner' : ''}"><td>${i + 1}</td><td>${dot(p)}${esc(p.name)}${p.rating ? ` <small class="to-elo" title="Elo">${p.rating}</small>` : ''}${p.id === t.me ? ' <small>(tú)</small>' : ''}${tag(p)}${sheet(p)}${registering && t.host ? `<button class="to-remove" type="button" data-remove="${p.id}" aria-label="Retirar a ${esc(p.name)}">×</button>` : ''}</td><td><strong>${formatPoints(p.points)}</strong></td><td>${arena(t) ? p.played : formatPoints(closed(t) ? p.sonneborn : p.buchholz)}</td></tr>`).join('') || '<tr><td colspan="4" class="muted">Aún no hay inscritos.</td></tr>';
   $('to-tiebreak').hidden = registering;
-  $('to-tiebreak').textContent = arena(t) ? 'Desempates: victorias, menos partidas jugadas y número de sorteo.' : 'Desempates: Buchholz, Sonneborn-Berger, victorias y número de sorteo.';
+  $('to-tiebreak').textContent = arena(t) ? 'Desempates: victorias, menos partidas jugadas y número de sorteo.' : closed(t) ? 'Desempates: Sonneborn-Berger, victorias y número de sorteo.' : 'Desempates: Buchholz, Sonneborn-Berger, victorias y número de sorteo.';
   const rounds = arena(t) ? [] : [...new Set(t.games.map(g => g.round))];
   $('to-round').innerHTML = rounds.map(r => `<option value="${r}">Ronda ${r}</option>`).join('');
   $('to-round').hidden = !rounds.length;
@@ -249,7 +252,7 @@ function render() {
   $('to-back').hidden = !t.host;
   $('to-focus-title').textContent = t.title;
   $('to-focus-format').textContent = `${t.minutes} + ${t.increment} · ${formatLabel(t)}`;
-  renderPodium(); renderMatches(); renderGame(); renderControls(); renderBoards(); updateClocks();
+  renderPodium(); renderMatches(); renderGame(); renderControls(); renderBoards(); renderPresencial(); updateClocks();
 }
 // Sala de espera (estilo Lichess): inscritos a la izquierda; en el centro la cuenta atrás,
 // el botón de unirse y la organización. Se mueven los bloques existentes, sin duplicarlos,
@@ -265,7 +268,7 @@ function placeWaiting(waiting) {
     } else if (!waiting && waitHomes.has(el)) waitHomes.get(el).after(el);
   }
 }
-function canJoin(t) { return !t.challenge && (t.status === 'waiting' || (arena(t) && t.status === 'playing' && Date.now() + offset < t.endsAt)); }
+function canJoin(t) { return !presencial(t) && !t.challenge && (t.status === 'waiting' || (arena(t) && t.status === 'playing' && Date.now() + offset < t.endsAt)); }
 // Hoja de resultados, como en Lichess: una cifra por partida; resaltadas las ganadas con Berserk.
 function sheet(p) {
   if (!p.sheet?.length) return '';
@@ -468,6 +471,25 @@ function newGameAlert() {
   if (document.hidden) { const title = document.title; document.title = '♟ ¡Tu partida empieza!'; addEventListener('visibilitychange', () => { document.title = title; }, { once: true }); }
 }
 function formatPoints(n) { return Number.isInteger(n) ? String(n) : n % 1 === .5 ? (Math.floor(n) || '') + '½' : String(n); }
+function renderPresencial() {
+  const t = state, show = presencial(t), waiting = t.status === 'waiting';
+  $('to-presencial').hidden = !show;
+  if (!show) return;
+  $('to-presencial-player-form').hidden = !t.host || !waiting;
+  $('to-presencial-player-form').querySelector('button').disabled = !connected || t.count >= t.capacity;
+  $('to-presencial-next').hidden = !t.host || t.status !== 'between';
+  $('to-presencial-next').disabled = !connected;
+  $('to-presencial-hint').textContent = waiting ? (t.host ? 'Añade a los jugadores y su Elo antes de generar la primera ronda.' : 'La organización está preparando la lista de jugadores.') : t.host ? 'Anota los resultados de cada mesa. Puedes corregirlos antes de emparejar la siguiente ronda.' : 'Los resultados se actualizan cuando los anota la organización.';
+  const rounds = [...new Set(t.games.map(g => g.round))];
+  $('to-presencial-round').hidden = !rounds.length;
+  $('to-presencial-round').innerHTML = rounds.map(r => `<option value="${r}">Ronda ${r}</option>`).join('');
+  if (rounds.includes(viewedRound)) $('to-presencial-round').value = viewedRound;
+  const games = t.games.filter(g => g.round === viewedRound), results = [['1-0', '1–0'], ['1/2-1/2', '½–½'], ['0-1', '0–1']];
+  $('to-presencial-matches').innerHTML = games.map((g, i) => {
+    const editable = t.host && g.round === t.round && !g.bye && t.status !== 'cancelled';
+    return `<article class="to-presencial-match"><span class="to-presencial-table">Mesa ${i + 1}</span><div class="to-presencial-names"><strong>♔ ${esc(name(g.white))}</strong><span>${g.bye ? esc(g.reason) : '♚ ' + esc(name(g.black))}</span></div>${g.bye ? '' : editable ? `<div class="to-presencial-results" role="group" aria-label="Resultado de la mesa ${i + 1}">${results.map(([v, label]) => `<button type="button" class="btn-ghost" data-result-game="${g.id}" data-result="${v}" aria-pressed="${g.result === v}" ${!connected ? 'disabled' : ''}>${label}</button>`).join('')}${g.result ? `<button class="to-link" type="button" data-result-game="${g.id}" data-result="" ${!connected ? 'disabled' : ''}>Borrar resultado</button>` : ''}</div>` : `<strong class="to-presencial-score">${g.result ? esc(g.result.replace('1/2-1/2', '½–½')) : 'Pendiente'}</strong>`}</article>`;
+  }).join('');
+}
 function renderMatches() {
   // Arena: solo las partidas en juego, de la más reciente a la más antigua; al terminar, desaparecen de la lista.
   const list = arena(state) ? [...state.games].reverse().filter(g => !g.result && !g.bye && g.fen) : state.games.filter(g => g.round === viewedRound);
@@ -482,6 +504,9 @@ function renderControls() {
   if (!state) return;
   const t = state, mine = t.standings.find(p => p.id === t.me), ended = ['finished', 'cancelled'].includes(t.status);
   $('to-host').hidden = !t.host || ended;
+  $('to-sound').hidden = presencial(t);
+  $('to-key-edit').hidden = presencial(t);
+  $('to-host-key').hidden = presencial(t);
   $('to-host-edit').hidden = t.status !== 'waiting';
   $('to-start').hidden = t.status !== 'waiting'; $('to-start').disabled = !connected || t.count < 2;
   $('to-cancel').disabled = !connected;
@@ -503,7 +528,7 @@ function renderControls() {
   $('to-berserk').disabled = !connected || pending;
   $('to-draw-offer').hidden = !g || !!g.result || !ownGame || !g.offer || g.offer === t.me;
   $('to-accept').disabled = !connected; $('to-decline').disabled = !connected;
-  $('to-all-pgn').hidden = !ended || !t.games.some(g => !g.bye);
+  $('to-all-pgn').hidden = presencial(t) || !ended || !t.games.some(g => !g.bye);
   // Reto terminado: cualquiera de los dos puede pedir la revancha (mismo ritmo, colores cambiados).
   $('to-rematch-box').hidden = !t.challenge || !g || !ownGame || !g.result || t.status !== 'finished';
   if ($('to-rematch-box').hidden) { rematch = null; $('to-rematch-msg').textContent = ''; }
@@ -792,7 +817,7 @@ function updateClocks() {
     : isMatch(t) && t.status === 'finished' ? 'Match terminado'
     : t.status === 'waiting' || t.challenge ? ''
     : arena(t) && t.status === 'playing' ? (closing ? 'Tiempo cumplido: esperando las últimas partidas, que cuentan para la clasificación final' : t.pairingsCloseAt && now >= t.pairingsCloseAt ? (me?.active && !me.playing ? 'Ya no hay emparejamientos nuevos' : '') : me?.active && !me.playing && !me.paused ? 'Buscando rival…' : '')
-    : t.status === 'between' ? `Siguiente ronda en ${Math.max(0, Math.ceil((t.nextRoundAt - now) / 1000))} s` : t.status === 'playing' ? `Ronda ${t.round} de ${t.rounds}` : t.status === 'finished' ? 'Clasificación final' : 'Torneo cancelado';
+    : t.status === 'between' ? (presencial(t) ? `Ronda ${t.round} completada · Esperando a la organización` : `Siguiente ronda en ${Math.max(0, Math.ceil((t.nextRoundAt - now) / 1000))} s`) : t.status === 'playing' ? `Ronda ${t.round} de ${t.rounds}` : t.status === 'finished' ? 'Clasificación final' : 'Torneo cancelado';
   // Cuenta atrás grande del arena, como en Lichess.
   const counting = arena(t) && t.status === 'playing' && now < t.endsAt;
   $('to-countdown').hidden = !counting;
@@ -855,8 +880,25 @@ function localDay(d) { return `${d.getFullYear()}-${String(d.getMonth() + 1).pad
 const formatHelp = {
   arena: 'Tiempo máximo de juego',
   swiss: 'Número fijo de rondas, con rivales de puntuación parecida y sin repetir enfrentamientos.',
-  closed: 'Todos contra todos, una vez cada uno. Las rondas salen del número de inscritos.'
+  closed: 'Todos contra todos, una vez cada uno. Las rondas salen del número de inscritos.',
+  'double-closed': 'Todos contra todos a doble vuelta: una partida con blancas y otra con negras contra cada rival.'
 };
+const modeFormats = {
+  online: [['arena', 'Arena (tiempo máximo)'], ['swiss', 'Sistema suizo'], ['closed', 'Round-Robin']],
+  presencial: [['swiss', 'Sistema suizo'], ['closed', 'Round-Robin'], ['double-closed', 'Round-Robin doble vuelta']]
+};
+function syncMode(format = $('to-format').value) {
+  const physical = $('to-mode').value === 'presencial', options = modeFormats[physical ? 'presencial' : 'online'];
+  $('to-mode-switch').setAttribute('aria-checked', String(physical));
+  $('to-format').innerHTML = options.map(([value, label]) => `<option value="${value}">${label}</option>`).join('');
+  $('to-format').value = options.some(([value]) => value === format) ? format : options[0][0];
+  $('to-create-hint').textContent = physical ? 'Se juega en el club. La organización inscribe a los jugadores, genera las rondas y anota los resultados.' : 'Las inscripciones serán públicas. Tú decides cuándo empieza.';
+  $('to-start-help').textContent = physical ? 'Fecha y hora previstas. El organizador inicia el torneo y cada ronda.' : 'Hora local de tu dispositivo. Sin día: inicio manual por el organizador.';
+  $('to-join-key-field').hidden = physical; $('to-join-key-new').disabled = physical;
+  $('to-capacity-field').hidden = physical; $('to-capacity').disabled = physical;
+  $('to-create-submit').textContent = editingId ? 'Guardar cambios' : physical ? 'Crear torneo presencial' : 'Crear y abrir inscripciones';
+  syncFormat();
+}
 function syncFormat() {
   const format = $('to-format').value, isArena = format === 'arena', noRounds = format !== 'swiss';
   $('to-format-help').textContent = formatHelp[format];
@@ -864,10 +906,20 @@ function syncFormat() {
   $('to-duration-field').hidden = !isArena; $('to-duration').disabled = !isArena;
 }
 $('to-format').addEventListener('change', syncFormat);
+$('to-mode-switch').addEventListener('click', () => {
+  const previous = $('to-mode').value;
+  createModeChoices[previous] = { format: $('to-format').value, minutes: $('to-minutes').value, increment: $('to-increment').value, day: $('to-start-day').value, time: $('to-start-time').value };
+  const next = previous === 'presencial' ? 'online' : 'presencial';
+  $('to-mode').value = next;
+  const choice = createModeChoices[next] || (next === 'presencial' ? { format: 'double-closed', minutes: '3', increment: '2', day: localDay(new Date()), time: '17:00' } : { format: 'arena', minutes: '5', increment: '3', day: '', time: '' });
+  syncMode(choice.format); $('to-minutes').value = choice.minutes; $('to-increment').value = choice.increment;
+  $('to-start-day').value = choice.day; $('to-start-time').value = choice.time;
+});
 $('to-refresh').addEventListener('click', loadLobby);
 // El mismo formulario sirve para crear y para editar (editingId = torneo que se edita).
 function setCreateMode(id) {
   editingId = id;
+  createModeChoices = {};
   $('to-create-heading').textContent = id ? 'Editar torneo' : 'Organizar un torneo';
   $('to-create-submit').textContent = id ? 'Guardar cambios' : 'Crear y abrir inscripciones';
   // Para editar basta con ser el organizador: no se pide la clave de organización.
@@ -879,7 +931,7 @@ $('to-create-open').addEventListener('click', () => {
   const user = currentUser();
   if (!user) { message('Entra con tu cuenta para organizar un torneo.'); openAuth('entrar'); return; }
   if (!user.verified) { message('Confirma tu correo para organizar torneos: abre el enlace que te enviamos. Si no te llegó, pídelo de nuevo desde el menú de tu cuenta.', true); return; }
-  $('to-create-form').reset(); setCreateMode(null); syncFormat();
+  $('to-create-form').reset(); $('to-mode').value = 'online'; setCreateMode(null); syncMode('arena');
   $('to-create-dialog').showModal();
   // Al crear, la clave empieza en blanco aunque el navegador intente autorrellenarla.
   setTimeout(() => { if (!editingId) $('to-join-key-new').value = ''; }, 50);
@@ -887,7 +939,8 @@ $('to-create-open').addEventListener('click', () => {
 async function openEdit(id) {
   const c = await (await request(`/api/tournaments/${id}/config`, { method: 'POST', body: JSON.stringify({ hostToken: read(hostKey(id)) }) })).json();
   const form = $('to-create-form'); form.reset(); setCreateMode(id);
-  form.title.value = c.title; $('to-format').value = c.format; $('to-minutes').value = c.minutes; $('to-increment').value = c.increment;
+  $('to-mode').value = c.mode || 'online'; syncMode(c.format);
+  form.title.value = c.title; $('to-minutes').value = c.minutes; $('to-increment').value = c.increment;
   if (c.format === 'swiss') $('to-rounds').value = c.rounds;
   if (c.format === 'arena') $('to-duration').value = c.duration;
   // Se muestra la clave actual para poder cambiarla; si se borra, el torneo queda sin clave.
@@ -911,12 +964,12 @@ $('to-create-form').addEventListener('submit', async event => {
     if (time && !day) throw new Error('Elige también el día de inicio.');
     const startsAt = day ? new Date(`${day}T${time}`).getTime() : null;
     const isArena = data.get('format') === 'arena';
+    const fields = { title: data.get('title'), mode: data.get('mode'), format: data.get('format'), minutes: Number(data.get('minutes')), increment: Number(data.get('increment')), rounds: data.get('format') === 'swiss' ? Number(data.get('rounds')) : null, duration: isArena ? Number(data.get('duration')) : null, capacity: data.get('mode') === 'presencial' ? 128 : Number(data.get('capacity')), startsAt, joinKey: data.get('joinKey') || '' };
     if (editingId) {
-      const fields = { title: data.get('title'), format: data.get('format'), minutes: Number(data.get('minutes')), increment: Number(data.get('increment')), rounds: data.get('format') === 'swiss' ? Number(data.get('rounds')) : null, duration: isArena ? Number(data.get('duration')) : null, capacity: Number(data.get('capacity')), startsAt, joinKey: data.get('joinKey') || '' };
       await request(`/api/tournaments/${editingId}/edit`, { method: 'POST', body: JSON.stringify({ ...fields, hostToken: read(hostKey(editingId)) }) });
       $('to-create-dialog').close(); message('Cambios guardados.'); if (!roomId) await loadLobby(); return;
     }
-    const res = await (await request('/api/tournaments', { method: 'POST', key: session(), body: JSON.stringify({ title: data.get('title'), format: data.get('format'), minutes: Number(data.get('minutes')), increment: Number(data.get('increment')), rounds: data.get('format') === 'swiss' ? Number(data.get('rounds')) : null, duration: isArena ? Number(data.get('duration')) : null, capacity: Number(data.get('capacity')), startsAt, joinKey: data.get('joinKey') || '', hostToken }) })).json();
+    const res = await (await request('/api/tournaments', { method: 'POST', key: session(), body: JSON.stringify({ ...fields, hostToken }) })).json();
     write(hostKey(res.id), hostToken); $('to-key').value = ''; location.href = 'jugar-torneo.html?id=' + res.id;
   } catch (e) { $('to-create-error').hidden = false; $('to-create-error').textContent = e.message; }
   finally { button.disabled = false; }
@@ -941,7 +994,19 @@ $('to-join-form').addEventListener('submit', async event => {
   finally { button.disabled = !connected; }
 });
 $('to-start').addEventListener('click', async () => {
-  if (await confirmAction('Empezar torneo', arena(state) ? `Se cerrarán las inscripciones y empezará la cuenta atrás de ${duration(state.duration)}. Se emparejará a los jugadores que tengan la página abierta.` : `Se cerrarán las inscripciones y arrancarán los relojes de ${state.count} jugadores. Las rondas se ajustarán al número de inscritos.`, false)) { message(''); send({ type: 'start' }); }
+  if (await confirmAction('Empezar torneo', presencial(state) ? `Se cerrarán las inscripciones y se generará la primera ronda para ${state.count} jugadores. Las partidas se juegan en los tableros del club.` : arena(state) ? `Se cerrarán las inscripciones y empezará la cuenta atrás de ${duration(state.duration)}. Se emparejará a los jugadores que tengan la página abierta.` : `Se cerrarán las inscripciones y arrancarán los relojes de ${state.count} jugadores. Las rondas se ajustarán al número de inscritos.`, false)) { message(''); send({ type: 'start' }); }
+});
+$('to-presencial-player-form').addEventListener('submit', event => {
+  event.preventDefault();
+  if (send({ type: 'presencial-player', name: $('to-presencial-name').value, rating: $('to-presencial-rating').value })) event.currentTarget.reset();
+});
+$('to-presencial-next').addEventListener('click', async () => {
+  if (await confirmAction('Emparejar siguiente ronda', 'Se generarán los nuevos emparejamientos con los resultados actuales. Los resultados de la ronda anterior quedarán cerrados.')) send({ type: 'presencial-next' });
+});
+$('to-presencial-round').addEventListener('change', event => { viewedRound = Number(event.target.value); renderPresencial(); });
+$('to-presencial-matches').addEventListener('click', event => {
+  const button = event.target.closest('[data-result-game]');
+  if (button) send({ type: 'presencial-result', game: button.dataset.resultGame, result: button.dataset.result || null });
 });
 $('to-cancel').addEventListener('click', async () => {
   if (await confirmAction('Cancelar torneo', 'El torneo se cerrará y las partidas en juego terminarán en tablas. Esta acción no se puede deshacer.', true)) send({ type: 'cancel' });

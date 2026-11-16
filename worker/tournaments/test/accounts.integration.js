@@ -27,14 +27,18 @@ test('cuentas: registro, confirmación, entrada, torneo, recuperación y borrado
     assert.equal(rejected.status, 400); assert.match(rejected.body.error, /6 a 20/);
   }
   assert.equal((await call('/api/cuentas/registro', { nick: 'A'.repeat(21), email, password })).status, 400);
-  for (const size of [6, 20]) {
-    const boundaryNick = ('L' + randomBytes(10).toString('hex')).slice(0, size);
-    const boundary = await call('/api/cuentas/registro', { nick: boundaryNick, email: `limite.${size}.${tail}@example.com`, password });
-    assert.equal(boundary.status, 201); assert.equal(boundary.body.user.nick.length, size);
-    assert.equal((await call('/api/cuentas/entrar', { login: boundaryNick, password })).status, 200);
+  const numericNicks = [6, 20].map(size => ('7' + randomBytes(10).toString('hex')).slice(0, size));
+  numericNicks.push('00' + String(Date.now()).slice(-10));
+  for (const [index, boundaryNick] of numericNicks.entries()) {
+    const boundary = await call('/api/cuentas/registro', { nick: boundaryNick, email: `limite.${index}.${tail}@example.com`, password });
+    assert.equal(boundary.status, 201); assert.equal(boundary.body.user.nick, boundaryNick);
+    const entered = await call('/api/cuentas/entrar', { login: boundaryNick, password });
+    assert.equal(entered.status, 200); assert.equal(entered.body.user.nick, boundaryNick);
     assert.equal((await call('/api/cuentas/borrar', { password }, boundary.body.session)).status, 200);
   }
-  assert.equal((await call('/api/cuentas/registro', { nick: '1malo', email, password })).status, 400);
+  for (const invalid of ['-malonick', 'Nick!1', 'Nick 1', 'Álvaro1']) {
+    assert.equal((await call('/api/cuentas/registro', { nick: invalid, email, password })).status, 400);
+  }
   assert.equal((await call('/api/cuentas/registro', { nick, email: 'no-es-correo', password })).status, 400);
   assert.equal((await call('/api/cuentas/registro', { nick, email, password: 'corta' })).status, 400);
   assert.equal((await call('/api/cuentas/registro', { nick: 'Admin', email, password })).status, 400);

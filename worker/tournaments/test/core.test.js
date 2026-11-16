@@ -20,7 +20,7 @@ function play(t, san, now) {
 test('validación de torneos, inscripción, capacidad, duplicados e identidad', () => {
   assert.throws(() => tournament(0, { capacity: 129 }), /128/);
   assert.equal(tournament(0, { capacity: 128 }).capacity, 128);
-  assert.throws(() => tournament(0, { minutes: 4 }), /ritmo/);
+  assert.throws(() => tournament(0, { minutes: 7 }), /ritmo/);
   assert.throws(() => tournament(0, { startsAt: NOW - 1 }), /fecha/);
   const t = tournament(1, { capacity: 2 });
   assert.equal(joinTournament(t, 'Otro nombre', 'secret-0').id, t.players[0].id);
@@ -32,7 +32,7 @@ test('validación de torneos, inscripción, capacidad, duplicados e identidad', 
 
 test('los ritmos largos se pueden crear, editar e iniciar con el reloj correcto', () => {
   for (const format of ['swiss', 'closed']) {
-    for (const minutes of [20, 30, 60, 90]) {
+    for (const minutes of [4, 20, 30, 60, 90]) {
       const t = tournament(2, { format, minutes });
       assert.equal(t.minutes, minutes);
       editTournament(t, { title: t.title, format, minutes, increment: 3, rounds: 5, capacity: 32 }, NOW);
