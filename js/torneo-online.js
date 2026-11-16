@@ -219,9 +219,14 @@ function render() {
   renderJoin();
   $('to-membership').hidden = !mine || !!t.challenge;
   renderDuel(t);
-  $('to-membership-text').textContent = mine ? `Juegas como ${mine.name}${mine.active ? '' : ' · Retirado del torneo'}` : '';
+  $('to-membership-text').hidden = !mine || mine.active;
+  $('to-membership-text').textContent = mine && !mine.active ? 'Retirado del torneo' : '';
   $('to-standings-title').textContent = registering ? 'Inscritos' : 'Clasificación';
+  $('to-standings-panel').classList.toggle('to-registration-panel', registering);
   $('to-player-count').textContent = `${listed(t).length}/${t.capacity}`;
+  $('to-player-count').setAttribute('aria-label', `${listed(t).length} jugadores de ${t.capacity} plazas`);
+  $('to-registration-progress').hidden = !registering;
+  $('to-registration-progress').firstElementChild.style.width = `${Math.max(0, Math.min(100, listed(t).length / t.capacity * 100))}%`;
   $('to-extra-col').innerHTML = arena(t) ? '<abbr title="Partidas jugadas">PJ</abbr>' : closed(t) ? '<abbr title="Sonneborn-Berger">SB</abbr>' : '<abbr title="Buchholz: suma de puntos de los rivales">BH</abbr>';
   const tag = p => (p.registered ? ' <span class="to-registered" title="Cuenta registrada">✓</span>' : '') + (!p.active ? ' <small>retirado</small>' : '');
   // Arena en marcha: delante del nombre, punto verde parpadeante si está jugando y gris fijo si no (esperando o partida terminada).
@@ -514,7 +519,7 @@ function renderControls() {
   $('to-key-edit').textContent = t.joinKey ? 'Cambiar clave' : 'Poner clave'; $('to-key-edit').disabled = !connected;
   $('to-pause').hidden = !arena(t) || !mine?.active || ended;
   $('to-pause').textContent = mine?.paused ? 'Entrar en el torneo' : 'Salir del torneo'; $('to-pause').disabled = !connected;
-  $('to-withdraw').hidden = !mine?.active || ended; $('to-withdraw').textContent = t.status === 'waiting' ? 'Cancelar inscripción' : 'Retirarme del torneo';
+  $('to-withdraw').hidden = !mine?.active || ended; $('to-withdraw-label').textContent = t.status === 'waiting' ? 'Cancelar inscripción' : 'Retirarme del torneo';
   $('to-withdraw').disabled = !connected;
   $('to-join-form').querySelector('button').disabled = !connected;
   const g = t.game, ownGame = g && (g.white === t.me || g.black === t.me);
