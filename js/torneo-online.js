@@ -1,5 +1,5 @@
 import { Chess } from '../assets/chess/chess.js';
-import { session, currentUser, openAuth } from './cuenta.js?v=20261115-match1';
+import { session, currentUser, openAuth } from './cuenta.js?v=20261116-registro1';
 import { send as sendReto } from './retos.js?v=20261115-match1';
 
 const $ = id => document.getElementById(id);

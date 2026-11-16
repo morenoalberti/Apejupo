@@ -51,6 +51,27 @@
   var vari = null, curCh = null, dragging = false, pendingRender = false; // variante propuesta por el usuario al mover piezas
   var reviewState = null, reviewController = null;
 
+  var fullscreenButton = $("lv-fullscreen");
+  if (fullscreenButton) {
+    function syncFullscreen() {
+      var active = !!document.fullscreenElement;
+      var label = active ? "Salir de pantalla completa" : "Pantalla completa";
+      fullscreenButton.hidden = !(document.fullscreenEnabled && document.documentElement.requestFullscreen);
+      fullscreenButton.setAttribute("aria-pressed", String(active));
+      fullscreenButton.setAttribute("aria-label", label); fullscreenButton.title = label;
+    }
+    fullscreenButton.addEventListener("click", async function () {
+      fullscreenButton.disabled = true;
+      try {
+        if (document.fullscreenElement) await document.exitFullscreen();
+        else await document.documentElement.requestFullscreen({ navigationUI: "hide" });
+      } catch (_) { toast("Este navegador no ha permitido activar la pantalla completa."); }
+      finally { fullscreenButton.disabled = false; syncFullscreen(); }
+    });
+    document.addEventListener("fullscreenchange", syncFullscreen);
+    syncFullscreen();
+  }
+
   var mobileOptions = $("viewer-options");
   if (mobileOptions) mobileOptions.addEventListener("click", function () {
     var expanded = mobileOptions.getAttribute("aria-expanded") !== "true";

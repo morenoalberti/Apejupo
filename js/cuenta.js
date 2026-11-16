@@ -59,7 +59,7 @@ const DIALOG = `<dialog id="cu-dialog" class="cu-dialog" aria-labelledby="cu-tit
     <label for="cu-email">Correo electrónico</label><input id="cu-email" name="email" type="email" autocomplete="email" required>
     <small class="muted">Solo para confirmar la cuenta y recuperar la contraseña. No se muestra a nadie.</small>
     <label for="cu-newpass">Contraseña</label><input id="cu-newpass" name="password" type="password" autocomplete="new-password" minlength="8" maxlength="128" required>
-    <label class="cu-check"><input type="checkbox" name="privacy" required> <span>Tengo 14 años o más y he leído la <a href="privacidad.html" target="_blank">política de privacidad</a></span></label>
+    <label class="cu-check"><input type="checkbox" name="privacy" required> <span>He leído la <a href="privacidad.html" target="_blank">política de privacidad</a></span></label>
     <button class="btn cu-submit" type="submit">Crear cuenta</button></form>
   <form data-cu-form="recuperar" novalidate><p class="muted">Escribe el correo de tu cuenta y te mandaremos un enlace para poner una contraseña nueva.</p>
     <label for="cu-remail">Correo electrónico</label><input id="cu-remail" name="email" type="email" autocomplete="email" required>

@@ -952,6 +952,19 @@ body.card-dragging .tour-tip { display: none !important; }
 /* La cabecera del torneo queda debajo de la barra del logo durante el scroll. */
 .lv-sticky-header { position: sticky; top: 64px; z-index: 9; margin: -12px -12px 0; padding: 12px 12px 6px; border-radius: 11px 11px 0 0; background: var(--card); }
 .lv-sticky-header .lv-addrow { margin-bottom: 0; }
+.lv-fullscreen, .lv-fs-exit { display: none; }
+/* Con el dedo, el contenido del torneo se desplaza completo también en tableta. */
+@media (hover: none), (pointer: coarse) {
+  .live-tournament .site-header { position: relative; }
+  .live-tournament .lv-sticky-header { position: relative; top: auto; }
+  .live-tournament .site-header .bar { gap: 10px; }
+  .live-tournament .site-header .bar > .cuenta-chip { margin-left: 0; }
+  .lv-fullscreen:not([hidden]) { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 40px; height: 40px; margin-left: auto; padding: 0; border: 1px solid #2a3654; border-radius: 10px; background: transparent; color: #e8eef7; cursor: pointer; }
+  .lv-fullscreen:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+  html:fullscreen .lv-fullscreen { position: fixed; right: 16px; bottom: max(16px, env(safe-area-inset-bottom)); z-index: 60; width: 44px; height: 44px; margin: 0; background: var(--navy); border-color: #6d8db9; box-shadow: 0 4px 16px #0005; }
+  html:fullscreen .lv-fs-enter { display: none; }
+  html:fullscreen .lv-fs-exit { display: block; }
+}
 .lv-mobile-options { display: none; }
 /* En teléfono, la cabecera del visor se desplaza y sus controles se despliegan a petición. */
 @media (max-width: 600px), (max-height: 500px) and (pointer: coarse) {

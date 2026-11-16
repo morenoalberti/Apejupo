@@ -1,6 +1,6 @@
 // Página «Retar»: retar por su nick a un jugador que esté en línea. Al aceptar, los dos van al tablero
 // automáticamente (lo hace js/retos.js, que está en todas las páginas).
-import { currentUser, openAuth } from './cuenta.js?v=20261115-match1';
+import { currentUser, openAuth } from './cuenta.js?v=20261116-registro1';
 import { send, isReady, outgoing, myNick } from './retos.js?v=20261115-match1';
 
 const $ = id => document.getElementById(id);
