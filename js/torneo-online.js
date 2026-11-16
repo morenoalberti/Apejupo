@@ -63,7 +63,7 @@ const isMatch = t => !!t.challenge && t.rounds > 1;
 // Quien ha salido del torneo no aparece en las listas ni en los contadores hasta que vuelve a entrar
 // (en la clasificación final sí, con sus puntos).
 const listed = t => t.standings.filter(p => !p.paused || t.status === 'finished');
-function formatLabel(t) { return t.challenge ? (isMatch(t) ? `Match a ${t.rounds} partidas` : 'Reto') : arena(t) ? `Arena de ${duration(t.duration)}` : closed(t) ? (t.rounds ? `Cerrado a ${t.rounds} rondas` : 'Cerrado: todos contra todos') : `${t.rounds} rondas`; }
+function formatLabel(t) { return t.challenge ? (isMatch(t) ? `Match a ${t.rounds} partidas` : 'Reto') : arena(t) ? `Arena de ${duration(t.duration)}` : closed(t) ? (t.rounds ? `Round-Robin a ${t.rounds} rondas` : 'Round-Robin: todos contra todos') : `${t.rounds} rondas`; }
 // «15 nov, 16:00 h.»
 function date(value) { return new Intl.DateTimeFormat('es', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(value) + ' h.'; }
 function name(id) { return state?.standings.find(p => p.id === id)?.name || 'Jugador'; }
