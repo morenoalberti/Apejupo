@@ -61,13 +61,13 @@ async function query(kind, text, limit, exact = false) {
 function merge(fada, fide) {
   const out = [], byFide = new Map();
   for (const r of fada) {
-    const item = { name: r.nombre, fada: r.elo || null, fadaId: r.id, fideId: r.fide_id ? String(r.fide_id) : null, place: r.provincia || r.club || '', title: r.titulo || '' };
+    const item = { name: r.nombre, fada: r.elo || null, fadaId: r.id, fideId: r.fide_id ? String(r.fide_id) : null, fed: 'ESP', place: r.provincia || r.club || '', title: r.titulo || '' };
     out.push(item); if (item.fideId) byFide.set(item.fideId, item);
   }
   for (const r of fide) {
     const id = String(r.fide_id), known = byFide.get(id);
-    if (known) { known.fide = r.elo || null; known.title ||= r.titulo || ''; continue; }
-    out.push({ name: r.nombre, fide: r.elo || null, fideId: id, place: r.federacion || '', title: r.titulo || '' });
+    if (known) { known.fide = r.elo || null; known.title ||= r.titulo || ''; known.fed = r.federacion || known.fed; continue; }
+    out.push({ name: r.nombre, fide: r.elo || null, fideId: id, fed: r.federacion || null, place: window.U?.pais ? window.U.pais(r.federacion) : r.federacion || '', title: r.titulo || '' });
   }
   return out;
 }

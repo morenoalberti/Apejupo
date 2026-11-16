@@ -95,7 +95,7 @@ export function editTournament(t, input, now = Date.now()) {
 }
 
 export function standings(t) {
-  const rows = t.players.map(p => ({ id: p.id, name: p.name, seed: p.seed, rating: p.rating || null, source: p.source || null, fideId: p.fideId || null, active: p.active, registered: !!p.accountId,
+  const rows = t.players.map(p => ({ id: p.id, name: p.name, seed: p.seed, rating: p.rating || null, source: p.source || null, fideId: p.fideId || null, fed: p.fed || null, active: p.active, registered: !!p.accountId,
     points: 0, wins: 0, buchholz: 0, sonneborn: 0, played: 0, byes: 0, opponents: [], colors: [], sheet: [] }));
   const map = new Map(rows.map(p => [p.id, p]));
   const arenaRuns = new Map(rows.map(p => [p.id, { wins: 0, drawSinceWin: false }]));
@@ -270,13 +270,14 @@ function presencialEntry(input) {
   requireThat(rating === null || (Number.isInteger(rating) && rating >= 0 && rating <= 4000), 'El Elo debe estar entre 0 y 4000.');
   const source = ['FIDE', 'FADA'].includes(input?.source) ? input.source : null;
   const fideId = /^\d{1,12}$/.test(String(input?.fideId ?? '')) ? String(input.fideId) : null;
-  return { name, rating: rating || null, source: rating ? source : null, fideId };
+  const fed = /^[A-Z]{3}$/.test(String(input?.fed ?? '')) ? input.fed : null; // federación FIDE, para la bandera
+  return { name, rating: rating || null, source: rating ? source : null, fideId, fed };
 }
 function addPresencial(t, entry, now, extra = {}) {
   requireThat(!t.players.some(p => sameKey(p.name, entry.name)), `Ya hay un jugador con ese nombre («${entry.name}»). Añade un apellido.`);
   requireThat(t.players.length < t.capacity, 'El torneo está completo.');
   const p = { id: crypto.randomUUID(), hash: extra.hash || crypto.randomUUID(), name: entry.name, active: true, seed: t.players.length + 1, joinedAt: now,
-    rating: entry.rating, ...(entry.source ? { source: entry.source } : {}), ...(entry.fideId ? { fideId: entry.fideId } : {}), ...(extra.accountId ? { accountId: extra.accountId } : {}) };
+    rating: entry.rating, ...(entry.source ? { source: entry.source } : {}), ...(entry.fideId ? { fideId: entry.fideId } : {}), ...(entry.fed ? { fed: entry.fed } : {}), ...(extra.accountId ? { accountId: extra.accountId } : {}) };
   t.players.push(p);
   return p;
 }
@@ -492,6 +493,7 @@ export function act(t, playerId, host, action, now = Date.now()) {
       p.name = e.name; p.rating = e.rating;
       if (e.source) p.source = e.source; else delete p.source;
       if (e.fideId) p.fideId = e.fideId; else delete p.fideId;
+      if (e.fed) p.fed = e.fed; else delete p.fed;
     } else if (action.type === 'presencial-approve' || action.type === 'presencial-reject') {
       const r = (t.requests || []).find(r => r.id === action.requestId);
       requireThat(r, 'Esa solicitud ya no está pendiente.', 404);

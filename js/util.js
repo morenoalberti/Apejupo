@@ -378,6 +378,7 @@
     "https://chessrival.net/api/fide/foto?id=",
     "https://apejupo-eventos.chessrival-worker.workers.dev/?foto="  // nuestro propio Worker: lee la foto del perfil de FIDE
   ];
+  U.fotoFuentes = FOTO_FUENTES;
   var SIN_FOTO_MIN = 5, MAX_A_LA_VEZ = 4, activas = 0, cola = [];
 
   function fotosActivas() {

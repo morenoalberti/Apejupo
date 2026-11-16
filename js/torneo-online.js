@@ -1,7 +1,7 @@
 import { Chess } from '../assets/chess/chess.js';
 import { session, currentUser, openAuth } from './cuenta.js?v=20261116-registro2';
 import { send as sendReto } from './retos.js?v=20261115-match1';
-import { searchPlayers, findExact, warmUp } from './torneo-elo.js?v=20261116-presencial1';
+import { searchPlayers, findExact, warmUp } from './torneo-elo.js?v=20261116-presencial2';
 
 const $ = id => document.getElementById(id);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -1034,7 +1034,40 @@ function initials(n) {
 }
 const chip = (kind, value) => `<span class="to-pz-chip ${kind.toLowerCase()}">${kind} ${value}</span>`;
 const ratingChips = p => p.fide || p.fada ? (p.fide ? chip('FIDE', p.fide) : '') + (p.fada ? chip('FADA', p.fada) : '') : p.rating ? chip(p.source || 'Elo', p.rating) : '<span class="to-pz-chip none">Sin Elo</span>';
-const playerRow = (p, i, tools) => `<div class="to-pz-row">${i == null ? '' : `<span class="to-pz-num">${i + 1}</span>`}<span class="to-pz-avatar" aria-hidden="true">${esc(initials(p.name))}</span><span class="to-pz-name"><strong>${esc(p.name)}</strong>${p.fideId ? `<small>FIDE ${esc(p.fideId)}</small>` : ''}</span><span class="to-pz-chips">${ratingChips(p)}</span><span class="to-pz-row-tools">${tools}</span></div>`;
+// Foto (por número FIDE, como en la tabla de Elo) y bandera de la federación.
+const pzAvatar = p => `<span class="to-pz-avatar" aria-hidden="true"${p.fideId ? ` data-fid="${esc(p.fideId)}"` : ''}>${esc(initials(p.name))}</span>`;
+const pzFlag = p => p.fed && window.U?.flag ? window.U.flag(p.fed) : '';
+// Fotos de la lista: cada jugador se pide una sola vez (la lista se redibuja con cada cambio del torneo) a las
+// mismas fuentes que la tabla de Elo, como mucho 4 a la vez; las que llegan se ponen en cuanto se dibuja la fila.
+const pzFotoCache = new Map(), pzFotoCola = [];
+let pzFotoActivas = 0;
+function pzFotoSiguiente() {
+  while (pzFotoActivas < 4 && pzFotoCola.length) {
+    const [fid, resolve] = pzFotoCola.shift(), fuentes = window.U?.fotoFuentes || [];
+    let i = 0; pzFotoActivas++;
+    const fin = src => { pzFotoActivas--; resolve(src); pzFotoSiguiente(); };
+    (function probar() {
+      if (i >= fuentes.length * 2) return fin(null); // dos vueltas, como en la tabla de Elo
+      const img = new Image(); let hecho = false;
+      const fallo = () => { if (hecho) return; hecho = true; clearTimeout(t); i++; probar(); };
+      const t = setTimeout(fallo, 7000);
+      img.onload = () => { if (hecho) return; hecho = true; clearTimeout(t); fin(img.src); };
+      img.onerror = fallo;
+      img.src = fuentes[i % fuentes.length] + encodeURIComponent(fid);
+    })();
+  }
+}
+const pzFoto = fid => { if (!pzFotoCache.has(fid)) pzFotoCache.set(fid, new Promise(resolve => { pzFotoCola.push([fid, resolve]); pzFotoSiguiente(); })); return pzFotoCache.get(fid); };
+const pzPhotos = el => {
+  if (window.U?.fotosActivas && !window.U.fotosActivas()) return;
+  for (const fid of new Set([...el.querySelectorAll('.to-pz-avatar[data-fid]')].map(a => a.dataset.fid))) pzFoto(fid).then(src => {
+    if (!src) return;
+    for (const a of document.querySelectorAll(`.to-pz-avatar[data-fid="${CSS.escape(fid)}"]:not(.con-foto)`)) {
+      const img = new Image(); img.alt = ''; img.src = src; a.textContent = ''; a.append(img); a.classList.add('con-foto');
+    }
+  });
+};
+const playerRow = (p, i, tools) => `<div class="to-pz-row">${i == null ? '' : `<span class="to-pz-num">${i + 1}</span>`}${pzAvatar(p)}<span class="to-pz-name"><strong>${pzFlag(p)}${esc(p.name)}</strong>${p.fideId ? `<small>FIDE ${esc(p.fideId)}</small>` : ''}</span><span class="to-pz-chips">${ratingChips(p)}</span><span class="to-pz-row-tools">${tools}</span></div>`;
 const byRating = (a, b) => (b.rating || 0) - (a.rating || 0) || a.name.localeCompare(b.name, 'es');
 function renderRoster(t) {
   const players = [...t.standings].sort(byRating), requests = t.requests || [];
@@ -1043,7 +1076,9 @@ function renderRoster(t) {
     || '<p class="to-pz-empty">Busca a los jugadores arriba, pega una lista o enseña el QR en la entrada.</p>';
   $('to-pz-requests').hidden = !requests.length;
   $('to-pz-req-count').textContent = requests.length || '';
+  pzPhotos($('to-pz-roster'));
   $('to-pz-req-list').innerHTML = requests.map(r => playerRow(r, null, `<button type="button" class="to-pz-primary small" data-pz-approve="${r.id}">${pzIcons.check}<span>Aprobar</span></button><button type="button" class="to-pz-icon" data-pz-reject="${r.id}" aria-label="Rechazar a ${esc(r.name)}" title="Rechazar">${pzIcons.x}</button>`)).join('');
+  pzPhotos($('to-pz-req-list'));
 }
 // Buscador con sugerencias (flechas, Intro y Esc). onPick recibe { name, rating, source, fideId }.
 function attachSearch(inputId, listId, onPick, manualLabel) {
@@ -1054,9 +1089,9 @@ function attachSearch(inputId, listId, onPick, manualLabel) {
   function draw() {
     const text = input.value.trim();
     const manual = text.length >= 2 && !/^\d+$/.test(text) ? `<button type="button" class="to-pz-sug manual" role="option" data-i="-1"><span class="to-pz-avatar plain">${pzIcons.plus}</span><span class="to-pz-name"><strong>${manualLabel(esc(text))}</strong><small>Sin Elo; se puede editar después</small></span></button>` : '';
-    list.innerHTML = items.map((p, i) => `<button type="button" class="to-pz-sug" role="option" data-i="${i}"><span class="to-pz-avatar" aria-hidden="true">${esc(initials(p.name))}</span><span class="to-pz-name"><strong>${esc(p.name)}</strong><small>${[p.title, p.place, p.fideId ? 'FIDE ' + p.fideId : ''].filter(Boolean).map(esc).join(' · ')}</small></span><span class="to-pz-chips">${ratingChips(p)}</span></button>`).join('')
+    list.innerHTML = items.map((p, i) => `<button type="button" class="to-pz-sug" role="option" data-i="${i}">${pzAvatar(p)}<span class="to-pz-name"><strong>${pzFlag(p)}${esc(p.name)}</strong><small>${[p.title, p.place, p.fideId ? 'FIDE ' + p.fideId : ''].filter(Boolean).map(esc).join(' · ')}</small></span><span class="to-pz-chips">${ratingChips(p)}</span></button>`).join('')
       + (loading ? '<div class="to-pz-sug-wait">Buscando en las listas FIDE y FADA…</div>' : !items.length && text.length >= 3 ? '<div class="to-pz-sug-wait">No aparece en las listas.</div>' : '') + manual;
-    list.hidden = !list.innerHTML; input.setAttribute('aria-expanded', String(!list.hidden)); active = -1;
+    list.hidden = !list.innerHTML; input.setAttribute('aria-expanded', String(!list.hidden)); active = -1; pzPhotos(list);
   }
   function pick(i) {
     const p = i >= 0 ? items[i] : { name: input.value.trim(), rating: null, source: null, fideId: null };
@@ -1091,13 +1126,13 @@ function attachSearch(inputId, listId, onPick, manualLabel) {
 const taken = n => state.standings.some(p => p.name.toLocaleLowerCase('es') === n.toLocaleLowerCase('es'));
 attachSearch('to-pz-search', 'to-pz-sugs', p => {
   if (taken(p.name)) { message(`${p.name} ya está inscrito.`, true); return; }
-  if (send({ type: 'presencial-player', name: p.name, rating: p.rating ?? '', source: p.source, fideId: p.fideId })) message('');
+  if (send({ type: 'presencial-player', name: p.name, rating: p.rating ?? '', source: p.source, fideId: p.fideId, fed: p.fed })) message('');
   $('to-pz-search').focus();
 }, text => `Añadir «${text}»`);
 attachSearch('to-pz-ask-search', 'to-pz-ask-sugs', async p => {
   try {
     const id = read(playerKey()) || token(), user = currentUser(); write(playerKey(), id);
-    await request(`/api/tournaments/${roomId}/join`, { method: 'POST', key: user ? session() : '', body: JSON.stringify({ name: p.name, rating: p.rating ?? '', source: p.source, fideId: p.fideId, token: id }) });
+    await request(`/api/tournaments/${roomId}/join`, { method: 'POST', key: user ? session() : '', body: JSON.stringify({ name: p.name, rating: p.rating ?? '', source: p.source, fideId: p.fideId, fed: p.fed, token: id }) });
     askChanging = false; hello(); message('');
   } catch (e) { message(e.message, true); }
 }, text => `Pedir plaza como «${text}»`);
@@ -1122,7 +1157,7 @@ $('to-pz-edit-form').addEventListener('submit', event => {
   const p = state.standings.find(p => p.id === event.currentTarget.dataset.id); if (!p) return;
   const rating = $('to-pz-edit-rating').value === '' ? null : Number($('to-pz-edit-rating').value);
   const sameRating = rating === (p.rating ?? null);
-  if (send({ type: 'presencial-edit', playerId: p.id, name: $('to-pz-edit-name').value, rating: rating ?? '', source: sameRating ? p.source : null, fideId: p.fideId })) $('to-pz-edit-dialog').close();
+  if (send({ type: 'presencial-edit', playerId: p.id, name: $('to-pz-edit-name').value, rating: rating ?? '', source: sameRating ? p.source : null, fideId: p.fideId, fed: p.fed })) $('to-pz-edit-dialog').close();
 });
 
 // Lista pegada: «Nombre; Elo», «Nombre<Tab>Elo» o solo el nombre (el Elo se busca en las listas).
@@ -1139,6 +1174,7 @@ function drawPaste(status = '') {
   $('to-pz-paste-preview').hidden = false;
   $('to-pz-paste-preview').innerHTML = (status ? `<p class="to-pz-tip">${esc(status)}</p>` : '')
     + pasted.map(p => playerRow(p, null, p.problem ? `<span class="to-pz-problem">${esc(p.problem)}</span>` : p.found ? '<span class="to-pz-found">En la lista</span>' : '')).join('');
+  pzPhotos($('to-pz-paste-preview'));
   $('to-pz-paste-add').disabled = !ok.length || !!status || ok.length > free;
   $('to-pz-paste-add').textContent = ok.length > free ? `Solo quedan ${free} plazas` : `Añadir ${ok.length} jugador${ok.length === 1 ? '' : 'es'}`;
 }
@@ -1162,14 +1198,14 @@ $('to-pz-paste-check').addEventListener('click', async () => {
   for (let i = 0; i < missing.length; i++) {
     drawPaste(`Buscando el Elo en las listas… ${i + 1} de ${missing.length}`);
     const hit = await findExact(missing[i].name).catch(() => null);
-    if (hit) Object.assign(missing[i], { rating: hit.rating, source: hit.source, fideId: hit.fideId, fide: hit.fide, fada: hit.fada, found: true });
+    if (hit) Object.assign(missing[i], { rating: hit.rating, source: hit.source, fideId: hit.fideId, fed: hit.fed, fide: hit.fide, fada: hit.fada, found: true });
   }
   $('to-pz-paste-check').disabled = false;
   drawPaste();
 });
 $('to-pz-paste-form').addEventListener('submit', event => {
   event.preventDefault();
-  const players = pasted.filter(p => !p.problem).map(({ name, rating, source, fideId }) => ({ name, rating: rating ?? '', source, fideId }));
+  const players = pasted.filter(p => !p.problem).map(({ name, rating, source, fideId, fed }) => ({ name, rating: rating ?? '', source, fideId, fed }));
   if (players.length && send({ type: 'presencial-players', players })) $('to-pz-paste-dialog').close();
 });
 
