@@ -504,7 +504,14 @@ function renderPresencial() {
   const games = t.games.filter(g => g.round === viewedRound), results = [['1-0', '1–0'], ['1/2-1/2', '½–½'], ['0-1', '0–1']];
   $('to-presencial-matches').innerHTML = games.map((g, i) => {
     const editable = t.host && g.round === t.round && !g.bye && t.status !== 'cancelled';
-    return `<article class="to-presencial-match"><span class="to-presencial-table">Mesa ${i + 1}</span><div class="to-presencial-names"><strong>♔ ${esc(name(g.white))}</strong><span>${g.bye ? esc(g.reason) : '♚ ' + esc(name(g.black))}</span></div>${g.bye ? '' : editable ? `<div class="to-presencial-results" role="group" aria-label="Resultado de la mesa ${i + 1}">${results.map(([v, label]) => `<button type="button" class="btn-ghost" data-result-game="${g.id}" data-result="${v}" aria-pressed="${g.result === v}" ${!connected ? 'disabled' : ''}>${label}</button>`).join('')}${g.result ? `<button class="to-link" type="button" data-result-game="${g.id}" data-result="" ${!connected ? 'disabled' : ''}>Borrar resultado</button>` : ''}</div>` : `<strong class="to-presencial-score">${g.result ? esc(g.result.replace('1/2-1/2', '½–½')) : 'Pendiente'}</strong>`}</article>`;
+    // Una línea por mesa: blancas · resultado · negras (como en las hojas de emparejamientos).
+    const won = side => g.result === (side === 'w' ? '1-0' : '0-1') ? ' won' : '';
+    const player = (id, side) => { const p = t.standings.find(p => p.id === id) || { name: name(id) };
+      return `<span class="to-pm-player ${side === 'w' ? 'white' : 'black'}${won(side)}"><span class="to-pm-piece" aria-hidden="true">${side === 'w' ? '♔' : '♚'}</span><span class="to-pm-name">${pzFlag(p)}${esc(p.name)}</span>${p.rating ? `<small class="to-pm-elo">${p.rating}</small>` : ''}</span>`; };
+    const center = g.bye ? `<span class="to-pm-bye">${esc(g.reason || 'Descanso')}</span>`
+      : editable ? `<div class="to-presencial-results" role="group" aria-label="Resultado de la mesa ${i + 1}">${results.map(([v, label]) => `<button type="button" class="to-pm-res" data-result-game="${g.id}" data-result="${v}" aria-pressed="${g.result === v}" aria-label="${label}" ${!connected ? 'disabled' : ''}>${label === '½–½' ? '<span class="to-pm-long">½–½</span><span class="to-pm-short">½</span>' : label}</button>`).join('')}${g.result ? `<button class="to-pm-clear" type="button" data-result-game="${g.id}" data-result="" title="Borrar resultado" aria-label="Borrar el resultado de la mesa ${i + 1}" ${!connected ? 'disabled' : ''}>×</button>` : ''}</div>`
+      : `<strong class="to-presencial-score${g.result ? '' : ' pending'}">${g.result ? esc(g.result.replace('1/2-1/2', '½–½').replace('-', '–')) : 'Pendiente'}</strong>`;
+    return `<article class="to-presencial-match${g.bye ? ' bye' : ''}"><span class="to-presencial-table">Mesa ${i + 1}</span>${player(g.white, 'w')}<div class="to-pm-center">${center}</div>${g.bye ? '<span></span>' : player(g.black, 'b')}</article>`;
   }).join('');
 }
 function renderMatches() {
@@ -1036,7 +1043,8 @@ const chip = (kind, value) => `<span class="to-pz-chip ${kind.toLowerCase()}">${
 const ratingChips = p => p.fide || p.fada ? (p.fide ? chip('FIDE', p.fide) : '') + (p.fada ? chip('FADA', p.fada) : '') : p.rating ? chip(p.source || 'Elo', p.rating) : '<span class="to-pz-chip none">Sin Elo</span>';
 // Foto (por número FIDE, como en la tabla de Elo) y bandera de la federación.
 const pzAvatar = p => `<span class="to-pz-avatar" aria-hidden="true"${p.fideId ? ` data-fid="${esc(p.fideId)}"` : ''}>${esc(initials(p.name))}</span>`;
-const pzFlag = p => p.fed && window.U?.flag ? window.U.flag(p.fed) : '';
+// Bandera y título FIDE (también los de Arena: AGM, AIM, AFM, ACM).
+const pzFlag = p => (p.fed && window.U?.flag ? window.U.flag(p.fed) : '') + (p.title ? `<span class="to-pz-title${/^A[GIFC]M$/.test(p.title) ? ' arena' : ''}" title="${/^A[GIFC]M$/.test(p.title) ? 'Título Arena de la FIDE' : 'Título FIDE'}">${esc(p.title)}</span>` : '');
 // Fotos de la lista: cada jugador se pide una sola vez (la lista se redibuja con cada cambio del torneo) a las
 // mismas fuentes que la tabla de Elo, como mucho 4 a la vez; las que llegan se ponen en cuanto se dibuja la fila.
 const pzFotoCache = new Map(), pzFotoCola = [];
@@ -1089,7 +1097,7 @@ function attachSearch(inputId, listId, onPick, manualLabel) {
   function draw() {
     const text = input.value.trim();
     const manual = text.length >= 2 && !/^\d+$/.test(text) ? `<button type="button" class="to-pz-sug manual" role="option" data-i="-1"><span class="to-pz-avatar plain">${pzIcons.plus}</span><span class="to-pz-name"><strong>${manualLabel(esc(text))}</strong><small>Sin Elo; se puede editar después</small></span></button>` : '';
-    list.innerHTML = items.map((p, i) => `<button type="button" class="to-pz-sug" role="option" data-i="${i}">${pzAvatar(p)}<span class="to-pz-name"><strong>${pzFlag(p)}${esc(p.name)}</strong><small>${[p.title, p.place, p.fideId ? 'FIDE ' + p.fideId : ''].filter(Boolean).map(esc).join(' · ')}</small></span><span class="to-pz-chips">${ratingChips(p)}</span></button>`).join('')
+    list.innerHTML = items.map((p, i) => `<button type="button" class="to-pz-sug" role="option" data-i="${i}">${pzAvatar(p)}<span class="to-pz-name"><strong>${pzFlag(p)}${esc(p.name)}</strong><small>${[p.place, p.fideId ? 'FIDE ' + p.fideId : ''].filter(Boolean).map(esc).join(' · ')}</small></span><span class="to-pz-chips">${ratingChips(p)}</span></button>`).join('')
       + (loading ? '<div class="to-pz-sug-wait">Buscando en las listas FIDE y FADA…</div>' : !items.length && text.length >= 3 ? '<div class="to-pz-sug-wait">No aparece en las listas.</div>' : '') + manual;
     list.hidden = !list.innerHTML; input.setAttribute('aria-expanded', String(!list.hidden)); active = -1; pzPhotos(list);
   }
@@ -1126,13 +1134,13 @@ function attachSearch(inputId, listId, onPick, manualLabel) {
 const taken = n => state.standings.some(p => p.name.toLocaleLowerCase('es') === n.toLocaleLowerCase('es'));
 attachSearch('to-pz-search', 'to-pz-sugs', p => {
   if (taken(p.name)) { message(`${p.name} ya está inscrito.`, true); return; }
-  if (send({ type: 'presencial-player', name: p.name, rating: p.rating ?? '', source: p.source, fideId: p.fideId, fed: p.fed })) message('');
+  if (send({ type: 'presencial-player', name: p.name, rating: p.rating ?? '', source: p.source, fideId: p.fideId, fed: p.fed, title: p.title })) message('');
   $('to-pz-search').focus();
 }, text => `Añadir «${text}»`);
 attachSearch('to-pz-ask-search', 'to-pz-ask-sugs', async p => {
   try {
     const id = read(playerKey()) || token(), user = currentUser(); write(playerKey(), id);
-    await request(`/api/tournaments/${roomId}/join`, { method: 'POST', key: user ? session() : '', body: JSON.stringify({ name: p.name, rating: p.rating ?? '', source: p.source, fideId: p.fideId, fed: p.fed, token: id }) });
+    await request(`/api/tournaments/${roomId}/join`, { method: 'POST', key: user ? session() : '', body: JSON.stringify({ name: p.name, rating: p.rating ?? '', source: p.source, fideId: p.fideId, fed: p.fed, title: p.title, token: id }) });
     askChanging = false; hello(); message('');
   } catch (e) { message(e.message, true); }
 }, text => `Pedir plaza como «${text}»`);
@@ -1157,7 +1165,7 @@ $('to-pz-edit-form').addEventListener('submit', event => {
   const p = state.standings.find(p => p.id === event.currentTarget.dataset.id); if (!p) return;
   const rating = $('to-pz-edit-rating').value === '' ? null : Number($('to-pz-edit-rating').value);
   const sameRating = rating === (p.rating ?? null);
-  if (send({ type: 'presencial-edit', playerId: p.id, name: $('to-pz-edit-name').value, rating: rating ?? '', source: sameRating ? p.source : null, fideId: p.fideId, fed: p.fed })) $('to-pz-edit-dialog').close();
+  if (send({ type: 'presencial-edit', playerId: p.id, name: $('to-pz-edit-name').value, rating: rating ?? '', source: sameRating ? p.source : null, fideId: p.fideId, fed: p.fed, title: p.title })) $('to-pz-edit-dialog').close();
 });
 
 // Lista pegada: «Nombre; Elo», «Nombre<Tab>Elo» o solo el nombre (el Elo se busca en las listas).
@@ -1198,14 +1206,14 @@ $('to-pz-paste-check').addEventListener('click', async () => {
   for (let i = 0; i < missing.length; i++) {
     drawPaste(`Buscando el Elo en las listas… ${i + 1} de ${missing.length}`);
     const hit = await findExact(missing[i].name).catch(() => null);
-    if (hit) Object.assign(missing[i], { rating: hit.rating, source: hit.source, fideId: hit.fideId, fed: hit.fed, fide: hit.fide, fada: hit.fada, found: true });
+    if (hit) Object.assign(missing[i], { rating: hit.rating, source: hit.source, fideId: hit.fideId, fed: hit.fed, title: hit.title, fide: hit.fide, fada: hit.fada, found: true });
   }
   $('to-pz-paste-check').disabled = false;
   drawPaste();
 });
 $('to-pz-paste-form').addEventListener('submit', event => {
   event.preventDefault();
-  const players = pasted.filter(p => !p.problem).map(({ name, rating, source, fideId, fed }) => ({ name, rating: rating ?? '', source, fideId, fed }));
+  const players = pasted.filter(p => !p.problem).map(({ name, rating, source, fideId, fed, title }) => ({ name, rating: rating ?? '', source, fideId, fed, title }));
   if (players.length && send({ type: 'presencial-players', players })) $('to-pz-paste-dialog').close();
 });
 
