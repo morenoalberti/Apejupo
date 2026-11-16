@@ -8,10 +8,11 @@
   --muted: #5b6b82;
   --line: #d3dcea;
 }
-/* La web ya gestiona su tema claro/oscuro: se avisa al móvil para que no oscurezca por su cuenta el tablero ni las imágenes */
-:root { color-scheme: light dark; }
+/* La web define sus propias paletas: el navegador no debe volver a oscurecer sus colores. */
+:root { color-scheme: only light; }
 @media (prefers-color-scheme: dark) {
   :root {
+    color-scheme: only dark;
     --bg: #0B1422;
     --text: #E8EEF7;
     --card: #14233a;
@@ -1211,6 +1212,9 @@ body.card-dragging .tour-tip { display: none !important; }
 
 /* Tableros: nunca se reoscurecen con el «modo oscuro» automático del móvil (colores propios de tablero) */
 .board, .board *, .lv-board, .lv-board *, .th-board, .th-board *, .ent-board, .ent-board *, .ent-drag, .lv-ghost, .lv-hv .hv-b, .lv-hv .hv-b * { color-scheme: only light; forced-color-adjust: none; }
+/* El blanco de la evaluación representa a las blancas, también con oscurecimiento automático del navegador. */
+.lv-evalbar, .lv-evalbar *, .th-bar, .th-bar *, .lv-hv .hv-eb, .lv-hv .hv-eb * { color-scheme: only light; forced-color-adjust: none; }
+.lv-evalw, .th-w, .lv-hv .hv-ew { background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='2' height='2'%3E%3Cpath fill='white' d='M0 0H2V2H0Z'/%3E%3C/svg%3E"); }
 
 /* Tablero de la portada con el mismo estilo que el de Torneos Live (sin borde, esquinas redondeadas y sombra) */
 .hero-home .board { transform: none; border: 0; border-radius: 10px; box-shadow: 0 14px 40px rgba(0,0,0,.45), 0 0 0 1px rgba(255,255,255,.08); }
