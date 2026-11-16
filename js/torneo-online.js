@@ -68,6 +68,13 @@ const isMatch = t => !!t.challenge && t.rounds > 1;
 // Quien ha salido del torneo no aparece en las listas ni en los contadores hasta que vuelve a entrar
 // (en la clasificación final sí, con sus puntos).
 const listed = t => t.standings.filter(p => !p.paused || t.status === 'finished');
+// Tipo de torneo para las tarjetas: «Sistema suizo · 5 rondas», «Round-Robin doble vuelta», «Arena de 1 h»…
+function systemLabel(t) {
+  if (t.challenge || arena(t)) return formatLabel(t);
+  if (t.format === 'double-closed') return 'Round-Robin doble vuelta';
+  if (closed(t)) return 'Round-Robin' + (t.rounds ? ` · ${t.rounds} rondas` : ' (todos contra todos)');
+  return `Sistema suizo · ${t.rounds} ${t.rounds === 1 ? 'ronda' : 'rondas'}`;
+}
 function formatLabel(t) { return t.challenge ? (isMatch(t) ? `Match a ${t.rounds} partidas` : 'Reto') : arena(t) ? `Arena de ${duration(t.duration)}` : t.format === 'double-closed' ? 'Round-Robin doble vuelta' : closed(t) ? (t.rounds ? `Round-Robin a ${t.rounds} rondas` : 'Round-Robin: todos contra todos') : `${t.rounds} rondas`; }
 // «15 nov, 16:00 h.»
 function date(value) { return new Intl.DateTimeFormat('es', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(value) + ' h.'; }
@@ -108,7 +115,7 @@ function eventCard(t) {
   const pencil = organizer && t.status === 'waiting' ? `<button class="to-delete to-edit" type="button" data-edit="${t.id}" aria-label="Editar el torneo ${esc(t.title)}" title="Editar torneo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></button>` : '';
   const count = t.listed ?? t.count, full = Math.min(100, Math.round(count / t.capacity * 100));
   return `<article class="to-event ${t.status}"><div class="to-event-top"><span class="to-event-badges"><span class="to-status ${t.status}">${esc(statuses[t.status])}</span>${modeBadge(t)}</span><span class="to-event-clock">${icons.clock}${t.minutes} + ${t.increment}</span></div>`
-    + `<h3>${esc(t.title)}</h3><ul class="to-event-meta"><li>${icons.format}${formatLabel(t)}</li>${t.locked ? `<li>${icons.lock}Inscripción con clave</li>` : ''}<li>${icons.calendar}${t.startsAt ? esc(date(t.startsAt)) : 'Inicio a cargo del organizador'}</li></ul>`
+    + `<h3>${esc(t.title)}</h3><ul class="to-event-meta"><li>${icons.format}${systemLabel(t)}</li>${t.locked ? `<li>${icons.lock}Inscripción con clave</li>` : ''}<li>${icons.calendar}${t.startsAt ? esc(date(t.startsAt)) : 'Inicio a cargo del organizador'}</li></ul>`
     + `<div class="to-event-fill"><span>${icons.people}${count}/${t.capacity} jugadores</span><i><b style="width:${full}%"></b></i></div>`
     + `<div class="to-event-actions"><a class="btn" href="jugar-torneo.html?id=${t.id}"><span>${t.status === 'waiting' ? 'Entrar e inscribirme' : 'Ver torneo'}</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-5-5 5 5-5 5"/></svg></a>${pencil || trash ? `<div class="to-event-tools">${pencil}${trash}</div>` : ''}</div></article>`;
 }
@@ -234,7 +241,11 @@ function render() {
   $('to-player-count').setAttribute('aria-label', `${listed(t).length} jugadores de ${t.capacity} plazas`);
   $('to-registration-progress').hidden = !registering;
   $('to-registration-progress').firstElementChild.style.width = `${Math.max(0, Math.min(100, listed(t).length / t.capacity * 100))}%`;
-  $('to-extra-col').innerHTML = arena(t) ? '<abbr title="Partidas jugadas">PJ</abbr>' : closed(t) ? '<abbr title="Sonneborn-Berger">SB</abbr>' : '<abbr title="Buchholz: suma de puntos de los rivales">BH</abbr>';
+  // Columnas de desempate: los dos primeros que eligió el organizador (el arena muestra las partidas jugadas).
+  const tbKeys = arena(t) || t.challenge ? [] : (t.tiebreaks?.length ? t.tiebreaks : (closed(t) ? ['sb'] : ['bh'])).filter(k => TB[k]);
+  const tbCols = tbKeys.slice(0, 2);
+  $('to-standings').closest('table').tHead.rows[0].innerHTML = '<th scope="col">#</th><th scope="col">Jugador</th><th scope="col">Pts</th>'
+    + (arena(t) ? '<th scope="col"><abbr title="Partidas jugadas">PJ</abbr></th>' : tbCols.map((k, i) => `<th scope="col"${i ? ' class="to-tb-col2"' : ''}><abbr title="${esc(TB[k][0])}">${TB[k][1]}</abbr></th>`).join(''));
   const tag = p => (p.registered ? ' <span class="to-registered" title="Cuenta registrada">✓</span>' : '') + (!p.active ? ' <small>retirado</small>' : '');
   // Arena en marcha: delante del nombre, punto verde parpadeante si está jugando y gris fijo si no (esperando o partida terminada).
   const dot = p => arena(t) && t.status === 'playing' && p.active ? `<span class="to-state ${p.playing ? 'on' : 'off'}" title="${p.playing ? 'Jugando' : 'Sin partida ahora'}" aria-label="${p.playing ? 'Jugando' : 'Sin partida ahora'}"></span>` : '';
@@ -245,10 +256,10 @@ function render() {
   const who = p => rich
     ? `<div class="to-st-id">${pzAvatar(p)}<div class="to-st-body"><div class="to-st-name">${pzFlag(p)}<span>${esc(p.name)}</span>${p.rating ? `<span class="to-st-elo">${p.rating}</span>` : ''}${p.id === t.me ? ' <small>(tú)</small>' : ''}${tag(p)}</div>${sheet(p)}</div></div>`
     : `${dot(p)}${esc(p.name)}${p.rating ? ` <small class="to-elo" title="Elo">${p.rating}</small>` : ''}${p.id === t.me ? ' <small>(tú)</small>' : ''}${tag(p)}${sheet(p)}`;
-  $('to-standings').innerHTML = listed(t).map((p, i) => `<tr class="${p.id === t.me ? 'me ' : ''}${t.status === 'finished' && i === 0 ? 'winner' : ''}"><td>${rich && started ? `<span class="to-st-rank">${i + 1}</span>` : i + 1}</td><td>${who(p)}${registering && t.host ? `<button class="to-remove" type="button" data-remove="${p.id}" aria-label="Retirar a ${esc(p.name)}">×</button>` : ''}</td><td>${rich ? `<span class="to-st-pts">${formatPoints(p.points)}</span>` : `<strong>${formatPoints(p.points)}</strong>`}</td><td>${arena(t) ? p.played : tb(closed(t) ? p.sonneborn : p.buchholz)}</td></tr>`).join('') || '<tr><td colspan="4" class="muted">Aún no hay inscritos.</td></tr>';
+  $('to-standings').innerHTML = listed(t).map((p, i) => `<tr class="${p.id === t.me ? 'me ' : ''}${t.status === 'finished' && i === 0 ? 'winner' : ''}"><td>${rich && started ? `<span class="to-st-rank">${i + 1}</span>` : i + 1}</td><td>${who(p)}${registering && t.host ? `<button class="to-remove" type="button" data-remove="${p.id}" aria-label="Retirar a ${esc(p.name)}">×</button>` : ''}</td><td>${rich ? `<span class="to-st-pts">${formatPoints(p.points)}</span>` : `<strong>${formatPoints(p.points)}</strong>`}</td>${arena(t) ? `<td>${p.played}</td>` : tbCols.map((k, i) => `<td${i ? ' class="to-tb-col2"' : ''}>${p.tb?.[k] == null ? '–' : k === 'aro' ? (p.tb[k] || '–') : tb(p.tb[k])}</td>`).join('')}</tr>`).join('') || '<tr><td colspan="5" class="muted">Aún no hay inscritos.</td></tr>';
   if (rich) pzPhotos($('to-standings'));
   $('to-tiebreak').hidden = registering;
-  $('to-tiebreak').textContent = arena(t) ? 'Desempates: victorias, menos partidas jugadas y número de sorteo.' : closed(t) ? 'Desempates: Sonneborn-Berger, victorias y número de sorteo.' : 'Desempates: Buchholz, Sonneborn-Berger, victorias y número de sorteo.';
+  $('to-tiebreak').textContent = arena(t) ? 'Desempates: victorias, menos partidas jugadas y número de sorteo.' : tbKeys.length ? `Desempates: ${tbKeys.map(k => TB[k][0]).join(', ')} y número de sorteo.` : 'Desempate: número de sorteo.';
   const rounds = arena(t) ? [] : [...new Set(t.games.map(g => g.round))];
   $('to-round').innerHTML = rounds.map(r => `<option value="${r}">Ronda ${r}</option>`).join('');
   $('to-round').hidden = !rounds.length;
@@ -970,7 +981,65 @@ function syncFormat() {
   $('to-format-help').textContent = formatHelp[format];
   $('to-rounds-field').hidden = noRounds; $('to-rounds').disabled = noRounds;
   $('to-duration-field').hidden = !isArena; $('to-duration').disabled = !isArena;
+  // Al cambiar de familia (suizo ↔ Round-Robin ↔ arena) se ponen los desempates habituales de la nueva.
+  if (!tbState || tbState.family !== tbFamily(format)) tbReset(format);
 }
+// ——— Desempates del torneo (suizo y Round-Robin): los habituales o un orden propio ———
+const TB = {
+  bh1: ['Buchholz -1', 'BH-1', 'Suma de los puntos de los rivales, sin el peor'],
+  bh: ['Buchholz', 'BH', 'Suma de los puntos de los rivales'],
+  sb: ['Sonneborn-Berger', 'SB', 'Puntos de los rivales ganados y la mitad de los empatados'],
+  prog: ['Progresivo', 'PROG', 'Suma de la puntuación acumulada tras cada ronda'],
+  de: ['Encuentro directo', 'ED', 'Resultado entre los empatados, si todos jugaron entre sí'],
+  win: ['Victorias', 'V', 'Número de victorias'],
+  bwin: ['Victorias con negras', 'VN', 'Victorias jugando con las piezas negras'],
+  koya: ['Koya', 'KS', 'Puntos contra los rivales con al menos la mitad de los puntos'],
+  aro: ['Media de Elo de los rivales', 'ARO', 'Elo medio de los rivales']
+};
+const TB_MAX = 5;
+const tbFamily = format => format === 'arena' ? 'arena' : format === 'swiss' ? 'swiss' : 'closed';
+const TB_ALLOWED = { swiss: ['bh1', 'bh', 'sb', 'prog', 'de', 'win', 'bwin', 'aro'], closed: ['de', 'sb', 'win', 'bwin', 'koya', 'aro'], arena: [] };
+const TB_DEFAULT = { swiss: ['bh1', 'bh', 'sb', 'prog'], closed: ['de', 'sb', 'win', 'koya'], arena: [] };
+let tbState = null; // { family, order: todos los permitidos en su orden, on: Set de los elegidos }
+function tbReset(format, chosen) {
+  const family = tbFamily(format), allowed = TB_ALLOWED[family];
+  const on = (chosen?.length ? chosen : TB_DEFAULT[family]).filter(k => allowed.includes(k)).slice(0, TB_MAX);
+  tbState = { family, order: [...on, ...allowed.filter(k => !on.includes(k))], on: new Set(on) };
+  drawTb();
+}
+const tbChosen = () => tbState ? tbState.order.filter(k => tbState.on.has(k)) : [];
+function drawTb() {
+  const show = tbState && tbState.family !== 'arena';
+  $('to-tb-field').hidden = !show;
+  if (!show) return;
+  $('to-tb-summary').innerHTML = tbChosen().map(k => `<li title="${esc(TB[k][2])}">${esc(TB[k][0])}</li>`).join('');
+  let n = 0;
+  $('to-tb-items').innerHTML = tbState.order.map((k, i) => {
+    const on = tbState.on.has(k);
+    return `<li class="${on ? 'on' : ''}"><label><input type="checkbox" data-tb-on="${k}"${on ? ' checked' : ''}><span class="to-tb-num">${on ? ++n : ''}</span><span><strong>${esc(TB[k][0])}</strong><small>${esc(TB[k][2])}</small></span></label><span class="to-tb-move"><button type="button" data-tb-move="${k}" data-dir="-1" aria-label="Subir ${esc(TB[k][0])}"${i ? '' : ' disabled'}>▲</button><button type="button" data-tb-move="${k}" data-dir="1" aria-label="Bajar ${esc(TB[k][0])}"${i < tbState.order.length - 1 ? '' : ' disabled'}>▼</button></span></li>`;
+  }).join('');
+}
+$('to-tb-toggle').addEventListener('click', () => {
+  const open = $('to-tb-list').hidden;
+  $('to-tb-list').hidden = !open; $('to-tb-toggle').setAttribute('aria-expanded', String(open));
+  $('to-tb-toggle').textContent = open ? 'Listo' : 'Personalizar';
+});
+$('to-tb-items').addEventListener('change', event => {
+  const box = event.target.closest('[data-tb-on]'); if (!box) return;
+  const k = box.dataset.tbOn;
+  if (box.checked && tbState.on.size >= TB_MAX) { box.checked = false; noticeBox('Máximo 5 desempates', 'Quita alguno antes de añadir otro.'); return; }
+  if (!box.checked && tbState.on.size === 1) { box.checked = true; noticeBox('Hace falta un desempate', 'Deja al menos uno marcado.'); return; }
+  if (box.checked) tbState.on.add(k); else tbState.on.delete(k);
+  drawTb();
+});
+$('to-tb-items').addEventListener('click', event => {
+  const b = event.target.closest('[data-tb-move]'); if (!b) return;
+  const i = tbState.order.indexOf(b.dataset.tbMove), j = i + Number(b.dataset.dir);
+  if (j < 0 || j >= tbState.order.length) return;
+  [tbState.order[i], tbState.order[j]] = [tbState.order[j], tbState.order[i]];
+  drawTb();
+  $('to-tb-items').querySelector(`[data-tb-move="${b.dataset.tbMove}"][data-dir="${b.dataset.dir}"]`)?.focus();
+});
 $('to-format').addEventListener('change', syncFormat);
 $('to-mode-switch').addEventListener('click', () => {
   const previous = $('to-mode').value;
@@ -997,7 +1066,8 @@ $('to-create-open').addEventListener('click', () => {
   const user = currentUser();
   if (!user) { message('Entra con tu cuenta para organizar un torneo.'); openAuth('entrar'); return; }
   if (!user.verified) { message('Confirma tu correo para organizar torneos: abre el enlace que te enviamos. Si no te llegó, pídelo de nuevo desde el menú de tu cuenta.', true); return; }
-  $('to-create-form').reset(); $('to-mode').value = 'online'; setCreateMode(null); syncMode('arena');
+  $('to-create-form').reset(); $('to-mode').value = 'online'; setCreateMode(null); tbState = null; syncMode('arena');
+  $('to-tb-list').hidden = true; $('to-tb-toggle').textContent = 'Personalizar'; $('to-tb-toggle').setAttribute('aria-expanded', 'false');
   $('to-create-dialog').showModal();
   // Al crear, la clave empieza en blanco aunque el navegador intente autorrellenarla.
   setTimeout(() => { if (!editingId) $('to-join-key-new').value = ''; }, 50);
@@ -1005,7 +1075,8 @@ $('to-create-open').addEventListener('click', () => {
 async function openEdit(id) {
   const c = await (await request(`/api/tournaments/${id}/config`, { method: 'POST', body: JSON.stringify({ hostToken: read(hostKey(id)) }) })).json();
   const form = $('to-create-form'); form.reset(); setCreateMode(id);
-  $('to-mode').value = c.mode || 'online'; syncMode(c.format);
+  $('to-mode').value = c.mode || 'online'; tbState = null; syncMode(c.format); tbReset(c.format, c.tiebreaks);
+  $('to-tb-list').hidden = true; $('to-tb-toggle').textContent = 'Personalizar'; $('to-tb-toggle').setAttribute('aria-expanded', 'false');
   form.title.value = c.title; $('to-minutes').value = c.minutes; $('to-increment').value = c.increment;
   if (c.format === 'swiss') $('to-rounds').value = c.rounds;
   if (c.format === 'arena') $('to-duration').value = c.duration;
@@ -1030,7 +1101,7 @@ $('to-create-form').addEventListener('submit', async event => {
     if (time && !day) throw new Error('Elige también el día de inicio.');
     const startsAt = day ? new Date(`${day}T${time}`).getTime() : null;
     const isArena = data.get('format') === 'arena';
-    const fields = { title: data.get('title'), mode: data.get('mode'), format: data.get('format'), minutes: Number(data.get('minutes')), increment: Number(data.get('increment')), rounds: data.get('format') === 'swiss' ? Number(data.get('rounds')) : null, duration: isArena ? Number(data.get('duration')) : null, capacity: data.get('mode') === 'presencial' ? 128 : Number(data.get('capacity')), startsAt, joinKey: data.get('joinKey') || '' };
+    const fields = { title: data.get('title'), mode: data.get('mode'), format: data.get('format'), minutes: Number(data.get('minutes')), increment: Number(data.get('increment')), rounds: data.get('format') === 'swiss' ? Number(data.get('rounds')) : null, duration: isArena ? Number(data.get('duration')) : null, capacity: data.get('mode') === 'presencial' ? 128 : Number(data.get('capacity')), startsAt, joinKey: data.get('joinKey') || '' , ...(isArena ? {} : { tiebreaks: tbChosen() }) };
     if (editingId) {
       await request(`/api/tournaments/${editingId}/edit`, { method: 'POST', body: JSON.stringify({ ...fields, hostToken: read(hostKey(editingId)) }) });
       $('to-create-dialog').close(); message('Cambios guardados.'); if (!roomId) await loadLobby(); return;

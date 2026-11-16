@@ -1,6 +1,7 @@
 import { Chess } from 'chess.js';
 import { toTrf, parsePairs, orderByRating } from './swiss-dutch.js';
 import { gamesPerTable, validResults, whiteScore, isForfeit } from './results.js';
+import { cleanTiebreaks, computeTiebreaks, orderByTiebreaks, tiebreaksOf } from './tiebreaks.js';
 export { gamesPerTable, validResults, whiteScore };
 
 // Comprobado con la prueba de carga: 128 jugadores y 32 espectadores sin retrasos apreciables.
@@ -82,7 +83,7 @@ export function createTournament(input, id, hostHash, now = Date.now()) {
   else requireThat(startsAt === null || (Number.isFinite(startsAt) && startsAt > now + 60000 && startsAt < now + 14 * 86400000), 'La fecha de inicio debe estar entre un minuto y 14 días en el futuro.');
   return { id, title, hostHash, mode, format, duration, endsAt: null, minutes, increment, rounds, capacity, startsAt, createdAt: now,
     expiresAt: now + RETENTION_MS, status: 'waiting', round: 0, nextRoundAt: null,
-    players: [], games: [], revision: 0, finishedAt: null, notice: '', joinKey };
+    players: [], games: [], revision: 0, finishedAt: null, notice: '', joinKey, tiebreaks: cleanTiebreaks(format, input.tiebreaks) };
 }
 
 // Editar antes de empezar: se valida igual que al crear y se conservan inscritos y fechas internas.
@@ -93,7 +94,9 @@ export function editTournament(t, input, now = Date.now()) {
   requireThat(n.capacity >= t.players.length, `Ya hay ${t.players.length} jugadores inscritos: el máximo no puede ser menor.`);
   // Sin «joinKey» en la petición, la clave de inscripción se queda como estaba.
   if (input.joinKey === undefined) n.joinKey = t.joinKey;
-  for (const k of ['title', 'mode', 'format', 'duration', 'minutes', 'increment', 'rounds', 'capacity', 'startsAt', 'joinKey']) t[k] = n[k];
+  // Sin «tiebreaks» en la petición se conservan los que había (si siguen valiendo para el formato).
+  if (input.tiebreaks === undefined) n.tiebreaks = cleanTiebreaks(n.format, t.tiebreaks);
+  for (const k of ['title', 'mode', 'format', 'duration', 'minutes', 'increment', 'rounds', 'capacity', 'startsAt', 'joinKey', 'tiebreaks']) t[k] = n[k];
 }
 
 export function standings(t) {
@@ -137,8 +140,10 @@ export function standings(t) {
   // Arena: con número de partidas desigual, Buchholz no es comparable; desempatan victorias y eficacia.
   if (isArena(t)) return rows.sort((a, b) => b.points - a.points || b.wins - a.wins || a.played - b.played || a.seed - b.seed);
   // Cerrado: todos juegan contra todos, así que Buchholz no distingue; manda Sonneborn-Berger.
-  if (isClosed(t)) return rows.sort((a, b) => b.points - a.points || b.sonneborn - a.sonneborn || b.wins - a.wins || a.seed - b.seed);
-  return rows.sort((a, b) => b.points - a.points || b.buchholz - a.buchholz || b.sonneborn - a.sonneborn || b.wins - a.wins || a.seed - b.seed);
+  // Suizo y Round-Robin: los desempates que eligió el organizador, en su orden (ver tiebreaks.js).
+  computeTiebreaks(t, rows);
+  for (const r of rows) { r.buchholz = r.tb.bh; r.sonneborn = r.tb.sb; }
+  return orderByTiebreaks(t, rows);
 }
 
 // Arena: cada jugador libre (conectado, sin pausa y tras una breve pausa desde su última partida)
@@ -615,7 +620,7 @@ export function summary(t) {
     rounds: t.rounds, round: t.round, capacity: t.capacity, count: t.players.length,
     // Inscritos que se muestran: sin los que han salido del torneo (al terminar, todos).
     listed: t.status === 'finished' ? t.players.length : t.players.filter(p => !p.paused).length, startsAt: t.startsAt, createdAt: t.createdAt, locked: !!t.joinKey,
-    pairing: t.pairing || null, challenge: !!t.challenge, duel: t.challenge ? duelScore(t) : null };
+    pairing: t.pairing || null, challenge: !!t.challenge, tiebreaks: tiebreaksOf(t), duel: t.challenge ? duelScore(t) : null };
 }
 // Jugadas legales de una partida en curso, calculadas una sola vez por posición.
 function legalFor(g) {
