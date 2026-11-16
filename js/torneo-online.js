@@ -16,6 +16,7 @@ const pieceNames = { k: 'rey', q: 'dama', r: 'torre', b: 'alfil', n: 'caballo', 
 const images = new Map();
 let state = null, socket = null, reconnectTimer = null, heartbeat = null, retry = 0, lastReceived = 0;
 let connected = false, pending = false, offset = 0, selected = null, flipped = false, manualFlip = false;
+let presencialFilter = 'all'; // tabla de rondas presenciales: todas o una
 let boardKey = '', lastRound = null, viewedRound = null, replay = null, replayPly = null, promotion = null;
 let confirmResolve = null, dropped = null, lobby = new Map();
 let lastArenaClosing = false;
@@ -497,22 +498,35 @@ function renderPresencial() {
   $('to-presencial-next').hidden = !t.host || t.status !== 'between';
   $('to-presencial-next').disabled = !connected;
   $('to-presencial-hint').textContent = waiting ? (t.host ? 'Cuando estén todos, pulsa «Cerrar inscripción y emparejar» para sortear la primera ronda.' : mine ? 'Ya tienes plaza. Las mesas aparecerán aquí al empezar.' : 'La organización está preparando la lista de jugadores.') : t.host ? 'Anota los resultados de cada mesa. Puedes corregirlos antes de emparejar la siguiente ronda.' : 'Los resultados se actualizan cuando los anota la organización.';
-  const rounds = [...new Set(t.games.map(g => g.round))];
-  $('to-presencial-round').hidden = !rounds.length;
-  $('to-presencial-round').innerHTML = rounds.map(r => `<option value="${r}">Ronda ${r}</option>`).join('');
-  if (rounds.includes(viewedRound)) $('to-presencial-round').value = viewedRound;
-  const games = t.games.filter(g => g.round === viewedRound), results = [['1-0', '1–0'], ['1/2-1/2', '½–½'], ['0-1', '0–1']];
-  $('to-presencial-matches').innerHTML = games.map((g, i) => {
-    const editable = t.host && g.round === t.round && !g.bye && t.status !== 'cancelled';
-    // Una línea por mesa: blancas · resultado · negras (como en las hojas de emparejamientos).
-    const won = side => g.result === (side === 'w' ? '1-0' : '0-1') ? ' won' : '';
-    const player = (id, side) => { const p = t.standings.find(p => p.id === id) || { name: name(id) };
-      return `<span class="to-pm-player ${side === 'w' ? 'white' : 'black'}${won(side)}"><span class="to-pm-piece" aria-hidden="true">${side === 'w' ? '♔' : '♚'}</span><span class="to-pm-name">${pzFlag(p)}${esc(p.name)}</span>${p.rating ? `<small class="to-pm-elo">${p.rating}</small>` : ''}</span>`; };
-    const center = g.bye ? `<span class="to-pm-bye">${esc(g.reason || 'Descanso')}</span>`
-      : editable ? `<div class="to-presencial-results" role="group" aria-label="Resultado de la mesa ${i + 1}">${results.map(([v, label]) => `<button type="button" class="to-pm-res" data-result-game="${g.id}" data-result="${v}" aria-pressed="${g.result === v}" aria-label="${label}" ${!connected ? 'disabled' : ''}>${label === '½–½' ? '<span class="to-pm-long">½–½</span><span class="to-pm-short">½</span>' : label}</button>`).join('')}${g.result ? `<button class="to-pm-clear" type="button" data-result-game="${g.id}" data-result="" title="Borrar resultado" aria-label="Borrar el resultado de la mesa ${i + 1}" ${!connected ? 'disabled' : ''}>×</button>` : ''}</div>`
-      : `<strong class="to-presencial-score${g.result ? '' : ' pending'}">${g.result ? esc(g.result.replace('1/2-1/2', '½–½').replace('-', '–')) : 'Pendiente'}</strong>`;
-    return `<article class="to-presencial-match${g.bye ? ' bye' : ''}"><span class="to-presencial-table">Mesa ${i + 1}</span>${player(g.white, 'w')}<div class="to-pm-center">${center}</div>${g.bye ? '<span></span>' : player(g.black, 'b')}</article>`;
+  // Todas las rondas en una tabla, como las hojas de emparejamientos: Mesa · Tít. · Blancas · ELO · Resultado · Tít. · Negras · ELO.
+  const rounds = [...new Set(t.games.map(g => g.round))].sort((a, b) => a - b);
+  if (presencialFilter !== 'all' && !rounds.includes(Number(presencialFilter))) presencialFilter = 'all';
+  $('to-presencial-round').hidden = rounds.length < 2;
+  $('to-presencial-round').innerHTML = '<option value="all">Todas las rondas</option>' + rounds.map(r => `<option value="${r}">Ronda ${r}</option>`).join('');
+  $('to-presencial-round').value = String(presencialFilter);
+  const shown = presencialFilter === 'all' ? rounds : [Number(presencialFilter)];
+  const info = id => t.standings.find(p => p.id === id) || { name: name(id) };
+  const tit = p => p.title ? `<span class="to-pz-title${/^A[GIFC]M$/.test(p.title) ? ' arena' : ''}">${esc(p.title)}</span>` : '';
+  const flag = p => p.fed && window.U?.flag ? window.U.flag(p.fed) : '';
+  const cellName = (p, won) => `<td class="to-pt-name${won ? ' won' : ''}">${flag(p)}<span class="to-pt-inline">${tit(p)}</span>${esc(p.name)}</td>`;
+  const score = r => r ? r.replace('1/2-1/2', '½-½') : '';
+  const body = shown.map(r => {
+    const games = t.games.filter(g => g.round === r), tables = games.filter(g => !g.bye), byes = games.filter(g => g.bye);
+    const editable = t.host && r === t.round && ['playing', 'between'].includes(t.status);
+    const pending = tables.filter(g => !g.result).length;
+    const head = `<tr class="to-pt-round"><th colspan="8">Ronda ${r}${r === t.round && t.status !== 'finished' ? ` <span class="to-pt-state">${pending ? `${pending} ${pending === 1 ? 'resultado pendiente' : 'resultados pendientes'}` : 'completa'}</span>` : ''}</th></tr>`;
+    const rows = tables.map((g, i) => {
+      const w = info(g.white), b = info(g.black);
+      const result = editable
+        ? `<select class="to-pt-select${g.result ? ' set' : ''}" data-result-game="${g.id}" aria-label="Resultado de la mesa ${i + 1}" ${!connected ? 'disabled' : ''}><option value="">—</option>${[['1-0', '1-0'], ['1/2-1/2', '½-½'], ['0-1', '0-1']].map(([v, l]) => `<option value="${v}"${g.result === v ? ' selected' : ''}>${l}</option>`).join('')}</select>`
+        : g.result ? `<span class="to-pt-score">${score(g.result)}</span>` : '<span class="to-pt-pending">—</span>';
+      return `<tr class="${g.white === t.me || g.black === t.me ? 'mine' : ''}"><td class="to-pt-num">${i + 1}</td><td class="to-pt-tit">${tit(w)}</td>${cellName(w, g.result === '1-0')}<td class="to-pt-elo">${w.rating || ''}</td><td class="to-pt-res">${result}</td><td class="to-pt-tit">${tit(b)}</td>${cellName(b, g.result === '0-1')}<td class="to-pt-elo">${b.rating || ''}</td></tr>`;
+    }).join('');
+    const rests = byes.map(g => { const w = info(g.white);
+      return `<tr class="to-pt-bye${g.white === t.me ? ' mine' : ''}"><td class="to-pt-num"></td><td class="to-pt-tit">${tit(w)}</td>${cellName(w, false)}<td class="to-pt-elo">${w.rating || ''}</td><td class="to-pt-res"><span class="to-pt-score">${g.rest ? '0' : '1'}</span></td><td class="to-pt-tit"></td><td class="to-pt-name to-pt-rest" colspan="2">${g.rest ? 'Descansa' : /retirad/i.test(g.reason || '') ? 'Rival retirado' : 'Descansa'}</td></tr>`; }).join('');
+    return head + rows + rests;
   }).join('');
+  $('to-presencial-matches').innerHTML = rounds.length ? `<div class="to-pt-wrap"><table class="to-pt"><thead><tr><th class="to-pt-num">Mesa</th><th class="to-pt-tit">Tít.</th><th>Blancas</th><th class="to-pt-elo">ELO</th><th class="to-pt-res">Resultado</th><th class="to-pt-tit">Tít.</th><th>Negras</th><th class="to-pt-elo">ELO</th></tr></thead><tbody>${body}</tbody></table></div>` : '';
 }
 function renderMatches() {
   // Arena: solo las partidas en juego, de la más reciente a la más antigua; al terminar, desaparecen de la lista.
@@ -1279,10 +1293,10 @@ $('to-pz-qr-copy').addEventListener('click', async () => {
 $('to-presencial-next').addEventListener('click', async () => {
   if (await confirmAction('Emparejar siguiente ronda', 'Se generarán los nuevos emparejamientos con los resultados actuales. Los resultados de la ronda anterior quedarán cerrados.')) send({ type: 'presencial-next' });
 });
-$('to-presencial-round').addEventListener('change', event => { viewedRound = Number(event.target.value); renderPresencial(); });
-$('to-presencial-matches').addEventListener('click', event => {
-  const button = event.target.closest('[data-result-game]');
-  if (button) send({ type: 'presencial-result', game: button.dataset.resultGame, result: button.dataset.result || null });
+$('to-presencial-round').addEventListener('change', event => { presencialFilter = event.target.value; renderPresencial(); });
+$('to-presencial-matches').addEventListener('change', event => {
+  const select = event.target.closest('select[data-result-game]');
+  if (select) send({ type: 'presencial-result', game: select.dataset.resultGame, result: select.value || null });
 });
 $('to-cancel').addEventListener('click', async () => {
   if (await confirmAction('Cancelar torneo', 'El torneo se cerrará y las partidas en juego terminarán en tablas. Esta acción no se puede deshacer.', true)) send({ type: 'cancel' });
