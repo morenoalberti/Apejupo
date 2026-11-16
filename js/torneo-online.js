@@ -1047,25 +1047,39 @@ const pzAvatar = p => `<span class="to-pz-avatar" aria-hidden="true"${p.fideId ?
 const pzFlag = p => (p.fed && window.U?.flag ? window.U.flag(p.fed) : '') + (p.title ? `<span class="to-pz-title${/^A[GIFC]M$/.test(p.title) ? ' arena' : ''}" title="${/^A[GIFC]M$/.test(p.title) ? 'Título Arena de la FIDE' : 'Título FIDE'}">${esc(p.title)}</span>` : '');
 // Fotos de la lista: cada jugador se pide una sola vez (la lista se redibuja con cada cambio del torneo) a las
 // mismas fuentes que la tabla de Elo, como mucho 4 a la vez; las que llegan se ponen en cuanto se dibuja la fila.
+// Las mismas fuentes que js/util.js, por si el navegador conserva una copia antigua de util.js.
+const PZ_FUENTES = ['https://chessrival-api.chessrival-worker.workers.dev/api/fide/foto?id=', 'https://chessrival.net/api/fide/foto?id=', 'https://apejupo-eventos.chessrival-worker.workers.dev/?foto='];
 const pzFotoCache = new Map(), pzFotoCola = [];
 let pzFotoActivas = 0;
 function pzFotoSiguiente() {
   while (pzFotoActivas < 4 && pzFotoCola.length) {
-    const [fid, resolve] = pzFotoCola.shift(), fuentes = window.U?.fotoFuentes || [];
-    let i = 0; pzFotoActivas++;
-    const fin = src => { pzFotoActivas--; resolve(src); pzFotoSiguiente(); };
-    (function probar() {
-      if (i >= fuentes.length * 2) return fin(null); // dos vueltas, como en la tabla de Elo
-      const img = new Image(); let hecho = false;
-      const fallo = () => { if (hecho) return; hecho = true; clearTimeout(t); i++; probar(); };
-      const t = setTimeout(fallo, 7000);
-      img.onload = () => { if (hecho) return; hecho = true; clearTimeout(t); fin(img.src); };
-      img.onerror = fallo;
-      img.src = fuentes[i % fuentes.length] + encodeURIComponent(fid);
-    })();
+    const [fid, resolve] = pzFotoCola.shift(), fuentes = window.U?.fotoFuentes || PZ_FUENTES;
+    pzFotoActivas++;
+    // Las fuentes se piden a la vez y vale la primera que responda: un jugador sin foto no frena a los demás.
+    const intento = vuelta => {
+      let pendientes = fuentes.length, hecho = false;
+      const t = setTimeout(() => terminar(null), 8000);
+      function terminar(src) {
+        if (hecho) return; hecho = true; clearTimeout(t);
+        if (!src && vuelta === 0) return intento(1); // una segunda vuelta por si fue un fallo puntual
+        pzFotoActivas--; resolve(src); pzFotoSiguiente();
+      }
+      for (const f of fuentes) {
+        const img = new Image();
+        img.onload = () => terminar(img.src);
+        img.onerror = () => { if (--pendientes === 0) terminar(null); };
+        img.src = f + encodeURIComponent(fid);
+      }
+    };
+    intento(0);
   }
 }
-const pzFoto = fid => { if (!pzFotoCache.has(fid)) pzFotoCache.set(fid, new Promise(resolve => { pzFotoCola.push([fid, resolve]); pzFotoSiguiente(); })); return pzFotoCache.get(fid); };
+// Si ninguna fuente la da (fallo puntual de red), se olvida al minuto y se vuelve a pedir en el siguiente redibujado.
+const pzFoto = fid => {
+  if (!pzFotoCache.has(fid)) pzFotoCache.set(fid, new Promise(resolve => { pzFotoCola.push([fid, resolve]); pzFotoSiguiente(); })
+    .then(src => { if (!src) setTimeout(() => pzFotoCache.delete(fid), 60000); return src; }));
+  return pzFotoCache.get(fid);
+};
 const pzPhotos = el => {
   if (window.U?.fotosActivas && !window.U.fotosActivas()) return;
   for (const fid of new Set([...el.querySelectorAll('.to-pz-avatar[data-fid]')].map(a => a.dataset.fid))) pzFoto(fid).then(src => {
