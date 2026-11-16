@@ -22,7 +22,8 @@ Modos:
       (por defecto build/full), que NO se publica.
 
 La web ejecuta esto a menudo: la comprobación son 2 peticiones ligeras y solo reconstruye si la FADA ha
-publicado un mes nuevo, o si FIDE ha cambiado su lista durante los primeros 7 días del mes.
+publicado un mes nuevo o si FIDE ha cambiado su lista (y no hay ya una instantánea al día).
+Si GitHub no llega a la FIDE o a la FADA, descarga a través del Worker de Cloudflare (ELO_PROXY).
 """
 import gzip
 import json
@@ -33,13 +34,15 @@ import sys
 import tempfile
 import time
 import unicodedata
+import urllib.error
 import urllib.request
 import xml.etree.ElementTree as ET
 import zipfile
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
+from email.utils import parsedate_to_datetime
 from html import unescape
 from pathlib import Path
-from urllib.parse import urljoin
+from urllib.parse import quote, urljoin, urlparse
 
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "data" / "elo"
@@ -50,6 +53,9 @@ FIDE_ZIPS = {  # listas por ritmo, más ligeras y fiables desde GitHub (modo pú
     "rpd": "https://ratings.fide.com/download/rapid_rating_list_xml.zip",
     "blz": "https://ratings.fide.com/download/blitz_rating_list_xml.zip",
 }
+# Si GitHub no llega a la FIDE o a la FADA, se descarga a través del Worker de Cloudflare (worker/src/index.js,
+# ruta /elo-fuente), que sí llega. Vacío = sin reenvío.
+ELO_PROXY = os.environ.get("ELO_PROXY", "https://apejupo-eventos.chessrival-worker.workers.dev/elo-fuente")
 FIDE_COUNTRY = "ESP"
 FADA_CATEGORY = "https://fadajedrez.com/wp/category/elo/"
 SNAPSHOT = ROOT / "scripts" / ".cache" / "fide_all.json.gz"  # la genera este equipo (update_fide_local.py)
@@ -110,12 +116,31 @@ CREATE INDEX IF NOT EXISTS idx_jugadores_fada_nombre_nocase ON jugadores_fada(no
 PROVINCIAS = {"AL": "ALMERIA", "CA": "CADIZ", "CO": "CORDOBA", "GR": "GRANADA", "HU": "HUELVA", "JA": "JAEN", "MA": "MALAGA", "SE": "SEVILLA"}
 
 
-def request(url, method="GET"):
-    return urllib.request.Request(url, headers=UA, method=method)
+def request(url, method="GET", headers=None):
+    return urllib.request.Request(url, headers={**UA, **(headers or {})}, method=method)
+
+
+_sin_conexion = set()  # sitios que no han respondido directamente: el resto de la ejecución van por el reenvío
+
+
+def open_url(url, timeout, method="GET", headers=None):
+    """Abre la URL directamente y, si el sitio no responde (no un error HTTP), a través del Worker de Cloudflare."""
+    host = urlparse(url).hostname
+    if host not in _sin_conexion:
+        try:
+            return urllib.request.urlopen(request(url, method, headers), timeout=timeout)
+        except urllib.error.HTTPError:
+            raise
+        except (urllib.error.URLError, OSError) as e:
+            if not ELO_PROXY:
+                raise
+            print(f"  aviso: {host} no responde directamente ({e}); se usa el reenvío de Cloudflare")
+            _sin_conexion.add(host)
+    return urllib.request.urlopen(request(ELO_PROXY + "?url=" + quote(url, safe=""), method, headers), timeout=max(timeout, 120))
 
 
 def fetch(url):
-    with urllib.request.urlopen(request(url), timeout=120) as r:
+    with open_url(url, 120) as r:
         return r.read()
 
 
@@ -153,15 +178,33 @@ def fide_stamp():
     """Huella de la lista de FIDE (fecha y tamaño). Devuelve "" si FIDE no responde: la comprobación no falla."""
     for method, extra in (("HEAD", {}), ("GET", {"Range": "bytes=0-0"})):
         try:
-            req = request(FIDE_ZIPS["std"], method)
-            for k, v in extra.items():
-                req.add_header(k, v)
-            with urllib.request.urlopen(req, timeout=15) as r:
+            with open_url(FIDE_ZIPS["std"], 15, method, extra) as r:
                 size = r.headers.get("Content-Range", "").split("/")[-1] or r.headers.get("Content-Length", "")
                 return r.headers.get("Last-Modified", "") + "|" + size
         except Exception as e:
             print(f"  aviso: no se pudo consultar FIDE ({method}): {e}")
     return ""
+
+
+# La FIDE y la FADA publican la lista del mes el día 1: se recoge el día 2 y, si ese día falla, el 3
+# (los dos días clave). Si aun así no se ha conseguido, se sigue probando en cada ejecución hasta tenerla.
+def fide_mes_actual(now=None):
+    """Mes ("AAAA-MM") de la lista FIDE que toca tener publicada."""
+    now = now or datetime.now(timezone.utc)
+    return (now if now.day >= 2 else now.replace(day=1) - timedelta(days=1)).strftime("%Y-%m")
+
+
+def stamp_del_mes(stamp, mes):
+    """True si la huella de la FIDE (su fecha Last-Modified) es de ese mes o posterior."""
+    try:
+        return parsedate_to_datetime(stamp.split("|")[0]).strftime("%Y-%m") >= mes
+    except Exception:
+        return False
+
+
+def snapshot_del_mes(snap, mes):
+    """True si la instantánea subida desde el equipo es de ese mes (generada del día 2 en adelante)."""
+    return bool(snap) and snap.get("generado", "") >= mes + "-02"
 
 
 # ---------- Instantánea de FIDE (se genera en el equipo del usuario y se sube a GitHub) ----------
@@ -180,13 +223,17 @@ def load_fide_snapshot():
 
 
 def export_fide_snapshot(force=False):
-    """Descarga las listas de FIDE (desde un equipo que sí llegue) y guarda la instantánea. True si hay cambios."""
+    """Descarga las listas de FIDE (desde un equipo que sí llegue) y guarda la instantánea. True si hay cambios.
+    Solo una vez al mes: desde el día 2, si aún no hay instantánea de ese mes."""
+    mes, snap = fide_mes_actual(), load_fide_snapshot()
+    if snapshot_del_mes(snap, mes) and not force:
+        print(f"Instantánea de FIDE al día (lista de {mes}).")
+        return False
     stamp = fide_stamp()
     if not stamp:
         raise RuntimeError("No se pudo consultar FIDE desde este equipo")
-    snap = load_fide_snapshot()
-    if snap and snap.get("stamp") == stamp and not force:
-        print("Instantánea de FIDE al día:", stamp)
+    if not stamp_del_mes(stamp, mes) and not force:
+        print(f"La FIDE aún no ha publicado la lista de {mes}: se vuelve a probar en la próxima ejecución.")
         return False
     print("FIDE: descargando la lista completa (todos los países)…")
     rows = read_fide(None)
@@ -212,12 +259,15 @@ def needs_rebuild(meta_path):
         return True, "cambió el formato de las bases de datos"
     if old.get("fada_article") != fada_latest():
         return True, "la FADA ha publicado una lista nueva"
-    snap = load_fide_snapshot()
-    stamp = fide_stamp()
-    if snap and old.get("fide_stamp") != snap["stamp"] and (not stamp or stamp == snap["stamp"]):
-        return True, "hay una instantánea de FIDE nueva"
-    if stamp and old.get("fide_stamp") != stamp and not snap and datetime.now(timezone.utc).day <= 7:
-        return True, "FIDE ha actualizado su lista"
+    # FIDE: una vez al mes, desde el día 2. Sirve la instantánea del equipo o, si el equipo está apagado,
+    # la descarga de GitHub (directa o por el reenvío de Cloudflare).
+    mes = fide_mes_actual()
+    if old.get("fide_mes") != mes:
+        if snapshot_del_mes(load_fide_snapshot(), mes):
+            return True, f"hay instantánea de FIDE con la lista de {mes}"
+        if stamp_del_mes(fide_stamp(), mes):
+            return True, f"la FIDE ya tiene la lista de {mes}"
+        return False, f"la FIDE aún no tiene la lista de {mes}: se vuelve a probar más tarde"
     return False, "sin novedades"
 
 
@@ -226,7 +276,7 @@ def read_fide(countries):
     """Filas (fide_id, nombre, federacion, titulo, anio_nacimiento, std, rapid, blitz, sexo)."""
     rows = []
     with tempfile.TemporaryFile() as tmp:
-        with urllib.request.urlopen(request(FIDE_ZIP), timeout=60) as r:
+        with open_url(FIDE_ZIP, 60) as r:
             while chunk := r.read(1 << 20):
                 tmp.write(chunk)
         tmp.seek(0)
@@ -253,7 +303,7 @@ def _read_list(url, countries):
     """{fide_id: (nombre, federacion, titulo, rating)} de una lista FIDE por ritmo."""
     out = {}
     with tempfile.TemporaryFile() as tmp:
-        with urllib.request.urlopen(request(url), timeout=30) as r:
+        with open_url(url, 30) as r:
             while chunk := r.read(1 << 20):
                 tmp.write(chunk)
         tmp.seek(0)
@@ -432,15 +482,18 @@ def build_public():
     OUT.mkdir(parents=True, exist_ok=True)
 
     # FIDE (todos los países, como RondaSwiss). Prioridad: 1) la instantánea subida desde el equipo del usuario,
-    # si está al día con FIDE o FIDE no responde; 2) descarga directa de la lista completa.
-    snap = load_fide_snapshot()
-    fide_all, fide_origen = None, ""
-    if snap and (not stamp or snap.get("stamp") == stamp):
+    # si es de la lista del mes (o la FIDE aún no tiene una nueva); 2) descarga de la lista completa, directa o por
+    # el reenvío de Cloudflare. «fide_mes» solo se apunta con la lista del mes: si falta, se reintenta más tarde.
+    mes, snap = fide_mes_actual(), load_fide_snapshot()
+    fide_all, fide_origen, fide_mes = None, "", None
+    if snapshot_del_mes(snap, mes) or (snap and not stamp_del_mes(stamp, mes)):
         fide_all, stamp, fide_origen = snapshot_rows(snap), snap["stamp"], "instantánea del " + snap["generado"]
+        fide_mes = mes if snapshot_del_mes(snap, mes) else None
     if fide_all is None:
         print("FIDE: descargando la lista completa…")
         try:
-            fide_all, fide_origen = read_fide(None), "descarga directa"
+            fide_all, fide_origen = read_fide(None), "descarga directa" + (" (reenvío de Cloudflare)" if _sin_conexion else "")
+            fide_mes = mes if stamp_del_mes(stamp, mes) else None
         except Exception as e:  # FIDE no responde (a veces bloquea las conexiones desde GitHub)
             if snap:
                 print(f"AVISO: FIDE no responde desde aquí ({e}). Se usa la instantánea del {snap['generado']}.")
@@ -480,6 +533,7 @@ def build_public():
         "fada_article": article,
         "fada_periodo": periodo.group(1).replace("-", " ") if periodo else "",
         "fide_stamp": stamp,
+        "fide_mes": fide_mes,
         "fide_origen": fide_origen,
         "fide_alcance": "mundial",
         "formato": FORMATO,

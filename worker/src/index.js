@@ -326,9 +326,38 @@ async function videos(request, env, ctx) {
   }
 }
 
+// Reenvío de las listas de Elo para GitHub Actions: los servidores de GitHub no llegan a ratings.fide.com
+// (y quizá algún día tampoco a la FADA), pero Cloudflare sí. Solo se aceptan las listas FIDE y la web de la
+// FADA, para que nadie use el Worker como pasarela hacia otros sitios. Se reenvía tal cual, sin guardar nada.
+const ELO_FIDE = /^\/download\/(players_list_xml|standard_rating_list_xml|rapid_rating_list_xml|blitz_rating_list_xml)\.zip$/;
+function eloPermitida(texto) {
+  let u; try { u = new URL(texto); } catch (e) { return null; }
+  if (u.protocol !== "https:" || u.username || u.password || u.port) return null;
+  if (u.hostname === "ratings.fide.com" && ELO_FIDE.test(u.pathname) && !u.search) return u;
+  if (u.hostname === "fadajedrez.com" || u.hostname === "www.fadajedrez.com") return u;
+  return null;
+}
+async function eloFuente(request) {
+  if (request.method !== "GET" && request.method !== "HEAD") return new Response("Método no permitido", { status: 405 });
+  const destino = eloPermitida(new URL(request.url).searchParams.get("url") || "");
+  if (!destino) return new Response("Solo se reenvían las listas de Elo de la FIDE y de la FADA", { status: 403 });
+  const cabeceras = { "User-Agent": "ApejupoBot/1.0 (+https://apejupo.com/)" };
+  const rango = request.headers.get("Range");
+  if (rango) cabeceras.Range = rango;
+  let r;
+  try { r = await fetch(destino.href, { method: request.method, headers: cabeceras, redirect: "follow", cf: { cacheTtl: 0 } }); }
+  catch (e) { return new Response("No se pudo conectar con " + destino.hostname, { status: 502 }); }
+  if (!eloPermitida(r.url || destino.href)) return new Response("Redirección no permitida", { status: 403 });
+  const h = new Headers();
+  for (const k of ["Content-Type", "Content-Length", "Content-Range", "Last-Modified", "Accept-Ranges"]) { const v = r.headers.get(k); if (v) h.set(k, v); }
+  h.set("Cache-Control", "no-store");
+  return new Response(request.method === "HEAD" ? null : r.body, { status: r.status, headers: h });
+}
+
 export default {
   async fetch(request, env, ctx) {
     const pathname = new URL(request.url).pathname;
+    if (pathname === "/elo-fuente") return eloFuente(request);
     if (pathname === "/fotos" || pathname.startsWith("/fotos/")) return fotos(request, env, new URL(request.url));
     if (pathname === "/videos" || pathname.startsWith("/videos/")) return request.method === "OPTIONS" ? new Response(null, { headers: FOTO_CORS }) : videos(request, env, ctx);
     if (request.method === "OPTIONS") return new Response(null, { headers: CORS });
