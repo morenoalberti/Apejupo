@@ -104,7 +104,7 @@ function send(action) {
   socket.send(JSON.stringify(action)); return true;
 }
 // La sesión recupera la inscripción y, si corresponde, los controles de organización en cualquier dispositivo.
-function hello() { send(boardsMode ? { type: 'hello' } : { type: 'hello', token: read(playerKey()), hostToken: read(hostKey(roomId)), ...(currentUser() ? { session: session() } : {}), ...(adminKey() ? { adminKey: adminKey() } : {}) }); }
+function hello() { send(boardsMode ? { type: 'hello' } : { type: 'hello', token: read(playerKey()), hostToken: currentUser() ? read(hostKey(roomId)) : '', ...(currentUser() ? { session: session() } : {}), ...(adminKey() ? { adminKey: adminKey() } : {}) }); }
 
 // En pruebas locales el servidor puede no pedir clave de organización: entonces se ocultan sus campos.
 function setKeyMode(required) {
@@ -129,7 +129,8 @@ const modeBadge = t => t.challenge ? '' : presencial(t)
   ? `<span class="to-mode-badge presencial" title="Se juega en los tableros del club">${svg('<path d="M12 21s-7-6.1-7-11.5A7 7 0 0 1 19 9.5C19 14.9 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/>')}Presencial</span>`
   : `<span class="to-mode-badge online" title="Se juega en esta web">${svg('<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/>')}Online</span>`;
 function eventCard(t) {
-  const organizer = t.mine === true || !!read(hostKey(t.id));
+  // Borrar o editar desde la lista, solo con la sesión iniciada (aunque este navegador lo haya creado).
+  const organizer = !!currentUser() && (t.mine === true || !!read(hostKey(t.id)));
   const trash = organizer || tournamentAdmin ? `<button class="to-delete" type="button" data-delete="${t.id}" aria-label="Borrar el torneo ${esc(t.title)}" title="Borrar torneo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M5 7l1 13h12l1-13M9 7V4h6v3"/></svg></button>` : '';
   // Creador y administrador pueden editar la configuración antes del inicio.
   const pencil = (organizer || tournamentAdmin) && (t.status === 'waiting' || t.editable) ? `<button class="to-delete to-edit" type="button" data-edit="${t.id}" aria-label="Editar el torneo ${esc(t.title)}" title="Editar torneo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></button>` : '';
