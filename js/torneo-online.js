@@ -32,7 +32,9 @@ let optimistic = null, rendered = { game: null, fen: null }, skipSlide = false, 
 let premove = null;
 
 function read(key) { try { return localStorage.getItem(key) || ''; } catch { return ''; } }
+// La administración solo con la sesión iniciada: la clave guardada en el dispositivo no basta.
 function adminKey() {
+  if (!currentUser()) return '';
   try { return sessionStorage.getItem('apejupoAdminCuentas') || read('apejupoAdminCuentas'); }
   catch { return read('apejupoAdminCuentas'); }
 }
