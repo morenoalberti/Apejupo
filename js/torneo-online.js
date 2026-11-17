@@ -1528,9 +1528,10 @@ $('to-pz-qr-copy').addEventListener('click', async () => {
     $('to-pz-qr-copy').textContent = 'Enlace copiado'; setTimeout(() => { $('to-pz-qr-copy').textContent = 'Copiar enlace'; }, 1800);
   } catch { message('No se pudo copiar el enlace.', true); }
 });
-$('to-presencial-next').addEventListener('click', async () => {
+// Sin confirmación: si hace falta, la última ronda se borra con su papelera.
+$('to-presencial-next').addEventListener('click', () => {
   if (closed(state)) return;
-  if (await confirmAction('Emparejar siguiente ronda', 'Se generarán los nuevos emparejamientos con los resultados actuales. Los resultados de la ronda anterior quedarán cerrados.')) send({ type: 'presencial-next' });
+  send({ type: 'presencial-next' });
 });
 $('to-presencial-reset').addEventListener('click', async () => {
   if (await confirmAction('Borrar emparejamientos y reabrir inscripción', 'Se borrarán todos los emparejamientos y resultados. Los jugadores se conservarán y volverán a estar inscritos. Podrás añadir o quitar jugadores y generar las rondas de nuevo. Esta acción no se puede deshacer.', true)) {
