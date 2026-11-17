@@ -235,6 +235,29 @@
 #to-player-count { flex: none; }
 .to-print-top { flex: none; margin: 0 10px 0 auto; }
 .to-print-top[hidden] { display: none; }
+.to-title-short { display: none; }
+/* Móvil: título de la clasificación en una línea (abreviado), Imprimir de arriba solo con el icono
+   y la tabla sin salirse de la pantalla (el nombre puede partirse; las cifras no). */
+@media (max-width: 600px) {
+  #to-standings-panel > .to-section-head { flex-wrap: nowrap; gap: 8px; }
+  #to-standings-title { min-width: 0; font-size: 1.05rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #to-standings-title .to-title-full { display: none; }
+  #to-standings-title .to-title-short { display: inline; }
+  .to-main #to-print-top { min-height: 36px; padding: 6px 9px; }
+  .to-main #to-print-top > span { display: none; }
+  .to-print-top { margin-right: 4px; }
+  .to-presencial-room .to-standings { min-width: 0; width: 100%; }
+  .to-presencial-room .to-standings th, .to-presencial-room .to-standings td { padding-left: 4px; padding-right: 4px; }
+  .to-presencial-room .to-standings td:nth-child(2) { white-space: normal; }
+  .to-presencial-room .to-standings .to-st-elo-col { padding-left: 6px; padding-right: 4px; font-size: .74rem; }
+  .to-presencial-room .to-standings td:first-child { width: 30px; }
+  .to-st-rank { width: 22px; height: 22px; font-size: .75rem; }
+  /* En el móvil no caben los desempates ni la foto: el nombre necesita el espacio (siguen en el ordenador y al imprimir). */
+  .to-presencial-room .to-standings th:nth-child(n+5), .to-presencial-room .to-standings td:nth-child(n+5) { display: none; }
+  .to-presencial-room .to-standings td:nth-child(4) { border-radius: 0 14px 14px 0; }
+  .to-st-id .to-pz-avatar { display: none; }
+  .to-st-name > span:not(.to-pz-title):not(.to-st-elo) { overflow-wrap: normal; word-break: normal; }
+}
 .to-standings-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
 .to-main #to-print-standings, .to-main #to-print-top { min-height: 40px; font-size: .82rem; background: color-mix(in srgb, var(--blue) 12%, var(--card)); border-color: color-mix(in srgb, var(--blue) 35%, var(--line)); }
 .to-main #to-print-standings:hover:not(:disabled), .to-main #to-print-top:hover:not(:disabled) { background: color-mix(in srgb, var(--blue) 21%, var(--card)); }

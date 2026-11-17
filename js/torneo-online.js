@@ -78,7 +78,9 @@ function standingsView(t) {
   if (initial) rows.sort((a, b) => fideRating(b) - fideRating(a) || a.name.localeCompare(b.name, 'es', { sensitivity: 'base' }));
   const title = initial ? 'Listado de participantes' : t.status === 'finished' ? 'Clasificación final'
     : arena(t) ? 'Clasificación provisional' : `Clasificación provisional ronda ${t.round}`;
-  return { initial, rows, title };
+  // Versión corta para el móvil, en una sola línea.
+  const short = initial ? 'Participantes' : t.status === 'finished' ? 'Clasif. final' : arena(t) ? 'Clasif. provisional' : `Clasif. prov. ronda ${t.round}`;
+  return { initial, rows, title, short };
 }
 // Tipo de torneo para las tarjetas: «Sistema suizo · 5 rondas», «Round-Robin doble vuelta», «Arena de 1 h»…
 function systemLabel(t) {
@@ -253,7 +255,7 @@ function render() {
   renderDuel(t);
   $('to-membership-text').hidden = !mine || mine.active;
   $('to-membership-text').textContent = mine && !mine.active ? 'Retirado del torneo' : '';
-  $('to-standings-title').textContent = classification.title;
+  $('to-standings-title').innerHTML = `<span class="to-title-full">${esc(classification.title)}</span><span class="to-title-short" aria-hidden="true">${esc(classification.short)}</span>`;
   $('to-print-standings').disabled = !classification.rows.length;
   // Impresora también arriba, a la derecha, junto al contador de jugadores.
   $('to-print-top').hidden = registering || !classification.rows.length;
