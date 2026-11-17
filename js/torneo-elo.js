@@ -43,8 +43,8 @@ function variants(text) {
   return v;
 }
 const SQL = {
-  fide: 'SELECT fide_id, nombre, federacion, titulo, elo_standard AS elo FROM jugadores_fide',
-  fada: 'SELECT id, nombre, club, provincia, titulo, elo_fada AS elo, fide_id FROM jugadores_fada'
+  fide: 'SELECT fide_id, nombre, federacion, titulo, elo_standard AS elo, anio_nacimiento AS nac FROM jugadores_fide',
+  fada: 'SELECT id, nombre, club, provincia, titulo, elo_fada AS elo, fide_id, anio_nacimiento AS nac FROM jugadores_fada'
 };
 async function query(kind, text, limit, exact = false) {
   const db = await getDb(kind);
@@ -61,13 +61,13 @@ async function query(kind, text, limit, exact = false) {
 function merge(fada, fide) {
   const out = [], byFide = new Map();
   for (const r of fada) {
-    const item = { name: r.nombre, fada: r.elo || null, fadaId: r.id, fideId: r.fide_id ? String(r.fide_id) : null, fed: 'ESP', place: r.provincia || r.club || '', title: r.titulo || '' };
+    const item = { name: r.nombre, fada: r.elo || null, fadaId: r.id, fideId: r.fide_id ? String(r.fide_id) : null, fed: 'ESP', place: r.provincia || r.club || '', title: r.titulo || '', birth: r.nac || null };
     out.push(item); if (item.fideId) byFide.set(item.fideId, item);
   }
   for (const r of fide) {
     const id = String(r.fide_id), known = byFide.get(id);
-    if (known) { known.fide = r.elo || null; known.title ||= r.titulo || ''; known.fed = r.federacion || known.fed; continue; }
-    out.push({ name: r.nombre, fide: r.elo || null, fideId: id, fed: r.federacion || null, place: window.U?.pais ? window.U.pais(r.federacion) : r.federacion || '', title: r.titulo || '' });
+    if (known) { known.fide = r.elo || null; known.title ||= r.titulo || ''; known.fed = r.federacion || known.fed; known.birth ||= r.nac || null; continue; }
+    out.push({ name: r.nombre, fide: r.elo || null, fideId: id, fed: r.federacion || null, place: window.U?.pais ? window.U.pais(r.federacion) : r.federacion || '', title: r.titulo || '', birth: r.nac || null });
   }
   return out;
 }
@@ -77,8 +77,8 @@ async function finish(items) {
   const missing = items.filter(p => p.fideId && p.fide === undefined);
   if (missing.length) {
     try {
-      const rows = await (await getDb('fide')).query(`SELECT fide_id, elo_standard AS elo, titulo FROM jugadores_fide WHERE fide_id IN (${missing.map(p => parseInt(p.fideId, 10)).join(',')})`);
-      for (const r of rows) { const p = missing.find(p => p.fideId === String(r.fide_id)); if (p) { p.fide = r.elo || null; p.title ||= r.titulo || ''; } }
+      const rows = await (await getDb('fide')).query(`SELECT fide_id, elo_standard AS elo, titulo, anio_nacimiento AS nac FROM jugadores_fide WHERE fide_id IN (${missing.map(p => parseInt(p.fideId, 10)).join(',')})`);
+      for (const r of rows) { const p = missing.find(p => p.fideId === String(r.fide_id)); if (p) { p.fide = r.elo || null; p.title ||= r.titulo || ''; p.birth ||= r.nac || null; } }
     } catch {}
   }
   for (const p of items) { p.rating = p.fide || p.fada || null; p.source = p.fide ? 'FIDE' : p.fada ? 'FADA' : null; }

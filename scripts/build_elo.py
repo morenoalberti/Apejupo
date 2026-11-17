@@ -11,9 +11,8 @@ Fuentes oficiales y públicas:
 
 Modos:
   python scripts/build_elo.py
-      Web (público): solo jugadores de España (FIDE) y Andalucía (FADA) con algún rating. Las columnas
-      anio_nacimiento y sexo existen pero van vacías, porque la web es pública. Solo reconstruye si hay
-      listas nuevas.
+      Web (público): lleva el año de nacimiento (lo publican también FIDE y la FADA; sirve para los premios
+      Sub y Supra de los torneos). El sexo va vacío. Solo reconstruye si hay listas nuevas.
   python scripts/build_elo.py --force
       Igual, pero reconstruye siempre.
   python scripts/build_elo.py --full [--all-countries] [--db-dir CARPETA]
@@ -60,7 +59,7 @@ FIDE_COUNTRY = "ESP"
 FADA_CATEGORY = "https://fadajedrez.com/wp/category/elo/"
 SNAPSHOT = ROOT / "scripts" / ".cache" / "fide_all.json.gz"  # la genera este equipo (update_fide_local.py)
 SNAPSHOT_CI = ROOT / "fide-data" / "fide_all.json.gz"          # copia que GitHub recupera de la rama fide-data
-FORMATO = 3   # súbelo si cambia la forma de las bases o de los ficheros de data/elo: fuerza a reconstruirlos
+FORMATO = 4   # súbelo si cambia la forma de las bases o de los ficheros de data/elo: fuerza a reconstruirlos
 TOP_N = 1000  # jugadores de las listas iniciales ya calculadas (top_fide.json y top_fada.json)
 FIDE_DB = "RondaSwissFIDE.db"
 FADA_DB = "RondaSwissFADA.db"
@@ -204,7 +203,8 @@ def stamp_del_mes(stamp, mes):
 
 def snapshot_del_mes(snap, mes):
     """True si la instantánea subida desde el equipo es de ese mes (generada del día 2 en adelante)."""
-    return bool(snap) and snap.get("generado", "") >= mes + "-02"
+    # Una instantánea sin año de nacimiento (formato anterior) se considera caducada: hay que rehacerla.
+    return bool(snap) and bool(snap.get("nacimiento")) and snap.get("generado", "") >= mes + "-02"
 
 
 # ---------- Instantánea de FIDE (se genera en el equipo del usuario y se sube a GitHub) ----------
@@ -237,10 +237,10 @@ def export_fide_snapshot(force=False):
         return False
     print("FIDE: descargando la lista completa (todos los países)…")
     rows = read_fide(None)
-    filas = [[r[0], r[1], r[2], r[3], r[5], r[6], r[7]] for r in rows]  # sin año de nacimiento ni sexo
+    filas = [[r[0], r[1], r[2], r[3], r[5], r[6], r[7], r[4]] for r in rows]  # con año de nacimiento (al final); sin sexo
     SNAPSHOT.parent.mkdir(parents=True, exist_ok=True)
     with gzip.open(SNAPSHOT, "wt", encoding="utf-8") as f:
-        json.dump({"stamp": stamp, "generado": datetime.now(timezone.utc).strftime("%Y-%m-%d"), "filas": filas},
+        json.dump({"nacimiento": True, "stamp": stamp, "generado": datetime.now(timezone.utc).strftime("%Y-%m-%d"), "filas": filas},
                   f, ensure_ascii=False, separators=(",", ":"))
     print(f"Instantánea guardada: {len(filas)} jugadores ({SNAPSHOT.stat().st_size // 1024} KB), huella {stamp}")
     return True
@@ -248,7 +248,8 @@ def export_fide_snapshot(force=False):
 
 def snapshot_rows(snap):
     """Convierte la instantánea al formato de read_fide_lists."""
-    return [(p, n, fed, t, 0, s, r, b, "") for p, n, fed, t, s, r, b in snap["filas"]]
+    # Las instantáneas antiguas no traen el año de nacimiento (7 campos); las nuevas lo llevan al final.
+    return [(f[0], f[1], f[2], f[3], f[7] if len(f) > 7 else 0, f[4], f[5], f[6], "") for f in snap["filas"]]
 
 
 def needs_rebuild(meta_path):
@@ -426,7 +427,7 @@ def write_fide_db(path, rows, full, web=False):
     db.executemany(
         "INSERT INTO jugadores_fide (nombre, federacion, titulo, anio_nacimiento, elo_standard, elo_blitz, elo_rapid, fide_id, sexo)"
         " VALUES (?,?,?,?,?,?,?,?,?)",
-        [(r[1], r[2], r[3] or None, opt(r[4]) if full else None, opt(r[5]), opt(r[7]), opt(r[6]), r[0], (r[8] or None) if full else None)
+        [(r[1], r[2], r[3] or None, opt(r[4]), opt(r[5]), opt(r[7]), opt(r[6]), r[0], (r[8] or None) if full else None)
          for r in rows])
     db.execute("INSERT OR REPLACE INTO app_settings (clave, valor) VALUES ('jugadores_fide_tipo', 'Completo')")
     db.execute("INSERT OR REPLACE INTO app_settings (clave, valor) VALUES ('jugadores_fide_actualizado', ?)", (now_iso(),))
@@ -445,7 +446,7 @@ def write_fada_db(path, rows, full):
         # El ID de la FADA (ID_Fada) se guarda como `id` de la fila: la estructura de la tabla es la de RondaSwiss.
         "INSERT INTO jugadores_fada (id, nombre, club, federado, titulo, anio_nacimiento, elo_fada, fide_id, sexo, provincia)"
         " VALUES (?,?,?,?,?,?,?,?,?,?)",
-        [(r[9] or None, r[0], r[1] or None, r[2], r[3] or None, opt(r[4]) if full else None, opt(r[5]), opt(r[6]), (r[7] or None) if full else None, r[8] or None)
+        [(r[9] or None, r[0], r[1] or None, r[2], r[3] or None, opt(r[4]), opt(r[5]), opt(r[6]), (r[7] or None) if full else None, r[8] or None)
          for r in rows])
     db.execute("INSERT OR REPLACE INTO app_settings (clave, valor) VALUES ('jugadores_fada_actualizado', ?)", (now_iso(),))
     db.executescript(FADA_INDEXES)

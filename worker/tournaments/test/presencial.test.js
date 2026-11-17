@@ -415,3 +415,20 @@ test('suizo presencial: borrar la última ronda permite corregir la anterior y v
   act(rr, null, true, { type: 'start' }, NOW);
   assert.throws(() => act(rr, null, true, { type: 'presencial-drop-round', round: 1 }, NOW), /Round-Robin/);
 });
+
+test('presencial: año de nacimiento de las listas, guardado, editable y en la clasificación', () => {
+  const t = createTournament({ ...input }, 'c'.repeat(24), 'host', NOW);
+  act(t, null, true, { type: 'presencial-player', name: 'Joven, Pablo', rating: 1500, birth: 2014 }, NOW);
+  act(t, null, true, { type: 'presencial-player', name: 'Sin Año, Ana', rating: 1400, birth: 'abc' }, NOW);
+  act(t, null, true, { type: 'presencial-player', name: 'Futuro, Leo', birth: 3000 }, NOW);
+  assert.equal(t.players[0].birth, 2014);
+  assert.equal(t.players[1].birth, undefined, 'Un año no válido no se guarda');
+  assert.equal(t.players[2].birth, undefined, 'Tampoco uno en el futuro');
+  assert.equal(snapshot(t, null, true).standings.find(p => p.name === 'Joven, Pablo').birth, 2014);
+  act(t, null, true, { type: 'presencial-edit', playerId: t.players[1].id, name: 'Sin Año, Ana', rating: 1400, birth: 1958 }, NOW);
+  assert.equal(t.players[1].birth, 1958);
+  act(t, null, true, { type: 'presencial-edit', playerId: t.players[1].id, name: 'Sin Año, Ana', rating: 1400 }, NOW);
+  assert.equal(t.players[1].birth, undefined, 'Al editar sin año, se quita');
+  act(t, null, true, { type: 'presencial-players', players: [{ name: 'Lista, Eva', birth: 1990 }] }, NOW);
+  assert.equal(t.players.at(-1).birth, 1990);
+});
