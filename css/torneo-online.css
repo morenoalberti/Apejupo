@@ -232,8 +232,9 @@
 .to-roster-heading { display: flex; align-items: center; gap: 10px; min-width: 0; }
 #to-standings-panel > .to-section-head { flex-wrap: nowrap; }
 #to-standings-panel .to-roster-heading { flex: 1; }
-#to-player-count { flex: none; }
-.to-print-top { flex: none; margin: 0 10px 0 auto; }
+#to-player-count { flex: none; align-self: flex-start; }
+#to-standings-panel .to-heading-text { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; min-width: 0; }
+.to-print-top { flex: none; margin: 0 0 0 auto; }
 .to-print-top[hidden] { display: none; }
 .to-title-short { display: none; }
 /* Móvil: título de la clasificación en una línea (abreviado), Imprimir de arriba solo con el icono
@@ -245,7 +246,6 @@
   #to-standings-title .to-title-short { display: inline; }
   .to-main #to-print-top { min-height: 36px; padding: 6px 9px; }
   .to-main #to-print-top > span { display: none; }
-  .to-print-top { margin-right: 4px; }
   .to-presencial-room .to-standings { min-width: 0; width: 100%; }
   .to-presencial-room .to-standings th, .to-presencial-room .to-standings td { padding-left: 4px; padding-right: 4px; }
   .to-presencial-room .to-standings td:nth-child(2) { white-space: normal; }
