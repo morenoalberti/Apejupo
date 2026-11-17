@@ -1328,8 +1328,7 @@ const pzIcons = {
   edit: pzSvg('<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>'),
   trash: pzSvg('<path d="M4 7h16M10 11v6M14 11v6M5 7l1 13h12l1-13M9 7V4h6v3"/>'),
   check: pzSvg('<path d="m5 12 5 5 9-10"/>'),
-  x: pzSvg('<path d="M6 6l12 12M18 6 6 18"/>'),
-  out: pzSvg('<path d="M9 5H5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h4M16 8l4 4-4 4M9 12h11"/>')
+  x: pzSvg('<path d="M6 6l12 12M18 6 6 18"/>')
 };
 let askChanging = false;
 // Iniciales: en las listas va «Apellidos, Nombre».
@@ -1415,7 +1414,7 @@ function renderRoster(t) {
   const waiting = t.status === 'waiting' || canChangeInitialRoster(t), ended = ['finished', 'cancelled'].includes(t.status);
   const tools = p => ended ? '' : `<button type="button" class="to-pz-icon" data-pz-edit="${p.id}" aria-label="Editar a ${esc(p.name)}" title="Editar">${pzIcons.edit}</button>`
     + (waiting ? `<button type="button" class="to-pz-icon danger" data-pz-remove="${p.id}" aria-label="Quitar a ${esc(p.name)}" title="Quitar">${pzIcons.trash}</button>`
-      : p.active ? `<button type="button" class="to-pz-icon danger" data-pz-active="${p.id}" data-active="false" aria-label="Retirar a ${esc(p.name)} de las próximas rondas" title="Retirar del torneo">${pzIcons.out}</button>`
+      : p.active ? `<button type="button" class="to-pz-icon danger" data-pz-active="${p.id}" data-active="false" aria-label="Retirar a ${esc(p.name)} de las próximas rondas" title="Retirar del torneo">${pzIcons.x}</button>`
         : `<button type="button" class="to-pz-tool small" data-pz-active="${p.id}" data-active="true" title="Volver a incluirlo en las próximas rondas">Reincluir</button>`);
   fillBirths(t, players);
   $('to-pz-roster').innerHTML = players.map((p, i) => playerRow(p, i, (p.active === false ? '<span class="to-pz-out">Retirado</span>' : '') + tools(p))).join('')
