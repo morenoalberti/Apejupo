@@ -802,7 +802,7 @@ body.to-pz-managing #to-standings-panel { display: none; }
 .to-presencial-room .to-standings td:first-child { width: 40px; border-radius: 14px 0 0 14px; text-align: center; color: var(--muted); }
 .to-presencial-room .to-standings td:nth-child(n+5) { color: var(--muted); font-variant-numeric: tabular-nums; }
 /* ELO en su propia columna, separado del nombre. */
-.to-presencial-room .to-standings .to-st-elo-col { padding-left: 34px; padding-right: 14px; text-align: right; color: var(--muted); font-size: .8rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+.to-presencial-room .to-standings .to-st-elo-col { padding-left: 64px; padding-right: 14px; text-align: right; color: var(--muted); font-size: .8rem; font-weight: 600; font-variant-numeric: tabular-nums; }
 .to-registration-panel .to-standings .to-st-elo-col { display: table-cell; }
 .to-registration-panel .to-standings td.to-st-elo-col { border-radius: 0 9px 9px 0; }
 .to-registration-panel .to-standings td:nth-child(2):has(+ .to-st-elo-col) { border-radius: 0; }
