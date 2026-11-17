@@ -983,8 +983,14 @@ li.to-tb-dragging { position: relative; z-index: 2; transform: scale(1.03); back
 
 /* Móvil: desplegables del formulario con hoja propia (botón con el valor y hoja inferior con las opciones) */
 .to-select-btn { display: none; }
+.to-lbl-short { display: none; }
+.to-date-wrap { position: relative; display: block; }
 @media (max-width: 600px) {
   #to-create-form select { display: none; }
+  #to-create-form .to-lbl-full { display: none; }
+  #to-create-form .to-lbl-short { display: inline; }
+  .to-date-wrap.empty input::-webkit-datetime-edit { color: transparent; } /* si el navegador pinta su propio texto, no se duplica */
+  .to-date-wrap.empty::before { content: 'dd/mm/aaaa'; position: absolute; left: 13px; top: 50%; transform: translateY(-50%); color: var(--muted); font-size: 16px; pointer-events: none; z-index: 1; }
   .to-select-btn { position: relative; display: flex; align-items: center; width: 100%; min-height: 44px; margin: 0; padding: 8px 34px 8px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); color: var(--text); font: inherit; font-size: 16px; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
   .to-select-btn::after { content: ''; position: absolute; right: 14px; top: 50%; width: 8px; height: 8px; margin-top: -6px; border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted); transform: rotate(45deg); }
   .to-select-btn:focus-visible { outline: 2px solid var(--blue); outline-offset: 1px; }

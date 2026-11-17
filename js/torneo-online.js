@@ -1317,8 +1317,10 @@ function pickerButtons() {
     btn.textContent = text; btn.disabled = sel.disabled;
     btn.setAttribute('aria-label', `${pickerTitle(sel)}: ${text}`);
   }
+  // Día vacío: en el móvil el campo de fecha sale en blanco; se muestra «dd/mm/aaaa» como en el ordenador.
+  $('to-start-day').parentElement.classList.toggle('empty', !$('to-start-day').value);
 }
-const pickerTitle = sel => (document.querySelector(`label[for="${sel.id}"]`)?.textContent || '').trim();
+const pickerTitle = sel => { const l = document.querySelector(`label[for="${sel.id}"]`); return ((l?.querySelector('.to-lbl-full') || l)?.textContent || '').trim(); };
 function openPicker(sel) {
   let dlg = $('to-picker');
   if (!dlg) {
@@ -1342,6 +1344,7 @@ function openPicker(sel) {
   dlg.querySelector('.on')?.scrollIntoView({ block: 'nearest' });
 }
 $('to-create-form').addEventListener('change', () => pickerButtons());
+$('to-start-day').addEventListener('input', () => pickerButtons());
 $('to-join-account').addEventListener('click', () => openAuth('entrar'));
 addEventListener('apejupo:cuenta', () => {
   if (state) render();
