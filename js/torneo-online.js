@@ -18,6 +18,7 @@ let state = null, socket = null, reconnectTimer = null, heartbeat = null, retry 
 let connected = false, pending = false, offset = 0, selected = null, flipped = false, manualFlip = false;
 let ptOptions = []; // resultados posibles de la mesa (según el formato), para el cuadro de resultados
 let presencialFilter = 'all', presencialView = 'rounds'; // pestañas del organizador con el torneo en marcha // tabla de rondas presenciales: todas o una
+let roundPickerKey = '';
 let boardKey = '', lastRound = null, viewedRound = null, replay = null, replayPly = null, promotion = null;
 let confirmResolve = null, dropped = null, lobby = new Map();
 let lastArenaClosing = false;
@@ -530,10 +531,57 @@ function newGameAlert() {
   if (document.hidden) { const title = document.title; document.title = '♟ ¡Tu partida empieza!'; addEventListener('visibilitychange', () => { document.title = title; }, { once: true }); }
 }
 function formatPoints(n) { return Number.isInteger(n) ? String(n) : n % 1 === .5 ? (Math.floor(n) || '') + '½' : String(n); }
+function closeRoundPicker(focus = false) {
+  $('to-round-menu').hidden = true;
+  $('to-round-trigger').setAttribute('aria-expanded', 'false');
+  if (focus && !$('to-round-picker').hidden) $('to-round-trigger').focus({ preventScroll: true });
+}
+function positionRoundPicker() {
+  const menu = $('to-round-menu'), rect = $('to-round-trigger').getBoundingClientRect();
+  const width = Math.min(280, innerWidth - 24), below = innerHeight - rect.bottom - 18, above = rect.top - 18;
+  menu.style.width = `${width}px`; menu.style.maxHeight = `${Math.max(80, Math.min(360, Math.max(below, above)))}px`;
+  const height = menu.getBoundingClientRect().height, up = below < height && above > below;
+  menu.style.left = `${Math.max(12, Math.min(rect.right - width, innerWidth - width - 12))}px`;
+  menu.style.top = `${up ? Math.max(12, rect.top - height - 6) : rect.bottom + 6}px`;
+}
+function focusRoundOption(option) {
+  if (!option) return;
+  option.focus({ preventScroll: true });
+  const list = $('to-round-options'), itemRect = option.getBoundingClientRect(), listRect = list.getBoundingClientRect();
+  if (itemRect.top < listRect.top) list.scrollTop -= listRect.top - itemRect.top;
+  else if (itemRect.bottom > listRect.bottom) list.scrollTop += itemRect.bottom - listRect.bottom;
+}
+function openRoundPicker(edge) {
+  if ($('to-round-picker').hidden) return;
+  $('to-round-menu').hidden = false; $('to-round-trigger').setAttribute('aria-expanded', 'true');
+  positionRoundPicker();
+  const options = [...$('to-round-options').querySelectorAll('[data-round-filter]')];
+  const option = edge === 'first' ? options[0] : edge === 'last' ? options.at(-1) : options.find(el => el.getAttribute('aria-selected') === 'true');
+  focusRoundOption(option);
+}
+// «Última ronda»: la ronda en curso o la última emparejada; se actualiza sola al emparejar otra.
+const latestRound = (t, rounds) => t.round || rounds.at(-1);
+function renderRoundPicker(t, rounds) {
+  $('to-round-picker').hidden = $('to-presencial-round').hidden;
+  if ($('to-round-picker').hidden) { closeRoundPicker(); return; }
+  $('to-round-label').textContent = presencialFilter === 'all' ? 'Todas las rondas' : presencialFilter === 'last' ? 'Última ronda' : `Ronda ${presencialFilter}`;
+  $('to-round-count').textContent = `${rounds.length} rondas`;
+  const choices = [{ value: 'all', label: 'Todas las rondas', detail: 'Ver el torneo completo', badge: 'Σ' }, { value: 'last', label: 'Última ronda', detail: `Ronda ${latestRound(t, rounds)}`, badge: '↓' }, ...rounds.map(r => ({
+    value: String(r), label: `Ronda ${r}`, detail: r < t.round || t.status === 'finished' ? 'Completada' : r === t.round ? 'En curso' : 'Por jugar', badge: String(r).padStart(2, '0')
+  }))];
+  const key = JSON.stringify([choices, presencialFilter]);
+  if (key !== roundPickerKey) {
+    roundPickerKey = key;
+    const focused = document.activeElement?.dataset.roundFilter;
+    $('to-round-options').innerHTML = choices.map(o => `<button type="button" role="option" tabindex="-1" data-round-filter="${o.value}" aria-selected="${String(o.value === String(presencialFilter))}"><span class="to-round-number" aria-hidden="true">${o.badge}</span><span class="to-round-text"><strong>${o.label}</strong><small${o.detail === 'En curso' ? ' class="is-current"' : ''}>${o.detail}</small></span><svg class="to-round-check" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 4 4L19 6"/></svg></button>`).join('');
+    if (focused && !$('to-round-menu').hidden) [...$('to-round-options').children].find(el => el.dataset.roundFilter === focused)?.focus({ preventScroll: true });
+  }
+  if (!$('to-round-menu').hidden) positionRoundPicker();
+}
 function renderPresencial() {
   const t = state, show = presencial(t), waiting = t.status === 'waiting';
   $('to-presencial').hidden = !show;
-  if (!show) return;
+  if (!show) { closeRoundPicker(); return; }
   const running = ['playing', 'between', 'finished'].includes(t.status);
   $('to-presencial-reset').hidden = !t.host || !running || !t.round;
   // Con el torneo emparejado, el organizador vuelve a la lista de jugadores con la pestaña «Jugadores».
@@ -567,13 +615,14 @@ function renderPresencial() {
   // Round-Robin: también las rondas que faltan por jugar (el calendario sale entero del sorteo).
   const future = new Map((t.schedule || []).map(f => [f.round, f.pairs]));
   const rounds = [...new Set([...t.games.map(g => g.round), ...future.keys()])].sort((a, b) => a - b);
-  if (presencialFilter !== 'all' && !rounds.includes(Number(presencialFilter))) presencialFilter = 'all';
+  if (!['all', 'last'].includes(presencialFilter) && !rounds.includes(Number(presencialFilter))) presencialFilter = 'all';
   $('to-presencial-round').hidden = rounds.length < 2;
-  $('to-presencial-round').innerHTML = '<option value="all">Todas las rondas</option>' + rounds.map(r => `<option value="${r}">Ronda ${r}</option>`).join('');
+  $('to-presencial-round').innerHTML = '<option value="all">Todas las rondas</option><option value="last">Última ronda</option>' + rounds.map(r => `<option value="${r}">Ronda ${r}</option>`).join('');
   $('to-presencial-round').value = String(presencialFilter);
   if (presencialView === 'players' && t.host) $('to-presencial-round').hidden = true;
+  renderRoundPicker(t, rounds);
   $('to-presencial-toolbar').hidden = $('to-presencial-round').hidden && $('to-host').hidden;
-  const shown = presencialFilter === 'all' ? rounds : [Number(presencialFilter)];
+  const shown = presencialFilter === 'all' ? rounds : presencialFilter === 'last' ? [latestRound(t, rounds)] : [Number(presencialFilter)];
   const info = id => t.standings.find(p => p.id === id) || { name: name(id) };
   const tit = p => p.title ? `<span class="to-pz-title${/^A[GIFC]M$/.test(p.title) ? ' arena' : ''}">${esc(p.title)}</span>` : '';
   const flag = p => p.fed && window.U?.flag ? window.U.flag(p.fed) : '';
@@ -1550,6 +1599,33 @@ $('to-pz-tabs').addEventListener('click', event => {
   presencialView = b.dataset.pzView; renderPresencial();
 });
 $('to-presencial-round').addEventListener('change', event => { presencialFilter = event.target.value; renderPresencial(); });
+$('to-round-trigger').addEventListener('click', () => {
+  if ($('to-round-menu').hidden) openRoundPicker(); else closeRoundPicker(true);
+});
+$('to-round-trigger').addEventListener('keydown', event => {
+  if (['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) {
+    event.preventDefault(); openRoundPicker(event.key === 'Home' ? 'first' : event.key === 'End' || event.key === 'ArrowUp' ? 'last' : undefined);
+  }
+});
+$('to-round-options').addEventListener('click', event => {
+  const option = event.target.closest('[data-round-filter]'); if (!option) return;
+  presencialFilter = option.dataset.roundFilter; closeRoundPicker(true); renderPresencial();
+});
+$('to-round-options').addEventListener('keydown', event => {
+  if (event.key === 'Escape' || event.key === 'Tab') { if (event.key === 'Escape') event.preventDefault(); closeRoundPicker(true); return; }
+  if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
+  event.preventDefault();
+  const options = [...$('to-round-options').children], i = options.indexOf(document.activeElement);
+  const next = event.key === 'Home' ? 0 : event.key === 'End' ? options.length - 1 : (i + (event.key === 'ArrowDown' ? 1 : -1) + options.length) % options.length;
+  focusRoundOption(options[next]);
+});
+document.addEventListener('pointerdown', event => { if (!event.target.closest('#to-round-picker')) closeRoundPicker(); });
+addEventListener('resize', () => closeRoundPicker());
+document.addEventListener('scroll', event => {
+  if ($('to-round-menu').hidden || $('to-round-menu').contains(event.target)) return;
+  const rect = $('to-round-trigger').getBoundingClientRect();
+  if (rect.bottom <= 0 || rect.top >= innerHeight) closeRoundPicker(); else positionRoundPicker();
+}, { capture: true, passive: true });
 // Cuadro de resultados (como en RondaSwiss): sale junto a la mesa pulsada.
 function closeResultPop() { $('to-pt-pop')?.remove(); document.querySelector('tr.to-pt-open')?.classList.remove('to-pt-open'); }
 function openResultPop(row) {
