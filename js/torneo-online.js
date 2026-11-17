@@ -578,32 +578,52 @@ function renderPresencial() {
   const score = r => r ? (options.find(([v]) => v === r)?.[1] || r.replace('1/2-1/2', '½-½')) : '';
   ptOptions = options;
   const whitePts = r => ({ '2-0': 2, '1.5-0.5': 1.5, '1-1': 1, '0.5-1.5': .5, '0-2': 0, '1-0': perTable, '+-': perTable, '0-1': 0, '-+': 0 })[r] ?? perTable / 2;
+  // Puntos que lleva cada jugador al empezar la ronda r (rondas anteriores con resultado y descansos).
+  const before = new Map();
+  for (const r of rounds) {
+    const acc = new Map();
+    for (const g of t.games) {
+      if (g.round >= r) continue;
+      if (g.bye) { acc.set(g.white, (acc.get(g.white) || 0) + (g.rest ? 0 : perTable)); continue; }
+      if (!g.result) continue;
+      const wp = whitePts(g.result);
+      acc.set(g.white, (acc.get(g.white) || 0) + wp); acc.set(g.black, (acc.get(g.black) || 0) + perTable - wp);
+    }
+    before.set(r, acc);
+  }
+  // Round-Robin: en las rondas por jugar más allá de la siguiente aún no se sabe con cuántos puntos llegará cada uno.
+  const firstFuture = Math.min(...future.keys());
+  const known = r => !future.has(r) || (r === firstFuture && !t.games.some(g => g.round === r - 1 && !g.bye && !g.result));
+  const pts = (r, p) => `<td class="to-pt-pts">${known(r) && p.id ? formatPoints(before.get(r)?.get(p.id) || 0) : ''}</td>`;
   const body = shown.map(r => {
     if (future.has(r)) {
       const pairs = future.get(r), tables = pairs.filter(([w, b]) => w && b), rests = pairs.filter(([w, b]) => !w || !b).map(([w, b]) => w || b);
-      return `<tr class="to-pt-round to-pt-future"><th colspan="8">Ronda ${r} <span class="to-pt-state">por jugar</span></th></tr>`
+      return `<tr class="to-pt-round to-pt-future"><th colspan="10">Ronda ${r} <span class="to-pt-state">por jugar</span></th></tr>`
         + tables.map(([wid, bid], i) => { const w = info(wid), b = info(bid);
-          return `<tr class="to-pt-later${wid === t.me || bid === t.me ? ' mine' : ''}"><td class="to-pt-num">${i + 1}</td><td class="to-pt-tit">${tit(w)}</td>${cellName(w, false)}<td class="to-pt-elo">${w.rating || ''}</td><td class="to-pt-res"><span class="to-pt-pending">—</span></td><td class="to-pt-tit">${tit(b)}</td>${cellName(b, false)}<td class="to-pt-elo">${b.rating || ''}</td></tr>`; }).join('')
+          return `<tr class="to-pt-later${wid === t.me || bid === t.me ? ' mine' : ''}"><td class="to-pt-num">${i + 1}</td><td class="to-pt-tit">${tit(w)}</td>${cellName(w, false)}<td class="to-pt-elo">${w.rating || ''}</td>${pts(r, w)}<td class="to-pt-res"><span class="to-pt-pending">—</span></td>${pts(r, b)}<td class="to-pt-tit">${tit(b)}</td>${cellName(b, false)}<td class="to-pt-elo">${b.rating || ''}</td></tr>`; }).join('')
         + rests.map(id => { const w = info(id);
-          return `<tr class="to-pt-bye to-pt-later${id === t.me ? ' mine' : ''}"><td class="to-pt-num"></td><td class="to-pt-tit">${tit(w)}</td>${cellName(w, false)}<td class="to-pt-elo">${w.rating || ''}</td><td class="to-pt-res"><span class="to-pt-pending">—</span></td><td class="to-pt-tit"></td><td class="to-pt-name to-pt-rest" colspan="2">Descansa</td></tr>`; }).join('');
+          return `<tr class="to-pt-bye to-pt-later${id === t.me ? ' mine' : ''}"><td class="to-pt-num"></td><td class="to-pt-tit">${tit(w)}</td>${cellName(w, false)}<td class="to-pt-elo">${w.rating || ''}</td>${pts(r, w)}<td class="to-pt-res"><span class="to-pt-pending">—</span></td><td class="to-pt-pts"></td><td class="to-pt-tit"></td><td class="to-pt-name to-pt-rest" colspan="2">Descansa</td></tr>`; }).join('');
     }
     const games = t.games.filter(g => g.round === r), tables = games.filter(g => !g.bye), byes = games.filter(g => g.bye);
     // Ronda en curso: siempre. Round-Robin: también cualquier ronda anterior, para corregir errores (no cambia los emparejamientos).
     const earlier = closed(t) && r < t.round;
     const editable = t.host && ['playing', 'between', 'finished'].includes(t.status) && (r === t.round || earlier);
     const pending = tables.filter(g => !g.result).length;
-    const head = `<tr class="to-pt-round"><th colspan="8">Ronda ${r}${r === t.round && t.status !== 'finished' ? ` <span class="to-pt-state">${pending ? `${pending} ${pending === 1 ? 'resultado pendiente' : 'resultados pendientes'}` : 'completa'}</span>` : ''}</th></tr>`;
+    // Suizo: el organizador puede borrar la última ronda (p. ej. para corregir un resultado de la anterior).
+    const drop = t.host && t.format === 'swiss' && r === t.round && ['playing', 'between', 'finished'].includes(t.status)
+      ? `<button type="button" class="to-pt-drop" data-pt-drop="${r}" title="Borrar última ronda" aria-label="Borrar última ronda (ronda ${r})"${connected ? '' : ' disabled'}><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M9 6V4h6v2M5 6l1 14h12l1-14M10 10v6M14 10v6"/></svg></button>` : '';
+    const head = `<tr class="to-pt-round"><th colspan="10"><div class="to-pt-round-head"><span>Ronda ${r}${r === t.round && t.status !== 'finished' ? ` <span class="to-pt-state">${pending ? `${pending} ${pending === 1 ? 'resultado pendiente' : 'resultados pendientes'}` : 'completa'}</span>` : ''}</span>${drop}</div></th></tr>`;
     const rows = tables.map((g, i) => {
       const w = info(g.white), b = info(g.black);
       const result = g.result ? `<span class="to-pt-score">${score(g.result)}</span>` : `<span class="to-pt-pending">${editable ? 'Anotar' : '—'}</span>`;
       // El organizador pulsa la fila de la mesa (o Intro sobre ella) y sale el cuadro de resultados.
-      return `<tr class="${g.white === t.me || g.black === t.me ? 'mine' : ''}${editable ? ' to-pt-edit' : ''}"${editable ? ` data-pt-game="${g.id}" data-pt-table="${i + 1}"${earlier ? ' data-pt-earlier="1"' : ''} tabindex="0" role="button" aria-haspopup="dialog" aria-label="Mesa ${i + 1}: ${esc(w.name)} contra ${esc(b.name)}. Anotar resultado"` : ''}><td class="to-pt-num">${i + 1}</td><td class="to-pt-tit">${tit(w)}</td>${cellName(w, g.result && whitePts(g.result) > perTable / 2)}<td class="to-pt-elo">${w.rating || ''}</td><td class="to-pt-res">${result}</td><td class="to-pt-tit">${tit(b)}</td>${cellName(b, g.result && whitePts(g.result) < perTable / 2)}<td class="to-pt-elo">${b.rating || ''}</td></tr>`;
+      return `<tr class="${g.white === t.me || g.black === t.me ? 'mine' : ''}${editable ? ' to-pt-edit' : ''}"${editable ? ` data-pt-game="${g.id}" data-pt-table="${i + 1}"${earlier ? ' data-pt-earlier="1"' : ''} tabindex="0" role="button" aria-haspopup="dialog" aria-label="Mesa ${i + 1}: ${esc(w.name)} contra ${esc(b.name)}. Anotar resultado"` : ''}><td class="to-pt-num">${i + 1}</td><td class="to-pt-tit">${tit(w)}</td>${cellName(w, g.result && whitePts(g.result) > perTable / 2)}<td class="to-pt-elo">${w.rating || ''}</td>${pts(r, w)}<td class="to-pt-res">${result}</td>${pts(r, b)}<td class="to-pt-tit">${tit(b)}</td>${cellName(b, g.result && whitePts(g.result) < perTable / 2)}<td class="to-pt-elo">${b.rating || ''}</td></tr>`;
     }).join('');
     const rests = byes.map(g => { const w = info(g.white);
-      return `<tr class="to-pt-bye${g.white === t.me ? ' mine' : ''}"><td class="to-pt-num"></td><td class="to-pt-tit">${tit(w)}</td>${cellName(w, false)}<td class="to-pt-elo">${w.rating || ''}</td><td class="to-pt-res"><span class="to-pt-score">${g.rest ? '0' : perTable}</span></td><td class="to-pt-tit"></td><td class="to-pt-name to-pt-rest" colspan="2">${g.rest ? 'Descansa' : /retirad/i.test(g.reason || '') ? 'Rival retirado' : 'Descansa'}</td></tr>`; }).join('');
+      return `<tr class="to-pt-bye${g.white === t.me ? ' mine' : ''}"><td class="to-pt-num"></td><td class="to-pt-tit">${tit(w)}</td>${cellName(w, false)}<td class="to-pt-elo">${w.rating || ''}</td>${pts(r, w)}<td class="to-pt-res"><span class="to-pt-score">${g.rest ? '0' : perTable}</span></td><td class="to-pt-pts"></td><td class="to-pt-tit"></td><td class="to-pt-name to-pt-rest" colspan="2">${g.rest ? 'Descansa' : /retirad/i.test(g.reason || '') ? 'Rival retirado' : 'Descansa'}</td></tr>`; }).join('');
     return head + rows + rests;
   }).join('');
-  $('to-presencial-matches').innerHTML = rounds.length ? `<div class="to-pt-wrap"><table class="to-pt"><thead><tr><th class="to-pt-num">Mesa</th><th class="to-pt-tit">Tít.</th><th>Blancas</th><th class="to-pt-elo">ELO</th><th class="to-pt-res">Resultado</th><th class="to-pt-tit">Tít.</th><th>Negras</th><th class="to-pt-elo">ELO</th></tr></thead><tbody>${body}</tbody></table></div>` : '';
+  $('to-presencial-matches').innerHTML = rounds.length ? `<div class="to-pt-wrap"><table class="to-pt"><thead><tr><th class="to-pt-num">Mesa</th><th class="to-pt-tit">Tít.</th><th>Blancas</th><th class="to-pt-elo">ELO</th><th class="to-pt-pts" title="Puntos antes de la ronda">Pts</th><th class="to-pt-res">Resultado</th><th class="to-pt-pts" title="Puntos antes de la ronda">Pts</th><th class="to-pt-tit">Tít.</th><th>Negras</th><th class="to-pt-elo">ELO</th></tr></thead><tbody>${body}</tbody></table></div>` : '';
 }
 function renderMatches() {
   // Arena: solo las partidas en juego, de la más reciente a la más antigua; al terminar, desaparecen de la lista.
@@ -1549,6 +1569,14 @@ function openResultPop(row) {
     else if (event.key === 'ArrowDown' || event.key === 'ArrowUp') { event.preventDefault(); items[(i + (event.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length].focus(); }
   });
 }
+$('to-presencial-matches').addEventListener('click', async event => {
+  const drop = event.target.closest('[data-pt-drop]');
+  if (!drop || !connected) return;
+  const r = Number(drop.dataset.ptDrop);
+  const text = r === 1 ? 'Se borrarán los emparejamientos de la ronda 1 y la inscripción volverá a abrirse. Los jugadores se conservan.'
+    : `Se borrarán los emparejamientos y resultados de la ronda ${r}. Podrás corregir los resultados de la ronda ${r - 1} y volver a emparejar.`;
+  if (await confirmAction('Borrar última ronda', text, true)) { closeResultPop(); send({ type: 'presencial-drop-round', round: r }); }
+});
 $('to-presencial-matches').addEventListener('click', event => { const row = event.target.closest('tr[data-pt-game]'); if (row && connected) openResultPop(row); });
 $('to-presencial-matches').addEventListener('keydown', event => { const row = event.target.closest('tr[data-pt-game]'); if (row && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); if (connected) openResultPop(row); } });
 document.addEventListener('pointerdown', event => { if ($('to-pt-pop') && !event.target.closest('#to-pt-pop, tr[data-pt-game]')) closeResultPop(); });

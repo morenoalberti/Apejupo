@@ -384,3 +384,28 @@ test('presencial emparejado sin resultados: se edita nombre y ritmo; con resulta
   assert.equal(snapshot(t, null, true).editable, false);
   assert.throws(() => editTournament(t, { ...input, title: 'Otro' }, NOW), /ya ha empezado/);
 });
+
+test('suizo presencial: borrar la última ronda permite corregir la anterior y volver a emparejar', () => {
+  const t = tournament(5);
+  act(t, null, true, { type: 'start' }, NOW);
+  for (const g of t.games.filter(g => !g.result)) act(t, null, true, { type: 'presencial-result', game: g.id, result: '1-0' }, NOW);
+  act(t, null, true, { type: 'presencial-next' }, NOW);
+  assert.equal(t.round, 2);
+  const first = t.games.find(g => g.round === 1 && !g.bye);
+  assert.throws(() => act(t, null, true, { type: 'presencial-result', game: first.id, result: '0-1' }, NOW));
+  assert.throws(() => act(t, t.players[0].id, false, { type: 'presencial-drop-round', round: 2 }, NOW), /organizador/);
+  assert.throws(() => act(t, null, true, { type: 'presencial-drop-round', round: 1 }, NOW), /última ronda/);
+  act(t, null, true, { type: 'presencial-drop-round', round: 2 }, NOW);
+  assert.equal(t.round, 1); assert.equal(t.status, 'between'); assert.ok(t.games.every(g => g.round === 1));
+  act(t, null, true, { type: 'presencial-result', game: first.id, result: '0-1' }, NOW);
+  assert.equal(first.result, '0-1');
+  act(t, null, true, { type: 'presencial-next' }, NOW);
+  assert.equal(t.round, 2); assert.equal(t.status, 'playing');
+  // Borrar la ronda 1 vuelve a abrir la inscripción con los mismos jugadores.
+  act(t, null, true, { type: 'presencial-drop-round', round: 2 }, NOW);
+  act(t, null, true, { type: 'presencial-drop-round', round: 1 }, NOW);
+  assert.equal(t.status, 'waiting'); assert.equal(t.games.length, 0); assert.equal(t.players.length, 5);
+  const rr = tournament(4, { format: 'closed' });
+  act(rr, null, true, { type: 'start' }, NOW);
+  assert.throws(() => act(rr, null, true, { type: 'presencial-drop-round', round: 1 }, NOW), /Round-Robin/);
+});

@@ -530,7 +530,7 @@ function regenerateInitialPairings(t, now) {
 }
 export function act(t, playerId, host, action, now = Date.now()) {
   const p = t.players.find(p => p.id === playerId);
-  if (['presencial-player', 'presencial-players', 'presencial-edit', 'presencial-active', 'presencial-approve', 'presencial-reject', 'presencial-result', 'presencial-next', 'presencial-reset'].includes(action.type)) {
+  if (['presencial-player', 'presencial-players', 'presencial-edit', 'presencial-active', 'presencial-approve', 'presencial-reject', 'presencial-result', 'presencial-next', 'presencial-reset', 'presencial-drop-round'].includes(action.type)) {
     requireThat(host && isPresencial(t), 'Solo el organizador del torneo presencial puede realizar esta acción.', 403);
     // Suizo ya empezado: quien llega tarde entra en la ronda siguiente (las rondas que no jugó, sin puntos).
     const lateEntry = t.format === 'swiss' && ['playing', 'between'].includes(t.status);
@@ -538,6 +538,17 @@ export function act(t, playerId, host, action, now = Date.now()) {
     if (action.type === 'presencial-reset') {
       requireThat(['playing', 'between', 'finished'].includes(t.status) && t.round > 0 && t.games.length > 0, 'No hay rondas que borrar.', 409);
       resetPresencialPairings(t, now);
+    } else if (action.type === 'presencial-drop-round') {
+      // Suizo: se borra la última ronda emparejada para poder corregir la anterior y volver a emparejar.
+      requireThat(t.format === 'swiss', 'En Round-Robin los resultados de cualquier ronda se corrigen directamente.');
+      requireThat(['playing', 'between', 'finished'].includes(t.status) && t.round > 0 && t.games.length > 0, 'No hay rondas que borrar.', 409);
+      requireThat(Number(action.round) === t.round, 'Solo se puede borrar la última ronda.', 409);
+      if (t.round === 1) resetPresencialPairings(t, now);
+      else {
+        t.games = t.games.filter(g => g.round !== t.round);
+        t.round--; t.status = 'between'; t.nextRoundAt = null; t.finishedAt = null; t.notice = '';
+        t.expiresAt = now + RETENTION_MS;
+      }
     } else if (action.type === 'presencial-player') {
       requireThat(t.status === 'waiting' || initialRoster || lateEntry, 'Las inscripciones están cerradas.');
       addPresencial(t, presencialEntry(action), now);
