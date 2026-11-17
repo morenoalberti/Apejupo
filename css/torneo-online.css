@@ -228,6 +228,10 @@
 #to-standings-panel > .to-section-head { flex-wrap: nowrap; }
 #to-standings-panel .to-roster-heading { flex: 1; }
 #to-player-count { flex: none; }
+.to-print-top { display: grid; place-items: center; flex: none; width: 36px; height: 36px; margin: 0 10px 0 auto; padding: 0; border: 1px solid color-mix(in srgb, var(--blue) 35%, var(--line)); border-radius: 10px; background: color-mix(in srgb, var(--blue) 12%, var(--card)); color: var(--text); cursor: pointer; }
+.to-print-top:hover { background: color-mix(in srgb, var(--blue) 21%, var(--card)); }
+.to-print-top:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+.to-print-top[hidden] { display: none; }
 .to-standings-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
 .to-main #to-print-standings { min-height: 40px; font-size: .82rem; background: color-mix(in srgb, var(--blue) 12%, var(--card)); border-color: color-mix(in srgb, var(--blue) 35%, var(--line)); }
 .to-main #to-print-standings:hover:not(:disabled) { background: color-mix(in srgb, var(--blue) 21%, var(--card)); }
@@ -725,6 +729,7 @@ body.to-pz-managing #to-standings-panel { display: none; }
   .to-pt-inline .to-pz-title { margin-right: 4px; }
   .to-pt-num { width: 26px; }
   .to-pt-res { width: 62px; }
+  .to-pt-pts { width: 30px; }
   .to-pt-name { min-width: 0; }
   .to-pt-name .flag { display: none; }
 }
@@ -755,32 +760,32 @@ body.to-pz-managing #to-standings-panel { display: none; }
 .to-pt-pop button.on { color: #fff; border-color: #2556c4; background: linear-gradient(180deg, #5b9dff, #2f6ae0); }
 /* Clasificación presencial: foto, bandera, título y relieve */
 .to-presencial-room #to-standings-panel { border-radius: 18px; box-shadow: 0 1px 0 #ffffff0d inset, 0 18px 36px -24px #0f1b2dcc; }
-.to-presencial-room .to-standings { border-collapse: separate; border-spacing: 0 6px; font-size: .9rem; }
-.to-presencial-room .to-standings th { border: 0; padding: 0 12px 2px; font-size: .68rem; letter-spacing: .06em; text-transform: uppercase; }
-.to-presencial-room .to-standings td { padding: 10px 12px; border: 0; background: color-mix(in srgb, var(--bg) 40%, var(--card)); }
-  .to-pt-pts { width: 30px; }
-.to-presencial-room .to-standings td:first-child { width: 52px; border-radius: 14px 0 0 14px; text-align: center; color: var(--muted); }
-.to-presencial-room .to-standings td:last-child { border-radius: 0 14px 14px 0; color: var(--muted); font-variant-numeric: tabular-nums; }
+.to-presencial-room .to-standings { width: auto; min-width: min(100%, 560px); border-collapse: separate; border-spacing: 0 3px; font-size: .86rem; }
+.to-presencial-room .to-standings th { border: 0; padding: 0 10px 2px; white-space: nowrap; font-size: .68rem; letter-spacing: .06em; text-transform: uppercase; }
+.to-presencial-room .to-standings td { padding: 5px 10px; white-space: nowrap; border: 0; background: color-mix(in srgb, var(--bg) 40%, var(--card)); }
+.to-presencial-room .to-standings td:first-child { width: 40px; border-radius: 14px 0 0 14px; text-align: center; color: var(--muted); }
+.to-presencial-room .to-standings td:nth-child(n+4) { color: var(--muted); font-variant-numeric: tabular-nums; }
+.to-presencial-room .to-standings td:last-child { border-radius: 0 14px 14px 0; font-variant-numeric: tabular-nums; }
 .to-presencial-room .to-standings td:nth-child(2) { max-width: none; }
 .to-presencial-room .to-standings tr:hover td { background: color-mix(in srgb, var(--blue) 8%, var(--card)); }
 .to-presencial-room .to-standings tr.me td { background: color-mix(in srgb, #db9f38 14%, var(--card)); }
 .to-presencial-room .to-standings tr.winner { color: inherit; }
-.to-st-rank { display: inline-grid; place-items: center; width: 30px; height: 30px; border-radius: 10px; font-weight: 800; font-size: .86rem; color: var(--muted); background: color-mix(in srgb, var(--text) 7%, transparent); box-shadow: 0 1px 2px #0f1b2d55 inset; }
-.to-st-id { display: flex; align-items: center; gap: 12px; min-width: 0; }
-.to-st-id .to-pz-avatar { width: 42px; height: 42px; }
+.to-st-rank { display: inline-grid; place-items: center; width: 26px; height: 26px; border-radius: 8px; font-weight: 800; font-size: .86rem; color: var(--muted); background: color-mix(in srgb, var(--text) 7%, transparent); box-shadow: 0 1px 2px #0f1b2d55 inset; }
+.to-st-id { display: flex; align-items: center; gap: 9px; min-width: 0; }
+.to-st-id .to-pz-avatar { width: 32px; height: 32px; border-radius: 9px; font-size: .74rem; }
 .to-st-body { min-width: 0; display: grid; gap: 4px; }
 .to-st-name { display: flex; align-items: center; flex-wrap: wrap; gap: 0 2px; font-weight: 650; color: var(--text); }
 .to-st-name > span:not(.to-pz-title):not(.to-st-elo) { overflow-wrap: anywhere; }
 .to-st-name .flag { margin-right: 7px; }
 .to-st-elo { margin-left: 8px; padding: 1px 7px; border-radius: 99px; font-size: .72rem; font-weight: 700; color: var(--muted); background: color-mix(in srgb, var(--muted) 14%, transparent); font-variant-numeric: tabular-nums; }
 .to-st-body .to-sheet { margin: 0; }
-.to-st-pts { display: inline-grid; place-items: center; min-width: 46px; padding: 5px 10px; border-radius: 11px; font-weight: 800; font-size: 1rem; color: #fff; font-variant-numeric: tabular-nums; background: linear-gradient(180deg, #5b9dff, #2f6ae0); box-shadow: 0 1px 0 #ffffff55 inset, 0 6px 14px -8px #2f63d6; }
+.to-st-pts { font-weight: 800; font-size: 1rem; color: var(--text); font-variant-numeric: tabular-nums; }
 @media (max-width: 600px) {
   .to-presencial-room .to-standings td { padding: 8px 6px; }
   .to-presencial-room .to-standings td:first-child { width: 36px; }
   .to-st-id { gap: 8px; }
-  .to-st-id .to-pz-avatar { width: 34px; height: 34px; font-size: .74rem; }
-  .to-st-pts { min-width: 38px; padding: 4px 7px; font-size: .9rem; }
+  .to-st-id .to-pz-avatar { width: 28px; height: 28px; font-size: .7rem; }
+  .to-st-pts { font-size: .92rem; }
 }
 /* Desempates en el formulario de organizar */
 .to-tb-field { margin-top: 14px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 14px; background: color-mix(in srgb, var(--bg) 40%, var(--card)); box-shadow: 0 2px 4px -1px #0f1b2d40 inset; }

@@ -252,6 +252,8 @@ function render() {
   $('to-membership-text').textContent = mine && !mine.active ? 'Retirado del torneo' : '';
   $('to-standings-title').textContent = classification.title;
   $('to-print-standings').disabled = !classification.rows.length;
+  // Impresora también arriba, a la derecha, junto al contador de jugadores.
+  $('to-print-top').hidden = registering || !classification.rows.length;
   $('to-standings-panel').classList.toggle('to-registration-panel', registering);
   $('to-player-count').textContent = `${listed(t).length}/${t.capacity}`;
   $('to-player-count').setAttribute('aria-label', `${listed(t).length} jugadores de ${t.capacity} plazas`);
@@ -259,7 +261,8 @@ function render() {
   $('to-registration-progress').firstElementChild.style.width = `${Math.max(0, Math.min(100, listed(t).length / t.capacity * 100))}%`;
   // Columnas de desempate: los dos primeros que eligió el organizador (el arena muestra las partidas jugadas).
   const tbKeys = arena(t) || t.challenge ? [] : (t.tiebreaks?.length ? t.tiebreaks : (closed(t) ? ['sb'] : ['bh'])).filter(k => TB[k]);
-  const tbCols = tbKeys.slice(0, 2);
+  // Presencial: todos los desempates elegidos; online, los dos primeros.
+  const tbCols = presencial(t) ? tbKeys : tbKeys.slice(0, 2);
   $('to-standings').closest('table').tHead.rows[0].innerHTML = '<th scope="col">#</th><th scope="col">Jugador</th><th scope="col">Pts</th>'
     + (arena(t) ? '<th scope="col"><abbr title="Partidas jugadas">PJ</abbr></th>' : tbCols.map((k, i) => `<th scope="col"${i ? ' class="to-tb-col2"' : ''}><abbr title="${esc(TB[k][0])}">${TB[k][1]}</abbr></th>`).join(''));
   const tag = p => (p.registered ? ' <span class="to-registered" title="Cuenta registrada">✓</span>' : '') + (!p.active ? ' <small>retirado</small>' : '');
@@ -1703,6 +1706,7 @@ $('to-share').addEventListener('click', async () => {
 $('to-pgn').addEventListener('click', () => download(state.game.id));
 $('to-all-pgn').addEventListener('click', () => download());
 $('to-print-standings').addEventListener('click', printStandings);
+$('to-print-top').addEventListener('click', printStandings);
 function review(ply) { if (!replay) return; replayPly = Math.max(0, Math.min(replay.length - 1, ply)); boardKey = ''; renderGame(); }
 $('to-replay-range').addEventListener('input', event => review(Number(event.target.value)));
 $('to-replay-prev').addEventListener('click', () => review(replayPly - 1));
