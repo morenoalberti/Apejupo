@@ -299,6 +299,10 @@
 .to-dialog h2 { font-size: 1.25rem; margin: 0; }
 .to-dialog p { font-size: .9rem; }
 .to-dialog input, .to-dialog select { width: 100%; }
+/* Nombre y formato en la misma línea; el formato, tan ancho como su opción más larga */
+.to-name-format { display: grid; grid-template-columns: minmax(50%, 1fr) minmax(0, auto); gap: 0 12px; align-items: end; } /* en el móvil el nombre conserva al menos la mitad */
+.to-name-format > div { min-width: 0; }
+.to-dialog .to-format-col select { width: auto; max-width: 100%; }
 .to-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 16px; }
 .to-mode-row { display: flex; justify-content: flex-end; margin: 0 0 14px; }
 .to-dialog .to-mode-switch { display: inline-flex; align-items: center; gap: 9px; padding: 7px 10px; border: 1px solid var(--line); border-radius: 9px; color: var(--text); background: var(--bg); font-size: .8rem; }

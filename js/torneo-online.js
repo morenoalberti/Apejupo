@@ -1104,7 +1104,7 @@ const formatHelp = {
   'double-closed': 'Todos contra todos a doble vuelta: una partida con blancas y otra con negras contra cada rival.'
 };
 const modeFormats = {
-  online: [['arena', 'Arena (tiempo máximo)'], ['swiss', 'Sistema suizo'], ['closed', 'Round-Robin']],
+  online: [['arena', 'Arena'], ['swiss', 'Sistema suizo'], ['closed', 'Round-Robin']],
   presencial: [['swiss', 'Sistema suizo'], ['closed', 'Round-Robin'], ['double-closed', 'Round-Robin doble vuelta']]
 };
 function syncMode(format = $('to-format').value) {
@@ -1112,7 +1112,6 @@ function syncMode(format = $('to-format').value) {
   $('to-mode-switch').setAttribute('aria-checked', String(physical));
   $('to-format').innerHTML = options.map(([value, label]) => `<option value="${value}">${label}</option>`).join('');
   $('to-format').value = options.some(([value]) => value === format) ? format : options[0][0];
-  $('to-create-hint').textContent = physical ? 'Se juega en el club. La organización inscribe a los jugadores, genera las rondas y anota los resultados.' : 'Las inscripciones serán públicas. Tú decides cuándo empieza.';
   $('to-start-help').textContent = physical ? 'Fecha y hora previstas. El organizador inicia el torneo y cada ronda.' : 'Hora local de tu dispositivo. Sin día: inicio manual por el organizador.';
   $('to-join-key-field').hidden = physical; $('to-join-key-new').disabled = physical;
   $('to-capacity-field').hidden = physical; $('to-capacity').disabled = physical;
