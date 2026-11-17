@@ -78,12 +78,16 @@ export function createTournament(input, id, hostHash, now = Date.now()) {
   }
   else if (format === 'swiss') requireThat(Number.isInteger(rounds) && rounds >= 1 && rounds <= 9, 'Elige entre 1 y 9 rondas.');
   requireThat(Number.isInteger(capacity) && capacity >= 2 && capacity <= MAX_PLAYERS, `El límite es de 2 a ${MAX_PLAYERS} jugadores.`);
+  // Puntuación por partida (suizo y Round-Robin; el arena tiene la suya).
+  const scoring = format === 'arena' || input.scoring == null || input.scoring === '' ? '1' : String(input.scoring);
+  requireThat(SCORING[scoring], 'Elige una puntuación válida.');
+  requireThat(!(scoring === '3' && format === 'double-closed'), 'En el Round-Robin a doble vuelta la puntuación puede ser 1/½/0 o 2/1/0.');
   let startsAt = input.startsAt ? Number(input.startsAt) : null;
   if (mode === 'presencial') requireThat(startsAt === null || (Number.isFinite(startsAt) && startsAt > now - 86400000 && startsAt < now + 14 * 86400000), 'Elige una fecha desde hoy y dentro de los próximos 14 días.');
   else requireThat(startsAt === null || (Number.isFinite(startsAt) && startsAt > now + 60000 && startsAt < now + 14 * 86400000), 'La fecha de inicio debe estar entre un minuto y 14 días en el futuro.');
   return { id, title, hostHash, mode, format, duration, endsAt: null, minutes, increment, rounds, capacity, startsAt, createdAt: now,
     expiresAt: now + RETENTION_MS, status: 'waiting', round: 0, nextRoundAt: null,
-    players: [], games: [], revision: 0, finishedAt: null, notice: '', joinKey, tiebreaks: cleanTiebreaks(format, input.tiebreaks) };
+    players: [], games: [], revision: 0, finishedAt: null, notice: '', joinKey, tiebreaks: cleanTiebreaks(format, input.tiebreaks), scoring };
 }
 
 // Editar antes de empezar: se valida igual que al crear y se conservan inscritos y fechas internas.
@@ -102,12 +106,22 @@ export function editTournament(t, input, now = Date.now()) {
   if (input.joinKey === undefined) n.joinKey = t.joinKey;
   // Sin «tiebreaks» en la petición se conservan los que había (si siguen valiendo para el formato).
   if (input.tiebreaks === undefined) n.tiebreaks = cleanTiebreaks(n.format, t.tiebreaks);
-  for (const k of ['title', 'mode', 'format', 'duration', 'minutes', 'increment', 'rounds', 'capacity', 'startsAt', 'joinKey', 'tiebreaks']) t[k] = n[k];
+  if (input.scoring === undefined && n.format !== 'arena' && !(t.scoring === '3' && n.format === 'double-closed')) n.scoring = scoringOf(t);
+  for (const k of ['title', 'mode', 'format', 'duration', 'minutes', 'increment', 'rounds', 'capacity', 'startsAt', 'joinKey', 'tiebreaks', 'scoring']) t[k] = n[k];
   // Si cambia el sistema, las rondas o el ritmo, se rehacen los emparejamientos (no hay resultados que perder).
   if (paired) {
     if (before !== plan(n)) regenerateInitialPairings(t, now);
     else t.rounds = keepRounds;
   }
+}
+
+// Puntuación por partida: victoria y tablas (la derrota vale 0). «1» es la habitual 1/½/0.
+export const SCORING = { '1': [1, .5], '2': [2, 1], '3': [3, 1] };
+export const scoringOf = t => SCORING[t.scoring] ? t.scoring : '1';
+// Puntos de un resultado (s de n partidas por mesa). Con dos partidas por mesa solo se admiten 1/½/0 y 2/1/0, que son proporcionales.
+export function gameScore(t, s, n = 1) {
+  const [win, draw] = SCORING[scoringOf(t)];
+  return n === 1 ? (s === 1 ? win : s === .5 ? draw : 0) : s * win;
 }
 
 export function standings(t) {
@@ -147,6 +161,8 @@ export function standings(t) {
     a.buchholz += b.points; b.buchholz += a.points;
     a.sonneborn += b.points * score; b.sonneborn += a.points * (gamesPerTable(t) - score);
   }
+  // Puntos de la clasificación con la puntuación del torneo (los desempates y los emparejamientos usan 1/½/0).
+  if (!isArena(t)) for (const r of rows) r.score = r.sheet.reduce((sum, e) => sum + gameScore(t, e.s, e.n || 1), 0);
   for (const p of t.players) { const row = map.get(p.id); row.paused = !!p.paused; row.playing = t.games.some(g => !g.result && (g.white === p.id || g.black === p.id)); }
   // Arena: con número de partidas desigual, Buchholz no es comparable; desempatan victorias y eficacia.
   if (isArena(t)) return rows.sort((a, b) => b.points - a.points || b.wins - a.wins || a.played - b.played || a.seed - b.seed);
@@ -719,7 +735,7 @@ export function summary(t) {
     rounds: t.rounds, round: t.round, capacity: t.capacity, count: t.players.length,
     // Inscritos que se muestran: sin los que han salido del torneo (al terminar, todos).
     listed: t.status === 'finished' ? t.players.length : t.players.filter(p => !p.paused).length, startsAt: t.startsAt, createdAt: t.createdAt, locked: !!t.joinKey,
-    pairing: t.pairing || null, challenge: !!t.challenge, tiebreaks: tiebreaksOf(t), duel: t.challenge ? duelScore(t) : null,
+    pairing: t.pairing || null, challenge: !!t.challenge, tiebreaks: tiebreaksOf(t), scoring: scoringOf(t), duel: t.challenge ? duelScore(t) : null,
     // Presencial emparejado pero sin resultados: aún se puede editar.
     editable: canChangeInitialRoster(t) };
 }

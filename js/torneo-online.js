@@ -64,6 +64,10 @@ async function request(path, { key, ...options } = {}) {
 const arena = t => t?.format === 'arena';
 const arenaClosing = (t, now = Date.now() + offset) => arena(t) && t.status === 'playing' && now >= t.endsAt;
 const closed = t => ['closed', 'double-closed'].includes(t?.format);
+// Puntuación por partida (victoria, tablas): la del torneo para los puntos de la clasificación.
+const SCORING = { '1': [1, .5], '2': [2, 1], '3': [3, 1] };
+const gameScore = (t, s, n = 1) => { const [w, d] = SCORING[t?.scoring] || SCORING['1']; return n === 1 ? (s === 1 ? w : s === .5 ? d : 0) : s * w; };
+const pointsOf = p => p.score ?? p.points;
 const presencial = t => t?.mode === 'presencial';
 function duration(minutes) { return minutes % 60 ? (minutes > 60 ? `${Math.floor(minutes / 60)} h ${minutes % 60} min` : `${minutes} min`) : `${minutes / 60} h`; }
 const isMatch = t => !!t.challenge && t.rounds > 1;
@@ -279,7 +283,7 @@ function render() {
   const who = p => rich
     ? `<div class="to-st-id">${pzAvatar(p)}<div class="to-st-body"><div class="to-st-name">${pzFlag(p)}<span><span class="to-pt-full">${esc(p.name)}</span><span class="to-pt-short">${esc(shortName(p.name))}</span></span>${!classification.initial && p.id === t.me ? ' <small>(tú)</small>' : ''}${tag(p)}</div></div></div>`
     : `${dot(p)}${esc(p.name)}${p.rating ? ` <small class="to-elo" title="Elo">${p.rating}</small>` : ''}${!classification.initial && p.id === t.me ? ' <small>(tú)</small>' : ''}${tag(p)}${sheet(p)}`;
-  $('to-standings').innerHTML = classification.rows.map((p, i) => `<tr class="${!classification.initial && p.id === t.me ? 'me ' : ''}${t.status === 'finished' && i === 0 ? 'winner' : ''}"><td>${rich && started ? `<span class="to-st-rank">${i + 1}</span>` : i + 1}</td><td>${who(p)}${registering && t.host ? `<button class="to-remove" type="button" data-remove="${p.id}" aria-label="Retirar a ${esc(p.name)}">×</button>` : ''}</td>${rich ? `<td class="to-st-elo-col">${p.rating || ''}</td>` : ''}<td>${rich ? `<span class="to-st-pts">${formatPoints(p.points)}</span>` : `<strong>${formatPoints(p.points)}</strong>`}</td>${arena(t) ? `<td>${p.played}</td>` : tbCols.map((k, i) => `<td${i ? ' class="to-tb-col2"' : ''}>${p.tb?.[k] == null ? '–' : k === 'aro' ? (p.tb[k] || '–') : tb(p.tb[k])}</td>`).join('')}</tr>`).join('') || '<tr><td colspan="5" class="muted">Aún no hay inscritos.</td></tr>';
+  $('to-standings').innerHTML = classification.rows.map((p, i) => `<tr class="${!classification.initial && p.id === t.me ? 'me ' : ''}${t.status === 'finished' && i === 0 ? 'winner' : ''}"><td>${rich && started ? `<span class="to-st-rank">${i + 1}</span>` : i + 1}</td><td>${who(p)}${registering && t.host ? `<button class="to-remove" type="button" data-remove="${p.id}" aria-label="Retirar a ${esc(p.name)}">×</button>` : ''}</td>${rich ? `<td class="to-st-elo-col">${p.rating || ''}</td>` : ''}<td>${rich ? `<span class="to-st-pts">${formatPoints(pointsOf(p))}</span>` : `<strong>${formatPoints(pointsOf(p))}</strong>`}</td>${arena(t) ? `<td>${p.played}</td>` : tbCols.map((k, i) => `<td${i ? ' class="to-tb-col2"' : ''}>${p.tb?.[k] == null ? '–' : k === 'aro' ? (p.tb[k] || '–') : tb(p.tb[k])}</td>`).join('')}</tr>`).join('') || '<tr><td colspan="5" class="muted">Aún no hay inscritos.</td></tr>';
   if (rich) pzPhotos($('to-standings'));
   $('to-tiebreak').hidden = registering;
   $('to-tiebreak').textContent = arena(t) ? 'Desempates: victorias, menos partidas jugadas y número de sorteo.' : tbKeys.length ? `Desempates: ${tbKeys.map(k => TB[k][0]).join(', ')} y número de sorteo.` : 'Desempate: número de sorteo.';
@@ -354,7 +358,7 @@ function renderPodium() {
   $('to-podium').hidden = !show;
   if (!show) return;
   const top = t.standings.slice(0, 3), order = [1, 0, 2].filter(i => top[i]);
-  $('to-podium').innerHTML = order.map(i => { const p = top[i]; return `<div class="to-step p${i + 1}${p.id === t.me ? ' me' : ''}"><span class="to-medal">${i + 1}</span><strong>${esc(p.name)}</strong><span>${formatPoints(p.points) || '0'} ${p.points === 1 ? 'punto' : 'puntos'}</span><small>${p.played} ${p.played === 1 ? 'partida' : 'partidas'} · ${p.wins} ${p.wins === 1 ? 'victoria' : 'victorias'}</small><div class="to-plinth"></div></div>`; }).join('');
+  $('to-podium').innerHTML = order.map(i => { const p = top[i]; return `<div class="to-step p${i + 1}${p.id === t.me ? ' me' : ''}"><span class="to-medal">${i + 1}</span><strong>${esc(p.name)}</strong><span>${formatPoints(pointsOf(p)) || '0'} ${pointsOf(p) === 1 ? 'punto' : 'puntos'}</span><small>${p.played} ${p.played === 1 ? 'partida' : 'partidas'} · ${p.wins} ${p.wins === 1 ? 'victoria' : 'victorias'}</small><div class="to-plinth"></div></div>`; }).join('');
 }
 let editingName = false;
 function renderJoin() {
@@ -641,10 +645,10 @@ function renderPresencial() {
     const acc = new Map();
     for (const g of t.games) {
       if (g.round >= r) continue;
-      if (g.bye) { acc.set(g.white, (acc.get(g.white) || 0) + (g.rest ? 0 : perTable)); continue; }
+      if (g.bye) { acc.set(g.white, (acc.get(g.white) || 0) + (g.rest ? 0 : gameScore(t, perTable, perTable))); continue; }
       if (!g.result) continue;
       const wp = whitePts(g.result);
-      acc.set(g.white, (acc.get(g.white) || 0) + wp); acc.set(g.black, (acc.get(g.black) || 0) + perTable - wp);
+      acc.set(g.white, (acc.get(g.white) || 0) + gameScore(t, wp, perTable)); acc.set(g.black, (acc.get(g.black) || 0) + gameScore(t, perTable - wp, perTable));
     }
     before.set(r, acc);
   }
@@ -1073,7 +1077,7 @@ function printStandings() {
   const keys = view.initial || arena(t) ? [] : (t.tiebreaks?.length ? t.tiebreaks : closed(t) ? ['sb'] : ['bh']).filter(k => TB[k]).slice(0, 2);
   const number = n => n == null ? '-' : Number.isInteger(n) || n % 1 === .5 ? formatPoints(n) : n.toLocaleString('es-ES', { maximumFractionDigits: 2 });
   const extraHeaders = view.initial ? '' : '<th>Pts</th>' + (arena(t) ? '<th>PJ</th>' : keys.map(k => `<th>${esc(TB[k][1])}</th>`).join(''));
-  const rows = view.rows.map((p, i) => `<tr><td>${i + 1}</td><td class="to-print-name">${p.title ? esc(p.title) + ' ' : ''}${esc(p.name)}${p.fed ? `<small>${esc(p.fed)}</small>` : ''}</td><td>${fideRating(p) || '-'}</td>${view.initial ? '' : `<td><strong>${formatPoints(p.points)}</strong></td>${arena(t) ? `<td>${p.played}</td>` : keys.map(k => `<td>${esc(number(p.tb?.[k]))}</td>`).join('')}`}</tr>`).join('');
+  const rows = view.rows.map((p, i) => `<tr><td>${i + 1}</td><td class="to-print-name">${p.title ? esc(p.title) + ' ' : ''}${esc(p.name)}${p.fed ? `<small>${esc(p.fed)}</small>` : ''}</td><td>${fideRating(p) || '-'}</td>${view.initial ? '' : `<td><strong>${formatPoints(pointsOf(p))}</strong></td>${arena(t) ? `<td>${p.played}</td>` : keys.map(k => `<td>${esc(number(p.tb?.[k]))}</td>`).join('')}`}</tr>`).join('');
   const note = view.initial ? 'Ordenados por Elo FIDE, de mayor a menor. Los jugadores sin Elo FIDE figuran al final.' : $('to-tiebreak').textContent;
   const sheet = document.createElement('section'); sheet.id = 'to-print-sheet'; sheet.setAttribute('aria-hidden', 'true');
   sheet.innerHTML = `<header><p class="to-print-brand">APEJUPO · CHESS CLUB</p><h1>${esc(t.title)}</h1><h2>${esc(view.title)}</h2><p class="to-print-meta">${esc(formatLabel(t))} · ${t.minutes} + ${t.increment} · ${view.rows.length} participantes</p></header><table><thead><tr><th>N.º</th><th class="to-print-name">Jugador</th><th>Elo FIDE</th>${extraHeaders}</tr></thead><tbody>${rows}</tbody></table><p class="to-print-note">${esc(note)}</p>`;
@@ -1122,6 +1126,11 @@ function syncFormat() {
   $('to-duration-field').hidden = !isArena; $('to-duration').disabled = !isArena;
   // Al cambiar de familia (suizo ↔ Round-Robin ↔ arena) se ponen los desempates habituales de la nueva.
   if (!tbState || tbState.family !== tbFamily(format)) tbReset(format);
+  // Puntuación: solo suizo y Round-Robin; el 3/1/0 no cabe en el Round-Robin a doble vuelta.
+  $('to-scoring-field').hidden = isArena;
+  const three = $('to-scoring-3').querySelector('input'), noThree = format === 'double-closed';
+  $('to-scoring-3').hidden = noThree; three.disabled = noThree;
+  if (noThree && three.checked) $('to-create-form').querySelector('input[name="scoring"][value="1"]').checked = true;
 }
 // ——— Desempates del torneo (suizo y Round-Robin): los habituales o un orden propio ———
 const TB = {
@@ -1259,6 +1268,7 @@ async function openEdit(id) {
   $('to-tb-list').hidden = true; $('to-tb-toggle').textContent = 'Personalizar'; $('to-tb-toggle').setAttribute('aria-expanded', 'false');
   form.title.value = c.title; $('to-minutes').value = c.minutes; $('to-increment').value = c.increment;
   if (c.format === 'swiss') $('to-rounds').value = c.rounds;
+  const sc = form.querySelector(`input[name="scoring"][value="${c.scoring || '1'}"]`); if (sc) sc.checked = true;
   if (c.format === 'arena') $('to-duration').value = c.duration;
   // Se muestra la clave actual para poder cambiarla; si se borra, el torneo queda sin clave.
   $('to-capacity').value = c.capacity; $('to-join-key-new').value = c.joinKey || '';
@@ -1281,7 +1291,7 @@ $('to-create-form').addEventListener('submit', async event => {
     if (time && !day) throw new Error('Elige también el día de inicio.');
     const startsAt = day ? new Date(`${day}T${time}`).getTime() : null;
     const isArena = data.get('format') === 'arena';
-    const fields = { title: data.get('title'), mode: data.get('mode'), format: data.get('format'), minutes: Number(data.get('minutes')), increment: Number(data.get('increment')), rounds: data.get('format') === 'swiss' ? Number(data.get('rounds')) : null, duration: isArena ? Number(data.get('duration')) : null, capacity: data.get('mode') === 'presencial' ? 128 : Number(data.get('capacity')), startsAt, joinKey: data.get('joinKey') || '' , ...(isArena ? {} : { tiebreaks: tbChosen() }) };
+    const fields = { title: data.get('title'), mode: data.get('mode'), format: data.get('format'), minutes: Number(data.get('minutes')), increment: Number(data.get('increment')), rounds: data.get('format') === 'swiss' ? Number(data.get('rounds')) : null, duration: isArena ? Number(data.get('duration')) : null, capacity: data.get('mode') === 'presencial' ? 128 : Number(data.get('capacity')), startsAt, joinKey: data.get('joinKey') || '' , ...(isArena ? {} : { tiebreaks: tbChosen(), scoring: data.get('scoring') || '1' }) };
     if (editingId) {
       await request(`/api/tournaments/${editingId}/edit`, { method: 'POST', key: managementKey(editingId), body: JSON.stringify({ ...fields, hostToken: read(hostKey(editingId)) }) });
       $('to-create-dialog').close(); message('Cambios guardados.'); if (!roomId) await loadLobby(); return;

@@ -448,3 +448,35 @@ test('presencial: año de nacimiento de las listas, guardado, editable y en la c
   act(t, null, true, { type: 'presencial-edit', playerId: t.players[0].id, name: t.players[0].name, rating: t.players[0].rating ?? '', birth: 2014 }, NOW);
   assert.equal(t.players[0].sex, undefined, 'Al editar sin sexo, se quita');
 });
+
+test('puntuación por partida: 1/½/0, 2/1/0 o 3/1/0 en la clasificación', () => {
+  assert.equal(createTournament(input, 'b'.repeat(24), 'h', NOW).scoring, '1', 'Por defecto, la habitual');
+  assert.throws(() => createTournament({ ...input, scoring: '4' }, 'b'.repeat(24), 'h', NOW), /puntuación válida/);
+  assert.throws(() => createTournament({ ...input, format: 'double-closed', scoring: '3' }, 'b'.repeat(24), 'h', NOW), /doble vuelta/);
+  assert.equal(createTournament({ ...input, mode: 'online', format: 'arena', duration: 60, minutes: 3, scoring: '3' }, 'b'.repeat(24), 'h', NOW).scoring, '1', 'El arena tiene su propia puntuación');
+  // Round-Robin de 4: A gana a B y pierde con C; D hace tablas con todos… se comparan 3/1/0 y 1/½/0.
+  const t = tournament(4, { format: 'closed', scoring: '3' });
+  act(t, null, true, { type: 'start' }, NOW);
+  const [a, b, c, d] = t.players.map(p => p.id);
+  const play = (x, y, white) => { const g = t.games.find(g => !g.result && !g.bye && [g.white, g.black].includes(x) && [g.white, g.black].includes(y)); act(t, null, true, { type: 'presencial-result', game: g.id, result: white(g) }, NOW); };
+  const win = w => g => g.white === w ? '1-0' : '0-1', draw = () => '1/2-1/2';
+  for (let r = 0; r < 3; r++) {
+    const pending = t.games.filter(g => g.round === t.round && !g.result && !g.bye);
+    for (const g of pending) {
+      const pair = [g.white, g.black];
+      if (pair.includes(d)) play(g.white, g.black, draw);
+      else if (pair.includes(a) && pair.includes(b)) play(a, b, win(a));
+      else if (pair.includes(a) && pair.includes(c)) play(a, c, win(c));
+      else play(g.white, g.black, win(pair.includes(b) ? b : c));
+    }
+  }
+  const rows = standings(t), score = id => rows.find(r => r.id === id).score, points = id => rows.find(r => r.id === id).points;
+  assert.equal(points(a), 1.5); assert.equal(score(a), 4, '1 victoria (3) + 1 tablas (1)');
+  assert.equal(points(d), 1.5); assert.equal(score(d), 3, '3 tablas');
+  assert.ok(rows.findIndex(r => r.id === a) < rows.findIndex(r => r.id === d), 'Con 3/1/0 la victoria pesa más que dos tablas');
+  assert.equal(snapshot(t, null, true).scoring, '3');
+  // Al editar sin indicar la puntuación se conserva
+  const u = tournament(2, { scoring: '2' });
+  editTournament(u, { ...input, title: 'Otro nombre' }, NOW);
+  assert.equal(u.scoring, '2');
+});

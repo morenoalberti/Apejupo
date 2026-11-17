@@ -93,7 +93,7 @@ export function orderByTiebreaks(t, rows, keys = ['points', ...tiebreaksOf(t)]) 
   if (rows.length < 2 || !keys.length) return rows.sort((a, b) => a.seed - b.seed);
   const [key, ...rest] = keys;
   if (key === 'de') { const s = directEncounter(t, rows); for (const r of rows) r.tb.de = s ? s.get(r.id) : null; }
-  const value = r => key === 'points' ? r.points : r.tb[key] ?? 0;
+  const value = r => key === 'points' ? r.score ?? r.points : r.tb[key] ?? 0; // «score»: puntos con la puntuación del torneo
   rows.sort((a, b) => value(b) - value(a));
   const out = [];
   for (let i = 0; i < rows.length;) {
