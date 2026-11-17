@@ -910,8 +910,7 @@ body.to-pz-managing #to-standings-panel { display: none; }
 /* Desempates en el formulario de organizar */
 .to-tb-field { margin-top: 14px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 14px; background: color-mix(in srgb, var(--bg) 40%, var(--card)); box-shadow: 0 2px 4px -1px #0f1b2d40 inset; }
 /* Puntuación por partida: tres botones en una fila */
-.to-scoring-field small { display: block; margin: 2px 0 8px; }
-.to-scoring { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; padding: 3px; border-radius: 10px; background: color-mix(in srgb, var(--text) 6%, transparent); }
+.to-scoring { margin-top: 8px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; padding: 3px; border-radius: 10px; background: color-mix(in srgb, var(--text) 6%, transparent); }
 .to-scoring:has(#to-scoring-3[hidden]) { grid-template-columns: repeat(2, 1fr); }
 .to-scoring label { position: relative; margin: 0; cursor: pointer; }
 .to-scoring label[hidden] { display: none; }
