@@ -237,7 +237,7 @@ function render() {
   $('to-subtitle').hidden = !$('to-subtitle').textContent;
   // Reto: solo el tablero (y el marcador entre los dos) bajo la cabecera de la web.
   document.body.classList.toggle('to-challenge', !!t.challenge);
-  $('to-summary').innerHTML = `<span class="to-status ${t.status}">${esc(t.challenge && t.status === 'waiting' ? 'Esperando al rival' : statuses[t.status])}</span>${modeBadge(t)}<span>${icons.clock}${t.minutes} + ${t.increment}</span><span>${icons.format}${formatLabel(t)}</span>${t.challenge ? '' : `<span>${arena(t) ? 'Emparejamiento continuo' : closed(t) ? 'Todos contra todos' : t.pairing === 'club' ? 'Suizo de club' : 'Suizo FIDE (sistema holandés)'}</span>`}`
+  $('to-summary').innerHTML = `<span class="to-status ${t.status}">${esc(t.challenge && t.status === 'waiting' ? 'Esperando al rival' : statuses[t.status])}</span>${modeBadge(t)}<span>${icons.clock}${t.minutes} + ${t.increment}</span><span>${icons.format}${formatLabel(t)}</span>${t.challenge ? '' : `<span>${arena(t) ? 'Emparejamiento continuo' : closed(t) ? 'Todos contra todos' : t.pairing === 'club' ? 'Suizo de club' : 'Sistema Suizo'}</span>`}`
     + (t.status === 'waiting' ? `<span>${icons.people}Hasta ${t.capacity} jugadores</span><span>${icons.calendar}${t.startsAt ? esc(date(t.startsAt)) : 'Inicio a cargo del organizador'}</span>${t.locked ? `<span>${icons.lock}Con clave</span>` : ''}` : '');
   document.body.classList.toggle('to-presencial-room', presencial(t));
   placeWaiting(t.status === 'waiting' && !presencial(t));
