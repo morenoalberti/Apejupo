@@ -3,6 +3,9 @@
 .cuenta-chip { flex: none; display: inline-flex; align-items: center; gap: 8px; padding: 6px 14px; border: 1px solid #ffffff33; border-radius: 999px; color: #e8eef7; text-decoration: none; font-size: .9rem; font-weight: 600; white-space: nowrap; }
 .cuenta-chip:hover { border-color: #e5b766; color: #fff; }
 .cuenta-chip.in { padding: 4px 12px 4px 4px; }
+/* «Administrador» debajo del nick */
+.cuenta-chip .cu-who { display: inline-flex; flex-direction: column; line-height: 1.1; min-width: 0; }
+.cuenta-chip .cu-role { font-size: .66rem; font-weight: 700; letter-spacing: .02em; color: #e5b766; }
 .cu-avatar { position: relative; width: 26px; height: 26px; display: grid; place-items: center; border-radius: 50%; background: linear-gradient(135deg, #e5b766, #b8862f); color: #0b1422; font-weight: 800; font-size: .85rem; }
 
 .cu-dialog { width: min(420px, calc(100vw - 32px)); padding: 0; border: 1px solid var(--line); border-radius: 16px; background: var(--card); color: var(--text); box-shadow: 0 24px 60px #0008; }

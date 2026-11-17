@@ -35,11 +35,27 @@ export function avatar(user, extra = '') {
   const inner = user.photo ? `<img src="${esc(photoUrl(user))}" alt="" width="64" height="64" data-i="${initial}" onerror="this.parentNode.classList.remove('has-photo');this.replaceWith(this.dataset.i)">` : initial;
   return `<span class="cu-avatar${user.photo ? ' has-photo' : ''}" aria-hidden="true">${inner}${extra}</span>`;
 }
+// Administrador: con la sesión iniciada y la clave de administración de este dispositivo comprobada en el servidor.
+const ADMIN_KEY = 'apejupoAdminCuentas';
+let adminOk = false, adminChecked = '';
+function storedAdminKey() { try { return sessionStorage.getItem(ADMIN_KEY) || localStorage.getItem(ADMIN_KEY) || ''; } catch { return ''; } }
+export const isAdmin = () => adminOk && !!currentUser() && !!storedAdminKey();
+async function checkAdmin() {
+  const key = storedAdminKey(), who = key && currentUser() ? currentUser().id + '|' + key.length : '';
+  if (who === adminChecked) return; // ya comprobado para esta sesión y esta clave
+  adminChecked = who; adminOk = false;
+  if (who && API) {
+    try { const r = await fetch(`${API}/api/tournaments/admin/comprobar`, { method: 'POST', headers: { Authorization: 'Bearer ' + key } }); adminOk = r.ok && (await r.json()).ok === true; }
+    catch { adminOk = false; }
+  }
+  renderChip();
+}
 function renderChip() {
   const chip = document.getElementById('cuenta-chip'); if (!chip) return;
   const user = currentUser();
   // Con sesión: redondel (donde irá la foto, de momento la inicial) y el nick; un punto naranja si falta confirmar el correo.
-  chip.innerHTML = user ? `${avatar(user, user.verified ? '' : '<i class="cu-pending"></i>')}<span class="cu-nick">${esc(user.nick)}</span>` : 'Entrar';
+  const nick = `<span class="cu-nick">${esc(user?.nick)}</span>`;
+  chip.innerHTML = user ? `${avatar(user, user.verified ? '' : '<i class="cu-pending"></i>')}${isAdmin() ? `<span class="cu-who">${nick}<small class="cu-role">Administrador</small></span>` : nick}` : 'Entrar';
   chip.href = 'cuenta.html'; chip.classList.toggle('in', !!user); chip.setAttribute('aria-haspopup', user ? 'menu' : 'dialog');
   chip.setAttribute('aria-label', user ? `Tu cuenta: ${user.nick}${user.verified ? '' : ' (correo sin confirmar)'}` : 'Entrar o crear una cuenta');
   chip.title = user && !user.verified ? 'Confirma tu correo para jugar torneos con tu cuenta' : '';
@@ -201,7 +217,9 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') closeMenu();
 addEventListener('resize', closeMenu);
 addEventListener('scroll', closeMenu, { passive: true });
 addEventListener('storage', e => { if (e.key === SESSION_KEY || e.key === USER_KEY) { renderChip(); dispatchEvent(new CustomEvent('apejupo:cuenta', { detail: currentUser() })); } });
-renderChip(); refresh();
+addEventListener('storage', e => { if (e.key === ADMIN_KEY || e.key === SESSION_KEY || e.key === USER_KEY) checkAdmin(); });
+addEventListener('apejupo:cuenta', () => checkAdmin());
+renderChip(); refresh(); checkAdmin();
 
 // Retos entre jugadores: conexión en vivo y aviso «X te reta» en todas las páginas.
 import './retos.js?v=20261115-match1';

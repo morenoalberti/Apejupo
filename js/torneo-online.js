@@ -1,5 +1,5 @@
 import { Chess } from '../assets/chess/chess.js';
-import { session, currentUser, openAuth } from './cuenta.js?v=20261116-registro2';
+import { session, currentUser, openAuth } from './cuenta.js?v=20261117-admin1';
 import { send as sendReto } from './retos.js?v=20261115-match1';
 import { searchPlayers, findExact, warmUp, birthYears } from './torneo-elo.js?v=20261117-sexo1';
 
@@ -150,9 +150,9 @@ async function loadLobby() {
     const [data, admin] = await Promise.all([request('/api/tournaments', { key: session() }).then(res => res.json()), checkTournamentAdmin()]);
     const { tournaments, keyRequired } = data;
     tournamentAdmin = admin;
-    $('to-admin-note').hidden = !admin;
     // Solo el administrador: borrar de una vez los torneos terminados (finalizados o cancelados).
     $('to-delete-ended').hidden = !admin || !tournaments.some(t => ['finished', 'cancelled'].includes(t.status));
+    $('to-admin-note').hidden = $('to-delete-ended').hidden;
     setKeyMode(keyRequired !== false);
     lobby = new Map(tournaments.map(t => [t.id, t]));
     $('to-events').innerHTML = tournaments.length ? tournaments.map(eventCard).join('') : emptyLobby;
