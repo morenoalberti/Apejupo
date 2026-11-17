@@ -265,7 +265,7 @@ function render() {
   const tbKeys = arena(t) || t.challenge ? [] : (t.tiebreaks?.length ? t.tiebreaks : (closed(t) ? ['sb'] : ['bh'])).filter(k => TB[k]);
   // Presencial: todos los desempates elegidos; online, los dos primeros.
   const tbCols = presencial(t) ? tbKeys : tbKeys.slice(0, 2);
-  $('to-standings').closest('table').tHead.rows[0].innerHTML = '<th scope="col">#</th><th scope="col">Jugador</th><th scope="col">Pts</th>'
+  $('to-standings').closest('table').tHead.rows[0].innerHTML = '<th scope="col">#</th><th scope="col">Jugador</th>' + (presencial(t) ? '<th scope="col" class="to-st-elo-col">ELO</th>' : '') + '<th scope="col">Pts</th>'
     + (arena(t) ? '<th scope="col"><abbr title="Partidas jugadas">PJ</abbr></th>' : tbCols.map((k, i) => `<th scope="col"${i ? ' class="to-tb-col2"' : ''}><abbr title="${esc(TB[k][0])}">${TB[k][1]}</abbr></th>`).join(''));
   const tag = p => (p.registered ? ' <span class="to-registered" title="Cuenta registrada">✓</span>' : '') + (!p.active ? ' <small>retirado</small>' : '');
   // Arena en marcha: delante del nombre, punto verde parpadeante si está jugando y gris fijo si no (esperando o partida terminada).
@@ -275,9 +275,9 @@ function render() {
   // Presencial: foto, bandera, título y puntos en relieve (sin podio).
   const rich = presencial(t), started = t.status !== 'waiting';
   const who = p => rich
-    ? `<div class="to-st-id">${pzAvatar(p)}<div class="to-st-body"><div class="to-st-name">${pzFlag(p)}<span>${esc(p.name)}</span>${p.rating ? `<span class="to-st-elo">${p.rating}</span>` : ''}${!classification.initial && p.id === t.me ? ' <small>(tú)</small>' : ''}${tag(p)}</div></div></div>`
+    ? `<div class="to-st-id">${pzAvatar(p)}<div class="to-st-body"><div class="to-st-name">${pzFlag(p)}<span>${esc(p.name)}</span>${!classification.initial && p.id === t.me ? ' <small>(tú)</small>' : ''}${tag(p)}</div></div></div>`
     : `${dot(p)}${esc(p.name)}${p.rating ? ` <small class="to-elo" title="Elo">${p.rating}</small>` : ''}${!classification.initial && p.id === t.me ? ' <small>(tú)</small>' : ''}${tag(p)}${sheet(p)}`;
-  $('to-standings').innerHTML = classification.rows.map((p, i) => `<tr class="${!classification.initial && p.id === t.me ? 'me ' : ''}${t.status === 'finished' && i === 0 ? 'winner' : ''}"><td>${rich && started ? `<span class="to-st-rank">${i + 1}</span>` : i + 1}</td><td>${who(p)}${registering && t.host ? `<button class="to-remove" type="button" data-remove="${p.id}" aria-label="Retirar a ${esc(p.name)}">×</button>` : ''}</td><td>${rich ? `<span class="to-st-pts">${formatPoints(p.points)}</span>` : `<strong>${formatPoints(p.points)}</strong>`}</td>${arena(t) ? `<td>${p.played}</td>` : tbCols.map((k, i) => `<td${i ? ' class="to-tb-col2"' : ''}>${p.tb?.[k] == null ? '–' : k === 'aro' ? (p.tb[k] || '–') : tb(p.tb[k])}</td>`).join('')}</tr>`).join('') || '<tr><td colspan="5" class="muted">Aún no hay inscritos.</td></tr>';
+  $('to-standings').innerHTML = classification.rows.map((p, i) => `<tr class="${!classification.initial && p.id === t.me ? 'me ' : ''}${t.status === 'finished' && i === 0 ? 'winner' : ''}"><td>${rich && started ? `<span class="to-st-rank">${i + 1}</span>` : i + 1}</td><td>${who(p)}${registering && t.host ? `<button class="to-remove" type="button" data-remove="${p.id}" aria-label="Retirar a ${esc(p.name)}">×</button>` : ''}</td>${rich ? `<td class="to-st-elo-col">${p.rating || ''}</td>` : ''}<td>${rich ? `<span class="to-st-pts">${formatPoints(p.points)}</span>` : `<strong>${formatPoints(p.points)}</strong>`}</td>${arena(t) ? `<td>${p.played}</td>` : tbCols.map((k, i) => `<td${i ? ' class="to-tb-col2"' : ''}>${p.tb?.[k] == null ? '–' : k === 'aro' ? (p.tb[k] || '–') : tb(p.tb[k])}</td>`).join('')}</tr>`).join('') || '<tr><td colspan="5" class="muted">Aún no hay inscritos.</td></tr>';
   if (rich) pzPhotos($('to-standings'));
   $('to-tiebreak').hidden = registering;
   $('to-tiebreak').textContent = arena(t) ? 'Desempates: victorias, menos partidas jugadas y número de sorteo.' : tbKeys.length ? `Desempates: ${tbKeys.map(k => TB[k][0]).join(', ')} y número de sorteo.` : 'Desempate: número de sorteo.';
