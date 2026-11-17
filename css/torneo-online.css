@@ -801,6 +801,7 @@ body.to-pz-managing #to-standings-panel { display: none; }
 .to-pt-name { min-width: 150px; overflow-wrap: anywhere; }
 .to-pt-name .flag { margin-right: 6px; }
 .to-pt-name.won { font-weight: 700; }
+.to-pt-short { display: none; }
 .to-pt-inline { display: none; }
 .to-pt-score { font-weight: 800; color: #c2410c; }
 .to-pt-pending { color: var(--muted); }
@@ -816,8 +817,20 @@ body.to-pz-managing #to-standings-panel { display: none; }
   .to-pt-num { width: 26px; }
   .to-pt-res { width: 62px; }
   .to-pt-pts { width: 30px; }
-  .to-pt-name { min-width: 0; }
+  /* Columnas fijas para que la tabla quepa en el ancho del móvil; el nombre que no quepa acaba en «…». */
+  .to-pt { table-layout: fixed; width: 100%; font-size: .76rem; }
+  .to-pt-inline .to-pz-title { margin-right: 3px; padding: 1px 4px; font-size: .62rem; }
+  .to-pt td, .to-pt thead th { padding-left: 3px; padding-right: 3px; }
+  .to-pt-wrap { margin-left: -12px; margin-right: -12px; }
+  .to-pt .to-pt-num { width: 20px; }
+  .to-pt .to-pt-res { width: 40px; }
+  .to-pt .to-pt-pts { width: 26px; }
+  /* Título y ELO van ocultos: con columnas fijas no pueden quitarse con display:none (se repartirían el ancho). */
+  .to-pt .to-pt-tit, .to-pt .to-pt-elo { display: table-cell; width: 0; padding: 0; border-left: 0; border-right: 0; overflow: hidden; visibility: hidden; font-size: 0; }
+  .to-pt-name { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; overflow-wrap: normal; }
   .to-pt-name .flag { display: none; }
+  .to-pt-full { display: none; }
+  .to-pt-short { display: inline; }
 }
 /* Pestañas del organizador con el torneo en marcha: Rondas / Jugadores */
 .to-pt-round-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }

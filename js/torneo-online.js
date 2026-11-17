@@ -628,7 +628,9 @@ function renderPresencial() {
   const info = id => t.standings.find(p => p.id === id) || { name: name(id) };
   const tit = p => p.title ? `<span class="to-pz-title${/^A[GIFC]M$/.test(p.title) ? ' arena' : ''}">${esc(p.title)}</span>` : '';
   const flag = p => p.fed && window.U?.flag ? window.U.flag(p.fed) : '';
-  const cellName = (p, won) => `<td class="to-pt-name${won ? ' won' : ''}">${flag(p)}<span class="to-pt-inline">${tit(p)}</span>${esc(p.name)}</td>`;
+  // En el móvil, «Apellidos, I.» para que quepa en una línea («Moreno Alberti, Manuel» → «Moreno Alberti, M.»).
+  const shortName = n => { const [last, given] = String(n).split(/,\s*/, 2); return given ? `${last}, ${given.trim().charAt(0)}.` : n; };
+  const cellName = (p, won) => `<td class="to-pt-name${won ? ' won' : ''}">${flag(p)}<span class="to-pt-inline">${tit(p)}</span><span class="to-pt-full">${esc(p.name)}</span><span class="to-pt-short">${esc(shortName(p.name))}</span></td>`;
   // Doble vuelta presencial: cada mesa es un mini-match de dos partidas (2-0, 1,5-0,5, 1-1…), como en RondaSwiss.
   const games2 = closed(t) && t.format === 'double-closed', perTable = games2 ? 2 : 1;
   const options = games2 ? [['2-0', '2-0'], ['1.5-0.5', '1,5-0,5'], ['1-1', '1-1'], ['0.5-1.5', '0,5-1,5'], ['0-2', '0-2'], ['+-', '+-'], ['-+', '-+']]
@@ -681,7 +683,7 @@ function renderPresencial() {
       return `<tr class="to-pt-bye${g.white === t.me ? ' mine' : ''}"><td class="to-pt-num"></td><td class="to-pt-tit">${tit(w)}</td>${cellName(w, false)}<td class="to-pt-elo">${w.rating || ''}</td>${pts(r, w)}<td class="to-pt-res"><span class="to-pt-score">${g.rest ? '0' : perTable}</span></td><td class="to-pt-pts"></td><td class="to-pt-tit"></td><td class="to-pt-name to-pt-rest" colspan="2">${g.rest ? 'Descansa' : /retirad/i.test(g.reason || '') ? 'Rival retirado' : 'Descansa'}</td></tr>`; }).join('');
     return head + rows + rests;
   }).join('');
-  $('to-presencial-matches').innerHTML = rounds.length ? `<div class="to-pt-wrap"><table class="to-pt"><thead><tr><th class="to-pt-num">Mesa</th><th class="to-pt-tit">Tít.</th><th>Blancas</th><th class="to-pt-elo">ELO</th><th class="to-pt-pts" title="Puntos antes de la ronda">Pts</th><th class="to-pt-res">Resultado</th><th class="to-pt-pts" title="Puntos antes de la ronda">Pts</th><th class="to-pt-tit">Tít.</th><th>Negras</th><th class="to-pt-elo">ELO</th></tr></thead><tbody>${body}</tbody></table></div>` : '';
+  $('to-presencial-matches').innerHTML = rounds.length ? `<div class="to-pt-wrap"><table class="to-pt"><thead><tr><th class="to-pt-num"><span class="to-pt-full">Mesa</span><span class="to-pt-short">#</span></th><th class="to-pt-tit">Tít.</th><th>Blancas</th><th class="to-pt-elo">ELO</th><th class="to-pt-pts" title="Puntos antes de la ronda">Pts</th><th class="to-pt-res"><span class="to-pt-full">Resultado</span><span class="to-pt-short">Res.</span></th><th class="to-pt-pts" title="Puntos antes de la ronda">Pts</th><th class="to-pt-tit">Tít.</th><th>Negras</th><th class="to-pt-elo">ELO</th></tr></thead><tbody>${body}</tbody></table></div>` : '';
 }
 function renderMatches() {
   // Arena: solo las partidas en juego, de la más reciente a la más antigua; al terminar, desaparecen de la lista.
