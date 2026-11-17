@@ -610,9 +610,9 @@ body.to-focus #to-standings-panel th { position: sticky; top: 0; background: var
 .to-elo { color: var(--muted); font-variant-numeric: tabular-nums; }
 /* Suizo y cerrado: partidas ya terminadas de la ronda, con el resultado encima hasta la ronda siguiente */
 .to-live.done { position: relative; }
-.to-live.done .to-mini { filter: saturate(.55) brightness(.8); }
-.to-live.done::after { content: attr(data-result); position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); padding: 4px 14px; border-radius: 10px; background: #0b1422d9; color: #fff; font: 800 1.6rem/1.2 system-ui, sans-serif; pointer-events: none; }
-.to-live.zoom.done::after { font-size: 3rem; }
+/* Miniaturas: el resultado como en el tablero principal (grande, inclinado y semitransparente) */
+.to-live.done { container-type: inline-size; }
+.to-live.done::after { content: attr(data-result); position: absolute; inset: 0; z-index: 5; display: grid; place-items: center; margin: 0; padding: 0; border-radius: 0; background: none; box-shadow: none; font: 800 clamp(1.6rem, 24cqi, 11rem)/1 system-ui, sans-serif; letter-spacing: -.02em; color: rgba(255, 255, 255, .5); -webkit-text-stroke: 1px rgba(0, 0, 0, .35); text-shadow: 0 6px 24px rgba(0, 0, 0, .45); pointer-events: none; transform: rotate(-18deg); white-space: nowrap; }
 
 /* Revancha tras un reto (js/torneo-online.js) */
 .to-rematch { display: grid; justify-items: center; gap: 6px; }

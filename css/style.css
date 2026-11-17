@@ -781,8 +781,12 @@ body.card-dragging .tour-tip { display: none !important; }
 @keyframes lvaviso { 0%, 100% { opacity: 0; } 50% { opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .th-board.aviso::after { animation: none; opacity: 1; } }
 /* Resultado de la partida terminada, en medio del tablero pequeño */
-.th-res { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 2; padding: .12em .5em; border-radius: 10px; background: rgba(15, 27, 45, .86); color: #fff; font-size: clamp(1.25rem, 2.6vw, 1.9rem); font-weight: 800; line-height: 1.15; letter-spacing: .02em; white-space: nowrap; font-variant-numeric: tabular-nums; box-shadow: 0 6px 18px rgba(0, 0, 0, .45); pointer-events: none; }
-.th-board.terminada .sq, .th-board.terminada .th-arrow { opacity: .78; }
+/* Grande, inclinado y semitransparente, como en los torneos online; el tamaño va con el ancho de la miniatura */
+.th { container-type: inline-size; }
+.th-res { position: absolute; inset: 0; z-index: 5; display: grid; place-items: center; margin: 0; padding: 0; border-radius: 0; background: none; box-shadow: none; font: 800 clamp(1.6rem, 24cqi, 11rem)/1 system-ui, sans-serif; letter-spacing: -.02em; color: rgba(255, 255, 255, .5); -webkit-text-stroke: 1px rgba(0, 0, 0, .35); text-shadow: 0 6px 24px rgba(0, 0, 0, .45); pointer-events: none; transform: rotate(-18deg); white-space: nowrap; }
+/* Tablero principal de los directos: el resultado encima al ver la posición final */
+.lv-board { container-type: inline-size; }
+.lv-board[data-result]::after { content: attr(data-result); position: absolute; inset: 0; z-index: 5; display: grid; place-items: center; margin: 0; padding: 0; border-radius: 0; background: none; box-shadow: none; font: 800 clamp(1.6rem, 24cqi, 11rem)/1 system-ui, sans-serif; letter-spacing: -.02em; color: rgba(255, 255, 255, .5); -webkit-text-stroke: 2px rgba(0, 0, 0, .35); text-shadow: 0 6px 24px rgba(0, 0, 0, .45); pointer-events: none; transform: rotate(-18deg); white-space: nowrap; }
 .th-board .th-arrow { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; filter: drop-shadow(0 0 1px rgba(0,0,0,.5)); }
 .th { user-select: none; -webkit-user-select: none; }
 .th.dragging { background: rgba(54, 146, 231, .10); outline: 2px dashed #3692e7; outline-offset: -2px; border-radius: 10px; }

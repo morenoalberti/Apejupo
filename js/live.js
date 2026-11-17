@@ -202,6 +202,9 @@
     }
     board.innerHTML = html;
     paintPieces(board);
+    // Partida terminada y viendo la posición final: el resultado grande encima del tablero (como en los torneos online)
+    var fin = g.over && !inVar && ply === n ? { "1-0": "1-0", "0-1": "0-1", "1/2-1/2": "\u00bd\u2013\u00bd" }[g.tags.Result] : "";
+    if (fin) board.setAttribute("data-result", fin); else board.removeAttribute("data-result");
     function pl(t, nm, el) { return (t ? '<em class="ttl">' + esc(t) + '</em> ' : "") + esc(nm) + (el ? ' <small>(' + esc(el) + ')</small>' : ""); }
     var w = nameFlag(g, "w") + pl(g.tags.WhiteTitle, g.tags.White, g.tags.WhiteElo), b = nameFlag(g, "b") + pl(g.tags.BlackTitle, g.tags.Black, g.tags.BlackElo);
     $("lv-top-name").innerHTML = orient === "w" ? b : w; $("lv-bot-name").innerHTML = orient === "w" ? w : b;
