@@ -321,6 +321,25 @@
 #to-presencial-reset svg { flex: none; }
 .to-main #to-presencial-reset:hover:not(:disabled) { background: color-mix(in srgb, #d66b7d 22%, var(--card)); }
 .to-presencial-room .to-play-column { display: none; }
+/* Torneo presencial: cabecera y barra del torneo más compactas. */
+body.to-presencial-room .to-hero-row { min-height: 0; padding-top: 18px; padding-bottom: 18px; }
+body.to-presencial-room .to-hero h1 { font-size: clamp(1.6rem, 3vw, 2.2rem); }
+body.to-presencial-room .to-hero p:last-child { margin-top: 6px; font-size: .9rem; }
+body.to-presencial-room .to-hero-mark { width: 64px; height: 64px; border-radius: 18px; }
+body.to-presencial-room .to-hero-mark svg { width: 38px; height: 38px; }
+body.to-presencial-room .to-content { padding-top: 14px; }
+body.to-presencial-room .to-room-bar { margin-bottom: 8px; }
+body.to-presencial-room .to-tournament-bar { margin-bottom: 12px; padding-bottom: 12px; }
+body.to-presencial-room .to-presencial { margin-top: 0; }
+/* Sin el título «Torneo presencial · Jugadores y emparejamientos» (se queda solo para lectores de pantalla). */
+.to-presencial > .to-section-head:first-child > div:first-child { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.to-presencial > .to-section-head:first-child { justify-content: flex-end; }
+.to-presencial > .to-section-head:first-child:not(:has(#to-presencial-actions > :not([hidden]))) { display: none; }
+/* En pantallas anchas, «Borrar emparejamientos» sube a la fila de las pestañas Rondas / Jugadores. */
+@media (min-width: 720px) {
+  .to-presencial { position: relative; }
+  .to-presencial > .to-section-head:first-child { position: absolute; top: 20px; right: 20px; margin: 0; }
+}
 .to-presencial-room .to-room-layout { display: block; }
 .to-presencial-room .to-sidebar { width: 100%; max-width: none; }
 .to-presencial-player-form { display: grid; grid-template-columns: minmax(0, 1fr) minmax(90px, 140px) auto; align-items: end; gap: 12px; padding-bottom: 18px; border-bottom: 1px solid var(--line); }
