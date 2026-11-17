@@ -1028,10 +1028,12 @@ function updateClocks() {
   if (t.status === 'waiting') {
     const left = t.startsAt ? Math.max(0, t.startsAt - now) : null, s = left === null ? 0 : Math.ceil(left / 1000);
     const d = Math.floor(s / 86400), hms = `${String(Math.floor(s % 86400 / 3600)).padStart(2, '0')}:${String(Math.floor(s % 3600 / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
-    $('to-wait-label').textContent = t.startsAt ? 'El torneo empieza en' : 'El torneo empezará';
-    $('to-wait-clock').textContent = t.startsAt ? (d ? `${d} d ${hms}` : hms) : 'cuando lo decida el organizador';
+    // Pasada la hora sin 4 inscritos: se espera hasta 10 minutos a que lleguen; si no, se cancela.
+    const grace = t.startsAt && !presencial(t) && now >= t.startsAt, g = grace ? Math.max(0, Math.ceil((t.startsAt + 600000 - now) / 1000)) : 0;
+    $('to-wait-label').textContent = grace ? 'Esperando jugadores: hacen falta 4' : t.startsAt ? 'El torneo empieza en' : 'El torneo empezará';
+    $('to-wait-clock').textContent = grace ? `${String(Math.floor(g / 60)).padStart(2, '0')}:${String(g % 60).padStart(2, '0')}` : t.startsAt ? (d ? `${d} d ${hms}` : hms) : 'cuando lo decida el organizador';
     $('to-wait-clock').classList.toggle('to-wait-manual', !t.startsAt);
-    $('to-wait-date').textContent = t.startsAt ? date(t.startsAt) : `${listed(t).length} de ${t.capacity} plazas ocupadas`;
+    $('to-wait-date').textContent = grace ? `${listed(t).length} inscritos · si no llegan a 4, el torneo se cancela` : t.startsAt ? date(t.startsAt) : `${listed(t).length} de ${t.capacity} plazas ocupadas`;
   }
   if (!$('to-registration').hidden && !canJoin(t)) render();
   const playingNow = !!t.me && t.games.some(x => !x.result && !x.bye && (x.white === t.me || x.black === t.me));

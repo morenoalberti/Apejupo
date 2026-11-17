@@ -245,6 +245,7 @@ export class TournamentRoom extends DurableObject {
           let p;
           try { p = joinTournament(this.t, b.name, playerHash, now, b.joinKey, b.account || null); }
           catch (error) { if (/clave/.test(error.message)) this.keyFails.count++; throw error; }
+          this.progress(now); // pasada la hora de inicio, el cuarto inscrito pone en marcha el torneo
           await this.save(); this.broadcast();
           return json({ playerId: p.id }, 201);
         }

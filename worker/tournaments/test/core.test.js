@@ -186,12 +186,24 @@ test('retirada pierde la partida actual y excluye de las siguientes rondas', () 
   assert.equal(t.players.find(p => p.id === id).active, false);
 });
 
-test('inicio programado y cancelación si no hay suficientes inscritos', () => {
-  const t = tournament(2, { startsAt: NOW + 120000 });
-  assert.equal(advance(t, NOW + 119999), false);
-  advance(t, NOW + 120000); assert.equal(t.status, 'playing');
-  const empty = tournament(1, { startsAt: NOW + 120000 }); advance(empty, NOW + 120000);
-  assert.equal(empty.status, 'cancelled');
+test('inicio programado: con 4 inscritos empieza; con menos se esperan 10 minutos y se cancela', () => {
+  const START = NOW + 120000, GRACE = 10 * 60000;
+  const t = tournament(4, { startsAt: START });
+  assert.equal(advance(t, START - 1), false);
+  advance(t, START); assert.equal(t.status, 'playing');
+  // Con 3 a la hora: sigue esperando; el cuarto que llega dentro del margen lo pone en marcha.
+  const late = tournament(3, { startsAt: START });
+  assert.equal(advance(late, START), false); assert.equal(late.status, 'waiting');
+  assert.equal(nextAlarm(late, START), START + GRACE);
+  joinTournament(late, 'Cuarto', 'secret-cuarto', START + 60000);
+  advance(late, START + 60000); assert.equal(late.status, 'playing');
+  // A los 10 minutos con 3 o menos: cancelado.
+  const few = tournament(3, { startsAt: START });
+  assert.equal(advance(few, START + GRACE - 1), false);
+  advance(few, START + GRACE); assert.equal(few.status, 'cancelled'); assert.match(few.notice, /al menos 4/);
+  // Un reto entre dos sigue empezando a su hora con los dos.
+  const duel = tournament(2, { startsAt: START }); duel.challenge = { white: duel.players[0].id };
+  advance(duel, START); assert.equal(duel.status, 'playing');
 });
 
 test('cancelación protege contra acciones posteriores', () => {

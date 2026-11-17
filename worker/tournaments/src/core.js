@@ -513,18 +513,28 @@ export function advance(t, now = Date.now()) {
     afterResults(t, now);
     changed ||= round !== t.round || status !== t.status;
   }
-  if (!isPresencial(t) && t.status === 'waiting' && t.startsAt && now >= t.startsAt) {
+  // Online con hora de inicio: se empareja con al menos 4 inscritos. Si a la hora no los hay, se esperan
+  // hasta 10 minutos (empieza en cuanto llega el cuarto); pasado ese margen, se cancela.
+  if (t.challenge && t.status === 'waiting' && t.startsAt && now >= t.startsAt) { // reto: empieza a la hora con los dos
     if (t.players.length >= 2) startTournament(t, now);
     else { t.status = 'cancelled'; t.notice = 'Cancelado: no se alcanzaron dos inscritos.'; t.finishedAt = now; }
     changed = true;
+  } else if (!isPresencial(t) && t.status === 'waiting' && t.startsAt && now >= t.startsAt) {
+    if (t.players.filter(p => !p.paused).length >= MIN_SCHEDULED_PLAYERS) { startTournament(t, now); changed = true; }
+    else if (now >= t.startsAt + START_GRACE_MS) {
+      t.status = 'cancelled'; t.finishedAt = now; changed = true;
+      t.notice = `Cancelado: a los 10 minutos de la hora de inicio no había al menos ${MIN_SCHEDULED_PLAYERS} inscritos.`;
+    }
   }
   if (t.status === 'between' && t.nextRoundAt && now >= t.nextRoundAt) { beginRound(t, now); changed = true; }
   if (isArena(t) && t.status === 'playing' && now >= t.endsAt) { afterResults(t, now); changed ||= t.status !== 'playing'; }
   return changed;
 }
+// Inicio programado (online): mínimo de inscritos para emparejar y margen de espera antes de cancelar.
+export const MIN_SCHEDULED_PLAYERS = 4, START_GRACE_MS = 10 * 60000;
 export function nextAlarm(t, now = Date.now()) {
   const times = [t.expiresAt];
-  if (!isPresencial(t) && t.status === 'waiting' && t.startsAt) times.push(t.startsAt);
+  if (!isPresencial(t) && t.status === 'waiting' && t.startsAt) times.push(now < t.startsAt || t.challenge ? t.startsAt : t.startsAt + START_GRACE_MS);
   if (t.status === 'between' && t.nextRoundAt) times.push(t.nextRoundAt);
   if (isArena(t) && t.status === 'playing') {
     if (t.endsAt > now) times.push(t.endsAt);
