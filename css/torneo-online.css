@@ -664,6 +664,16 @@ body.to-focus #to-standings-panel th { position: sticky; top: 0; background: var
 .to-pz-chip.fada { color: #3b2503; border-color: transparent; background: linear-gradient(180deg, #f0c878, #d19a36); box-shadow: 0 1px 0 #ffffff60 inset, 0 3px 8px -3px #d19a36aa; }
 .to-pz-tools { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
 .to-pz-tip { color: var(--muted); font-size: .82rem; margin: 0; }
+/* Pantallas anchas: buscador y botones en una sola fila; el texto de ayuda, debajo. En el móvil, como antes. */
+@media (min-width: 720px) {
+  .to-pz-add { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; column-gap: 10px; }
+  .to-pz-add > .to-pz-label { grid-column: 1 / -1; }
+  .to-pz-add > .to-pz-searchbox { grid-column: 1; grid-row: 2; }
+  .to-pz-add > .to-pz-tools { display: contents; }
+  .to-pz-add > .to-pz-tools > .to-pz-tool { grid-row: 2; }
+  .to-pz-add > .to-pz-tools > .to-pz-tip { grid-column: 1 / -1; grid-row: 3; margin-top: 8px; font-size: .78rem; }
+  .to-pz-add > .to-pz-sugs { grid-column: 1 / -1; grid-row: 3; top: 0; left: 0; right: 0; }
+}
 .to-main .to-pz-tool, .to-dialog .to-pz-tool { display: inline-flex; align-items: center; gap: 8px; min-height: 42px; padding: 8px 15px; border-radius: 12px; font-weight: 650; color: var(--text); border: 1px solid color-mix(in srgb, var(--text) 14%, var(--line));
   background: linear-gradient(180deg, color-mix(in srgb, var(--card) 85%, #fff 15%), var(--card)); box-shadow: 0 1px 0 #ffffff1f inset, 0 1px 2px #0f1b2d33, 0 6px 14px -8px #0f1b2d80; transition: transform .12s, box-shadow .12s, border-color .12s; }
 .to-main .to-pz-tool:hover, .to-dialog .to-pz-tool:hover { transform: translateY(-1px); border-color: color-mix(in srgb, var(--blue) 50%, var(--line)); box-shadow: 0 1px 0 #ffffff1f inset, 0 10px 20px -10px #2f63d6aa; }
