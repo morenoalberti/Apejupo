@@ -1388,8 +1388,9 @@ const pzPhotos = el => {
     }
   });
 };
-const sexLabel = s => s === 'F' ? 'Fem.' : s === 'M' ? 'Masc.' : '';
-const playerRow = (p, i, tools) => `<div class="to-pz-row">${i == null ? '' : `<span class="to-pz-num">${i + 1}</span>`}${pzAvatar(p)}<span class="to-pz-name"><strong>${pzFlag(p)}${esc(p.name)}</strong>${p.fideId || p.birth || p.sex ? `<small>${[p.fideId ? 'FIDE ' + esc(p.fideId) : '', p.birth ? `Nac. ${p.birth}` : '', sexLabel(p.sex)].filter(Boolean).join(' · ')}</small>` : ''}</span><span class="to-pz-chips">${ratingChips(p)}</span><span class="to-pz-row-tools">${tools}</span></div>`;
+// «1995 - 31 años - Masc.»: año de nacimiento, edad (este año menos el de nacimiento) y sexo.
+const ageInfo = p => [p.birth ? `${p.birth} - ${new Date().getFullYear() - p.birth} años` : '', p.sex === 'F' ? 'Fem.' : p.sex === 'M' ? 'Masc.' : ''].filter(Boolean).join(' - ');
+const playerRow = (p, i, tools) => `<div class="to-pz-row">${i == null ? '' : `<span class="to-pz-num">${i + 1}</span>`}${pzAvatar(p)}<span class="to-pz-name"><strong>${pzFlag(p)}${esc(p.name)}</strong>${p.fideId || p.birth || p.sex ? `<small>${[p.fideId ? 'FIDE ' + esc(p.fideId) : '', ageInfo(p)].filter(Boolean).join(' · ')}</small>` : ''}</span><span class="to-pz-chips">${ratingChips(p)}</span><span class="to-pz-row-tools">${tools}</span></div>`;
 // Los inscritos antes de que las listas trajeran el año de nacimiento y el sexo: se buscan por su número FIDE (una vez).
 const birthTried = new Set();
 function fillBirths(t, players) {
@@ -1433,7 +1434,7 @@ function attachSearch(inputId, listId, onPick, manualLabel) {
   function draw() {
     const text = input.value.trim();
     const manual = text.length >= 2 && !/^\d+$/.test(text) ? `<button type="button" class="to-pz-sug manual" role="option" data-i="-1"><span class="to-pz-avatar plain">${pzIcons.plus}</span><span class="to-pz-name"><strong>${manualLabel(esc(text))}</strong><small>Sin Elo; se puede editar después</small></span></button>` : '';
-    list.innerHTML = items.map((p, i) => `<button type="button" class="to-pz-sug" role="option" data-i="${i}">${pzAvatar(p)}<span class="to-pz-name"><strong>${pzFlag(p)}${esc(p.name)}</strong><small>${[p.place, p.fideId ? 'FIDE ' + p.fideId : '', p.birth ? 'Nac. ' + p.birth : '', sexLabel(p.sex)].filter(Boolean).map(esc).join(' · ')}</small></span><span class="to-pz-chips">${ratingChips(p)}</span></button>`).join('')
+    list.innerHTML = items.map((p, i) => `<button type="button" class="to-pz-sug" role="option" data-i="${i}">${pzAvatar(p)}<span class="to-pz-name"><strong>${pzFlag(p)}${esc(p.name)}</strong><small>${[p.place, p.fideId ? 'FIDE ' + p.fideId : '', ageInfo(p)].filter(Boolean).map(esc).join(' · ')}</small></span><span class="to-pz-chips">${ratingChips(p)}</span></button>`).join('')
       + (loading ? '<div class="to-pz-sug-wait">Buscando en las listas FIDE y FADA…</div>' : !items.length && text.length >= 3 ? '<div class="to-pz-sug-wait">No aparece en las listas.</div>' : '') + manual;
     list.hidden = !list.innerHTML; input.setAttribute('aria-expanded', String(!list.hidden)); active = -1; pzPhotos(list);
   }
