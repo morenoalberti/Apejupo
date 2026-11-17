@@ -91,6 +91,11 @@
 .to-phase { margin: 0; font-size: .9rem; font-weight: 600; }
 .to-panel { padding: 20px; border: 1px solid var(--line); border-radius: 14px; background: var(--card); margin: 0 0 18px; }
 .to-note { border-left: 3px solid var(--to-accent); padding: 10px 14px; background: #db9f3812; font-size: .9rem; }
+.to-admin-note:not([hidden]) { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px 14px; }
+.to-delete-ended { display: inline-flex; align-items: center; gap: 7px; min-height: 34px; padding: 6px 12px; border: 1px solid color-mix(in srgb, #e5484d 55%, var(--line)); border-radius: 9px; background: color-mix(in srgb, #e5484d 12%, var(--card)); color: #ff6b6f; font: inherit; font-size: .82rem; font-weight: 600; cursor: pointer; }
+.to-delete-ended:hover:not(:disabled) { background: color-mix(in srgb, #e5484d 24%, var(--card)); border-color: #e5484d; }
+.to-delete-ended:disabled { opacity: .55; cursor: default; }
+.to-delete-ended[hidden] { display: none; }
 .to-join { display: flex; justify-content: space-between; align-items: center; gap: 24px; padding: 24px; margin: 0 0 18px; border: 1px solid #22a66a66; border-radius: 14px; background: linear-gradient(120deg, #15803d14, transparent 70%), var(--card); }
 .to-join h2 { margin: 0; font-size: 1.3rem; }
 .to-join p { margin: 6px 0 0; font-size: .9rem; }

@@ -141,6 +141,8 @@ async function loadLobby() {
     const { tournaments, keyRequired } = data;
     tournamentAdmin = admin;
     $('to-admin-note').hidden = !admin;
+    // Solo el administrador: borrar de una vez los torneos terminados (finalizados o cancelados).
+    $('to-delete-ended').hidden = !admin || !tournaments.some(t => ['finished', 'cancelled'].includes(t.status));
     setKeyMode(keyRequired !== false);
     lobby = new Map(tournaments.map(t => [t.id, t]));
     $('to-events').innerHTML = tournaments.length ? tournaments.map(eventCard).join('') : emptyLobby;
@@ -1746,6 +1748,23 @@ $('to-sound').addEventListener('click', () => {
   if (moveSound) unlockAudio();
 });
 
+$('to-delete-ended').addEventListener('click', async () => {
+  const ended = [...lobby.values()].filter(t => ['finished', 'cancelled'].includes(t.status));
+  if (!ended.length || !tournamentAdmin) return;
+  const list = ended.length === 1 ? `el torneo «${ended[0].title}»` : `los ${ended.length} torneos terminados`;
+  if (!await confirmAction('Borrar todos los torneos terminados', `Se borrarán ${list}. Desaparecerán para todos y no se puede deshacer.`, true)) return;
+  const button = $('to-delete-ended'); button.disabled = true;
+  let failed = 0;
+  for (const t of ended) {
+    try {
+      await request(`/api/tournaments/${t.id}/delete`, { method: 'POST', key: adminKey(), body: JSON.stringify({}) });
+      try { localStorage.removeItem(hostKey(t.id)); } catch {}
+    } catch { failed++; }
+  }
+  button.disabled = false;
+  message(failed ? `No se ${failed === 1 ? 'pudo borrar 1 torneo' : `pudieron borrar ${failed} torneos`}. Vuelve a intentarlo.` : '', !!failed);
+  await loadLobby();
+});
 $('to-events').addEventListener('click', async event => {
   if (event.target.closest('[data-create]')) { $('to-create-open').click(); return; }
   const pencil = event.target.closest('[data-edit]');
