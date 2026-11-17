@@ -249,13 +249,20 @@
   .to-presencial-room .to-standings { min-width: 0; width: 100%; }
   .to-presencial-room .to-standings th, .to-presencial-room .to-standings td { padding-left: 4px; padding-right: 4px; }
   .to-presencial-room .to-standings td:nth-child(2) { white-space: normal; }
-  .to-presencial-room .to-standings .to-st-elo-col { padding-left: 6px; padding-right: 4px; font-size: .74rem; }
+  body.to-presencial-room .to-standings .to-st-elo-col { padding-left: 6px; padding-right: 4px; font-size: .74rem; } /* gana a la regla de escritorio de más abajo */
   .to-presencial-room .to-standings td:first-child { width: 30px; }
   .to-st-rank { width: 22px; height: 22px; font-size: .75rem; }
   /* En el móvil no caben los desempates ni la foto: el nombre necesita el espacio (siguen en el ordenador y al imprimir). */
   .to-presencial-room .to-standings th:nth-child(n+5), .to-presencial-room .to-standings td:nth-child(n+5) { display: none; }
   .to-presencial-room .to-standings td:nth-child(4) { border-radius: 0 14px 14px 0; }
   .to-st-id .to-pz-avatar { display: none; }
+  .to-st-name .flag { display: none; } /* sin bandera y con «Apellidos, I.», para que el nombre quepa en una línea */
+  .to-presencial-room .to-standings td:nth-child(2) .to-st-name > span:not(.to-pz-title):not(.to-st-elo) { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .to-st-name .to-pt-full { display: none; }
+  .to-st-name .to-pt-short { display: inline; }
+  .to-presencial-room .to-standings .to-st-name { flex-wrap: nowrap; min-width: 0; }
+  .to-presencial-room .to-standings .to-st-elo-col, .to-presencial-room .to-standings td:first-child, .to-presencial-room .to-standings td:nth-child(4) { width: 1%; white-space: nowrap; }
+  .to-presencial-room .to-standings td:nth-child(2) { max-width: 0; width: auto; }
   .to-st-name > span:not(.to-pz-title):not(.to-st-elo) { overflow-wrap: normal; word-break: normal; }
 }
 .to-standings-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 8px; margin-top: 12px; }

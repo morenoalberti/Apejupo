@@ -277,7 +277,7 @@ function render() {
   // Presencial: foto, bandera, título y puntos en relieve (sin podio).
   const rich = presencial(t), started = t.status !== 'waiting';
   const who = p => rich
-    ? `<div class="to-st-id">${pzAvatar(p)}<div class="to-st-body"><div class="to-st-name">${pzFlag(p)}<span>${esc(p.name)}</span>${!classification.initial && p.id === t.me ? ' <small>(tú)</small>' : ''}${tag(p)}</div></div></div>`
+    ? `<div class="to-st-id">${pzAvatar(p)}<div class="to-st-body"><div class="to-st-name">${pzFlag(p)}<span><span class="to-pt-full">${esc(p.name)}</span><span class="to-pt-short">${esc(shortName(p.name))}</span></span>${!classification.initial && p.id === t.me ? ' <small>(tú)</small>' : ''}${tag(p)}</div></div></div>`
     : `${dot(p)}${esc(p.name)}${p.rating ? ` <small class="to-elo" title="Elo">${p.rating}</small>` : ''}${!classification.initial && p.id === t.me ? ' <small>(tú)</small>' : ''}${tag(p)}${sheet(p)}`;
   $('to-standings').innerHTML = classification.rows.map((p, i) => `<tr class="${!classification.initial && p.id === t.me ? 'me ' : ''}${t.status === 'finished' && i === 0 ? 'winner' : ''}"><td>${rich && started ? `<span class="to-st-rank">${i + 1}</span>` : i + 1}</td><td>${who(p)}${registering && t.host ? `<button class="to-remove" type="button" data-remove="${p.id}" aria-label="Retirar a ${esc(p.name)}">×</button>` : ''}</td>${rich ? `<td class="to-st-elo-col">${p.rating || ''}</td>` : ''}<td>${rich ? `<span class="to-st-pts">${formatPoints(p.points)}</span>` : `<strong>${formatPoints(p.points)}</strong>`}</td>${arena(t) ? `<td>${p.played}</td>` : tbCols.map((k, i) => `<td${i ? ' class="to-tb-col2"' : ''}>${p.tb?.[k] == null ? '–' : k === 'aro' ? (p.tb[k] || '–') : tb(p.tb[k])}</td>`).join('')}</tr>`).join('') || '<tr><td colspan="5" class="muted">Aún no hay inscritos.</td></tr>';
   if (rich) pzPhotos($('to-standings'));
@@ -627,8 +627,6 @@ function renderPresencial() {
   const info = id => t.standings.find(p => p.id === id) || { name: name(id) };
   const tit = p => p.title ? `<span class="to-pz-title${/^A[GIFC]M$/.test(p.title) ? ' arena' : ''}">${esc(p.title)}</span>` : '';
   const flag = p => p.fed && window.U?.flag ? window.U.flag(p.fed) : '';
-  // En el móvil, «Apellidos, I.» para que quepa en una línea («Moreno Alberti, Manuel» → «Moreno Alberti, M.»).
-  const shortName = n => { const [last, given] = String(n).split(/,\s*/, 2); return given ? `${last}, ${given.trim().charAt(0)}.` : n; };
   const cellName = (p, won) => `<td class="to-pt-name${won ? ' won' : ''}">${flag(p)}<span class="to-pt-inline">${tit(p)}</span><span class="to-pt-full">${esc(p.name)}</span><span class="to-pt-short">${esc(shortName(p.name))}</span></td>`;
   // Doble vuelta presencial: cada mesa es un mini-match de dos partidas (2-0, 1,5-0,5, 1-1…), como en RondaSwiss.
   const games2 = closed(t) && t.format === 'double-closed', perTable = games2 ? 2 : 1;
@@ -1344,6 +1342,8 @@ const ratingChips = p => p.fide || p.fada ? (p.fide ? chip('FIDE', p.fide) : '')
 // Foto (por número FIDE, como en la tabla de Elo) y bandera de la federación.
 const pzAvatar = p => `<span class="to-pz-avatar" aria-hidden="true"${p.fideId ? ` data-fid="${esc(p.fideId)}"` : ''}>${esc(initials(p.name))}</span>`;
 // Bandera y título FIDE (también los de Arena: AGM, AIM, AFM, ACM).
+// En el móvil, «Apellidos, I.» para que quepa en una línea («Moreno Alberti, Manuel» → «Moreno Alberti, M.»).
+const shortName = n => { const [last, given] = String(n).split(/,\s*/, 2); return given ? `${last}, ${given.trim().charAt(0)}.` : n; };
 const pzFlag = p => (p.fed && window.U?.flag ? window.U.flag(p.fed) : '') + (p.title ? `<span class="to-pz-title${/^A[GIFC]M$/.test(p.title) ? ' arena' : ''}" title="${/^A[GIFC]M$/.test(p.title) ? 'Título Arena de la FIDE' : 'Título FIDE'}">${esc(p.title)}</span>` : '');
 // Fotos de la lista: cada jugador se pide una sola vez (la lista se redibuja con cada cambio del torneo) a las
 // mismas fuentes que la tabla de Elo, como mucho 4 a la vez; las que llegan se ponen en cuanto se dibuja la fila.
