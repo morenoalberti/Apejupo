@@ -603,10 +603,14 @@ export function act(t, playerId, host, action, now = Date.now()) {
       requireThat(['playing', 'between', 'finished'].includes(t.status), 'No puedes anotar resultados ahora.');
       requireThat(action.result === null || validResults(t).includes(action.result), 'Elige un resultado válido.');
       requireThat(!earlier || action.result !== null, 'En una ronda anterior, cambia el resultado por otro: no se puede dejar sin resultado.');
+      const wasComplete = !t.games.some(x => x.round === t.round && !x.result);
       g.result = action.result; g.reason = action.result ? 'Resultado anotado por la organización' : ''; g.finishedAt = action.result ? now : null;
       if (earlier) return; // la ronda en curso y el estado del torneo no cambian; la clasificación se recalcula sola
       t.status = 'playing'; t.finishedAt = null; t.nextRoundAt = null;
       afterResults(t, now);
+      // Suizo: al anotar el último resultado que faltaba se empareja sola la ronda siguiente.
+      // Corregir una ronda ya completa (p. ej. tras borrar la última) no empareja: para eso está el botón.
+      if (t.format === 'swiss' && t.status === 'between' && !wasComplete) beginRound(t, now);
     }
     return;
   }

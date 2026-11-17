@@ -108,6 +108,8 @@ test('borrar rondas reabre la inscripción, conserva jugadores y configuración 
         for (const g of t.games.filter(g => !g.result)) act(t, null, true, { type: 'presencial-result', game: g.id, result }, NOW);
         if (phase === 'finished' && t.status === 'between') act(t, null, true, { type: 'presencial-next' }, NOW);
       } while (phase === 'finished' && t.status !== 'finished');
+      // El suizo empareja solo la ronda siguiente: para quedar «entre rondas» se borra la nueva.
+      if (phase === 'between') act(t, null, true, { type: 'presencial-drop-round', round: t.round }, NOW);
     }
     assert.equal(t.status, phase);
     const oldGame = t.games[0].id;
@@ -201,12 +203,15 @@ test('presencial: inicio y rondas manuales, sin banderas ni tablero virtual, inc
   assert.equal(advance(t, NOW + 86400000), false);
   assert.equal(t.games[0].result, null);
   assert.throws(() => act(t, null, true, { type: 'presencial-next' }, NOW), /resultados/);
-  for (const g of t.games) act(t, null, true, { type: 'presencial-result', game: g.id, result: '1-0' }, NOW + 240000);
-  assert.equal(t.status, 'between'); assert.equal(t.nextRoundAt, null);
+  const [g1, g2] = t.games;
+  act(t, null, true, { type: 'presencial-result', game: g1.id, result: '1-0' }, NOW + 240000);
+  assert.equal(t.status, 'playing'); assert.equal(t.round, 1);
+  // Al anotar el último resultado de la ronda, la siguiente se empareja sola.
+  act(t, null, true, { type: 'presencial-result', game: g2.id, result: '1-0' }, NOW + 240000);
+  assert.equal(t.status, 'playing'); assert.equal(t.nextRoundAt, null);
   t = JSON.parse(JSON.stringify(t));
-  assert.equal(advance(t, NOW + 86400000), false); assert.equal(t.round, 1);
+  assert.equal(advance(t, NOW + 86400000), false);
   assert.equal(nextAlarm(t), t.expiresAt);
-  act(t, null, true, { type: 'presencial-next' }, NOW + 86400000);
   assert.equal(t.round, 2); assert.equal(t.games.length, 4);
   assert.throws(() => act(t, null, true, { type: 'presencial-result', game: t.games[0].id, result: '0-1' }, NOW), /ronda actual/);
 });
@@ -266,7 +271,7 @@ test('marcadores de doble vuelta e incomparecencias: puntos, victorias y desempa
   assert.throws(() => act(s, null, true, { type: 'presencial-result', game: h2.id, result: '2-0' }, NOW), /válido/);
   act(s, null, true, { type: 'presencial-result', game: h2.id, result: '1/2-1/2' }, NOW);
   assert.equal(standings(s).find(r => r.id === h1.white).points, 1);
-  act(s, null, true, { type: 'presencial-next' }, NOW); // el suizo FIDE acepta la incomparecencia en el TRF
+  if (s.status === 'between') act(s, null, true, { type: 'presencial-next' }, NOW); // el suizo FIDE acepta la incomparecencia en el TRF
   assert.equal(s.round, 2);
 });
 
@@ -322,7 +327,7 @@ test('torneo en marcha: corregir, retirar y volver a incluir; en el suizo, inscr
   act(t, null, true, { type: 'presencial-active', playerId: b.id, active: false }, NOW);
   assert.equal(b.active, false);
   for (const g of t.games.filter(g => !g.bye && !g.result)) act(t, null, true, { type: 'presencial-result', game: g.id, result: '1-0' }, NOW);
-  act(t, null, true, { type: 'presencial-next' }, NOW);
+  if (t.status === 'between') act(t, null, true, { type: 'presencial-next' }, NOW);
   const r2 = t.games.filter(g => g.round === 2);
   assert.ok(!r2.some(g => g.white === b.id || g.black === b.id), 'el retirado no se empareja');
   assert.ok(r2.some(g => g.white === t.players[4].id || g.black === t.players[4].id), 'el que llegó tarde juega la ronda 2');
@@ -365,7 +370,7 @@ test('Round-Robin: se corrige el resultado de cualquier ronda jugada, también c
   const s = tournament(4);
   act(s, null, true, { type: 'start' }, NOW);
   for (const g of s.games.filter(g => !g.bye)) act(s, null, true, { type: 'presencial-result', game: g.id, result: '1-0' }, NOW);
-  act(s, null, true, { type: 'presencial-next' }, NOW);
+  if (s.status === 'between') act(s, null, true, { type: 'presencial-next' }, NOW);
   assert.throws(() => act(s, null, true, { type: 'presencial-result', game: s.games.find(g => g.round === 1 && !g.bye).id, result: '0-1' }, NOW), /ronda actual/);
 });
 
@@ -389,7 +394,7 @@ test('suizo presencial: borrar la última ronda permite corregir la anterior y v
   const t = tournament(5);
   act(t, null, true, { type: 'start' }, NOW);
   for (const g of t.games.filter(g => !g.result)) act(t, null, true, { type: 'presencial-result', game: g.id, result: '1-0' }, NOW);
-  act(t, null, true, { type: 'presencial-next' }, NOW);
+  if (t.status === 'between') act(t, null, true, { type: 'presencial-next' }, NOW);
   assert.equal(t.round, 2);
   const first = t.games.find(g => g.round === 1 && !g.bye);
   assert.throws(() => act(t, null, true, { type: 'presencial-result', game: first.id, result: '0-1' }, NOW));
@@ -399,6 +404,7 @@ test('suizo presencial: borrar la última ronda permite corregir la anterior y v
   assert.equal(t.round, 1); assert.equal(t.status, 'between'); assert.ok(t.games.every(g => g.round === 1));
   act(t, null, true, { type: 'presencial-result', game: first.id, result: '0-1' }, NOW);
   assert.equal(first.result, '0-1');
+  assert.equal(t.status, 'between', 'Corregir una ronda ya completa no empareja sola la siguiente');
   act(t, null, true, { type: 'presencial-next' }, NOW);
   assert.equal(t.round, 2); assert.equal(t.status, 'playing');
   // Borrar la ronda 1 vuelve a abrir la inscripción con los mismos jugadores.

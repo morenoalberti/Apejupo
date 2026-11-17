@@ -28,9 +28,9 @@ test('elegir desempates: los habituales por formato, orden propio, filtrado y ed
 });
 
 test('Buchholz, Buchholz -1 con rival virtual en el descanso, progresivo y victorias', () => {
-  const t = presencial([['Ana', 2000], ['Bea', 1900], ['Cris', 1800], ['Dani', 1700], ['Eva', 1600]]);
+  const t = presencial([['Ana', 2000], ['Bea', 1900], ['Cris', 1800], ['Dani', 1700], ['Eva', 1600]], { rounds: 2 }); // dos rondas: al completar la segunda no se empareja otra
   act(t, null, true, { type: 'start' }, NOW);
-  play(t, () => '1-0'); act(t, null, true, { type: 'presencial-next' }, NOW);
+  play(t, () => '1-0'); if (t.status === 'between') act(t, null, true, { type: 'presencial-next' }, NOW);
   play(t, () => '1/2-1/2');
   const rows = standings(t), byName = n => rows.find(r => r.name === n);
   for (const r of rows) {
