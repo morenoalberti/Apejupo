@@ -43,8 +43,8 @@ function variants(text) {
   return v;
 }
 const SQL = {
-  fide: 'SELECT fide_id, nombre, federacion, titulo, elo_standard AS elo, anio_nacimiento AS nac FROM jugadores_fide',
-  fada: 'SELECT id, nombre, club, provincia, titulo, elo_fada AS elo, fide_id, anio_nacimiento AS nac FROM jugadores_fada'
+  fide: 'SELECT fide_id, nombre, federacion, titulo, elo_standard AS elo, anio_nacimiento AS nac, sexo FROM jugadores_fide',
+  fada: 'SELECT id, nombre, club, provincia, titulo, elo_fada AS elo, fide_id, anio_nacimiento AS nac, sexo FROM jugadores_fada'
 };
 async function query(kind, text, limit, exact = false) {
   const db = await getDb(kind);
@@ -57,17 +57,19 @@ async function query(kind, text, limit, exact = false) {
   }
   return [];
 }
+// Sexo de las listas: «M» masculino y «F» femenino (la FADA solo marca a las mujeres; lo demás queda sin dato).
+const sexOf = s => s === 'F' || s === 'M' ? s : null;
 // Un jugador de la FADA con número FIDE se junta con su ficha FIDE: una sola sugerencia con los dos Elo.
 function merge(fada, fide) {
   const out = [], byFide = new Map();
   for (const r of fada) {
-    const item = { name: r.nombre, fada: r.elo || null, fadaId: r.id, fideId: r.fide_id ? String(r.fide_id) : null, fed: 'ESP', place: r.provincia || r.club || '', title: r.titulo || '', birth: r.nac || null };
+    const item = { name: r.nombre, fada: r.elo || null, fadaId: r.id, fideId: r.fide_id ? String(r.fide_id) : null, fed: 'ESP', place: r.provincia || r.club || '', title: r.titulo || '', birth: r.nac || null, sex: sexOf(r.sexo) };
     out.push(item); if (item.fideId) byFide.set(item.fideId, item);
   }
   for (const r of fide) {
     const id = String(r.fide_id), known = byFide.get(id);
-    if (known) { known.fide = r.elo || null; known.title ||= r.titulo || ''; known.fed = r.federacion || known.fed; known.birth ||= r.nac || null; continue; }
-    out.push({ name: r.nombre, fide: r.elo || null, fideId: id, fed: r.federacion || null, place: window.U?.pais ? window.U.pais(r.federacion) : r.federacion || '', title: r.titulo || '', birth: r.nac || null });
+    if (known) { known.fide = r.elo || null; known.title ||= r.titulo || ''; known.fed = r.federacion || known.fed; known.birth ||= r.nac || null; known.sex ||= sexOf(r.sexo); continue; }
+    out.push({ name: r.nombre, fide: r.elo || null, fideId: id, fed: r.federacion || null, place: window.U?.pais ? window.U.pais(r.federacion) : r.federacion || '', title: r.titulo || '', birth: r.nac || null, sex: sexOf(r.sexo) });
   }
   return out;
 }
@@ -77,19 +79,19 @@ async function finish(items) {
   const missing = items.filter(p => p.fideId && p.fide === undefined);
   if (missing.length) {
     try {
-      const rows = await (await getDb('fide')).query(`SELECT fide_id, elo_standard AS elo, titulo, anio_nacimiento AS nac FROM jugadores_fide WHERE fide_id IN (${missing.map(p => parseInt(p.fideId, 10)).join(',')})`);
-      for (const r of rows) { const p = missing.find(p => p.fideId === String(r.fide_id)); if (p) { p.fide = r.elo || null; p.title ||= r.titulo || ''; p.birth ||= r.nac || null; } }
+      const rows = await (await getDb('fide')).query(`SELECT fide_id, elo_standard AS elo, titulo, anio_nacimiento AS nac, sexo FROM jugadores_fide WHERE fide_id IN (${missing.map(p => parseInt(p.fideId, 10)).join(',')})`);
+      for (const r of rows) { const p = missing.find(p => p.fideId === String(r.fide_id)); if (p) { p.fide = r.elo || null; p.title ||= r.titulo || ''; p.birth ||= r.nac || null; p.sex ||= sexOf(r.sexo); } }
     } catch {}
   }
   for (const p of items) { p.rating = p.fide || p.fada || null; p.source = p.fide ? 'FIDE' : p.fada ? 'FADA' : null; }
   return items;
 }
-/** Año de nacimiento por número FIDE (para completar a los jugadores inscritos antes de tenerlo). */
+/** Año de nacimiento y sexo por número FIDE (para completar a los jugadores inscritos antes de tenerlos). */
 export async function birthYears(fideIds) {
   const ids = [...new Set(fideIds.map(id => parseInt(id, 10)).filter(Number.isInteger))];
   if (!ids.length) return new Map();
-  const rows = await (await getDb('fide')).query(`SELECT fide_id, anio_nacimiento AS nac FROM jugadores_fide WHERE fide_id IN (${ids.join(',')})`);
-  return new Map(rows.filter(r => r.nac).map(r => [String(r.fide_id), r.nac]));
+  const rows = await (await getDb('fide')).query(`SELECT fide_id, anio_nacimiento AS nac, sexo FROM jugadores_fide WHERE fide_id IN (${ids.join(',')})`);
+  return new Map(rows.map(r => [String(r.fide_id), { birth: r.nac || null, sex: sexOf(r.sexo) }]));
 }
 /** Sugerencias para un texto: hasta 8, de la FADA (con tildes) y de la FIDE. */
 export async function searchPlayers(text) {

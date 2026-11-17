@@ -436,4 +436,15 @@ test('presencial: año de nacimiento de las listas, guardado, editable y en la c
   assert.equal(t.players[0].birth, 2014, 'No pisa un año ya guardado');
   assert.equal(t.players[1].birth, 1960);
   assert.equal(t.players[2].birth, undefined);
+  // Sexo: solo «M» o «F»; se guarda al inscribir, al editar y al completar.
+  act(t, null, true, { type: 'presencial-player', name: 'Jugadora, Eva', sex: 'F' }, NOW);
+  act(t, null, true, { type: 'presencial-player', name: 'Raro, Max', sex: 'X' }, NOW);
+  assert.equal(t.players.at(-2).sex, 'F');
+  assert.equal(t.players.at(-1).sex, undefined, 'Un valor que no es M ni F no se guarda');
+  assert.equal(snapshot(t, null, true).standings.find(p => p.name === 'Jugadora, Eva').sex, 'F');
+  act(t, null, true, { type: 'presencial-births', sexes: { [t.players[0].id]: 'M', [t.players.at(-2).id]: 'M' } }, NOW);
+  assert.equal(t.players[0].sex, 'M');
+  assert.equal(t.players.at(-2).sex, 'F', 'No pisa un sexo ya guardado');
+  act(t, null, true, { type: 'presencial-edit', playerId: t.players[0].id, name: t.players[0].name, rating: t.players[0].rating ?? '', birth: 2014 }, NOW);
+  assert.equal(t.players[0].sex, undefined, 'Al editar sin sexo, se quita');
 });

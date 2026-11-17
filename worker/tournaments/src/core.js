@@ -111,7 +111,7 @@ export function editTournament(t, input, now = Date.now()) {
 }
 
 export function standings(t) {
-  const rows = t.players.map(p => ({ id: p.id, name: p.name, seed: p.seed, rating: p.rating || null, source: p.source || null, fideId: p.fideId || null, fed: p.fed || null, title: p.title || null, birth: p.birth || null, active: p.active, registered: !!p.accountId,
+  const rows = t.players.map(p => ({ id: p.id, name: p.name, seed: p.seed, rating: p.rating || null, source: p.source || null, fideId: p.fideId || null, fed: p.fed || null, title: p.title || null, birth: p.birth || null, sex: p.sex || null, active: p.active, registered: !!p.accountId,
     points: 0, wins: 0, buchholz: 0, sonneborn: 0, played: 0, byes: 0, opponents: [], colors: [], sheet: [] }));
   const map = new Map(rows.map(p => [p.id, p]));
   const arenaRuns = new Map(rows.map(p => [p.id, { wins: 0, drawSinceWin: false }]));
@@ -304,13 +304,14 @@ function presencialEntry(input) {
   const title = /^[A-Z]{1,4}$/.test(String(input?.title ?? '')) ? input.title : null; // título FIDE (GM, IM, WFM…)
   // Año de nacimiento (de las listas FIDE/FADA o escrito a mano): para los premios Sub y Supra.
   const year = Number(input?.birth), birth = Number.isInteger(year) && year >= 1900 && year <= new Date().getFullYear() ? year : null;
-  return { name, rating: rating || null, source: rating ? source : null, fideId, fed, title, birth };
+  const sex = input?.sex === 'M' || input?.sex === 'F' ? input.sex : null; // de las listas: M masculino, F femenino
+  return { name, rating: rating || null, source: rating ? source : null, fideId, fed, title, birth, sex };
 }
 function addPresencial(t, entry, now, extra = {}) {
   requireThat(!t.players.some(p => sameKey(p.name, entry.name)), `Ya hay un jugador con ese nombre («${entry.name}»). Añade un apellido.`);
   requireThat(t.players.length < t.capacity, 'El torneo está completo.');
   const p = { id: crypto.randomUUID(), hash: extra.hash || crypto.randomUUID(), name: entry.name, active: true, seed: t.players.length + 1, joinedAt: now,
-    rating: entry.rating, ...(entry.source ? { source: entry.source } : {}), ...(entry.fideId ? { fideId: entry.fideId } : {}), ...(entry.fed ? { fed: entry.fed } : {}), ...(entry.title ? { title: entry.title } : {}), ...(entry.birth ? { birth: entry.birth } : {}), ...(extra.accountId ? { accountId: extra.accountId } : {}) };
+    rating: entry.rating, ...(entry.source ? { source: entry.source } : {}), ...(entry.fideId ? { fideId: entry.fideId } : {}), ...(entry.fed ? { fed: entry.fed } : {}), ...(entry.title ? { title: entry.title } : {}), ...(entry.birth ? { birth: entry.birth } : {}), ...(entry.sex ? { sex: entry.sex } : {}), ...(extra.accountId ? { accountId: extra.accountId } : {}) };
   t.players.push(p);
   return p;
 }
@@ -538,11 +539,15 @@ export function act(t, playerId, host, action, now = Date.now()) {
     const lateEntry = t.format === 'swiss' && ['playing', 'between'].includes(t.status);
     const initialRoster = canChangeInitialRoster(t);
     if (action.type === 'presencial-births') {
-      // Completa el año de nacimiento de quien no lo tiene (inscritos antes de que las listas lo trajeran).
+      // Completa el año de nacimiento y el sexo de quien no los tiene (inscritos antes de que las listas los trajeran).
       const thisYear = new Date().getFullYear();
       for (const [id, value] of Object.entries(action.years || {})) {
         const p = t.players.find(p => p.id === id), year = Number(value);
         if (p && !p.birth && Number.isInteger(year) && year >= 1900 && year <= thisYear) p.birth = year;
+      }
+      for (const [id, sex] of Object.entries(action.sexes || {})) {
+        const p = t.players.find(p => p.id === id);
+        if (p && !p.sex && (sex === 'M' || sex === 'F')) p.sex = sex;
       }
     } else if (action.type === 'presencial-reset') {
       requireThat(['playing', 'between', 'finished'].includes(t.status) && t.round > 0 && t.games.length > 0, 'No hay rondas que borrar.', 409);
@@ -591,6 +596,7 @@ export function act(t, playerId, host, action, now = Date.now()) {
       if (e.fed) p.fed = e.fed; else delete p.fed;
       if (e.title) p.title = e.title; else delete p.title;
       if (e.birth) p.birth = e.birth; else delete p.birth;
+      if (e.sex) p.sex = e.sex; else delete p.sex;
     } else if (action.type === 'presencial-approve' || action.type === 'presencial-reject') {
       const r = (t.requests || []).find(r => r.id === action.requestId);
       requireThat(r, 'Esa solicitud ya no está pendiente.', 404);

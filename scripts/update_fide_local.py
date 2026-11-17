@@ -3,7 +3,7 @@
 GitHub no siempre consigue conectar con ratings.fide.com, pero este equipo sí. Esta tarea (programada en
 Windows, ver scripts/instalar_tarea_fide.ps1) comprueba cada día si FIDE ha publicado una lista nueva y,
 solo entonces, descarga la lista completa (todos los países), guarda una instantánea (nombre, federación,
-título, ratings y año de nacimiento; sin sexo) y la sube a la rama `fide-data` de GitHub.
+título, ratings, año de nacimiento y sexo) y la sube a la rama `fide-data` de GitHub.
 
 La rama `fide-data` se sobrescribe cada vez con un único commit, así el historial del repositorio no crece.
 GitHub la usa para reconstruir las bases de datos de FIDE y FADA.

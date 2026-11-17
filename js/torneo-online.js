@@ -1,7 +1,7 @@
 import { Chess } from '../assets/chess/chess.js';
 import { session, currentUser, openAuth } from './cuenta.js?v=20261116-registro2';
 import { send as sendReto } from './retos.js?v=20261115-match1';
-import { searchPlayers, findExact, warmUp, birthYears } from './torneo-elo.js?v=20261117-nacimiento2';
+import { searchPlayers, findExact, warmUp, birthYears } from './torneo-elo.js?v=20261117-sexo1';
 
 const $ = id => document.getElementById(id);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -1388,16 +1388,22 @@ const pzPhotos = el => {
     }
   });
 };
-const playerRow = (p, i, tools) => `<div class="to-pz-row">${i == null ? '' : `<span class="to-pz-num">${i + 1}</span>`}${pzAvatar(p)}<span class="to-pz-name"><strong>${pzFlag(p)}${esc(p.name)}</strong>${p.fideId || p.birth ? `<small>${[p.fideId ? 'FIDE ' + esc(p.fideId) : '', p.birth ? `Nac. ${p.birth}` : ''].filter(Boolean).join(' · ')}</small>` : ''}</span><span class="to-pz-chips">${ratingChips(p)}</span><span class="to-pz-row-tools">${tools}</span></div>`;
-// Los inscritos antes de que las listas trajeran el año de nacimiento: se busca por su número FIDE (una vez).
+const sexLabel = s => s === 'F' ? 'Fem.' : s === 'M' ? 'Masc.' : '';
+const playerRow = (p, i, tools) => `<div class="to-pz-row">${i == null ? '' : `<span class="to-pz-num">${i + 1}</span>`}${pzAvatar(p)}<span class="to-pz-name"><strong>${pzFlag(p)}${esc(p.name)}</strong>${p.fideId || p.birth || p.sex ? `<small>${[p.fideId ? 'FIDE ' + esc(p.fideId) : '', p.birth ? `Nac. ${p.birth}` : '', sexLabel(p.sex)].filter(Boolean).join(' · ')}</small>` : ''}</span><span class="to-pz-chips">${ratingChips(p)}</span><span class="to-pz-row-tools">${tools}</span></div>`;
+// Los inscritos antes de que las listas trajeran el año de nacimiento y el sexo: se buscan por su número FIDE (una vez).
 const birthTried = new Set();
 function fillBirths(t, players) {
-  const todo = players.filter(p => p.fideId && !p.birth && !birthTried.has(t.id + p.id));
+  const todo = players.filter(p => p.fideId && (!p.birth || !p.sex) && !birthTried.has(t.id + p.id));
   if (!todo.length) return;
   for (const p of todo) birthTried.add(t.id + p.id);
   birthYears(todo.map(p => p.fideId)).then(found => {
-    const years = Object.fromEntries(todo.filter(p => found.has(p.fideId)).map(p => [p.id, found.get(p.fideId)]));
-    if (Object.keys(years).length) send({ type: 'presencial-births', years });
+    const years = {}, sexes = {};
+    for (const p of todo) {
+      const f = found.get(p.fideId); if (!f) continue;
+      if (!p.birth && f.birth) years[p.id] = f.birth;
+      if (!p.sex && f.sex) sexes[p.id] = f.sex;
+    }
+    if (Object.keys(years).length || Object.keys(sexes).length) send({ type: 'presencial-births', years, sexes });
   }).catch(() => {});
 }
 const byRating = (a, b) => (b.rating || 0) - (a.rating || 0) || a.name.localeCompare(b.name, 'es');
@@ -1427,7 +1433,7 @@ function attachSearch(inputId, listId, onPick, manualLabel) {
   function draw() {
     const text = input.value.trim();
     const manual = text.length >= 2 && !/^\d+$/.test(text) ? `<button type="button" class="to-pz-sug manual" role="option" data-i="-1"><span class="to-pz-avatar plain">${pzIcons.plus}</span><span class="to-pz-name"><strong>${manualLabel(esc(text))}</strong><small>Sin Elo; se puede editar después</small></span></button>` : '';
-    list.innerHTML = items.map((p, i) => `<button type="button" class="to-pz-sug" role="option" data-i="${i}">${pzAvatar(p)}<span class="to-pz-name"><strong>${pzFlag(p)}${esc(p.name)}</strong><small>${[p.place, p.fideId ? 'FIDE ' + p.fideId : '', p.birth ? 'Nac. ' + p.birth : ''].filter(Boolean).map(esc).join(' · ')}</small></span><span class="to-pz-chips">${ratingChips(p)}</span></button>`).join('')
+    list.innerHTML = items.map((p, i) => `<button type="button" class="to-pz-sug" role="option" data-i="${i}">${pzAvatar(p)}<span class="to-pz-name"><strong>${pzFlag(p)}${esc(p.name)}</strong><small>${[p.place, p.fideId ? 'FIDE ' + p.fideId : '', p.birth ? 'Nac. ' + p.birth : '', sexLabel(p.sex)].filter(Boolean).map(esc).join(' · ')}</small></span><span class="to-pz-chips">${ratingChips(p)}</span></button>`).join('')
       + (loading ? '<div class="to-pz-sug-wait">Buscando en las listas FIDE y FADA…</div>' : !items.length && text.length >= 3 ? '<div class="to-pz-sug-wait">No aparece en las listas.</div>' : '') + manual;
     list.hidden = !list.innerHTML; input.setAttribute('aria-expanded', String(!list.hidden)); active = -1; pzPhotos(list);
   }
@@ -1488,13 +1494,13 @@ function warnDuplicate(p) {
 }
 attachSearch('to-pz-search', 'to-pz-sugs', p => {
   if (warnDuplicate(p)) return;
-  if (send({ type: 'presencial-player', name: p.name, rating: p.rating ?? '', source: p.source, fideId: p.fideId, fed: p.fed, title: p.title, birth: p.birth })) message('');
+  if (send({ type: 'presencial-player', name: p.name, rating: p.rating ?? '', source: p.source, fideId: p.fideId, fed: p.fed, title: p.title, birth: p.birth, sex: p.sex })) message('');
   $('to-pz-search').focus();
 }, text => `Añadir «${text}»`);
 attachSearch('to-pz-ask-search', 'to-pz-ask-sugs', async p => {
   try {
     const id = read(playerKey()) || token(), user = currentUser(); write(playerKey(), id);
-    await request(`/api/tournaments/${roomId}/join`, { method: 'POST', key: user ? session() : '', body: JSON.stringify({ name: p.name, rating: p.rating ?? '', source: p.source, fideId: p.fideId, fed: p.fed, title: p.title, birth: p.birth, token: id }) });
+    await request(`/api/tournaments/${roomId}/join`, { method: 'POST', key: user ? session() : '', body: JSON.stringify({ name: p.name, rating: p.rating ?? '', source: p.source, fideId: p.fideId, fed: p.fed, title: p.title, birth: p.birth, sex: p.sex, token: id }) });
     askChanging = false; hello(); message('');
   } catch (e) { if (isDupError(e.message)) noticeBox('Ese nombre ya está inscrito', e.message); else message(e.message, true); }
 }, text => `Pedir plaza como «${text}»`);
@@ -1515,7 +1521,7 @@ $('to-pz-host').addEventListener('click', async event => {
   else if (edit) {
     const p = state.standings.find(p => p.id === edit); if (!p) return;
     $('to-pz-edit-form').dataset.id = p.id;
-    $('to-pz-edit-name').value = p.name; $('to-pz-edit-rating').value = p.rating ?? ''; $('to-pz-edit-birth').value = p.birth ?? '';
+    $('to-pz-edit-name').value = p.name; $('to-pz-edit-rating').value = p.rating ?? ''; $('to-pz-edit-birth').value = p.birth ?? ''; $('to-pz-edit-sex').value = p.sex ?? '';
     $('to-pz-edit-source').textContent = p.source ? `Elo de la lista ${p.source}${p.fideId ? ` · FIDE ${p.fideId}` : ''}. Si lo cambias, quedará como Elo manual.` : '';
     $('to-pz-edit-dialog').showModal(); $('to-pz-edit-name').select();
   }
@@ -1525,7 +1531,7 @@ $('to-pz-edit-form').addEventListener('submit', event => {
   const p = state.standings.find(p => p.id === event.currentTarget.dataset.id); if (!p) return;
   const rating = $('to-pz-edit-rating').value === '' ? null : Number($('to-pz-edit-rating').value);
   const sameRating = rating === (p.rating ?? null);
-  if (send({ type: 'presencial-edit', playerId: p.id, name: $('to-pz-edit-name').value, rating: rating ?? '', source: sameRating ? p.source : null, fideId: p.fideId, fed: p.fed, title: p.title, birth: $('to-pz-edit-birth').value })) $('to-pz-edit-dialog').close();
+  if (send({ type: 'presencial-edit', playerId: p.id, name: $('to-pz-edit-name').value, rating: rating ?? '', source: sameRating ? p.source : null, fideId: p.fideId, fed: p.fed, title: p.title, birth: $('to-pz-edit-birth').value, sex: $('to-pz-edit-sex').value })) $('to-pz-edit-dialog').close();
 });
 
 // Lista pegada: «Nombre; Elo», «Nombre<Tab>Elo» o solo el nombre (el Elo se busca en las listas).
@@ -1566,7 +1572,7 @@ $('to-pz-paste-check').addEventListener('click', async () => {
   for (let i = 0; i < missing.length; i++) {
     drawPaste(`Buscando el Elo en las listas… ${i + 1} de ${missing.length}`);
     const hit = await findExact(missing[i].name).catch(() => null);
-    if (hit) Object.assign(missing[i], { rating: hit.rating, source: hit.source, fideId: hit.fideId, fed: hit.fed, title: hit.title, birth: hit.birth, fide: hit.fide, fada: hit.fada, found: true });
+    if (hit) Object.assign(missing[i], { rating: hit.rating, source: hit.source, fideId: hit.fideId, fed: hit.fed, title: hit.title, birth: hit.birth, sex: hit.sex, fide: hit.fide, fada: hit.fada, found: true });
   }
   $('to-pz-paste-check').disabled = false;
   drawPaste();
