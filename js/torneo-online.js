@@ -256,7 +256,6 @@ function render() {
   $('to-membership-text').hidden = !mine || mine.active;
   $('to-membership-text').textContent = mine && !mine.active ? 'Retirado del torneo' : '';
   $('to-standings-title').innerHTML = `<span class="to-title-full">${esc(classification.title)}</span><span class="to-title-short" aria-hidden="true">${esc(classification.short)}</span>`;
-  $('to-print-standings').disabled = !classification.rows.length;
   // Impresora también arriba, a la derecha, junto al contador de jugadores.
   $('to-print-top').hidden = registering || !classification.rows.length;
   $('to-standings-panel').classList.toggle('to-registration-panel', registering);
@@ -1808,7 +1807,6 @@ $('to-share').addEventListener('click', async () => {
 });
 $('to-pgn').addEventListener('click', () => download(state.game.id));
 $('to-all-pgn').addEventListener('click', () => download());
-$('to-print-standings').addEventListener('click', printStandings);
 $('to-print-top').addEventListener('click', printStandings);
 function review(ply) { if (!replay) return; replayPly = Math.max(0, Math.min(replay.length - 1, ply)); boardKey = ''; renderGame(); }
 $('to-replay-range').addEventListener('input', event => review(Number(event.target.value)));

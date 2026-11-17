@@ -259,8 +259,9 @@
   .to-st-name > span:not(.to-pz-title):not(.to-st-elo) { overflow-wrap: normal; word-break: normal; }
 }
 .to-standings-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
-.to-main #to-print-standings, .to-main #to-print-top { min-height: 40px; font-size: .82rem; background: color-mix(in srgb, var(--blue) 12%, var(--card)); border-color: color-mix(in srgb, var(--blue) 35%, var(--line)); }
-.to-main #to-print-standings:hover:not(:disabled), .to-main #to-print-top:hover:not(:disabled) { background: color-mix(in srgb, var(--blue) 21%, var(--card)); }
+.to-standings-actions:not(:has(> :not([hidden]))) { display: none; } /* sin botones visibles, sin hueco */
+.to-main #to-print-top { min-height: 40px; font-size: .82rem; background: color-mix(in srgb, var(--blue) 12%, var(--card)); border-color: color-mix(in srgb, var(--blue) 35%, var(--line)); }
+.to-main #to-print-top:hover:not(:disabled) { background: color-mix(in srgb, var(--blue) 21%, var(--card)); }
 .to-roster-icon { display: none; }
 .to-registration-panel {
   background: linear-gradient(145deg, color-mix(in srgb, var(--blue) 6%, var(--card)), var(--card) 65%);
