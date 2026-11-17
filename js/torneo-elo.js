@@ -84,6 +84,13 @@ async function finish(items) {
   for (const p of items) { p.rating = p.fide || p.fada || null; p.source = p.fide ? 'FIDE' : p.fada ? 'FADA' : null; }
   return items;
 }
+/** Año de nacimiento por número FIDE (para completar a los jugadores inscritos antes de tenerlo). */
+export async function birthYears(fideIds) {
+  const ids = [...new Set(fideIds.map(id => parseInt(id, 10)).filter(Number.isInteger))];
+  if (!ids.length) return new Map();
+  const rows = await (await getDb('fide')).query(`SELECT fide_id, anio_nacimiento AS nac FROM jugadores_fide WHERE fide_id IN (${ids.join(',')})`);
+  return new Map(rows.filter(r => r.nac).map(r => [String(r.fide_id), r.nac]));
+}
 /** Sugerencias para un texto: hasta 8, de la FADA (con tildes) y de la FIDE. */
 export async function searchPlayers(text) {
   text = clean(text);

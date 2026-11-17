@@ -1,7 +1,7 @@
 import { Chess } from '../assets/chess/chess.js';
 import { session, currentUser, openAuth } from './cuenta.js?v=20261116-registro2';
 import { send as sendReto } from './retos.js?v=20261115-match1';
-import { searchPlayers, findExact, warmUp } from './torneo-elo.js?v=20261117-nacimiento1';
+import { searchPlayers, findExact, warmUp, birthYears } from './torneo-elo.js?v=20261117-nacimiento2';
 
 const $ = id => document.getElementById(id);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -1389,6 +1389,17 @@ const pzPhotos = el => {
   });
 };
 const playerRow = (p, i, tools) => `<div class="to-pz-row">${i == null ? '' : `<span class="to-pz-num">${i + 1}</span>`}${pzAvatar(p)}<span class="to-pz-name"><strong>${pzFlag(p)}${esc(p.name)}</strong>${p.fideId || p.birth ? `<small>${[p.fideId ? 'FIDE ' + esc(p.fideId) : '', p.birth ? `Nac. ${p.birth}` : ''].filter(Boolean).join(' · ')}</small>` : ''}</span><span class="to-pz-chips">${ratingChips(p)}</span><span class="to-pz-row-tools">${tools}</span></div>`;
+// Los inscritos antes de que las listas trajeran el año de nacimiento: se busca por su número FIDE (una vez).
+const birthTried = new Set();
+function fillBirths(t, players) {
+  const todo = players.filter(p => p.fideId && !p.birth && !birthTried.has(t.id + p.id));
+  if (!todo.length) return;
+  for (const p of todo) birthTried.add(t.id + p.id);
+  birthYears(todo.map(p => p.fideId)).then(found => {
+    const years = Object.fromEntries(todo.filter(p => found.has(p.fideId)).map(p => [p.id, found.get(p.fideId)]));
+    if (Object.keys(years).length) send({ type: 'presencial-births', years });
+  }).catch(() => {});
+}
 const byRating = (a, b) => (b.rating || 0) - (a.rating || 0) || a.name.localeCompare(b.name, 'es');
 function renderRoster(t) {
   const players = [...t.standings].sort(byRating), requests = t.requests || [];
@@ -1398,6 +1409,7 @@ function renderRoster(t) {
     + (waiting ? `<button type="button" class="to-pz-icon danger" data-pz-remove="${p.id}" aria-label="Quitar a ${esc(p.name)}" title="Quitar">${pzIcons.trash}</button>`
       : p.active ? `<button type="button" class="to-pz-icon danger" data-pz-active="${p.id}" data-active="false" aria-label="Retirar a ${esc(p.name)} de las próximas rondas" title="Retirar del torneo">${pzIcons.out}</button>`
         : `<button type="button" class="to-pz-tool small" data-pz-active="${p.id}" data-active="true" title="Volver a incluirlo en las próximas rondas">Reincluir</button>`);
+  fillBirths(t, players);
   $('to-pz-roster').innerHTML = players.map((p, i) => playerRow(p, i, (p.active === false ? '<span class="to-pz-out">Retirado</span>' : '') + tools(p))).join('')
     || '<p class="to-pz-empty">Busca a los jugadores arriba, pega una lista o enseña el QR en la entrada.</p>';
   $('to-pz-requests').hidden = !requests.length;
@@ -1503,7 +1515,7 @@ $('to-pz-host').addEventListener('click', async event => {
   else if (edit) {
     const p = state.standings.find(p => p.id === edit); if (!p) return;
     $('to-pz-edit-form').dataset.id = p.id;
-    $('to-pz-edit-name').value = p.name; $('to-pz-edit-rating').value = p.rating ?? '';
+    $('to-pz-edit-name').value = p.name; $('to-pz-edit-rating').value = p.rating ?? ''; $('to-pz-edit-birth').value = p.birth ?? '';
     $('to-pz-edit-source').textContent = p.source ? `Elo de la lista ${p.source}${p.fideId ? ` · FIDE ${p.fideId}` : ''}. Si lo cambias, quedará como Elo manual.` : '';
     $('to-pz-edit-dialog').showModal(); $('to-pz-edit-name').select();
   }
@@ -1513,7 +1525,7 @@ $('to-pz-edit-form').addEventListener('submit', event => {
   const p = state.standings.find(p => p.id === event.currentTarget.dataset.id); if (!p) return;
   const rating = $('to-pz-edit-rating').value === '' ? null : Number($('to-pz-edit-rating').value);
   const sameRating = rating === (p.rating ?? null);
-  if (send({ type: 'presencial-edit', playerId: p.id, name: $('to-pz-edit-name').value, rating: rating ?? '', source: sameRating ? p.source : null, fideId: p.fideId, fed: p.fed, title: p.title, birth: p.birth })) $('to-pz-edit-dialog').close();
+  if (send({ type: 'presencial-edit', playerId: p.id, name: $('to-pz-edit-name').value, rating: rating ?? '', source: sameRating ? p.source : null, fideId: p.fideId, fed: p.fed, title: p.title, birth: $('to-pz-edit-birth').value })) $('to-pz-edit-dialog').close();
 });
 
 // Lista pegada: «Nombre; Elo», «Nombre<Tab>Elo» o solo el nombre (el Elo se busca en las listas).

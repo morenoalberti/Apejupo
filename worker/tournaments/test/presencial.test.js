@@ -431,4 +431,9 @@ test('presencial: año de nacimiento de las listas, guardado, editable y en la c
   assert.equal(t.players[1].birth, undefined, 'Al editar sin año, se quita');
   act(t, null, true, { type: 'presencial-players', players: [{ name: 'Lista, Eva', birth: 1990 }] }, NOW);
   assert.equal(t.players.at(-1).birth, 1990);
+  // Relleno de los inscritos antes de tener el año: solo a quien no lo tiene y con años válidos.
+  act(t, null, true, { type: 'presencial-births', years: { [t.players[0].id]: 1999, [t.players[1].id]: 1960, [t.players[2].id]: 3000 } }, NOW);
+  assert.equal(t.players[0].birth, 2014, 'No pisa un año ya guardado');
+  assert.equal(t.players[1].birth, 1960);
+  assert.equal(t.players[2].birth, undefined);
 });

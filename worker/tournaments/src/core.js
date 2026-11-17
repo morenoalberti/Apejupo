@@ -532,12 +532,19 @@ function regenerateInitialPairings(t, now) {
 }
 export function act(t, playerId, host, action, now = Date.now()) {
   const p = t.players.find(p => p.id === playerId);
-  if (['presencial-player', 'presencial-players', 'presencial-edit', 'presencial-active', 'presencial-approve', 'presencial-reject', 'presencial-result', 'presencial-next', 'presencial-reset', 'presencial-drop-round'].includes(action.type)) {
+  if (['presencial-player', 'presencial-players', 'presencial-edit', 'presencial-active', 'presencial-approve', 'presencial-reject', 'presencial-result', 'presencial-next', 'presencial-reset', 'presencial-drop-round', 'presencial-births'].includes(action.type)) {
     requireThat(host && isPresencial(t), 'Solo el organizador del torneo presencial puede realizar esta acción.', 403);
     // Suizo ya empezado: quien llega tarde entra en la ronda siguiente (las rondas que no jugó, sin puntos).
     const lateEntry = t.format === 'swiss' && ['playing', 'between'].includes(t.status);
     const initialRoster = canChangeInitialRoster(t);
-    if (action.type === 'presencial-reset') {
+    if (action.type === 'presencial-births') {
+      // Completa el año de nacimiento de quien no lo tiene (inscritos antes de que las listas lo trajeran).
+      const thisYear = new Date().getFullYear();
+      for (const [id, value] of Object.entries(action.years || {})) {
+        const p = t.players.find(p => p.id === id), year = Number(value);
+        if (p && !p.birth && Number.isInteger(year) && year >= 1900 && year <= thisYear) p.birth = year;
+      }
+    } else if (action.type === 'presencial-reset') {
       requireThat(['playing', 'between', 'finished'].includes(t.status) && t.round > 0 && t.games.length > 0, 'No hay rondas que borrar.', 409);
       resetPresencialPairings(t, now);
     } else if (action.type === 'presencial-drop-round') {
