@@ -913,7 +913,7 @@ body.to-pz-managing #to-standings-panel { display: none; }
 .to-scoring label[hidden] { display: none; }
 .to-scoring input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; pointer-events: none; }
 .to-scoring span { display: block; padding: 7px 4px; border-radius: 8px; text-align: center; font-size: .84rem; font-weight: 700; color: var(--muted); font-variant-numeric: tabular-nums; }
-.to-scoring input:checked + span { color: var(--text); background: var(--card); box-shadow: 0 1px 3px #0f1b2d40; }
+.to-scoring input:checked + span { color: #3b2a14; background: #f1e2c4; box-shadow: 0 1px 4px #0f1b2d55; } /* crema suave: se distingue bien la opción elegida */
 .to-scoring input:focus-visible + span { outline: 2px solid var(--blue); outline-offset: 1px; }
 .to-tb-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .to-tb-label { display: inline-flex; align-items: center; gap: 6px; font-size: .86rem; font-weight: 600; }
