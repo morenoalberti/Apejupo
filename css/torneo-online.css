@@ -980,3 +980,28 @@ li.to-tb-dragging { position: relative; z-index: 2; transform: scale(1.03); back
 .to-square.last, .to-square.dark.last, .to-mini i.lm, .to-mini i.dk.lm { background: rgba(155, 199, 0, .41); }
 .to-square.selected { background: rgba(20, 85, 30, .5); }
 .to-square.premove, .to-square.dark.premove { background: rgba(170, 40, 30, .35); }
+
+/* Móvil: desplegables del formulario con hoja propia (botón con el valor y hoja inferior con las opciones) */
+.to-select-btn { display: none; }
+@media (max-width: 600px) {
+  #to-create-form select { display: none; }
+  .to-select-btn { position: relative; display: flex; align-items: center; width: 100%; min-height: 44px; margin: 0; padding: 8px 34px 8px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); color: var(--text); font: inherit; font-size: 16px; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
+  .to-select-btn::after { content: ''; position: absolute; right: 14px; top: 50%; width: 8px; height: 8px; margin-top: -6px; border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted); transform: rotate(45deg); }
+  .to-select-btn:focus-visible { outline: 2px solid var(--blue); outline-offset: 1px; }
+  .to-select-btn:disabled { opacity: .55; }
+  .to-picker { position: fixed; inset: auto 0 0 0; width: 100%; max-width: none; max-height: 72dvh; margin: 0; padding: 8px 0 calc(14px + env(safe-area-inset-bottom)); border: 1px solid var(--line); border-bottom: 0; border-radius: 20px 20px 0 0; background: linear-gradient(180deg, color-mix(in srgb, var(--card) 90%, var(--blue)), var(--card)); color: var(--text); box-shadow: 0 -18px 50px #000a; overflow: auto; }
+  .to-picker::backdrop { background: #04091499; }
+  .to-picker[open] { animation: to-picker-in .18s ease-out; }
+  @keyframes to-picker-in { from { transform: translateY(40px); opacity: 0; } }
+  .to-picker-grip { width: 40px; height: 4px; margin: 2px auto 10px; border-radius: 99px; background: color-mix(in srgb, var(--text) 25%, transparent); }
+  .to-picker-title { margin: 0 20px 8px; font-size: .72rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+  .to-picker-list { display: grid; gap: 2px; padding: 0 10px; }
+  .to-picker-list button { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; min-height: 50px; margin: 0; padding: 10px 14px; border: 0; border-radius: 12px; background: transparent; color: var(--text); font: inherit; font-size: 1rem; font-weight: 600; text-align: left; cursor: pointer; }
+  .to-picker-list button:active { background: color-mix(in srgb, var(--blue) 14%, transparent); }
+  .to-picker-list button.on { color: #fff; background: linear-gradient(180deg, #5b9dff, #2f6ae0); box-shadow: 0 1px 0 #ffffff40 inset; }
+  .to-picker-list button.on::after { content: ''; flex: none; width: 6px; height: 12px; margin-right: 4px; border-right: 2.5px solid #fff; border-bottom: 2.5px solid #fff; transform: rotate(45deg) translate(-2px, -2px); }
+  /* Puntuación en el móvil: la opción elegida en azul (el modo oscuro del teléfono no la estropea) */
+  .to-scoring { gap: 6px; padding: 4px; background: color-mix(in srgb, var(--text) 7%, transparent); border: 1px solid var(--line); }
+  .to-scoring span { padding: 10px 4px; font-size: .95rem; color: var(--text); opacity: .75; }
+  .to-scoring input:checked + span { opacity: 1; color: #fff; background: linear-gradient(180deg, #5b9dff, #2f6ae0); box-shadow: 0 1px 0 #ffffff55 inset, 0 6px 14px -6px #2f63d6; }
+}

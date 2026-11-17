@@ -1128,6 +1128,7 @@ function syncFormat() {
   const three = $('to-scoring-3').querySelector('input'), noThree = format === 'double-closed';
   $('to-scoring-3').hidden = noThree; three.disabled = noThree;
   if (noThree && three.checked) $('to-create-form').querySelector('input[name="scoring"][value="1"]').checked = true;
+  pickerButtons();
 }
 // ——— Desempates del torneo (suizo y Round-Robin): los habituales o un orden propio ———
 const TB = {
@@ -1255,6 +1256,10 @@ $('to-create-open').addEventListener('click', () => {
   $('to-create-form').reset(); $('to-mode').value = 'online'; setCreateMode(null); tbState = null; syncMode('arena');
   $('to-tb-list').hidden = true; $('to-tb-toggle').textContent = 'Personalizar'; $('to-tb-toggle').setAttribute('aria-expanded', 'false');
   $('to-create-dialog').showModal();
+  // En el móvil, el nombre vacío (sin ejemplo) y con el cursor dentro para escribir directamente.
+  const nameInput = $('to-event-name');
+  nameInput.placeholder = mobileForm.matches ? '' : 'Abierto Apejupo del miércoles';
+  if (mobileForm.matches) nameInput.focus();
   // Al crear, la clave empieza en blanco aunque el navegador intente autorrellenarla.
   setTimeout(() => { if (!editingId) $('to-join-key-new').value = ''; }, 50);
 });
@@ -1298,6 +1303,45 @@ $('to-create-form').addEventListener('submit', async event => {
   } catch (e) { $('to-create-error').hidden = false; $('to-create-error').textContent = e.message; }
   finally { button.disabled = false; }
 });
+// ——— Móvil: los desplegables del formulario se eligen en una hoja propia (la del sistema queda tosca) ———
+const mobileForm = matchMedia('(max-width: 600px)');
+let pickerSelect = null;
+function pickerButtons() {
+  for (const sel of $('to-create-form').querySelectorAll('select')) {
+    let btn = sel.nextElementSibling?.classList.contains('to-select-btn') ? sel.nextElementSibling : null;
+    if (!btn) {
+      btn = document.createElement('button'); btn.type = 'button'; btn.className = 'to-select-btn';
+      btn.setAttribute('aria-haspopup', 'dialog'); btn.addEventListener('click', () => openPicker(sel)); sel.after(btn);
+    }
+    const text = sel.selectedOptions[0]?.text || 'Elige una opción';
+    btn.textContent = text; btn.disabled = sel.disabled;
+    btn.setAttribute('aria-label', `${pickerTitle(sel)}: ${text}`);
+  }
+}
+const pickerTitle = sel => (document.querySelector(`label[for="${sel.id}"]`)?.textContent || '').trim();
+function openPicker(sel) {
+  let dlg = $('to-picker');
+  if (!dlg) {
+    dlg = document.createElement('dialog'); dlg.id = 'to-picker'; dlg.className = 'to-picker';
+    dlg.innerHTML = '<div class="to-picker-grip" aria-hidden="true"></div><p class="to-picker-title"></p><div class="to-picker-list" role="listbox"></div>';
+    document.body.append(dlg);
+    dlg.addEventListener('click', event => {
+      const opt = event.target.closest('[data-value]');
+      if (opt && pickerSelect) {
+        pickerSelect.value = opt.dataset.value;
+        pickerSelect.dispatchEvent(new Event('input', { bubbles: true })); pickerSelect.dispatchEvent(new Event('change', { bubbles: true }));
+        pickerButtons(); dlg.close(); return;
+      }
+      if (event.target === dlg) dlg.close(); // toque fuera de la hoja
+    });
+  }
+  pickerSelect = sel;
+  dlg.querySelector('.to-picker-title').textContent = pickerTitle(sel);
+  dlg.querySelector('.to-picker-list').innerHTML = [...sel.options].filter(o => !o.disabled && !o.hidden).map(o => `<button type="button" role="option" data-value="${esc(o.value)}" aria-selected="${o.selected}"${o.selected ? ' class="on"' : ''}><span>${esc(o.text)}</span></button>`).join('');
+  dlg.showModal();
+  dlg.querySelector('.on')?.scrollIntoView({ block: 'nearest' });
+}
+$('to-create-form').addEventListener('change', () => pickerButtons());
 $('to-join-account').addEventListener('click', () => openAuth('entrar'));
 addEventListener('apejupo:cuenta', () => {
   if (state) render();
