@@ -252,17 +252,21 @@
   body.to-presencial-room .to-standings .to-st-elo-col { padding-left: 6px; padding-right: 4px; font-size: .74rem; } /* gana a la regla de escritorio de más abajo */
   .to-presencial-room .to-standings td:first-child { width: 30px; }
   .to-st-rank { width: 22px; height: 22px; font-size: .75rem; }
-  /* En el móvil no caben los desempates ni la foto: el nombre necesita el espacio (siguen en el ordenador y al imprimir). */
-  .to-presencial-room .to-standings th:nth-child(n+5), .to-presencial-room .to-standings td:nth-child(n+5) { display: none; }
-  .to-presencial-room .to-standings td:nth-child(4) { border-radius: 0 14px 14px 0; }
+  /* En el móvil, puesto, nombre, ELO y puntos llenan la pantalla; los desempates se ven deslizando hacia la izquierda,
+     con el puesto y el nombre fijos a la izquierda para saber de quién es cada fila. */
+  body.to-presencial-room .to-standings { width: max-content; min-width: 100%; }
+  body.to-presencial-room .to-standings td:nth-child(2), body.to-presencial-room .to-standings th:nth-child(2) { width: calc(100vw - 225px); min-width: calc(100vw - 225px); max-width: calc(100vw - 225px); } /* deja ~130 px a la derecha del nombre fijo: caben los desempates al deslizar */
+  .to-presencial-room .to-standings td:nth-child(-n+2), .to-presencial-room .to-standings th:nth-child(-n+2) { position: sticky; left: 0; z-index: 1; }
+  .to-presencial-room .to-standings td:nth-child(2), .to-presencial-room .to-standings th:nth-child(2) { left: 38px; box-shadow: 6px 0 8px -6px #0008; }
+  .to-presencial-room .to-standings th:nth-child(-n+2) { background: var(--card); }
+  .to-presencial-room .to-standings td:nth-child(n+5), .to-presencial-room .to-standings th:nth-child(n+5) { padding-left: 7px; padding-right: 7px; }
   .to-st-id .to-pz-avatar { display: none; }
   .to-st-name .flag { display: none; } /* sin bandera y con «Apellidos, I.», para que el nombre quepa en una línea */
   .to-presencial-room .to-standings td:nth-child(2) .to-st-name > span:not(.to-pz-title):not(.to-st-elo) { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .to-st-name .to-pt-full { display: none; }
   .to-st-name .to-pt-short { display: inline; }
   .to-presencial-room .to-standings .to-st-name { flex-wrap: nowrap; min-width: 0; }
-  .to-presencial-room .to-standings .to-st-elo-col, .to-presencial-room .to-standings td:first-child, .to-presencial-room .to-standings td:nth-child(4) { width: 1%; white-space: nowrap; }
-  .to-presencial-room .to-standings td:nth-child(2) { max-width: 0; width: auto; }
+  .to-presencial-room .to-standings .to-st-name .to-pz-title { flex: none; white-space: nowrap; }
   .to-st-name > span:not(.to-pz-title):not(.to-st-elo) { overflow-wrap: normal; word-break: normal; }
 }
 .to-standings-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
@@ -920,7 +924,7 @@ body.to-pz-managing #to-standings-panel { display: none; }
 .to-tb-move { display: inline-flex; gap: 3px; flex: none; }
 .to-dialog .to-tb-move button { width: 28px; height: 28px; padding: 0; border-radius: 8px; border: 1px solid var(--line); background: var(--card); color: var(--muted); font-size: .7rem; line-height: 1; }
 .to-dialog .to-tb-move button:hover:not(:disabled) { color: var(--blue); border-color: var(--blue); }
-@media (max-width: 600px) { .to-tb-col2 { display: none; } }
+@media (max-width: 600px) { body:not(.to-presencial-room) .to-tb-col2 { display: none; } } /* en el presencial se ven deslizando */
 /* Arrastrar desempates */
 .to-tb-summary li, .to-tb-list li { touch-action: none; user-select: none; }
 .to-tb-summary li { cursor: grab; transition: box-shadow .12s, transform .12s; }
