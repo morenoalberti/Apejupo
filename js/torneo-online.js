@@ -1097,12 +1097,6 @@ $('to-start-time').insertAdjacentHTML('beforeend', Array.from({ length: 96 }, (_
   return `<option value="${hh}:${mm}">${hh}:${mm}</option>`;
 }).join(''));
 function localDay(d) { return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
-const formatHelp = {
-  arena: 'Tiempo máximo de juego',
-  swiss: 'Número fijo de rondas, con rivales de puntuación parecida y sin repetir enfrentamientos.',
-  closed: 'Todos contra todos, una vez cada uno. Las rondas salen del número de inscritos.',
-  'double-closed': 'Todos contra todos a doble vuelta: una partida con blancas y otra con negras contra cada rival.'
-};
 const modeFormats = {
   online: [['arena', 'Arena'], ['swiss', 'Sistema suizo'], ['closed', 'Round-Robin']],
   presencial: [['swiss', 'Sistema suizo'], ['closed', 'Round-Robin'], ['double-closed', 'Round-Robin doble vuelta']]
@@ -1120,7 +1114,6 @@ function syncMode(format = $('to-format').value) {
 }
 function syncFormat() {
   const format = $('to-format').value, isArena = format === 'arena', noRounds = format !== 'swiss';
-  $('to-format-help').textContent = formatHelp[format];
   $('to-rounds-field').hidden = noRounds; $('to-rounds').disabled = noRounds;
   $('to-duration-field').hidden = !isArena; $('to-duration').disabled = !isArena;
   // Al cambiar de familia (suizo ↔ Round-Robin ↔ arena) se ponen los desempates habituales de la nueva.
