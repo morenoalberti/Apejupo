@@ -236,7 +236,7 @@ function connect() {
 function render() {
   const t = state;
   $('to-title').textContent = t.title; document.title = t.title + ' · Torneo Apejupo';
-  $('to-subtitle').textContent = presencial(t) ? 'Consulta las mesas, los resultados y la clasificación. La organización gestiona las inscripciones y las rondas.' : canJoin(t) && arena(t) && t.status === 'playing' && !t.standings.some(p => p.id === t.me) ? 'El arena está en marcha: únete y empieza a jugar ya.' : t.challenge ? (t.status === 'waiting' ? 'La partida empieza en cuanto los dos tengáis el tablero abierto.' : '') : t.status === 'waiting' ? 'Las inscripciones están abiertas. Reserva tu sitio en el tablero.' : 'Sigue tus partidas, los tableros y la clasificación en directo.';
+  $('to-subtitle').textContent = presencial(t) ? '' : canJoin(t) && arena(t) && t.status === 'playing' && !t.standings.some(p => p.id === t.me) ? 'El arena está en marcha: únete y empieza a jugar ya.' : t.challenge ? (t.status === 'waiting' ? 'La partida empieza en cuanto los dos tengáis el tablero abierto.' : '') : t.status === 'waiting' ? 'Las inscripciones están abiertas. Reserva tu sitio en el tablero.' : 'Sigue tus partidas, los tableros y la clasificación en directo.';
   $('to-subtitle').hidden = !$('to-subtitle').textContent;
   // Reto: solo el tablero (y el marcador entre los dos) bajo la cabecera de la web.
   document.body.classList.toggle('to-challenge', !!t.challenge);
