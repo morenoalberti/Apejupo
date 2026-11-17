@@ -675,7 +675,7 @@ function renderPresencial() {
     const head = `<tr class="to-pt-round"><th colspan="10"><div class="to-pt-round-head"><span>Ronda ${r}${r === t.round && t.status !== 'finished' ? ` <span class="to-pt-state">${pending ? `${pending} ${pending === 1 ? 'resultado pendiente' : 'resultados pendientes'}` : 'completa'}</span>` : ''}</span>${drop}</div></th></tr>`;
     const rows = tables.map((g, i) => {
       const w = info(g.white), b = info(g.black);
-      const result = g.result ? `<span class="to-pt-score">${score(g.result)}</span>` : `<span class="to-pt-pending">${editable ? 'Anotar' : '—'}</span>`;
+      const result = g.result ? `<span class="to-pt-score">${score(g.result)}</span>` : `<span class="to-pt-pending">—</span>`;
       // El organizador pulsa la fila de la mesa (o Intro sobre ella) y sale el cuadro de resultados.
       return `<tr class="${g.white === t.me || g.black === t.me ? 'mine' : ''}${editable ? ' to-pt-edit' : ''}"${editable ? ` data-pt-game="${g.id}" data-pt-table="${i + 1}"${earlier ? ' data-pt-earlier="1"' : ''} tabindex="0" role="button" aria-haspopup="dialog" aria-label="Mesa ${i + 1}: ${esc(w.name)} contra ${esc(b.name)}. Anotar resultado"` : ''}><td class="to-pt-num">${i + 1}</td><td class="to-pt-tit">${tit(w)}</td>${cellName(w, g.result && whitePts(g.result) > perTable / 2)}<td class="to-pt-elo">${w.rating || ''}</td>${pts(r, w)}<td class="to-pt-res">${result}</td>${pts(r, b)}<td class="to-pt-tit">${tit(b)}</td>${cellName(b, g.result && whitePts(g.result) < perTable / 2)}<td class="to-pt-elo">${b.rating || ''}</td></tr>`;
     }).join('');
