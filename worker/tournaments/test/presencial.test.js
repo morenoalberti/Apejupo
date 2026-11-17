@@ -368,3 +368,19 @@ test('Round-Robin: se corrige el resultado de cualquier ronda jugada, también c
   act(s, null, true, { type: 'presencial-next' }, NOW);
   assert.throws(() => act(s, null, true, { type: 'presencial-result', game: s.games.find(g => g.round === 1 && !g.bye).id, result: '0-1' }, NOW), /ronda actual/);
 });
+
+test('presencial emparejado sin resultados: se edita nombre y ritmo; con resultados, ya no', () => {
+  const t = tournament(4);
+  act(t, null, true, { type: 'start' }, NOW);
+  assert.equal(snapshot(t, null, true).editable, true);
+  const games = t.games.map(g => g.id).join();
+  editTournament(t, { ...input, title: 'Abierto renombrado' }, NOW);
+  assert.equal(t.title, 'Abierto renombrado'); assert.equal(t.games.map(g => g.id).join(), games, 'Solo el nombre: mismo sorteo');
+  editTournament(t, { ...input, title: 'Abierto renombrado', format: 'closed' }, NOW);
+  assert.equal(t.format, 'closed'); assert.equal(t.status, 'playing'); assert.equal(t.round, 1);
+  assert.ok(t.games.every(g => !games.split(',').includes(g.id)), 'Cambiar el sistema rehace el sorteo');
+  assert.throws(() => editTournament(t, { ...input, mode: 'online' }, NOW), /online/);
+  act(t, null, true, { type: 'presencial-result', game: t.games.find(g => !g.bye).id, result: '1-0' }, NOW);
+  assert.equal(snapshot(t, null, true).editable, false);
+  assert.throws(() => editTournament(t, { ...input, title: 'Otro' }, NOW), /ya ha empezado/);
+});

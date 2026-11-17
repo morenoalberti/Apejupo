@@ -220,7 +220,8 @@ export class TournamentRoom extends DurableObject {
           // El router verifica la identidad del creador o la clave de administrador.
           requireThat(b.admin === true || !!(b.actorId && b.actorId === this.t.hostAccountId) || (TOKEN.test(b.hostToken) && this.isHost(await hash(b.hostToken))), 'Solo el creador o el administrador pueden editar el torneo.', 403);
           if (url.pathname === '/edit') { editTournament(this.t, { ...b, match: false }, Date.now()); await this.save(); this.broadcast(); }
-          return json({ ...summary(this.t), joinKey: this.t.joinKey || '' });
+          // Ya emparejado, el formulario muestra las rondas que se pidieron (no las limitadas por los inscritos).
+          return json({ ...summary(this.t), ...(this.t.plannedRounds ? { rounds: this.t.plannedRounds } : {}), joinKey: this.t.joinKey || '' });
         }
         if (url.pathname === '/delete') {
           // El router comprueba la clave antes de conceder el permiso de administrador.

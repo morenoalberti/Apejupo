@@ -88,8 +88,14 @@ export function createTournament(input, id, hostHash, now = Date.now()) {
 
 // Editar antes de empezar: se valida igual que al crear y se conservan inscritos y fechas internas.
 export function editTournament(t, input, now = Date.now()) {
-  requireThat(t.status === 'waiting', 'El torneo ya ha empezado: no se puede editar.', 409);
+  // Un presencial emparejado sin ningún resultado anotado aún no se está jugando: se puede editar.
+  const paired = canChangeInitialRoster(t);
+  requireThat(t.status === 'waiting' || paired, 'El torneo ya ha empezado: no se puede editar.', 409);
   const n = createTournament(input, t.id, t.hostHash, now);
+  if (paired) requireThat(n.mode === 'presencial', 'Un torneo presencial ya emparejado no puede pasar a online.');
+  // Al emparejar, el suizo limita las rondas al número de jugadores: se compara con las rondas pedidas.
+  const plan = x => [x.format, x.format === 'swiss' ? x.plannedRounds ?? x.rounds : '', x.minutes, x.increment].join();
+  const before = plan(t), keepRounds = t.rounds;
   requireThat(n.mode === (t.mode || 'online') || !t.players.length, 'Para cambiar la modalidad, retira primero a los inscritos.');
   requireThat(n.capacity >= t.players.length, `Ya hay ${t.players.length} jugadores inscritos: el máximo no puede ser menor.`);
   // Sin «joinKey» en la petición, la clave de inscripción se queda como estaba.
@@ -97,6 +103,11 @@ export function editTournament(t, input, now = Date.now()) {
   // Sin «tiebreaks» en la petición se conservan los que había (si siguen valiendo para el formato).
   if (input.tiebreaks === undefined) n.tiebreaks = cleanTiebreaks(n.format, t.tiebreaks);
   for (const k of ['title', 'mode', 'format', 'duration', 'minutes', 'increment', 'rounds', 'capacity', 'startsAt', 'joinKey', 'tiebreaks']) t[k] = n[k];
+  // Si cambia el sistema, las rondas o el ritmo, se rehacen los emparejamientos (no hay resultados que perder).
+  if (paired) {
+    if (before !== plan(n)) regenerateInitialPairings(t, now);
+    else t.rounds = keepRounds;
+  }
 }
 
 export function standings(t) {
@@ -677,7 +688,9 @@ export function summary(t) {
     rounds: t.rounds, round: t.round, capacity: t.capacity, count: t.players.length,
     // Inscritos que se muestran: sin los que han salido del torneo (al terminar, todos).
     listed: t.status === 'finished' ? t.players.length : t.players.filter(p => !p.paused).length, startsAt: t.startsAt, createdAt: t.createdAt, locked: !!t.joinKey,
-    pairing: t.pairing || null, challenge: !!t.challenge, tiebreaks: tiebreaksOf(t), duel: t.challenge ? duelScore(t) : null };
+    pairing: t.pairing || null, challenge: !!t.challenge, tiebreaks: tiebreaksOf(t), duel: t.challenge ? duelScore(t) : null,
+    // Presencial emparejado pero sin resultados: aún se puede editar.
+    editable: canChangeInitialRoster(t) };
 }
 // Jugadas legales de una partida en curso, calculadas una sola vez por posición.
 function legalFor(g) {
