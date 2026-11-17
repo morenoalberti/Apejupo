@@ -255,15 +255,11 @@
 .an-under .an-player, #an-player-bottom { width: auto; max-width: none; margin: 0; min-width: 0; }
 .an-under { justify-content: flex-end; } .an-under #an-player-bottom { margin-right: auto; }
 
-/* Casillas pintadas con una imagen además del color: el modo oscuro de algunos navegadores de móvil
-   (Samsung Internet y otros) oscurece los colores de la página pero no las imágenes, así el tablero
-   se ve igual con el tema claro o el oscuro del teléfono. Mismo orden que las reglas de color de arriba. */
-.an-sq { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8'%3E%3Crect width='8' height='8' fill='%23f0d9b5'/%3E%3C/svg%3E"); background-size: 100% 100%; }
-.an-sq.dk { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8'%3E%3Crect width='8' height='8' fill='%23b58863'/%3E%3C/svg%3E"); background-size: 100% 100%; }
-.an-sq.an-lm { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8'%3E%3Crect width='8' height='8' fill='%23cdd26a'/%3E%3C/svg%3E"); background-size: 100% 100%; }
-.an-sq.dk.an-lm { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8'%3E%3Crect width='8' height='8' fill='%23aaa23a'/%3E%3C/svg%3E"); background-size: 100% 100%; }
-.an-sq.an-sel { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8'%3E%3Crect width='8' height='8' fill='%23829769'/%3E%3C/svg%3E"); background-size: 100% 100%; }
-.an-sq.dk.an-sel { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8'%3E%3Crect width='8' height='8' fill='%23646f40'/%3E%3C/svg%3E"); background-size: 100% 100%; }
-.an-sq.an-chk { background-image: radial-gradient(circle, #ff0000 0%, #e70000aa 30%, transparent 75%), url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8'%3E%3Crect width='8' height='8' fill='%23f0d9b5'/%3E%3C/svg%3E"); background-size: auto, 100% 100%; }
-.an-sq.dk.an-chk { background-image: radial-gradient(circle, #ff0000 0%, #e70000aa 30%, transparent 75%), url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8'%3E%3Crect width='8' height='8' fill='%23b58863'/%3E%3C/svg%3E"); background-size: auto, 100% 100%; }
-.an-promo-opts button { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8'%3E%3Crect width='8' height='8' fill='%23f0d9b5'/%3E%3C/svg%3E"); background-size: 100% 100%; }
+/* Tablero como imagen (como en los directos): el modo oscuro de algunos navegadores de móvil (Samsung Internet
+   y otros) oscurece los colores de la página pero no las imágenes, así el tablero se ve igual con cualquier
+   tema del teléfono. Las casillas quedan transparentes; las marcas (última jugada, selección…) van encima. */
+.an-board { background: #f0d9b5 url("../assets/tactics-board.png") 0 0 / 100% 100% no-repeat; }
+.an-sq, .an-sq.dk { background: transparent; }
+.an-sq.an-lm, .an-sq.dk.an-lm { background: rgba(155, 199, 0, .41); }
+.an-sq.an-sel, .an-sq.dk.an-sel { background: rgba(20, 85, 30, .5); }
+.an-sq.an-chk, .an-sq.dk.an-chk { background: radial-gradient(circle, #ff0000 0%, #e70000aa 30%, transparent 75%); }
