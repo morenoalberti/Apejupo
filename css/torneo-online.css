@@ -958,3 +958,19 @@ li.to-tb-dragging { position: relative; z-index: 2; transform: scale(1.03); back
   #to-print-sheet .to-print-name small { display: block; color: #555; font-size: 8pt; }
   #to-print-sheet .to-print-note { margin-top: 5mm; }
 }
+
+/* Casillas pintadas con una imagen además del color: el modo oscuro de algunos navegadores de móvil
+   (Samsung Internet y otros) oscurece los colores de la página pero no las imágenes, así el tablero
+   se ve igual con el tema claro o el oscuro del teléfono. Mismo orden que las reglas de color de arriba. */
+.to-mini i { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8'%3E%3Crect width='8' height='8' fill='%23f0d9b5'/%3E%3C/svg%3E"); background-size: 100% 100%; }
+.to-mini i.dk { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8'%3E%3Crect width='8' height='8' fill='%23b58863'/%3E%3C/svg%3E"); background-size: 100% 100%; }
+.to-mini i.lm { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8'%3E%3Crect width='8' height='8' fill='%23e8d568'/%3E%3C/svg%3E"); background-size: 100% 100%; }
+.to-mini i.dk.lm { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8'%3E%3Crect width='8' height='8' fill='%23bdac43'/%3E%3C/svg%3E"); background-size: 100% 100%; }
+.to-square { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8'%3E%3Crect width='8' height='8' fill='%23f0d9b5'/%3E%3C/svg%3E"); background-size: 100% 100%; }
+.to-square.dark { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8'%3E%3Crect width='8' height='8' fill='%23b58863'/%3E%3C/svg%3E"); background-size: 100% 100%; }
+.to-square.last { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8'%3E%3Crect width='8' height='8' fill='%23e8d568'/%3E%3C/svg%3E"); background-size: 100% 100%; }
+.to-square.dark.last { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8'%3E%3Crect width='8' height='8' fill='%23bdac43'/%3E%3C/svg%3E"); background-size: 100% 100%; }
+.to-square.selected { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8'%3E%3Crect width='8' height='8' fill='%237db16a'/%3E%3C/svg%3E"); background-size: 100% 100%; }
+.to-square.premove { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8'%3E%3Crect width='8' height='8' fill='%23c9a19a'/%3E%3C/svg%3E"); background-size: 100% 100%; }
+.to-square.dark.premove { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8'%3E%3Crect width='8' height='8' fill='%23a8746b'/%3E%3C/svg%3E"); background-size: 100% 100%; }
+.to-promotion-options button { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8'%3E%3Crect width='8' height='8' fill='%23f0d9b5'/%3E%3C/svg%3E"); background-size: 100% 100%; }

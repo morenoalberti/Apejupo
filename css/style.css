@@ -1617,3 +1617,11 @@ body.card-dragging .tour-tip { display: none !important; }
   #news-filter button { min-height: 32px; padding: 5px 9px; border-radius: 8px; font-size: .75rem; font-weight: 500; line-height: 1.2; white-space: nowrap; }
   #news-filter button[aria-selected="true"] { font-weight: 600; }
 }
+
+/* Casillas pintadas con una imagen además del color: el modo oscuro de algunos navegadores de móvil
+   (Samsung Internet y otros) oscurece los colores de la página pero no las imágenes, así el tablero
+   se ve igual con el tema claro o el oscuro del teléfono. Mismo orden que las reglas de color de arriba. */
+.board .l { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8'%3E%3Crect width='8' height='8' fill='%23eeeed2'/%3E%3C/svg%3E"); background-size: 100% 100%; }
+.board .d { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8'%3E%3Crect width='8' height='8' fill='%23769656'/%3E%3C/svg%3E"); background-size: 100% 100%; }
+.board .l.last { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8'%3E%3Crect width='8' height='8' fill='%23f5f682'/%3E%3C/svg%3E"); background-size: 100% 100%; }
+.board .d.last { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8'%3E%3Crect width='8' height='8' fill='%23b9ca43'/%3E%3C/svg%3E"); background-size: 100% 100%; }
