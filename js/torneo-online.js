@@ -134,7 +134,7 @@ function eventCard(t) {
   const count = t.listed ?? t.count, full = Math.min(100, Math.round(count / t.capacity * 100));
   return `<article class="to-event ${t.status}"><div class="to-event-top"><span class="to-event-badges"><span class="to-status ${t.editable ? 'waiting' : t.status}">${esc(t.editable ? 'Por empezar' : statuses[t.status])}</span>${modeBadge(t)}</span><span class="to-event-clock">${icons.clock}${t.minutes} + ${t.increment}</span></div>`
     + `<h3>${esc(t.title)}</h3><ul class="to-event-meta"><li>${icons.format}${systemLabel(t)}</li>${t.locked ? `<li>${icons.lock}Inscripción con clave</li>` : ''}<li>${icons.calendar}${t.startsAt ? esc(date(t.startsAt)) : 'Inicio a cargo del organizador'}</li></ul>`
-    + `<div class="to-event-fill"><span>${icons.people}${count}/${t.capacity} jugadores</span><i><b style="width:${full}%"></b></i></div>`
+    + `<div class="to-event-fill"><span>${icons.people}${count}/${t.capacity} jugadores</span><i>${count ? `<b style="width:${full}%"></b>` : ''}</i></div>`
     + `<div class="to-event-actions"><a class="btn" href="jugar-torneo.html?id=${t.id}"><span>${t.status === 'waiting' ? 'Entrar e inscribirme' : 'Ver torneo'}</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-5-5 5 5-5 5"/></svg></a>${pencil || trash ? `<div class="to-event-tools">${pencil}${trash}</div>` : ''}</div></article>`;
 }
 async function loadLobby() {
