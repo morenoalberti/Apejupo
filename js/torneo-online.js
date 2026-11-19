@@ -60,6 +60,8 @@ function setConnection(text, online = false) {
   connected = online;
   roomGone = ['Torneo borrado', 'Torneo archivado', 'Torneo no disponible'].includes(text);
   if (roomGone) shareable(false, 'El torneo ya no existe: no se puede compartir.');
+  // Sin datos del torneo no hay sala que enseñar: ni tablero, ni «Tablas»/«Abandonar», ni participantes.
+  document.querySelector('.to-room-layout').hidden = roomGone && !state;
   for (const id of ['to-connection', 'to-boards-conn']) { $(id).textContent = text; $(id).classList.toggle('online', online); }
   if (state) { boardKey = ''; renderGame(); renderControls(); }
 }
