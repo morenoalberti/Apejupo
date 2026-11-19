@@ -430,9 +430,70 @@ async function eloFuente(request) {
   return new Response(request.method === "HEAD" ? null : r.body, { status: r.status, headers: h });
 }
 
+
+// ───────── Traducción de la web (banderas de la cabecera, js/idioma.js) ─────────
+// La página manda sus textos en español y recibe la traducción, hecha con la IA de Cloudflare
+// (Workers AI, modelo Llama 3.3 70B con un glosario de ajedrez). Cada texto traducido se guarda en caché
+// 30 días, así que los textos fijos de la web solo se traducen una vez. Solo se aceptan peticiones desde la web.
+const IDIOMAS = { en: "English" };
+const TR_MODELO = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
+const TR_MAX_TEXTOS = 40, TR_MAX_LARGO = 1200, TR_MAX_TOTAL = 16000;
+const TR_SISTEMA = 'You translate texts from the website of a Spanish chess club into natural, concise English. ' +
+  'Chess and site terms: "en directo" = "live", "Torneos en directo" = "Live tournaments", "Inscríbete" = "Sign up", "Entrar" = "Sign in", ' +
+  '"Clasificación" = "Standings", "Ronda" = "Round", "tablas" = "draw", "Abandonar" = "Resign", "Emparejamientos" = "Pairings", ' +
+  '"partida" = "game", "ritmo" = "time control", "Sistema suizo" = "Swiss system", "Desempates" = "Tiebreaks", "inscritos" = "registered players". ' +
+  'Never translate proper names of people, clubs, places or tournaments, nor the word "Apejupo". Keep numbers, symbols, punctuation and capitalization style. ' +
+  'Answer ONLY with a JSON array of strings with exactly the same length and order as the input array.';
+function trOrigen(request) {
+  const o = request.headers.get("Origin") || "";
+  return /^https:\/\/(www\.)?apejupo\.com$/.test(o) || /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(o) ? o : "";
+}
+async function huella(texto) {
+  const d = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(texto));
+  return [...new Uint8Array(d)].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+async function trModelo(env, textos) {
+  const r = await env.AI.run(TR_MODELO, { messages: [{ role: "system", content: TR_SISTEMA }, { role: "user", content: JSON.stringify(textos) }], max_tokens: 4000, temperature: 0 });
+  let out = r?.response ?? r;
+  if (typeof out === "string") out = JSON.parse(out.slice(out.indexOf("["), out.lastIndexOf("]") + 1));
+  if (!Array.isArray(out) || out.length !== textos.length) throw new Error("respuesta no válida");
+  return out.map((x) => (typeof x === "string" && x.trim() ? x : null));
+}
+async function traducir(request, env, ctx) {
+  const origen = trOrigen(request);
+  const cors = { "Access-Control-Allow-Origin": origen || "https://apejupo.com", "Access-Control-Allow-Methods": "POST, OPTIONS", "Access-Control-Allow-Headers": "Content-Type", "Access-Control-Max-Age": "86400", Vary: "Origin" };
+  const json = (data, status = 200) => new Response(JSON.stringify(data), { status, headers: { ...cors, "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" } });
+  if (request.method === "OPTIONS") return new Response(null, { headers: cors });
+  if (request.method !== "POST" || !origen) return json({ error: "No permitido" }, 403);
+  if (!env.AI) return json({ error: "Traducción no disponible" }, 503);
+  let body;
+  try { body = await request.json(); } catch { return json({ error: "Datos no válidos" }, 400); }
+  const textos = Array.isArray(body?.texts) ? body.texts : null;
+  if (!IDIOMAS[body?.to] || !textos || textos.length > TR_MAX_TEXTOS || textos.some((t) => typeof t !== "string" || t.length > TR_MAX_LARGO) || textos.join("").length > TR_MAX_TOTAL) return json({ error: "Datos no válidos" }, 400);
+  const cache = typeof caches !== "undefined" ? caches.default : null;
+  const claves = await Promise.all(textos.map(async (t) => new Request("https://apejupo.invalid/traducir/l33/" + body.to + "/" + (await huella(t))))); // l33: modelo actual (cambiarlo vacía la caché)
+  const salida = await Promise.all(textos.map(async (t, i) => {
+    if (!t.trim()) return t;
+    if (cache) { const hit = await cache.match(claves[i]); if (hit) return hit.text(); }
+    return undefined;
+  }));
+  // Lo que no estaba en caché se traduce de una vez; si el modelo falla, esos textos se quedan en español.
+  const faltan = salida.map((v, i) => (v === undefined ? i : -1)).filter((i) => i >= 0);
+  if (faltan.length) {
+    let nuevas = faltan.map(() => null);
+    try { nuevas = await trModelo(env, faltan.map((i) => textos[i])); } catch {}
+    faltan.forEach((i, k) => {
+      salida[i] = nuevas[k];
+      if (nuevas[k] && cache) ctx.waitUntil(cache.put(claves[i], new Response(nuevas[k], { headers: { "Cache-Control": "max-age=2592000" } })));
+    });
+  }
+  return json({ translations: salida });
+}
+
 export default {
   async fetch(request, env, ctx) {
     const pathname = new URL(request.url).pathname;
+    if (pathname === "/traducir") return traducir(request, env, ctx);
     if (pathname === "/elo-fuente") return eloFuente(request);
     if (pathname === "/fotos" || pathname.startsWith("/fotos/")) return fotos(request, env, new URL(request.url));
     if (pathname === "/videos" || pathname.startsWith("/videos/")) return request.method === "OPTIONS" ? new Response(null, { headers: FOTO_CORS }) : videos(request, env, ctx);

@@ -9,3 +9,7 @@ compatibility_date = "2026-01-01"
 [[r2_buckets]]
 binding = "FOTOS"
 bucket_name = "apejupo-fotos"
+
+# Traducción automática de la web al inglés (banderas de la cabecera): IA de Cloudflare.
+[ai]
+binding = "AI"

@@ -1628,3 +1628,13 @@ body.card-dragging .tour-tip { display: none !important; }
 .board { background: #eeeed2 url("../assets/board-green.png") 0 0 / 100% 100% no-repeat; }
 .board .l, .board .d { background: transparent; }
 .board .l.last, .board .d.last { background: rgba(205, 210, 60, .55); }
+
+/* Banderas de idioma, a la izquierda de «Entrar» (js/idioma.js). */
+.lang-flags { display: inline-flex; align-items: center; gap: 6px; margin-right: 10px; }
+.lang-flags button { display: grid; place-items: center; width: 30px; height: 22px; padding: 0; border: 1px solid transparent; border-radius: 5px; background: none; cursor: pointer; opacity: .55; transition: opacity .15s, border-color .15s, transform .15s; }
+.lang-flags button:hover { opacity: .9; transform: translateY(-1px); }
+.lang-flags button[aria-pressed="true"] { opacity: 1; border-color: rgba(255, 255, 255, .55); }
+.lang-flags button:focus-visible { outline: 2px solid var(--blue, #4f8cff); outline-offset: 2px; }
+.lang-flags svg { width: 26px; height: 17px; display: block; border-radius: 3px; }
+html.traduciendo { cursor: progress; }
+@media (max-width: 420px) { .lang-flags { gap: 4px; margin-right: 6px; } .lang-flags button { width: 26px; } .lang-flags svg { width: 22px; height: 15px; } }
