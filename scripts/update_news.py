@@ -116,16 +116,18 @@ def load_cache():
 QUOTA_AGOTADA = False
 
 
-def translate(text_en, cache):
-    """Devuelve el texto en español o None si no se pudo traducir (se reintenta en la siguiente ejecución)."""
+def translate(text_en, cache, par="en|es"):
+    """Devuelve el texto traducido (por defecto, del inglés al español) o None si no se pudo traducir
+    (se reintenta en la siguiente ejecución). Español → inglés usa «es|en» y su propia clave en la caché."""
     global QUOTA_AGOTADA
     if not text_en:
         return ""
-    if text_en in cache:
-        return cache[text_en]
+    clave = text_en if par == "en|es" else par + "|" + text_en
+    if clave in cache:
+        return cache[clave]
     if QUOTA_AGOTADA:
         return None
-    url = "https://api.mymemory.translated.net/get?" + urllib.parse.urlencode({"q": text_en[:480], "langpair": "en|es"})
+    url = "https://api.mymemory.translated.net/get?" + urllib.parse.urlencode({"q": text_en[:480], "langpair": par})
     try:
         req = urllib.request.Request(url, headers={"User-Agent": "ApejupoBot/1.0"})
         with urllib.request.urlopen(req, timeout=15) as r:
@@ -139,7 +141,7 @@ def translate(text_en, cache):
         out = unescape(out).strip()
     except Exception:
         return None
-    cache[text_en] = out
+    cache[clave] = out
     return out
 
 
@@ -152,7 +154,15 @@ def to_spanish(items):
             if title is None or body is None:
                 fallidas += 1
                 continue  # no se publica en inglés: se reintenta en la próxima ejecución
+            # El original en inglés se guarda para la web en inglés (bandera inglesa, js/idioma.js).
+            it["title_en"], it["text_en"] = it["title"], it["text"]
             it["title"], it["text"] = title, body
+        else:
+            # Noticias en español: su versión en inglés, si el traductor gratuito llega (si no, la web
+            # la traduce al vuelo).
+            title_en, text_en = translate(it["title"], cache, "es|en"), translate(it["text"], cache, "es|en")
+            if title_en and text_en is not None:
+                it["title_en"], it["text_en"] = title_en, text_en
         kept.append(it)
     CACHE.parent.mkdir(exist_ok=True)
     CACHE.write_text(json.dumps(cache, ensure_ascii=False), encoding="utf-8")

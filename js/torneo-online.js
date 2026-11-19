@@ -109,7 +109,7 @@ function systemLabel(t) {
 }
 function formatLabel(t) { return t.challenge ? (isMatch(t) ? `Match a ${t.rounds} partidas` : 'Reto') : arena(t) ? `Arena de ${duration(t.duration)}` : t.format === 'double-closed' ? 'Round-Robin doble vuelta' : closed(t) ? (t.rounds ? `Round-Robin a ${t.rounds} rondas` : 'Round-Robin: todos contra todos') : `${t.rounds} rondas`; }
 // «15 nov, 16:00 h.»
-function date(value) { return new Intl.DateTimeFormat(document.documentElement.lang === 'en' ? 'en-GB' : 'es', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(value) + ' h.'; }
+function date(value) { return new Intl.DateTimeFormat(document.documentElement.lang === 'en' ? 'en-GB' : 'es', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(value) + (document.documentElement.lang === 'en' ? '' : ' h.'); }
 function name(id) { return state?.standings.find(p => p.id === id)?.name || 'Jugador'; }
 function send(action) {
   if (!socket || socket.readyState !== WebSocket.OPEN || !connected) { message('Espera a recuperar la conexión antes de continuar.', true); return false; }
@@ -148,7 +148,7 @@ function eventCard(t) {
   const pencil = (organizer || tournamentAdmin) && (t.status === 'waiting' || t.editable) ? `<button class="to-delete to-edit" type="button" data-edit="${t.id}" aria-label="Editar el torneo ${esc(t.title)}" title="Editar torneo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></button>` : '';
   const count = t.listed ?? t.count, full = Math.min(100, Math.round(count / t.capacity * 100));
   return `<article class="to-event ${t.status}"><div class="to-event-top"><span class="to-event-badges"><span class="to-status ${t.editable ? 'waiting' : t.status}">${esc(t.editable ? 'Por empezar' : statuses[t.status])}</span>${modeBadge(t)}</span><span class="to-event-clock">${icons.clock}${t.minutes} + ${t.increment}</span></div>`
-    + `<h3>${esc(t.title)}</h3><ul class="to-event-meta"><li>${icons.format}${systemLabel(t)}</li>${t.locked ? `<li>${icons.lock}Inscripción con clave</li>` : ''}<li>${icons.calendar}${t.startsAt ? esc(date(t.startsAt)) : 'Inicio a cargo del organizador'}</li></ul>`
+    + `<h3 translate="no">${esc(t.title)}</h3><ul class="to-event-meta"><li>${icons.format}${systemLabel(t)}</li>${t.locked ? `<li>${icons.lock}Inscripción con clave</li>` : ''}<li>${icons.calendar}${t.startsAt ? esc(date(t.startsAt)) : 'Inicio a cargo del organizador'}</li></ul>`
     + `<div class="to-event-fill"><span>${icons.people}${count}/${t.capacity} jugadores</span><i>${count ? `<b style="width:${full}%"></b>` : ''}</i></div>`
     + `<div class="to-event-actions"><a class="btn" href="jugar-torneo.html?id=${t.id}"><span>${t.status === 'waiting' ? 'Entrar e inscribirme' : 'Ver torneo'}</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-5-5 5 5-5 5"/></svg></a>${pencil || trash ? `<div class="to-event-tools">${pencil}${trash}</div>` : ''}</div></article>`;
 }

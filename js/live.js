@@ -1739,7 +1739,7 @@
     function cardExterna(e) {
       var dia = { day: "numeric", month: "short", timeZone: "UTC" }, ini = fmt(e.start, dia), fin = fmt(e.end - 86400000, dia);
       return '<article class="card"><div class="body"><span class="badge live">EN CURSO</span>' +
-        '<h4>' + esc(e.title) + '</h4><p class="meta">' + esc(e.source) + " · " + esc(ini === fin ? ini : ini + " – " + fin) + (e.place ? " · " + esc(e.place) : "") + '</p>' +
+        '<h4 translate="no">' + esc(e.title) + '</h4><p class="meta">' + esc(e.source) + " · " + esc(ini === fin ? ini : ini + " – " + fin) + (e.place ? " · " + esc(e.place) : "") + '</p>' +
         link(e.url, "Ver en " + e.source, true) +
         link(e.liveUrl, "Resultados en directo") + link(e.standingsUrl, "Clasificación") + link(e.pairingsUrl, "Emparejamientos") +
         '</div></article>';
@@ -1748,7 +1748,7 @@
       if (e.source !== "Chess.com") return cardExterna(e);
       var when = fmt(e.start, { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
       return '<article class="card"><div class="body"><span class="badge ' + (e.status === "live" ? "live" : "soon") + '">' + (e.status === "live" ? "EN DIRECTO" : "PRÓXIMAMENTE") + '</span>' +
-        '<h4>' + esc(e.title) + '</h4><p class="meta">' + esc(e.source) + " · " + esc(when) + '</p>' +
+        '<h4 translate="no">' + esc(e.title) + '</h4><p class="meta">' + esc(e.source) + " · " + esc(when) + '</p>' +
         '<a class="more btn-view" target="_blank" rel="noopener" href="https://www.chess.com/es/events/current">Ver en Chess.com →</a>' +
         '<a class="more" target="_blank" rel="noopener" href="' + esc(safeUrl(e.url)) + '">Ver la retransmisión en ' + esc(e.via === "twitch" ? "Twitch" : e.via === "youtube" ? "YouTube" : e.source) + ' →</a></div></article>';
     }
@@ -1831,7 +1831,7 @@
     return '<article class="card so-card"><div class="so-band ' + via + '"><span class="so-pl">' + esc(nombre) + "</span>" +
       (m ? '<span class="so-ch">' + esc(m[1]) + "</span>" : "") + "</div>" +
       '<div class="body"><span class="badge soon">' + (hoy ? "HOY" : "PRÓXIMAMENTE") + "</span>" +
-      "<h4>" + esc(e.title) + "</h4>" +
+      "<h4 translate=\"no\">" + esc(e.title) + "</h4>" +
       // cuándo (día y hora) y dónde (plataforma y canal), cada cosa en su línea
       '<p class="so-dato"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>' +
       esc(fecha(e.start)) + " · <b>" + esc(fmt(e.start, { hour: "2-digit", minute: "2-digit" })) + "</b></p>" +

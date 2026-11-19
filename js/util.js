@@ -63,7 +63,7 @@
       var when = r.startsAt ? U.fmt(r.startsAt, { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "";
       return '<article class="card" data-id="' + esc(t.id || "") + '"' + U.tipAttr(t) + '>' + img + '<div class="body">' +
         '<span class="badge ' + cls + '">' + badge + '</span>' +
-        '<h4>' + esc(t.name) + '</h4>' +
+        '<h4 translate="no">' + esc(t.name) + '</h4>' + // nombre del torneo: no se traduce
         '<p class="meta">' + esc(U.ronda(r.name)) + (when ? " · " + esc(when) : "") + '</p>' +
         // Con ronda abierta se ve en nuestra web; «Próximamente» sin ronda queda solo informativa
         ((withLink || cls !== "soon") && r.id

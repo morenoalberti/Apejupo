@@ -5,7 +5,7 @@
   function card(id, img, badge, title, meta, href, linkText, tip, actions) {
     return '<article class="card" data-id="' + esc(id || "") + '"' + (tip ? U.tipAttr(tip) : "") + '>' + (img ? '<img loading="lazy" src="' + esc(safeUrl(img)) + '" alt="">' : "") + '<div class="body">' +
       '<span class="badge ' + badge[0] + '">' + badge[1] + '</span>' +
-      '<h4>' + esc(title) + '</h4>' +
+      '<h4 translate="no">' + esc(title) + '</h4>' + // nombre del torneo: no se traduce
       '<p class="meta">' + esc(meta) + '</p>' +
       (actions || (href ? '<a class="more" target="_blank" rel="noopener" href="' + esc(safeUrl(href)) + '">' + linkText + '</a>' : "")) +
       '</div></article>';

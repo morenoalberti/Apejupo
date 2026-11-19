@@ -98,11 +98,14 @@
     if (fi > 0) list.unshift(list.splice(fi, 1)[0]);
     $("news").innerHTML = list.map(function (n, i) {
       var img = /^https?:\/\//i.test(n.img) ? '<img loading="lazy" src="' + esc(n.img) + '" alt="">' : "";
+      // data-en: el texto en inglés que usa la bandera inglesa (js/idioma.js) sin pasar por el traductor.
+      var en = function (t) { return t ? ' data-en="' + esc(t) + '"' : ""; };
+      var fechaEn = n.date ? " · " + new Date(n.date).toLocaleString("en-GB", { day: "numeric", month: "short" }) : "";
       return '<article class="card' + (i === 0 && n.img ? " featured" : "") + '">' + img + '<div class="body">' +
-        '<span class="meta">' + esc(n.source) + (n.date ? " · " + esc(fmt(n.date, { day: "numeric", month: "short" })) : "") + (n.lang === "en" ? " · traducida" : "") + '</span>' +
-        '<h4>' + esc(n.title) + '</h4>' +
-        (n.text ? '<p>' + esc(n.text) + '…</p>' : "") +
-        '<a class="more" target="_blank" rel="noopener" href="' + esc(safeUrl(n.link)) + '">Leer en ' + esc(n.source) + ' →</a>' +
+        '<span class="meta"' + en(n.source + fechaEn) + '>' + esc(n.source) + (n.date ? " · " + esc(fmt(n.date, { day: "numeric", month: "short" })) : "") + (n.lang === "en" ? " · traducida" : "") + '</span>' +
+        '<h4' + en(n.title_en) + '>' + esc(n.title) + '</h4>' +
+        (n.text ? '<p' + en(n.text_en && n.text_en + "…") + '>' + esc(n.text) + '…</p>' : "") +
+        '<a class="more" target="_blank" rel="noopener" href="' + esc(safeUrl(n.link)) + '"' + en("Read on " + n.source + " →") + '>Leer en ' + esc(n.source) + ' →</a>' +
         '</div></article>';
     }).join("");
   }

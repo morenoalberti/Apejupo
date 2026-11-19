@@ -25,7 +25,7 @@
   var diccionarioListo = fetch("data/i18n/en.json", { cache: "no-cache" })
     .then(function (r) { return r.ok ? r.json() : {}; })
     .catch(function () { return {}; })
-    .then(function (d) { diccionario = d && typeof d === "object" ? d : {}; });
+    .then(function (d) { diccionario = d && typeof d === "object" ? d : {}; comodines = null; });
   function esperarDiccionario(hecho) { // como mucho 1,5 s: sin diccionario, se sigue con el traductor
     var listo = false, una = function () { if (!listo) { listo = true; hecho(); } };
     diccionarioListo.then(una); setTimeout(una, 1500);
@@ -54,9 +54,40 @@
     var t = txt.trim();
     if (t.length < 2 || t.length > 1200) return false;
     if (!/[a-záéíóúñü]{2}/i.test(t)) return false; // números, horas, resultados, «½»…
-    if (SIGLAS.test(t) || !/[aeiouáéíóú]/i.test(t)) return false; // siglas (ELO, GM, FIDE…) y palabras sin vocales
+    if (SIGLAS.test(t) || !/[aeiouáéíóú]/i.test(t) || /^[A-ZÁÉÍÓÚÑ]{2,3}$/.test(t)) return false; // siglas (ELO, GM, FIDE…), iniciales y palabras sin vocales
     if (NOMBRE.test(t) || /^apejupo$/i.test(t) || /^https?:\/\//.test(t) || /^[\w.+-]+@[\w-]+\.[\w.]+$/.test(t)) return false;
+    if (/[♔-♟]/.test(t) || /^\d+\.{1,3}\s*(?:[KQRBN]?[a-h]?[1-8]?x?[a-h][1-8]|O-O)/.test(t)) return false; // jugadas: «1. e4 e6 2. ♘c3…»
     return true;
+  }
+  // Textos con números («27 Torneos en directo», «Profundidad 22»): se traducen como plantilla
+  // («{0} Torneos en directo») una sola vez y se rellenan con los números de cada caso.
+  function plantilla(texto) {
+    var numeros = [];
+    var p = texto.replace(/\d+(?:[.,:]\d+)*/g, function (m) { numeros.push(m); return "{" + (numeros.length - 1) + "}"; });
+    return { p: p, numeros: numeros };
+  }
+  function rellenar(tr, numeros) {
+    for (var i = 0; i < numeros.length; i++) if (tr.indexOf("{" + i + "}") < 0) return null;
+    return tr.replace(/\{(\d+)\}/g, function (m, i) { return numeros[+i] != null ? numeros[+i] : m; });
+  }
+  // Entradas con comodín en el diccionario: «Ver estadísticas de {*}» → «View statistics for {*}».
+  // Lo que cubre el comodín (un nombre, una fecha…) se deja tal cual.
+  var comodines = null;
+  function porComodin(texto) {
+    if (!comodines) {
+      comodines = Object.keys(diccionario).filter(function (k) { return k.indexOf("{*}") >= 0 && diccionario[k]; }).map(function (k) {
+        var re = "^" + k.split("{*}").map(function (s) { return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); }).join("([\\s\\S]+?)") + "$";
+        return { re: new RegExp(re), tr: diccionario[k] };
+      });
+    }
+    for (var i = 0; i < comodines.length; i++) {
+      var m = comodines[i].re.exec(texto);
+      if (m) { var k = 1; return comodines[i].tr.replace(/\{\*\}/g, function () { return m[k++] || ""; }); }
+    }
+    return null;
+  }
+  function conocida(texto) {
+    return (Object.prototype.hasOwnProperty.call(diccionario, texto) && diccionario[texto]) || memoria[texto] || null;
   }
   function saltar(el) { return !el || !!(el.closest && el.closest(SALTAR)); }
 
@@ -67,8 +98,21 @@
 
   var pendientes = new Map(); // texto original → [aplicadores]
   function pedir(texto, aplicar) {
-    if (Object.prototype.hasOwnProperty.call(diccionario, texto) && diccionario[texto]) { aplicar(diccionario[texto]); return; }
-    if (memoria[texto]) { aplicar(memoria[texto]); return; }
+    var ya = conocida(texto);
+    if (ya) { aplicar(ya); return; }
+    // Orden: texto exacto → plantilla con números («Ronda {0} de {1}») → comodín («Ronda {*}») → traductor.
+    var pl = plantilla(texto), conNumeros = pl.numeros.length && pl.p !== texto && /[a-záéíóúñ]{2}/i.test(pl.p);
+    var hecha = conNumeros && conocida(pl.p), lleno = hecha && rellenar(hecha, pl.numeros);
+    if (lleno) { aplicar(lleno); return; }
+    var comodin = porComodin(texto);
+    if (comodin) { aplicar(comodin); return; }
+    if (conNumeros && !hecha) { // se pide la plantilla; si el traductor se come algún {n}, se pide el texto tal cual
+      encolar(pl.p, function (tr) { var r = rellenar(tr, pl.numeros); if (r) aplicar(r); else encolar(texto, aplicar); });
+      return;
+    }
+    encolar(texto, aplicar);
+  }
+  function encolar(texto, aplicar) {
     if (!pendientes.has(texto)) pendientes.set(texto, []);
     pendientes.get(texto).push(aplicar);
     programar();
@@ -81,6 +125,12 @@
     if (!traducible(valor)) return;
     var p = partir(valor);
     if (!st) { st = { orig: valor, tr: null }; estadoTexto.set(n, st); textos.add(n); }
+    // El elemento ya trae su versión en inglés (p. ej. las noticias: data-en="…"): se usa tal cual.
+    var el = n.parentElement;
+    if (el && el.hasAttribute("data-en") && el.childNodes.length === 1) {
+      st.tr = p.a + el.getAttribute("data-en") + p.z; if (idioma === "en") n.nodeValue = st.tr;
+      return;
+    }
     pedir(p.t, function (tr) {
       if (idioma !== "en" || n.nodeValue !== st.orig) return;
       st.tr = p.a + tr + p.z; n.nodeValue = st.tr;
@@ -162,7 +212,7 @@
     });
     var n;
     while ((n = w.nextNode())) {
-      if (n.nodeType === 3) { if (traducible(n.nodeValue)) salida.add(n.nodeValue.trim()); }
+      if (n.nodeType === 3) { if (traducible(n.nodeValue) && !(n.parentElement && n.parentElement.hasAttribute("data-en"))) salida.add(n.nodeValue.trim()); }
       else ATRIBUTOS.forEach(function (at) { var v = n.getAttribute(at); if (v != null && traducible(v)) salida.add(v.trim()); });
     }
     return salida;
@@ -171,7 +221,7 @@
     if (idioma !== "es" || !document.body) return;
     var lista = recoger(document.body, new Set());
     if (traducible(tituloOriginal)) lista.add(tituloOriginal.trim());
-    lista.forEach(function (texto) { if (!diccionario[texto] && !memoria[texto] && !pendientes.has(texto)) { pendientes.set(texto, []); programar(); } });
+    lista.forEach(function (texto) { if (!conocida(texto) && !pendientes.has(texto)) pedir(texto, function () {}); });
   }
   function anticiparLuego() {
     if (window.requestIdleCallback) requestIdleCallback(anticipar, { timeout: 3000 }); else setTimeout(anticipar, 1500);
@@ -264,6 +314,30 @@
     textos: function () { var s = recoger(document.body, new Set()); if (traducible(tituloOriginal)) s.add(tituloOriginal.trim()); return Array.from(s); },
     faltan: function () { return this.textos().filter(function (t) { return !diccionario[t]; }); },
     listo: function () { return diccionarioListo; },
+    // Para scripts/comprobar-traducciones.mjs: con la página en inglés, lo que sigue en español
+    // (salvo lo que el diccionario deja igual a propósito, como nombres propios).
+    sinTraducir: function () {
+      var igual = function (t) { return diccionario[t] === t || memoria[t] === t; }, fuera = new Set();
+      var w = document.createTreeWalker(document.body, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT, {
+        acceptNode: function (n) { return n.nodeType === 1 && saltar(n) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT; },
+      });
+      var n;
+      while ((n = w.nextNode())) {
+        if (n.nodeType === 3) {
+          var st = estadoTexto.get(n), v = n.nodeValue;
+          if (traducible(v) && !(st && st.tr && v === st.tr) && !igual(v.trim())) fuera.add(v.trim());
+        } else {
+          var mapa = estadoAttr.get(n) || {};
+          ATRIBUTOS.forEach(function (at) {
+            var v = n.getAttribute(at), st = mapa[at];
+            if (v != null && traducible(v) && !(st && st.tr && v === st.tr) && !igual(v.trim())) fuera.add("[" + at + "] " + v.trim());
+          });
+        }
+      }
+      if (traducible(tituloOriginal) && document.title === tituloOriginal && !igual(tituloOriginal.trim())) fuera.add("[título] " + tituloOriginal);
+      return Array.from(fuera);
+    },
+    pendientes: function () { return pendientes.size + enVuelo; },
   };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", iniciar); else iniciar();
 })();

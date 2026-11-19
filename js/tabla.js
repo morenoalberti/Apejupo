@@ -108,7 +108,7 @@
     var more = rows.length > PAGE, list = rows.slice(0, PAGE), base = state.page * PAGE;
     var fide = state.modo === "fide";
     $("tbl-body").innerHTML = list.map(function (r, i) {
-      var jugador = '<td><span class="jug">' + U.avatar(r.nombre, r.fide_id) + "<strong>" + esc(r.nombre) + "</strong></span></td>";
+      var jugador = '<td translate="no"><span class="jug">' + U.avatar(r.nombre, r.fide_id) + "<strong>" + esc(r.nombre) + "</strong></span></td>"; // el nombre no se traduce
       if (fide) {
         return '<tr><td class="pos">' + (base + i + 1) + '</td><td class="num">' + fideLink(r.fide_id) + "</td>" + jugador +
           "<td>" + U.flag(r.federacion) + esc(r.federacion) + "</td><td>" + esc(r.titulo || "") + "</td>" +
@@ -250,7 +250,7 @@
     var fed = (f && f.federation) || r.federacion || "", titulo = (f && f.title) || r.titulo || "";
     function fila(k, v) { return v !== "" && v != null ? "<dt>" + k + "</dt><dd>" + v + "</dd>" : ""; }
     var foto = f && f.photo && f.photo.medium ? '<img class="fphoto" alt="" src="' + esc(f.photo.medium) + '">' : "";
-    var h = "<h3>" + esc(r.nombre) + '</h3><p class="muted small">FIDE ID: ' + esc(r.fide_id) + '</p><div class="fhead">' +
+    var h = '<h3 translate="no">' + esc(r.nombre) + '</h3><p class="muted small">FIDE ID: ' + esc(r.fide_id) + '</p><div class="fhead">' +
       '<div class="fimg">' + (foto || U.avatar(r.nombre, r.fide_id).replace('class="av"', 'class="av av-xl"')) + "</div><dl>" +
       fila("Federación", fed ? U.flag(fed) + " " + esc(U.pais(fed)) : "") + fila("Año", anio || "") + fila("Género", gen) + fila("Edad", edad ? edad : "") +
       fila("Título", esc(titulo || "—")) + fila("Standard", (f && f.standard) || r.standard || "") + fila("Rapid", (f && f.rapid) || r.rapid || "") + fila("Blitz", (f && f.blitz) || r.blitz || "") + "</dl></div>";

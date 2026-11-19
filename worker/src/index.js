@@ -447,7 +447,7 @@ const TR_SISTEMA = 'You translate texts from the website of a Spanish chess club
   'Short labels (one to three words) written entirely in capitals: translate them and keep them in capitals ("HOY" = "TODAY", "EN DIRECTO" = "LIVE", "EN CURSO" = "IN PROGRESS", "PRÓXIMAMENTE" = "COMING SOON"). ' +
   'Longer texts in capitals are usually tournament or club names: keep those unchanged. Everything else keeps normal sentence capitalization ("Ajedrez en directo" = "Live chess"). ' +
   'In time controls, "a finish" or "/ final" means "to finish" ("90 min + 30 min a finish" = "90 min + 30 min to finish"). ' +
-  'Never translate proper names of people, clubs, places or tournaments, nor the word "Apejupo". Keep numbers, symbols, punctuation and capitalization style. ' +
+  'Keep placeholders such as {0} or {1} exactly as they are. Never translate proper names of people, clubs, places or tournaments, nor the word "Apejupo". Keep numbers, symbols, punctuation and capitalization style. ' +
   'Answer ONLY with a JSON array of strings with exactly the same length and order as the input array.';
 function trOrigen(request) {
   const o = request.headers.get("Origin") || "";
@@ -464,6 +464,15 @@ async function trModelo(env, textos) {
   if (!Array.isArray(out) || out.length !== textos.length) throw new Error("respuesta no válida");
   return out.map((x) => (typeof x === "string" && x.trim() ? x : null));
 }
+// Si el modelo se descuadra con un lote (devuelve otra cantidad de textos), se parte en mitades.
+async function trSeguro(env, textos) {
+  try { return await trModelo(env, textos); } catch (e) {
+    console.warn("traducir: " + textos.length + " textos: " + String(e?.message || e).slice(0, 200));
+    if (textos.length === 1) return [null];
+    const mitad = Math.ceil(textos.length / 2);
+    return [...(await trSeguro(env, textos.slice(0, mitad))), ...(await trSeguro(env, textos.slice(mitad)))];
+  }
+}
 async function traducir(request, env, ctx) {
   const origen = trOrigen(request);
   const cors = { "Access-Control-Allow-Origin": origen || "https://apejupo.com", "Access-Control-Allow-Methods": "POST, OPTIONS", "Access-Control-Allow-Headers": "Content-Type", "Access-Control-Max-Age": "86400", Vary: "Origin" };
@@ -476,7 +485,7 @@ async function traducir(request, env, ctx) {
   const textos = Array.isArray(body?.texts) ? body.texts : null;
   if (!IDIOMAS[body?.to] || !textos || textos.length > TR_MAX_TEXTOS || textos.some((t) => typeof t !== "string" || t.length > TR_MAX_LARGO) || textos.join("").length > TR_MAX_TOTAL) return json({ error: "Datos no válidos" }, 400);
   const cache = typeof caches !== "undefined" ? caches.default : null;
-  const claves = await Promise.all(textos.map(async (t) => new Request("https://apejupo.invalid/traducir/l33e/" + body.to + "/" + (await huella(t))))); // l33: modelo actual (cambiarlo vacía la caché)
+  const claves = await Promise.all(textos.map(async (t) => new Request("https://apejupo.invalid/traducir/l33f/" + body.to + "/" + (await huella(t))))); // l33: modelo actual (cambiarlo vacía la caché)
   const salida = await Promise.all(textos.map(async (t, i) => {
     if (!t.trim()) return t;
     if (cache) { const hit = await cache.match(claves[i]); if (hit) return hit.text(); }
@@ -486,7 +495,7 @@ async function traducir(request, env, ctx) {
   const faltan = salida.map((v, i) => (v === undefined ? i : -1)).filter((i) => i >= 0);
   if (faltan.length) {
     let nuevas = faltan.map(() => null);
-    try { nuevas = await trModelo(env, faltan.map((i) => textos[i])); } catch {}
+    nuevas = await trSeguro(env, faltan.map((i) => textos[i]));
     faltan.forEach((i, k) => {
       salida[i] = nuevas[k];
       if (nuevas[k] && cache) ctx.waitUntil(cache.put(claves[i], new Response(nuevas[k], { headers: { "Cache-Control": "max-age=2592000" } })));
