@@ -78,7 +78,8 @@
       return d.innerHTML;
     },
     safeUrl: function (u) { return /^https?:\/\//i.test(u || "") ? u : "#"; },
-    fmt: function (d, opts) { return new Date(d).toLocaleString("es-ES", opts); }
+    // Fechas en el idioma de la página (las banderas de js/idioma.js cambian <html lang>).
+    fmt: function (d, opts) { return new Date(d).toLocaleString(document.documentElement.lang === "en" ? "en-GB" : "es-ES", opts); }
   };
   // ---------- Tarjetas que se arrastran con el ratón para cambiarlas de sitio ----------
   function readOrder(key) { try { var o = JSON.parse(localStorage.getItem(key)); return Array.isArray(o) ? o : []; } catch (_) { return []; } }
@@ -472,7 +473,7 @@
       .replace(/\bmin(utes?)?\b/gi, "min").replace(/\bsec(onds?)?\b/gi, "s").replace(/\/\s*move\b/i, "por jugada").replace(/\bper move\b/i, "por jugada")
       .replace(/\bmoves\b/gi, "jugadas").replace(/\bhours?\b/gi, "h").replace(/\bplus\b/gi, "+");
   }
-  function dd(ms, z, o) { var d = new Date(ms); try { return d.toLocaleDateString("es-ES", Object.assign({ timeZone: z || undefined }, o)); } catch (_) { return d.toLocaleDateString("es-ES", o); } }
+  function dd(ms, z, o) { var d = new Date(ms); try { return d.toLocaleDateString(document.documentElement.lang === "en" ? "en-GB" : "es-ES", Object.assign({ timeZone: z || undefined }, o)); } catch (_) { return d.toLocaleDateString("es-ES", o); } }
   function build(d) {
     var rows = [];
     function row(k, v) { if (v) rows.push('<div><b>' + k + '</b><span>' + U.esc(v) + '</span></div>'); }

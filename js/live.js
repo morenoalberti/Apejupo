@@ -1492,7 +1492,7 @@
       var dt = (j.tour && j.tour.dates) || [], dtxt = "";
       if (dt[0]) {
         var z = i.timeZone || undefined, d1 = new Date(dt[0]), d2 = dt[1] ? new Date(dt[1]) : null;
-        function dd(d, o) { try { return d.toLocaleDateString("es-ES", Object.assign({ timeZone: z }, o)); } catch (_) { return d.toLocaleDateString("es-ES", o); } }
+        function dd(d, o) { try { return d.toLocaleDateString(document.documentElement.lang === "en" ? "en-GB" : "es-ES", Object.assign({ timeZone: z }, o)); } catch (_) { return d.toLocaleDateString("es-ES", o); } }
         var same = d2 && dd(d1, { day: "numeric", month: "numeric", year: "numeric" }) === dd(d2, { day: "numeric", month: "numeric", year: "numeric" });
         dtxt = !d2 || same ? dd(d1, { day: "numeric", month: "short", year: "numeric" })
           : "del " + dd(d1, { day: "numeric", month: "short" }) + " al " + dd(d2, { day: "numeric", month: "short", year: "numeric" });

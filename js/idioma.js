@@ -9,12 +9,13 @@
   // En local (localhost:8080) se usa el Worker de pruebas del equipo (npx wrangler dev, puerto 8787).
   if (/^(localhost|127\.0\.0\.1)$/.test(location.hostname)) API = "http://127.0.0.1:8787/traducir";
   try { var q = /[?&]traductor=([^&]+)/.exec(location.search); if (q && /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?\/traducir$/.test(decodeURIComponent(q[1]))) API = decodeURIComponent(q[1]); } catch (_) {} // pruebas en local
-  var CLAVE = "apejupo-idioma", CACHE = "apejupo-traducciones-en", LOTE = 20, MAX_CACHE = 4000;
+  var CLAVE = "apejupo-idioma", CACHE = "apejupo-traducciones-en-2", LOTE = 20, MAX_CACHE = 4000;
   var ATRIBUTOS = ["placeholder", "title", "aria-label", "alt"];
   var SALTAR = "script,style,noscript,code,pre,textarea,svg,canvas,iframe,[translate='no'],.notranslate,.lang-flags,.cu-nick,.to-board,.board,cg-board,.cm-content";
 
   var idioma = "es";
   try { idioma = localStorage.getItem(CLAVE) === "en" ? "en" : "es"; } catch (_) {}
+  if (idioma === "en") document.documentElement.lang = "en"; // las fechas que pinte la página saldrán ya en inglés
 
   // ── Memoria de traducciones (también entre páginas, en este navegador) ──
   var memoria = {};
@@ -31,12 +32,15 @@
   }
 
   // ── Qué se traduce ──
-  var NOMBRE = /^[A-ZÁÉÍÓÚÑÜ][\p{L}'’.-]+(?: [\p{L}'’.-]+)*, [A-ZÁÉÍÓÚÑÜ][\p{L}'’.-]+(?: [\p{L}'’.-]+)*$/u; // «Pérez Alarcón, Diego»
+  var SIGLAS = /^(ELO|FIDE|FEDA|FADA|GM|IM|MI|FM|MF|CM|WGM|WIM|WFM|WCM|AIM|ACM|PGN|TRF|BH|BH-1|SB|PJ|PTS|PROG|ID|URL|QR|OK|ECF|USCF)$/i;
+  // Nombres «Apellidos, Nombre» (p. ej. «Pérez de la Fuente, Juan»): todas las palabras en mayúscula, salvo partículas.
+  var PAL = /(?:[A-ZÁÉÍÓÚÑÜ][\p{Ll}'’-]*\.?|de|del|la|las|los|y|da|di|van|von|der|el)/u.source;
+  var NOMBRE = new RegExp("^[A-ZÁÉÍÓÚÑÜ][\\p{Ll}'’-]+(?: " + PAL + "){0,4}, [A-ZÁÉÍÓÚÑÜ][\\p{Ll}'’-]*\\.?(?: " + PAL + "){0,3}$", "u");
   function traducible(txt) {
     var t = txt.trim();
     if (t.length < 2 || t.length > 1200) return false;
     if (!/[a-záéíóúñü]{2}/i.test(t)) return false; // números, horas, resultados, «½»…
-    if (/^[A-Z0-9ÁÉÍÓÚÑ .·:+-]{1,5}$/.test(t)) return false; // siglas: ELO, GM, AIM, FIDE…
+    if (SIGLAS.test(t) || !/[aeiouáéíóú]/i.test(t)) return false; // siglas (ELO, GM, FIDE…) y palabras sin vocales
     if (NOMBRE.test(t) || /^apejupo$/i.test(t) || /^https?:\/\//.test(t) || /^[\w.+-]+@[\w-]+\.[\w.]+$/.test(t)) return false;
     return true;
   }
@@ -82,10 +86,14 @@
   }
   function recorrer(raiz) {
     if (raiz.nodeType === 3) { if (!saltar(raiz.parentElement)) nodoTexto(raiz); return; }
-    if (raiz.nodeType !== 1 || saltar(raiz)) return;
+    if (raiz.nodeType !== 1) return;
+    if (saltar(raiz)) { if (!raiz.closest("[translate='no'],.notranslate")) atributosDe(raiz); return; }
     atributosDe(raiz);
     var w = document.createTreeWalker(raiz, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT, {
-      acceptNode: function (n) { return n.nodeType === 1 && saltar(n) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT; },
+      acceptNode: function (n) {
+        if (n.nodeType === 1 && saltar(n)) { if (!n.closest("[translate='no'],.notranslate")) atributosDe(n); return NodeFilter.FILTER_REJECT; }
+        return NodeFilter.FILTER_ACCEPT;
+      },
     });
     var n;
     while ((n = w.nextNode())) { if (n.nodeType === 3) nodoTexto(n); else atributosDe(n); }
@@ -164,11 +172,22 @@
     });
   });
 
-  var tituloOriginal = document.title;
+  // Título de la pestaña: algunas páginas lo cambian después de cargar (p. ej. con el nombre del torneo).
+  var tituloOriginal = document.title, tituloPuesto = null;
+  function traducirTitulo() {
+    if (!traducible(tituloOriginal)) return;
+    var original = tituloOriginal;
+    pedir(original, function (tr) { if (idioma === "en" && tituloOriginal === original) { tituloPuesto = tr; document.title = tr; } });
+  }
+  new MutationObserver(function () {
+    if (document.title === tituloPuesto) return; // es nuestra traducción
+    tituloOriginal = document.title;           // la página ha puesto un título nuevo (en español)
+    if (idioma === "en") traducirTitulo();
+  }).observe(document.head, { subtree: true, childList: true, characterData: true });
   function aIngles() {
     document.documentElement.lang = "en";
     recorrer(document.body);
-    if (traducible(tituloOriginal)) pedir(tituloOriginal, function (tr) { if (idioma === "en") document.title = tr; });
+    traducirTitulo();
     observador.observe(document.body, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ATRIBUTOS });
   }
   function aEspanol() {
@@ -182,7 +201,7 @@
     });
     textos.clear(); elementos.clear();
     document.documentElement.lang = "es";
-    document.title = tituloOriginal;
+    tituloPuesto = null; document.title = tituloOriginal;
   }
 
   // ── Banderas ──
