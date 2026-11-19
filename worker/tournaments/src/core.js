@@ -54,6 +54,24 @@ function arenaScore(score, plies, run) {
   else if (score === .5) run.drawSinceWin = true;
   return { points, doubled: doubled && points > 0 };
 }
+export function tournamentTrfDetails(t) {
+  const { city = '', federation = 'ESP', chiefArbiter = '', deputyArbiters = '' } = t.trfReport || {};
+  return { city, federation, chiefArbiter, deputyArbiters };
+}
+
+function readTrfDetails(details, previous = tournamentTrfDetails({})) {
+  requireThat(details && typeof details === 'object' && !Array.isArray(details), 'Los datos para el TRF no son válidos.');
+  const federation = String(details.federation ?? previous.federation).trim().toUpperCase();
+  requireThat(!federation || /^[A-Z]{3}$/.test(federation), 'La federación del torneo debe tener tres letras, por ejemplo ESP.');
+  return {
+    city: cleanName(details.city ?? previous.city, 120),
+    federation: federation || 'ESP',
+    chiefArbiter: cleanName(details.chiefArbiter ?? previous.chiefArbiter, 120),
+    deputyArbiters: String(details.deputyArbiters ?? previous.deputyArbiters).split(/[;\r\n]/).slice(0, 12)
+      .map(name => cleanName(name, 120)).filter(Boolean).join('; ')
+  };
+}
+
 export function createTournament(input, id, hostHash, now = Date.now()) {
   const title = cleanName(input.title, 70);
   const mode = input.mode || 'online';
@@ -85,9 +103,11 @@ export function createTournament(input, id, hostHash, now = Date.now()) {
   let startsAt = input.startsAt ? Number(input.startsAt) : null;
   if (mode === 'presencial') requireThat(startsAt === null || (Number.isFinite(startsAt) && startsAt > now - 86400000 && startsAt < now + 14 * 86400000), 'Elige una fecha desde hoy y dentro de los próximos 14 días.');
   else requireThat(startsAt === null || (Number.isFinite(startsAt) && startsAt > now + 60000 && startsAt < now + 14 * 86400000), 'La fecha de inicio debe estar entre un minuto y 14 días en el futuro.');
+  const trfReport = mode === 'presencial' && input.trfDetails !== undefined ? readTrfDetails(input.trfDetails) : null;
   return { id, title, hostHash, mode, format, duration, endsAt: null, minutes, increment, rounds, capacity, startsAt, createdAt: now,
     expiresAt: now + RETENTION_MS, status: 'waiting', round: 0, nextRoundAt: null,
-    players: [], games: [], revision: 0, finishedAt: null, notice: '', joinKey, tiebreaks: cleanTiebreaks(format, input.tiebreaks), scoring };
+    players: [], games: [], revision: 0, finishedAt: null, notice: '', joinKey, tiebreaks: cleanTiebreaks(format, input.tiebreaks), scoring,
+    ...(trfReport ? { trfReport } : {}) };
 }
 
 // Editar antes de empezar: se valida igual que al crear y se conservan inscritos y fechas internas.
@@ -95,7 +115,9 @@ export function editTournament(t, input, now = Date.now()) {
   // Un presencial emparejado sin ningún resultado anotado aún no se está jugando: se puede editar.
   const paired = canChangeInitialRoster(t);
   requireThat(t.status === 'waiting' || paired, 'El torneo ya ha empezado: no se puede editar.', 409);
-  const n = createTournament(input, t.id, t.hostHash, now);
+  const previousTrf = tournamentTrfDetails(t);
+  const trfDetails = input.mode === 'presencial' && input.trfDetails !== undefined ? readTrfDetails(input.trfDetails, previousTrf) : undefined;
+  const n = createTournament({ ...input, trfDetails: undefined }, t.id, t.hostHash, now);
   if (paired) requireThat(n.mode === 'presencial', 'Un torneo presencial ya emparejado no puede pasar a online.');
   // Al emparejar, el suizo limita las rondas al número de jugadores: se compara con las rondas pedidas.
   const plan = x => [x.format, x.format === 'swiss' ? x.plannedRounds ?? x.rounds : '', x.minutes, x.increment].join();
@@ -108,6 +130,10 @@ export function editTournament(t, input, now = Date.now()) {
   if (input.tiebreaks === undefined) n.tiebreaks = cleanTiebreaks(n.format, t.tiebreaks);
   if (input.scoring === undefined && n.format !== 'arena' && !(t.scoring === '3' && n.format === 'double-closed')) n.scoring = scoringOf(t);
   for (const k of ['title', 'mode', 'format', 'duration', 'minutes', 'increment', 'rounds', 'capacity', 'startsAt', 'joinKey', 'tiebreaks', 'scoring']) t[k] = n[k];
+  if (trfDetails && Object.keys(trfDetails).some(key => trfDetails[key] !== previousTrf[key])) {
+    t.trfReport = { ...t.trfReport, ...trfDetails };
+    t.trfVersion = (t.trfVersion || 0) + 1;
+  }
   // Si cambia el sistema, las rondas o el ritmo, se rehacen los emparejamientos (no hay resultados que perder).
   if (paired) {
     if (before !== plan(n)) regenerateInitialPairings(t, now);
@@ -125,7 +151,7 @@ export function gameScore(t, s, n = 1) {
 }
 
 export function standings(t) {
-  const rows = t.players.map(p => ({ id: p.id, name: p.name, seed: p.seed, rating: p.rating || null, source: p.source || null, fideId: p.fideId || null, fed: p.fed || null, title: p.title || null, birth: p.birth || null, sex: p.sex || null, club: p.club || null, active: p.active, registered: !!p.accountId,
+  const rows = t.players.map(p => ({ id: p.id, name: p.name, seed: p.seed, rating: p.rating || null, source: p.source || null, fideId: p.fideId || null, fide: p.fide ?? null, fada: p.fada ?? null, fadaId: p.fadaId || null, fed: p.fed || null, title: p.title || null, birth: p.birth || null, sex: p.sex || null, club: p.club || null, active: p.active, registered: !!p.accountId,
     points: 0, wins: 0, buchholz: 0, sonneborn: 0, played: 0, byes: 0, opponents: [], colors: [], sheet: [] }));
   const map = new Map(rows.map(p => [p.id, p]));
   const arenaRuns = new Map(rows.map(p => [p.id, { wins: 0, drawSinceWin: false }]));
@@ -322,13 +348,17 @@ function presencialEntry(input) {
   const year = Number(input?.birth), birth = Number.isInteger(year) && year >= 1900 && year <= new Date().getFullYear() ? year : null;
   const sex = input?.sex === 'M' || input?.sex === 'F' ? input.sex : null; // de las listas: M masculino, F femenino
   const club = cleanName(input?.club, 80) || null;
-  return { name, rating: rating || null, source: rating ? source : null, fideId, fed, title, birth, sex, club };
+  const extraRatings = {};
+  for (const k of ['fide', 'fada']) { const v = Number(input?.[k]); if (Number.isInteger(v) && v >= 0 && v <= 4000) extraRatings[k] = v; }
+  const fadaId = /^\d{1,11}$/.test(String(input?.fadaId ?? '')) ? String(input.fadaId) : null;
+  return { name, rating: rating || null, source: rating ? source : null, fideId, fed, title, birth, sex, club, ...extraRatings, ...(fadaId ? { fadaId } : {}) };
 }
 function addPresencial(t, entry, now, extra = {}) {
   requireThat(!t.players.some(p => sameKey(p.name, entry.name)), `Ya hay un jugador con ese nombre («${entry.name}»). Añade un apellido.`);
   requireThat(t.players.length < t.capacity, 'El torneo está completo.');
   const p = { id: crypto.randomUUID(), hash: extra.hash || crypto.randomUUID(), name: entry.name, active: true, seed: t.players.length + 1, joinedAt: now,
     rating: entry.rating, ...(entry.source ? { source: entry.source } : {}), ...(entry.fideId ? { fideId: entry.fideId } : {}), ...(entry.fed ? { fed: entry.fed } : {}), ...(entry.title ? { title: entry.title } : {}), ...(entry.birth ? { birth: entry.birth } : {}), ...(entry.sex ? { sex: entry.sex } : {}), ...(entry.club ? { club: entry.club } : {}), ...(extra.accountId ? { accountId: extra.accountId } : {}) };
+  for (const k of ['fide', 'fada', 'fadaId']) if (Object.hasOwn(entry, k)) p[k] = entry[k];
   t.players.push(p);
   return p;
 }
@@ -372,7 +402,8 @@ export function joinTournament(t, name, playerHash, now = Date.now(), key = '', 
 
 function newGame(t, a, b, now) {
   if (isPresencial(t)) return { id: crypto.randomUUID(), round: t.round, white: a.id, black: b?.id || null,
-    moves: [], result: null, reason: '', bye: !b, finishedAt: null };
+    moves: [], result: null, reason: '', bye: !b, startedAt: now, finishedAt: null,
+    ...(t.format === 'swiss' && t.pairing === 'fide' ? { pairingCode: 'FIDE_DUTCH_2025' } : {}) };
   return { id: crypto.randomUUID(), round: t.round, white: a.id, black: b?.id || null,
     fen: INITIAL_FEN, moves: [], turn: 'w', whiteMs: t.minutes * 60000, blackMs: t.minutes * 60000,
     lastAt: now, result: null, reason: '', offer: null, bye: !b, finishedAt: null };
@@ -620,6 +651,7 @@ export function act(t, playerId, host, action, now = Date.now()) {
       const e = presencialEntry(action);
       requireThat(!t.players.some(x => x !== p && sameKey(x.name, e.name)), `Ya hay un jugador llamado «${e.name}».`);
       p.name = e.name; p.rating = e.rating;
+      for (const k of ['fide', 'fada', 'fadaId']) if (Object.hasOwn(e, k)) p[k] = e[k];
       if (e.source) p.source = e.source; else delete p.source;
       if (e.fideId) p.fideId = e.fideId; else delete p.fideId;
       if (e.fed) p.fed = e.fed; else delete p.fed;

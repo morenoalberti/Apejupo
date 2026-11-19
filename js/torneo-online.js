@@ -1,10 +1,14 @@
 import { Chess } from '../assets/chess/chess.js';
 import { session, currentUser, openAuth } from './cuenta.js?v=20261117-admin1';
 import { send as sendReto } from './retos.js?v=20261115-match1';
-import { searchPlayers, findExact, warmUp, birthYears } from './torneo-elo.js?v=20261118-premios2';
+import { searchPlayers, findExact, warmUp, birthYears, reportRatings } from './torneo-elo.js?v=20261119-trf1';
 import { createPrizePanel } from './torneo-premios.js?v=20261119-condiciones';
+import { createTrfPanel } from './torneo-trf.js?v=20261119-trf4';
+import { createFederationPicker } from './selector-federacion.js';
 
 const $ = id => document.getElementById(id);
+const trfPanel = createTrfPanel({ request: trfRequest, lookup: reportRatings });
+const federationPicker = createFederationPicker($('to-trf-federation'), $('to-trf-federation-open'));
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const API = (window.APEJUPO_TORNEOS_API || '').replace(/\/$/, '');
 const roomId = new URL(location.href).searchParams.get('id');
@@ -309,7 +313,7 @@ function render() {
   // hasta que te emparejan otra vez y la nueva partida aparece sola, como en Lichess.
   const ownActive = !!t.me && t.games.some(x => !x.result && !x.bye && (x.white === t.me || x.black === t.me));
   const ownView = !!t.game && (t.game.white === t.me || t.game.black === t.me);
-  const focus = ownActive || (!!mine?.active && ownView && ['playing', 'between'].includes(t.status));
+  const focus = !presencial(t) && (ownActive || (!!mine?.active && ownView && ['playing', 'between'].includes(t.status)));
   document.body.classList.toggle('to-focus', focus);
   // Arena: la fila con «Salir del torneo» también se ve mientras juegas tu partida (la terminas y ya no se te empareja).
   $('to-focus-next').hidden = !focus || (ownActive && !arena(t));
@@ -340,7 +344,7 @@ function placeWaiting(waiting) {
   }
   // En presencial, los controles quedan justo encima de los emparejamientos, sin una franja independiente.
   const host = $('to-host'), physical = presencial(state);
-  if (physical) { if (host.parentElement !== $('to-presencial-toolbar')) $('to-presencial-toolbar').append(host); }
+  if (physical) { if (host.parentElement !== $('to-presencial-toolbar')) $('to-presencial-next').before(host); }
   else if (waiting) { if (host.parentElement !== $('to-wait-main')) $('to-wait-main').append(host); }
   else if (host.nextElementSibling !== $('to-presencial')) $('to-presencial').before(host);
 }
@@ -645,8 +649,6 @@ function renderPresencial() {
   $('to-pz-ask-form').hidden = !!t.myRequest && !askChanging;
   $('to-pz-ask-sent').hidden = !t.myRequest || askChanging;
   if (t.myRequest) $('to-pz-ask-text').textContent = `Como ${t.myRequest.name}${t.myRequest.rating ? ` (Elo ${t.myRequest.rating})` : ''}. Cuando la organización la apruebe aparecerás en la lista de inscritos.`;
-  $('to-presencial-next').hidden = !t.host || t.format !== 'swiss' || t.status !== 'between';
-  $('to-presencial-next').disabled = !connected;
   // Round-Robin con número impar de jugadores: tantas rondas como jugadores, porque en cada una descansa uno.
   const oddRR = closed(t) && !waiting && t.standings.length % 2 === 1 ? ` Con ${t.standings.length} jugadores hay ${t.rounds} rondas: en cada una descansa un jugador.` : '';
   $('to-presencial-hint').textContent = (playersView ? (t.status === 'finished' ? 'Lista final de jugadores.' : initialRoster ? 'Puedes añadir o quitar jugadores. Como no hay resultados anotados, los emparejamientos se regeneran con cada cambio.' : lateEntry ? 'Corrige nombres y Elo, retira a quien se marche o inscribe a quien llegue tarde.' : 'Corrige nombres y Elo o retira a quien se marche. En el Round-Robin no hay inscripción tardía.') : waiting ? (t.host ? 'Cuando estén todos, pulsa «Cerrar inscripción y emparejar» para sortear la primera ronda.' : mine ? 'Ya tienes plaza. Las mesas aparecerán aquí al empezar.' : 'La organización está preparando la lista de jugadores.') : t.host ? '' : 'Los resultados se actualizan cuando los anota la organización.') + (playersView || waiting ? '' : oddRR);
@@ -736,7 +738,12 @@ function renderControls() {
   if (!state) return;
   const t = state, mine = t.standings.find(p => p.id === t.me), ended = ['finished', 'cancelled'].includes(t.status);
   const canUsePrizes = !!(currentUser() && t.prizeAccess && t.status !== 'cancelled' && !boardsMode);
-  $('to-host').hidden = !canUsePrizes && (!t.host || ended);
+  const showTrf = trfPanel.sync(boardsMode ? null : t, connected);
+  const nextRound = $('to-presencial-next');
+  nextRound.hidden = !showTrf;
+  nextRound.disabled = !showTrf || !connected || t.format !== 'swiss' || t.status !== 'between';
+  nextRound.title = t.format === 'swiss' ? 'Disponible entre rondas.' : 'El emparejamiento manual está disponible en el sistema suizo.';
+  $('to-host').hidden = !showTrf && !canUsePrizes && (!t.host || ended);
   $('to-sound').hidden = presencial(t);
   $('to-key-edit').hidden = ended || presencial(t);
   $('to-host-key').hidden = ended || presencial(t);
@@ -1162,6 +1169,7 @@ function syncMode(format = $('to-format').value) {
   $('to-start-help').textContent = physical ? 'Fecha y hora previstas. El organizador inicia el torneo y cada ronda.' : 'Hora local de tu dispositivo. Sin día: inicio manual por el organizador.';
   $('to-join-key-field').hidden = physical; $('to-join-key-new').disabled = physical;
   $('to-capacity-field').hidden = physical; $('to-capacity').disabled = physical;
+  $('to-trf-details').hidden = $('to-trf-details').disabled = !physical;
   $('to-create-submit').textContent = editingId ? 'Guardar cambios' : physical ? 'Crear torneo presencial' : 'Crear y abrir inscripciones';
   syncFormat();
 }
@@ -1302,6 +1310,7 @@ $('to-create-open').addEventListener('click', () => {
   if (!user) { message('Entra con tu cuenta para organizar un torneo.'); openAuth('entrar'); return; }
   if (!user.verified) { message('Confirma tu correo para organizar torneos: abre el enlace que te enviamos. Si no te llegó, pídelo de nuevo desde el menú de tu cuenta.', true); return; }
   $('to-create-form').reset(); $('to-mode').value = 'online'; setCreateMode(null); tbState = null; syncMode('arena');
+  federationPicker.set('ESP');
   $('to-tb-list').hidden = true; $('to-tb-toggle').textContent = 'Personalizar'; $('to-tb-toggle').setAttribute('aria-expanded', 'false');
   $('to-create-dialog').showModal();
   // En el móvil, el nombre vacío (sin ejemplo) y con el cursor dentro para escribir directamente.
@@ -1322,6 +1331,11 @@ async function openEdit(id) {
   if (c.format === 'arena') $('to-duration').value = c.duration;
   // Se muestra la clave actual para poder cambiarla; si se borra, el torneo queda sin clave.
   $('to-capacity').value = c.capacity; $('to-join-key-new').value = c.joinKey || '';
+  const trf = c.trfDetails;
+  $('to-trf-city').value = trf?.city || '';
+  federationPicker.set(trf?.federation);
+  $('to-trf-chief').value = trf?.chiefArbiter || '';
+  $('to-trf-deputies').value = trf?.deputyArbiters || '';
   if (c.startsAt) {
     const d = new Date(c.startsAt), hhmm = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`, list = $('to-start-time');
     // Si la hora guardada no está en la lista (cada 15 minutos), se añade para no perderla.
@@ -1342,6 +1356,10 @@ $('to-create-form').addEventListener('submit', async event => {
     const startsAt = day ? new Date(`${day}T${time}`).getTime() : null;
     const isArena = data.get('format') === 'arena';
     const fields = { title: data.get('title'), mode: data.get('mode'), format: data.get('format'), minutes: Number(data.get('minutes')), increment: Number(data.get('increment')), rounds: data.get('format') === 'swiss' ? Number(data.get('rounds')) : null, duration: isArena ? Number(data.get('duration')) : null, capacity: data.get('mode') === 'presencial' ? 128 : Number(data.get('capacity')), startsAt, joinKey: data.get('joinKey') || '' , ...(isArena ? {} : { tiebreaks: tbChosen(), scoring: data.get('scoring') || '1' }) };
+    if (fields.mode === 'presencial') fields.trfDetails = {
+      city: data.get('trfCity'), federation: data.get('trfFederation'),
+      chiefArbiter: data.get('trfChiefArbiter'), deputyArbiters: data.get('trfDeputyArbiters')
+    };
     if (editingId) {
       await request(`/api/tournaments/${editingId}/edit`, { method: 'POST', key: managementKey(editingId), body: JSON.stringify({ ...fields, hostToken: read(hostKey(editingId)) }) });
       $('to-create-dialog').close(); message('Cambios guardados.'); if (!roomId) await loadLobby(); return;
@@ -1601,13 +1619,13 @@ function warnDuplicate(p) {
 }
 attachSearch('to-pz-search', 'to-pz-sugs', p => {
   if (warnDuplicate(p)) return;
-  if (send({ type: 'presencial-player', name: p.name, rating: p.rating ?? '', source: p.source, fideId: p.fideId, fed: p.fed, title: p.title, birth: p.birth, sex: p.sex, club: p.club })) message('');
+  if (send({ type: 'presencial-player', name: p.name, rating: p.rating ?? '', source: p.source, fideId: p.fideId, fide: p.fide, fada: p.fada, fadaId: p.fadaId, fed: p.fed, title: p.title, birth: p.birth, sex: p.sex, club: p.club })) message('');
   $('to-pz-search').focus();
 }, text => `Añadir «${text}»`);
 attachSearch('to-pz-ask-search', 'to-pz-ask-sugs', async p => {
   try {
     const id = read(playerKey()) || token(), user = currentUser(); write(playerKey(), id);
-    await request(`/api/tournaments/${roomId}/join`, { method: 'POST', key: user ? session() : '', body: JSON.stringify({ name: p.name, rating: p.rating ?? '', source: p.source, fideId: p.fideId, fed: p.fed, title: p.title, birth: p.birth, sex: p.sex, club: p.club, token: id }) });
+    await request(`/api/tournaments/${roomId}/join`, { method: 'POST', key: user ? session() : '', body: JSON.stringify({ name: p.name, rating: p.rating ?? '', source: p.source, fideId: p.fideId, fide: p.fide, fada: p.fada, fadaId: p.fadaId, fed: p.fed, title: p.title, birth: p.birth, sex: p.sex, club: p.club, token: id }) });
     askChanging = false; hello(); message('');
   } catch (e) { if (isDupError(e.message)) noticeBox('Ese nombre ya está inscrito', e.message); else message(e.message, true); }
 }, text => `Pedir plaza como «${text}»`);
@@ -1687,7 +1705,7 @@ $('to-pz-paste-check').addEventListener('click', async () => {
 });
 $('to-pz-paste-form').addEventListener('submit', event => {
   event.preventDefault();
-  const players = pasted.filter(p => !p.problem).map(({ name, rating, source, fideId, fed, title, birth, sex, club }) => ({ name, rating: rating ?? '', source, fideId, fed, title, birth, sex, club }));
+  const players = pasted.filter(p => !p.problem).map(({ name, rating, source, fideId, fide, fada, fadaId, fed, title, birth, sex, club }) => ({ name, rating: rating ?? '', source, fideId, fide, fada, fadaId, fed, title, birth, sex, club }));
   if (players.length && send({ type: 'presencial-players', players })) $('to-pz-paste-dialog').close();
 });
 
@@ -1995,6 +2013,10 @@ async function prizeConfiguration(fields = {}) {
   if ($('to-prizes-edit').hidden || !connected) throw new Error('Recupera la conexión con tu cuenta para configurar los premios.');
   const key = state.prizeAccess === 'creator' ? session() : adminKey();
   return (await request(`/api/tournaments/${roomId}/prizes`, { method: 'POST', key, body: JSON.stringify(fields) })).json();
+}
+async function trfRequest(fields) {
+  if (!state?.host || !presencial(state) || !connected || boardsMode) throw new Error('Recupera la conexión como organizador para exportar TRF.');
+  return (await request(`/api/tournaments/${roomId}/trf`, { method: 'POST', key: managementKey(roomId), body: JSON.stringify({ ...fields, hostToken: read(hostKey(roomId)) }) })).json();
 }
 const prizePanel = createPrizePanel({ request: prizeConfiguration, confirm: confirmAction, print: printTournamentSheet });
 let openingPrizes = false;

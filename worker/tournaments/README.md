@@ -57,6 +57,16 @@ No hay cuentas verificadas, clasificación Elo, premios, chat ni detección auto
 
 Prueba: `npm run test:retos` (dos clientes: reto a desconectado, rechazo, aceptación, colores, inicio automático y revancha).
 
+## Informes TRF
+
+En la pantalla de rondas de los torneos presenciales, el organizador y el administrador tienen el botón **TRF**, junto a **Configurar premios**. Abre la vista previa. Desde **Datos del informe** se puede elegir TRF-16 o TRF-26, consultar las listas FIDE/FADA y completar los campos. Si el torneo ha terminado y faltan datos, la vista previa muestra un borrador sin opción de descarga. En doble vuelta, el botón permanece visible y deshabilitado. La API también rechaza la exportación.
+
+Los datos se guardan por torneo, separados de la inscripción. Las listas FIDE Estándar, Rápido, Blitz y FADA se mantienen separadas. TRF-26 incluye el Elo e ID FADA en registros nacionales `ESP`; TRF-16 con la lista FADA seleccionada usa el perfil regional de Elo y añade sus IDs como comentarios. Ninguna exportación inventa el día o el mes de nacimiento cuando solo consta el año.
+
+`POST /api/tournaments/:id/trf` admite `load`, `preview`, `save` y `download`, con la misma autorización del organizador/administrador que la configuración del torneo. `save` y `download` comprueban la versión de los datos para evitar sobrescribir otra sesión. El TRF de informes es independiente del TRF interno que recibe el motor de emparejamiento.
+
+Prueba completa en local: `npm run test:trf` (permisos, persistencia, descarga, escritorio, móvil y doble vuelta bloqueada). Las especificaciones de referencia están en [FIDE TEC](https://tec.fide.com/trf-2026/).
+
 ## Administración de usuarios
 
 `admin-usuarios.html` (sin enlace en el menú y fuera de los buscadores) lista las cuentas registradas: nick, correo, si está confirmada, fecha de alta, última actividad y sesiones abiertas, con totales, búsqueda, filtros y descarga en CSV. Desde ahí se puede confirmar una cuenta a mano, reenviar el correo de confirmación o borrar una cuenta.

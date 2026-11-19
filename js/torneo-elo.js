@@ -93,6 +93,31 @@ export async function birthYears(fideIds) {
   const rows = await (await getDb('fide')).query(`SELECT fide_id, anio_nacimiento AS nac, sexo FROM jugadores_fide WHERE fide_id IN (${ids.join(',')})`);
   return new Map(rows.map(r => [String(r.fide_id), { birth: r.nac || null, sex: sexOf(r.sexo) }]));
 }
+
+/** Datos oficiales del informe TRF, conservando separadas las cuatro listas de Elo. */
+export async function reportRatings(players) {
+  const found = new Map(), ids = [...new Set(players.map(p => String(p.fideId || '')).filter(id => /^\d{1,11}$/.test(id)))];
+  const fadaIds = [...new Set(players.map(p => String(p.fadaId || '')).filter(id => /^\d{1,11}$/.test(id)))];
+  if (!ids.length && !fadaIds.length) throw new Error('Indica los ID FIDE o FADA de los jugadores para consultar sus fichas en las listas.');
+  const values = ids.map(id => parseInt(id, 10)).join(',') || '0';
+  const results = await Promise.allSettled([
+    getDb('fide').then(db => db.query(`SELECT fide_id, federacion, titulo, elo_standard, elo_rapid, elo_blitz, anio_nacimiento, sexo FROM jugadores_fide WHERE fide_id IN (${values})`)),
+    getDb('fada').then(db => db.query(`SELECT id, fide_id, elo_fada, anio_nacimiento, sexo FROM jugadores_fada WHERE fide_id IN (${values}) OR id IN (${fadaIds.map(id => parseInt(id, 10)).join(',') || '0'})`))
+  ]);
+  if (results.every(r => r.status === 'rejected')) throw new Error('No se han podido consultar las listas. Puedes completar los datos a mano.');
+  for (const p of players) {
+    const f = results[0].status === 'fulfilled' && results[0].value.find(r => String(r.fide_id) === p.fideId);
+    const a = results[1].status === 'fulfilled' && results[1].value.find(r => String(r.fide_id) === p.fideId || String(r.id) === p.fadaId);
+    if (!f && !a) continue;
+    const hit = { ratings: {} };
+    if (f) { hit.ratings = { standard: f.elo_standard || 0, rapid: f.elo_rapid || 0, blitz: f.elo_blitz || 0 }; if (f.federacion) hit.fed = f.federacion; if (f.titulo && !/^A/.test(f.titulo)) hit.title = f.titulo; }
+    if (a) { hit.ratings.fada = a.elo_fada || 0; hit.fadaId = String(a.id); if (!p.fideId && a.fide_id) hit.fideId = String(a.fide_id); }
+    if (!p.sex && (f?.sexo || a?.sexo)) hit.sex = sexOf(f?.sexo || a?.sexo);
+    if (!p.birth && (f?.anio_nacimiento || a?.anio_nacimiento)) hit.birth = String(f?.anio_nacimiento || a?.anio_nacimiento);
+    found.set(p.id, hit);
+  }
+  return found;
+}
 /** Sugerencias para un texto: hasta 8, de la FADA (con tildes) y de la FIDE. */
 export async function searchPlayers(text) {
   text = clean(text);

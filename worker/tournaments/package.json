@@ -7,6 +7,7 @@
     "test": "node --test test/*.test.js",
     "test:integration": "node --test test/network.integration.js",
     "test:retos": "node --test test/retos.integration.js",
+    "test:trf": "node --test test/trf.integration.js",
     "test:admin": "node --test test/admin.integration.js",
     "test:admin-torneos": "node --test test/tournaments-admin.integration.js",
     "test:browser": "node test/browser.e2e.js",

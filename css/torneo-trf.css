@@ -1,0 +1,65 @@
+.trf-dialog { width: min(1040px, calc(100vw - 28px)); max-width: none; max-height: 92dvh; padding: 0; overflow: auto; background: var(--card); }
+.trf-dialog [hidden] { display: none !important; }
+.trf-heading { position: sticky; top: 0; z-index: 2; display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; padding: 22px 24px 16px; border-bottom: 1px solid var(--line); background: var(--card); }
+.trf-heading h2 { margin: 0 0 4px; font-size: 1.3rem; }
+.trf-heading p { margin: 0; font-size: .85rem; }
+.trf-heading button { flex: none; }
+#trf-form { padding: 20px 24px; }
+.trf-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 20px; }
+.trf-dialog label { display: grid; gap: 6px; margin: 0; font-size: .85rem; font-weight: 600; }
+.trf-dialog input, .trf-dialog select { min-width: 0; width: 100%; box-sizing: border-box; padding: 9px 10px; border: 1px solid var(--line); border-radius: 7px; background: var(--bg); color: var(--text); font: inherit; }
+.trf-round-dates { margin-top: 20px; }
+.trf-dialog summary { cursor: pointer; font-size: .85rem; color: var(--muted); }
+.trf-round-dates > div { margin-top: 12px; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
+.trf-players-section { margin-top: 24px; }
+.trf-section-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
+.trf-dialog h3 { font-size: 1rem; margin: 0; }
+.trf-help { font-size: .8rem; line-height: 1.5; margin: 8px 0 12px; }
+.trf-table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 9px; }
+.trf-table { width: 100%; min-width: 1000px; border-collapse: collapse; font-size: .8rem; }
+.trf-table th { padding: 9px 6px; text-align: left; background: var(--bg); }
+.trf-table td { padding: 5px; border-top: 1px solid var(--line); }
+.trf-table td:first-child { min-width: 230px; }
+.trf-table td:nth-child(2), .trf-table td:nth-child(3) { width: 100px; }
+.trf-table td:nth-child(4), .trf-table td:nth-child(5) { width: 65px; }
+.trf-table td:last-child { width: 150px; }
+.trf-table input, .trf-table select { padding: 7px 5px; font-size: .8rem; }
+.trf-feedback { margin: 0 24px 18px; font-size: .82rem; line-height: 1.5; }
+.trf-feedback.error > strong:first-child { color: #ef6b73; }
+.trf-feedback ul { margin: 6px 0 14px; padding-left: 22px; max-height: 170px; overflow-y: auto; }
+.trf-dialog.trf-dialog-preview {
+  --trf-bar: color-mix(in srgb, var(--card) 90%, var(--blue));
+  width: min(1120px, calc(100% - 24px));
+  height: min(690px, calc(100dvh - 24px));
+  max-height: none;
+  padding: 0;
+  overflow: hidden;
+}
+.trf-view { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; height: 100%; }
+.trf-view-header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px 16px; padding: 13px 18px; border-bottom: 1px solid var(--line); background: var(--trf-bar); }
+.trf-view-header h2 { margin: 0; font-size: .95rem; font-weight: 650; }
+.trf-view-header label { display: flex; align-items: center; gap: 8px; }
+.trf-view-header select { width: auto; padding-block: 5px; }
+.trf-view-document { display: grid; grid-template-rows: auto minmax(0, 1fr); gap: 8px; min-width: 0; padding: 12px; }
+#trf-view-summary { margin: 0; color: var(--muted); font-size: .8rem; font-weight: 600; }
+#trf-preview {
+  min-width: 0;
+  margin: 0;
+  padding: 10px;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: var(--bg);
+  color: var(--text);
+  font: .8rem/1.5 Consolas, ui-monospace, monospace;
+  white-space: pre;
+}
+#trf-preview:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+.trf-view-footer { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; padding: 10px 12px; border-top: 1px solid var(--line); background: var(--trf-bar); }
+.trf-view-footer .to-actions { margin-left: auto; }
+.trf-view-footer button { font-size: .85rem; }
+.trf-footer { position: sticky; bottom: 0; z-index: 2; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; padding: 16px 24px; border-top: 1px solid var(--line); background: var(--card); }
+.trf-footer > a { font-size: .78rem; }
+.trf-footer .to-actions { flex-wrap: wrap; }
+.trf-dialog button { font: inherit; }
+@media (max-width: 600px) { .trf-grid { grid-template-columns: 1fr; } .trf-heading, #trf-form, .trf-footer { padding: 16px; } .trf-feedback { margin-left: 16px; margin-right: 16px; } .trf-footer .to-actions { width: 100%; } }

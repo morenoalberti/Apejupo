@@ -4,7 +4,8 @@ export { ChallengeHub } from './retos.js';
 import bbpWasm from './bbp/bbp.wasm';
 import { loadBbp, runDutch } from './bbp-engine.js';
 import { PRIZE_BODY_LIMIT, prizeResults, prizeYear, savedPrizes, validatePrizes } from './prizes.js';
-import { GameError, requireThat, isArena, setSwissEngine, startTournament, createTournament, editTournament, joinTournament, requestPresencial, isPresencial, act, advance, pairArena, nextAlarm, snapshot, sharedSnapshot, personalPart, moveMessage, summary, exportPgn, RETENTION_MS } from './core.js';
+import { TRF_BODY_LIMIT, trfAvailability, validateTrfReport, trfView } from './trf.js';
+import { GameError, requireThat, isArena, setSwissEngine, startTournament, createTournament, editTournament, joinTournament, requestPresencial, isPresencial, act, advance, pairArena, nextAlarm, snapshot, sharedSnapshot, personalPart, moveMessage, summary, exportPgn, tournamentTrfDetails, RETENTION_MS } from './core.js';
 
 // El navegador manda "ping" cada 30 s; sin señal en este margen, el jugador no se considera presente.
 const PRESENCE_MS = 75000;
@@ -139,7 +140,8 @@ export class TournamentRoom extends DurableObject {
     const a = ws.deserializeAttachment() || {};
     const c = this.capabilities(a.playerHash, a.hostHash, a.accountId, a.admin);
     ws.send(JSON.stringify({ ...snapshot(this.t, c.playerId, c.host, a.game, Date.now(), a.playerHash),
-      prizeAccess: this.prizeAccess(a.accountId, a.admin) }));
+      prizeAccess: this.prizeAccess(a.accountId, a.admin),
+      ...(c.host && isPresencial(this.t) ? { trf: trfAvailability(this.t) } : {}) }));
   }
   broadcast() {
     if (this.flushTimer) return;
@@ -152,6 +154,7 @@ export class TournamentRoom extends DurableObject {
     this.lastFlush = Date.now();
     if (!this.t) return;
     const shared = JSON.stringify(sharedSnapshot(this.t, this.lastFlush)).slice(0, -1), players = new Map(this.t.players.map(p => [p.hash, p.id])), accounts = new Map(this.t.players.filter(p => p.accountId).map(p => [p.accountId, p.id])), details = new Map();
+    let trf;
     for (const ws of this.ctx.getWebSockets()) {
       try {
         const a = ws.deserializeAttachment() || {};
@@ -163,7 +166,8 @@ export class TournamentRoom extends DurableObject {
         const key = `${playerId}|${host}|${a.game}|${pending}|${prizeAccess}`;
         let personal = details.get(key);
         if (!personal) {
-          personal = JSON.stringify({ ...personalPart(this.t, playerId, host, a.game, pending), prizeAccess }).slice(1);
+          personal = JSON.stringify({ ...personalPart(this.t, playerId, host, a.game, pending), prizeAccess,
+            ...(host && isPresencial(this.t) ? { trf: trf ??= trfAvailability(this.t) } : {}) }).slice(1);
           details.set(key, personal);
         }
         ws.send(shared + ',' + personal);
@@ -226,7 +230,24 @@ export class TournamentRoom extends DurableObject {
           return new Response(text, { headers: { 'Content-Type': 'application/x-chess-pgn; charset=utf-8', 'Content-Disposition': `attachment; filename="apejupo-${this.t.id}.pgn"`, 'Cache-Control': 'no-store' } });
         }
         if (request.method === 'GET') return json(snapshot(this.t, null, false, url.searchParams.get('game')));
-        const b = await body(request, url.pathname === '/prizes' ? PRIZE_BODY_LIMIT : undefined);
+        const b = await body(request, url.pathname === '/trf' ? TRF_BODY_LIMIT : url.pathname === '/prizes' ? PRIZE_BODY_LIMIT : undefined);
+        if (url.pathname === '/trf') {
+          requireThat(b.admin === true || !!(b.actorId && b.actorId === this.t.hostAccountId) || (TOKEN.test(b.hostToken) && this.isHost(await hash(b.hostToken))), 'Solo el organizador o el administrador pueden exportar TRF.', 403);
+          requireThat(isPresencial(this.t), 'TRF está disponible para torneos presenciales.');
+          requireThat(this.t.format !== 'double-closed', 'La exportación TRF está deshabilitada en doble vuelta.');
+          requireThat(['load', 'preview', 'save', 'download'].includes(b.action), 'Acción TRF no válida.');
+          if (b.action === 'load') return json(trfView(this.t));
+          const report = validateTrfReport(this.t, b.report);
+          const view = trfView(this.t, report);
+          if (b.action === 'save' || b.action === 'download') {
+            requireThat(b.version === (this.t.trfVersion || 0), 'Los datos TRF cambiaron en otra sesión. Cierra y vuelve a abrir TRF.', 409);
+            if (b.action === 'download') requireThat(!view.errors.length, view.errors.join('\n'));
+            this.t.trfReport = report; this.t.trfVersion = (this.t.trfVersion || 0) + 1;
+            await this.save(); this.broadcast();
+            return json({ ...view, version: this.t.trfVersion, revision: this.t.revision });
+          }
+          return json(view);
+        }
         if (url.pathname === '/prizes') {
           requireThat(this.prizeAccess(b.actorId, b.admin), 'Solo el creador o el administrador pueden configurar los premios.', 403);
           const saved = savedPrizes(this.t);
@@ -249,7 +270,8 @@ export class TournamentRoom extends DurableObject {
           requireThat(b.admin === true || !!(b.actorId && b.actorId === this.t.hostAccountId) || (TOKEN.test(b.hostToken) && this.isHost(await hash(b.hostToken))), 'Solo el creador o el administrador pueden editar el torneo.', 403);
           if (url.pathname === '/edit') { editTournament(this.t, { ...b, match: false }, Date.now()); await this.save(); this.broadcast(); }
           // Ya emparejado, el formulario muestra las rondas que se pidieron (no las limitadas por los inscritos).
-          return json({ ...summary(this.t), ...(this.t.plannedRounds ? { rounds: this.t.plannedRounds } : {}), joinKey: this.t.joinKey || '' });
+          return json({ ...summary(this.t), ...(this.t.plannedRounds ? { rounds: this.t.plannedRounds } : {}),
+            ...(isPresencial(this.t) ? { trfDetails: tournamentTrfDetails(this.t) } : {}), joinKey: this.t.joinKey || '' });
         }
         if (url.pathname === '/delete') {
           // El router comprueba la clave antes de conceder el permiso de administrador.
@@ -408,7 +430,7 @@ export default {
         // La sesión viaja en la cabecera Authorization; la IP solo sirve para frenar intentos repetidos.
         return withCors(await askAccounts(account[1], { ...b, session: bearer(request), ip: request.headers.get('CF-Connecting-IP') || 'local' }));
       }
-      const room = /^\/api\/tournaments\/([a-f0-9]{24})(?:\/(join|socket|pgn|delete|config|edit|prizes))?$/.exec(path);
+      const room = /^\/api\/tournaments\/([a-f0-9]{24})(?:\/(join|socket|pgn|delete|config|edit|prizes|trf))?$/.exec(path);
       if (path === '/api/tournaments/admin/comprobar') {
         requireThat(request.method === 'POST', 'Método no permitido.', 405);
         return withCors(await checkAdmin());
@@ -427,12 +449,12 @@ export default {
       }
       requireThat(room && ROOM_ID.test(room[1]), 'No encontrado.', 404);
       const suffix = room[2] || '';
-      requireThat(!['join', 'delete', 'config', 'edit', 'prizes'].includes(suffix) || request.method === 'POST', 'Método no permitido.', 405);
+      requireThat(!['join', 'delete', 'config', 'edit', 'prizes', 'trf'].includes(suffix) || request.method === 'POST', 'Método no permitido.', 405);
       requireThat(!['socket', 'pgn', ''].includes(suffix) || request.method === 'GET', 'Método no permitido.', 405);
       if (suffix === 'socket') requireThat(origin && allowed.includes(origin), 'Conexión no autorizada.', 403);
-      if (['delete', 'config', 'edit', 'prizes'].includes(suffix)) {
+      if (['delete', 'config', 'edit', 'prizes', 'trf'].includes(suffix)) {
         if (suffix === 'prizes') requireThat(bearer(request), 'Entra con tu cuenta para gestionar los premios.', 401);
-        const b = await body(request, suffix === 'prizes' ? PRIZE_BODY_LIMIT - 200 : undefined);
+        const b = await body(request, suffix === 'trf' ? TRF_BODY_LIMIT - 200 : suffix === 'prizes' ? PRIZE_BODY_LIMIT - 200 : undefined);
         // Se sobrescriben los permisos del cuerpo: solo cuentan la sesión o la clave verificadas.
         b.admin = false; b.actorId = null;
         if (bearer(request)) {
