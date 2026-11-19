@@ -118,10 +118,8 @@ $('rt-online').addEventListener('keydown', listKeys);
 function renderMatch() {
   const on = $('rt-match').checked;
   $('rt-games').disabled = !on;
-  $('rt-match-d').textContent = on ? `Match a ${$('rt-games').value} partidas seguidas contra el mismo rival, alternando colores.` : 'Una sola partida. Activa Match para jugar varias seguidas.';
 }
 $('rt-match').addEventListener('change', renderMatch);
-$('rt-games').addEventListener('change', renderMatch);
 $('rt-cancel').addEventListener('click', () => { if (waiting) send({ type: 'cancelar', id: waiting.id }); stopWaiting('Reto cancelado.'); });
 $('rt-enter').addEventListener('click', () => openAuth('entrar'));
 $('rt-register').addEventListener('click', () => openAuth('registro'));
