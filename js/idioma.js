@@ -57,6 +57,7 @@
     if (SIGLAS.test(t) || !/[aeiouáéíóú]/i.test(t) || /^[A-ZÁÉÍÓÚÑ]{2,3}$/.test(t)) return false; // siglas (ELO, GM, FIDE…), iniciales y palabras sin vocales
     if (NOMBRE.test(t) || /^apejupo$/i.test(t) || /^https?:\/\//.test(t) || /^[\w.+-]+@[\w-]+\.[\w.]+$/.test(t)) return false;
     if (/[♔-♟]/.test(t) || /^\d+\.{1,3}\s*(?:[KQRBN]?[a-h]?[1-8]?x?[a-h][1-8]|O-O)/.test(t)) return false; // jugadas: «1. e4 e6 2. ♘c3…»
+    if (/^(?:(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun),? )?\d{1,2} (?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\b[\d\s,:–-]*$/.test(t)) return false; // fechas ya en inglés: «19 Nov, 17:00»
     return true;
   }
   // Textos con números («27 Torneos en directo», «Profundidad 22»): se traducen como plantilla
