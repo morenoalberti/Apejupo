@@ -634,6 +634,29 @@ body.to-focus #to-standings-panel th { position: sticky; top: 0; background: var
 .to-duel-score strong { min-width: 0; overflow-wrap: anywhere; font-size: .95rem; line-height: 1.3; }
 .to-duel-score .me strong { color: var(--blue); }
 .to-duel-score b { flex: none; font-size: 1.6rem; line-height: 1; font-variant-numeric: tabular-nums; }
+.to-match-title { margin: 0 0 5px; font-size: 1.05rem; line-height: 1.3; }
+.to-match-phase { margin: 0 0 18px; color: var(--blue); font-size: .8rem; font-weight: 600; }
+.to-match-progress { margin-top: 18px; color: var(--muted); font-size: .75rem; }
+.to-match-progress progress { display: block; appearance: none; width: 100%; height: 6px; margin: 7px 0 12px; overflow: hidden; border: 0; border-radius: 6px; background: var(--bg); color: var(--blue); accent-color: var(--blue); }
+.to-match-progress progress::-webkit-progress-bar { background: var(--bg); }
+.to-match-progress progress::-webkit-progress-value { background: var(--blue); }
+.to-match-progress progress::-moz-progress-bar { background: var(--blue); }
+.to-match-rounds { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 5px; margin: 0; padding: 0; list-style: none; }
+.to-match-rounds li { display: grid; justify-items: center; gap: 5px; padding: 6px 2px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); }
+.to-match-rounds span { font-size: .65rem; color: var(--muted); }
+.to-match-rounds b { font-size: .95rem; line-height: 1.1; }
+.to-match-rounds .win b { color: #22a66a; }
+.to-match-rounds .loss b { color: #ef6b73; }
+.to-match-rounds .draw b { color: var(--amber); }
+.to-match-rounds .live { border-color: var(--blue); background: #3b82f61a; }
+.to-match-rounds .live b { color: var(--blue); }
+.to-match-rounds .pending { color: var(--muted); }
+.to-match-caption { margin: 8px 0 0; color: var(--muted); font-size: .68rem; line-height: 1.5; }
+.to-match-caption span { white-space: nowrap; }
+.to-match-result { margin: 12px 0 0; font-size: .85rem; font-weight: 600; }
+.to-match-history { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--line); }
+.to-match-history summary { cursor: pointer; color: var(--muted); font-size: .75rem; }
+.to-match-history .to-duel-score { margin-top: 12px; }
 /* Reto: conservar la conexión y el control de sonido en la barra de la sala. */
 .to-challenge .to-hero, .to-challenge .to-tournament-bar, .to-challenge #to-notice, .to-challenge #to-focus-info,
 .to-challenge .to-room-bar #to-back, .to-challenge .to-room-bar #to-share { display: none !important; }

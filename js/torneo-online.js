@@ -361,9 +361,32 @@ function renderDuel(t) {
   const [p, q] = players, wp = t.duel.wins[p?.id] || 0, wq = t.duel.wins[q?.id] || 0, d = t.duel.draws || 0;
   const pts = x => String(x).replace('.5', '½').replace(/^0½$/, '½');
   const row = (x, value) => `<li class="${x.id === t.me ? 'me' : ''}"><strong>${esc(x.name)}</strong><b>${pts(value)}</b></li>`;
-  // Match: arriba el resultado de este match; debajo, el historial de todas las partidas entre los dos.
-  const match = isMatch(t) && p && q ? `<p class="to-duel-h">${t.status === 'finished' ? 'Match terminado' : `Match · partida ${Math.max(1, t.round)} de ${t.rounds}`}</p><ul class="to-duel-score">${row(p, p.points)}${row(q, q.points)}</ul><p class="to-duel-h">Historial entre los dos</p>` : '';
-  $('to-duel-body').innerHTML = !p || !q ? '' : `${match}<ul class="to-duel-score${match ? ' small' : ''}">${row(p, wp + d / 2)}${row(q, wq + d / 2)}</ul>`;
+  if (!p || !q) { $('to-duel-body').innerHTML = ''; return; }
+  const history = `<ul class="to-duel-score${isMatch(t) ? ' small' : ''}">${row(p, wp + d / 2)}${row(q, wq + d / 2)}</ul>`;
+  if (!isMatch(t)) { $('to-duel-body').innerHTML = history; return; }
+  const done = t.games.filter(g => !g.bye && g.result).length;
+  const ended = ['finished', 'cancelled'].includes(t.status);
+  const phase = t.status === 'finished' ? 'Match terminado' : t.status === 'cancelled' ? 'Match cancelado'
+    : t.status === 'waiting' ? 'Esperando al rival' : t.status === 'between' ? 'Entre partidas' : 'En juego';
+  const rounds = Array.from({ length: t.rounds }, (_, i) => {
+    const game = t.games.find(g => !g.bye && g.round === i + 1);
+    const live = !ended && t.status === 'playing' && game && !game.result;
+    const draw = game?.result === '1/2-1/2';
+    const won = game?.result === '1-0' && game.white === p.id || game?.result === '0-1' && game.black === p.id;
+    const kind = game?.result ? draw ? 'draw' : won ? 'win' : 'loss' : live ? 'live' : 'pending';
+    const label = game?.result ? draw ? 'Tablas' : `Gana ${won ? p.name : q.name}` : live ? 'En juego' : 'Pendiente';
+    const value = game?.result ? draw ? '½' : won ? '1' : '0' : live ? '●' : '—';
+    return `<li class="${kind}" title="${esc(`Partida ${i + 1}: ${label}`)}" aria-label="${esc(`Partida ${i + 1}: ${label}`)}"${live ? ' aria-current="step"' : ''}><span>${i + 1}</span><b>${value}</b></li>`;
+  }).join('');
+  const result = t.status === 'finished' ? p.points === q.points ? 'El match termina en empate.' : `${esc(p.points > q.points ? p.name : q.name)} gana el match.` : '';
+  $('to-duel-body').innerHTML = `<h2 class="to-match-title">Match a ${t.rounds} partidas</h2>
+    <p class="to-match-phase">${ended || t.status === 'waiting' ? phase : `Partida ${Math.max(1, t.round)} de ${t.rounds} · ${phase}`}</p>
+    <p class="to-duel-h">Marcador del match</p><ul class="to-duel-score">${row(p, p.points)}${row(q, q.points)}</ul>
+    <div class="to-match-progress"><span>${done} de ${t.rounds} terminadas</span><progress max="${t.rounds}" value="${done}" aria-label="Partidas terminadas del match">${done} de ${t.rounds}</progress></div>
+    <ol class="to-match-rounds" aria-label="Progreso por partida">${rounds}</ol>
+    <p class="to-match-caption">${p.id === t.me ? 'Tus puntos' : `Puntos de ${esc(p.name)}`} por partida · <span>● En juego</span></p>
+    ${result ? `<p class="to-match-result" role="status">${result}</p>` : ''}
+    <details class="to-match-history"><summary>Historial entre los dos</summary>${history}</details>`;
 }
 function renderPodium() {
   // Presencial: sin podio; la clasificación final ya ordena a todos.

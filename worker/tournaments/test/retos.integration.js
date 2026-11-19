@@ -54,7 +54,9 @@ test('retos: solo a jugadores en línea; al aceptar, los dos reciben el tablero 
   const B = client('/api/retos/socket', { type: 'hello', session: b.session }); await B.opened;
   await B.next(m => m.type === 'hola');
   A.send({ type: 'conectados' });
-  assert.ok((await A.next(m => m.type === 'conectados')).nicks.includes(b.user.nick));
+  const directory = await A.next(m => m.type === 'conectados');
+  assert.ok(!directory.nicks.includes(b.user.nick), 'Las cuentas de prueba no se muestran como rivales aunque estén conectadas.');
+  assert.ok(!directory.jugadores.includes(b.user.nick));
   A.send({ type: 'retar', nick: b.user.nick, minutes: 7, increment: 2, color: 'b' });
   assert.match((await A.next(m => m.type === 'error')).message, /ritmo/);
 

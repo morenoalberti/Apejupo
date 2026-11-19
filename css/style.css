@@ -944,7 +944,7 @@ body.card-dragging .tour-tip { display: none !important; }
   .th-eye, .th-del { -webkit-tap-highlight-color: transparent; }
   .lv-eyebtn, .lv-addrow .btn-ghost, #viewer-round, #viewer-more { min-height: 40px; }
 }
-.th-p .nm { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.th-p .nm { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .th-p .mt { flex: none; display: inline-flex; align-items: center; gap: 4px; margin: 0; }
 .th-p .mt .el { color: #8fa3bf; font-size: 11px; }
 .th-p .lv-flag { width: 20px; height: 14px; margin-right: 4px; vertical-align: -2px; }

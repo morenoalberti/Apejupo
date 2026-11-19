@@ -90,7 +90,8 @@ export class ChallengeHub extends DurableObject {
         const me = a.user;
         if (b.type === 'conectados') {
           const jugadores = (await this.players(now)).filter(n => key(n) !== key(me.nick));
-          this.send(ws, { type: 'conectados', nicks: [...this.online(now).values()].filter(u => u.id !== me.id).map(u => u.nick).sort((x, y) => x.localeCompare(y, 'es')), jugadores });
+          const registered = new Set(jugadores.map(key));
+          this.send(ws, { type: 'conectados', nicks: [...this.online(now).values()].filter(u => u.id !== me.id && registered.has(key(u.nick))).map(u => u.nick).sort((x, y) => x.localeCompare(y, 'es')), jugadores });
           return;
         }
         let list = await this.load(now);

@@ -39,14 +39,15 @@ function askOnline() { if (isReady() && !waiting) send({ type: 'conectados' }); 
 const low = s => String(s).toLocaleLowerCase('es');
 let online = [], players = [], picked = '';
 function renderOnline(nicks, jugadores) {
-  online = nicks || [];
-  if (jugadores) players = jugadores;
+  if (Array.isArray(jugadores)) players = jugadores;
+  const registered = new Set(players.map(low));
+  online = (nicks || []).filter(n => registered.has(low(n)));
   $('rt-nicks').innerHTML = online.map(n => `<option value="${esc(n)}">`).join('');
   renderPlayers();
 }
 function visiblePlayers() {
   const on = new Set(online.map(low)), q = low($('rt-search').value.trim());
-  const all = [...new Map([...players, ...online].map(n => [low(n), n])).values()]; // los recién registrados pueden no estar aún en la lista
+  const all = [...new Map(players.map(n => [low(n), n])).values()];
   return all.filter(n => !q || low(n).includes(q)).map(n => ({ nick: n, on: on.has(low(n)) }))
     .sort((a, b) => (b.on - a.on) || a.nick.localeCompare(b.nick, 'es'));
 }
