@@ -230,6 +230,7 @@ function connect() {
     clearInterval(heartbeat); pending = false;
     setConnection('Reconectando…');
     if (['El organizador ha borrado el torneo.', 'El administrador ha borrado el torneo.'].includes(event.reason)) { setConnection('Torneo borrado'); message(event.reason, true); return; }
+    if (event.reason === 'Cancelado y borrado: no hubo jugadores suficientes.') { setConnection('Torneo borrado'); message('El torneo se ha cancelado y borrado automáticamente porque no hubo jugadores suficientes.', true); return; }
     if (event.reason === 'El torneo ha caducado.') { setConnection('Torneo archivado'); message('Este torneo ha caducado y ya no está disponible.'); return; }
     reconnectTimer = setTimeout(async () => {
       try {
@@ -1036,7 +1037,13 @@ function updateClocks() {
     $('to-wait-label').textContent = grace ? 'Esperando jugadores: hacen falta 4' : t.startsAt ? 'El torneo empieza en' : 'El torneo empezará';
     $('to-wait-clock').textContent = grace ? `${String(Math.floor(g / 60)).padStart(2, '0')}:${String(g % 60).padStart(2, '0')}` : t.startsAt ? (d ? `${d} d ${hms}` : hms) : 'cuando lo decida el organizador';
     $('to-wait-clock').classList.toggle('to-wait-manual', !t.startsAt);
-    $('to-wait-date').textContent = grace ? `${listed(t).length} inscritos · si no llegan a 4, el torneo se cancela` : t.startsAt ? date(t.startsAt) : `${listed(t).length} de ${t.capacity} plazas ocupadas`;
+    $('to-wait-date').textContent = grace ? `${listed(t).length} inscritos · si no llegan a 4, el torneo se cancelará y borrará de forma automática` : t.startsAt ? date(t.startsAt) : `${listed(t).length} de ${t.capacity} plazas ocupadas`;
+    // Condiciones si no hay jugadores suficientes (las mismas que aplica el servidor en core.js).
+    const rules = !t.startsAt || presencial(t) || grace ? ''
+      : t.challenge ? 'Si a la hora de inicio no están inscritos los dos jugadores, se cancelará y borrará de forma automática.'
+      : 'Hacen falta al menos 4 jugadores. Si a la hora de inicio no los hay, se esperan hasta 10 minutos: empieza en cuanto llegue el cuarto y, si no llega, el torneo se cancelará y borrará de forma automática.';
+    $('to-wait-rules').textContent = rules;
+    $('to-wait-rules').hidden = !rules;
   }
   if (!$('to-registration').hidden && !canJoin(t)) render();
   const playingNow = !!t.me && t.games.some(x => !x.result && !x.bye && (x.white === t.me || x.black === t.me));

@@ -517,13 +517,15 @@ export function advance(t, now = Date.now()) {
   // hasta 10 minutos (empieza en cuanto llega el cuarto); pasado ese margen, se cancela.
   if (t.challenge && t.status === 'waiting' && t.startsAt && now >= t.startsAt) { // reto: empieza a la hora con los dos
     if (t.players.length >= 2) startTournament(t, now);
-    else { t.status = 'cancelled'; t.notice = 'Cancelado: no se alcanzaron dos inscritos.'; t.finishedAt = now; }
+    else { t.status = 'cancelled'; t.notice = 'Cancelado: no se alcanzaron dos inscritos.'; t.finishedAt = now; t.autoCancelled = true; t.expiresAt = now; }
     changed = true;
   } else if (!isPresencial(t) && t.status === 'waiting' && t.startsAt && now >= t.startsAt) {
     if (t.players.filter(p => !p.paused).length >= MIN_SCHEDULED_PLAYERS) { startTournament(t, now); changed = true; }
     else if (now >= t.startsAt + START_GRACE_MS) {
       t.status = 'cancelled'; t.finishedAt = now; changed = true;
       t.notice = `Cancelado: a los 10 minutos de la hora de inicio no había al menos ${MIN_SCHEDULED_PLAYERS} inscritos.`;
+      // Sin jugadores suficientes el torneo no se guarda: la sala se borra en la alarma siguiente (ver index.js).
+      t.autoCancelled = true; t.expiresAt = now;
     }
   }
   if (t.status === 'between' && t.nextRoundAt && now >= t.nextRoundAt) { beginRound(t, now); changed = true; }

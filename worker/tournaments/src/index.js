@@ -321,7 +321,8 @@ export class TournamentRoom extends DurableObject {
     return this.ctx.blockConcurrencyWhile(async () => {
       if (!this.t) return;
       if (Date.now() >= this.t.expiresAt) {
-        for (const ws of this.ctx.getWebSockets()) ws.close(1000, 'El torneo ha caducado.');
+        const reason = this.t.autoCancelled ? 'Cancelado y borrado: no hubo jugadores suficientes.' : 'El torneo ha caducado.';
+        for (const ws of this.ctx.getWebSockets()) ws.close(1000, reason);
         await this.ctx.storage.deleteAll(); this.t = null; return;
       }
       if (this.progress()) { await this.save(); this.broadcast(); }

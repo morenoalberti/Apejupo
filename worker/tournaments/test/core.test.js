@@ -201,6 +201,10 @@ test('inicio programado: con 4 inscritos empieza; con menos se esperan 10 minuto
   const few = tournament(3, { startsAt: START });
   assert.equal(advance(few, START + GRACE - 1), false);
   advance(few, START + GRACE); assert.equal(few.status, 'cancelled'); assert.match(few.notice, /al menos 4/);
+  // Y se borra: caduca en ese momento, así que la alarma siguiente elimina la sala.
+  assert.equal(few.autoCancelled, true); assert.equal(few.expiresAt, START + GRACE); assert.equal(nextAlarm(few, START + GRACE), START + GRACE);
+  // Cancelar a mano no borra: el torneo se conserva hasta su caducidad normal.
+  const manual = tournament(4); act(manual, null, true, { type: 'cancel' }, NOW); assert.ok(manual.expiresAt > NOW && !manual.autoCancelled);
   // Un reto entre dos sigue empezando a su hora con los dos.
   const duel = tournament(2, { startsAt: START }); duel.challenge = { white: duel.players[0].id };
   advance(duel, START); assert.equal(duel.status, 'playing');

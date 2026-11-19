@@ -509,6 +509,7 @@ body.to-focus #to-standings-panel th { position: sticky; top: 0; background: var
 .to-wait-start { display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; padding: 26px 20px; margin-bottom: 18px; border: 1px solid var(--line); border-radius: 14px; background: var(--card); }
 .to-wait-start span { color: var(--muted); font-size: .9rem; }
 .to-wait-start strong { font-size: clamp(2.2rem, 5vw, 3.4rem); line-height: 1.1; font-variant-numeric: tabular-nums; letter-spacing: .03em; }
+.to-wait-rules { max-width: 46ch; margin: 12px 0 0; padding-top: 12px; border-top: 1px solid var(--line); color: var(--muted); font-size: .85rem; line-height: 1.45; }
 .to-wait-start strong.to-wait-manual { font-size: 1.25rem; letter-spacing: 0; }
 @media (max-width: 760px) {
   .to-wait { grid-template-columns: 1fr; gap: 0; }
