@@ -63,7 +63,7 @@ const sexOf = s => s === 'F' || s === 'M' ? s : null;
 function merge(fada, fide) {
   const out = [], byFide = new Map();
   for (const r of fada) {
-    const item = { name: r.nombre, fada: r.elo || null, fadaId: r.id, fideId: r.fide_id ? String(r.fide_id) : null, fed: 'ESP', place: r.provincia || r.club || '', title: r.titulo || '', birth: r.nac || null, sex: sexOf(r.sexo) };
+    const item = { name: r.nombre, fada: r.elo || null, fadaId: r.id, fideId: r.fide_id ? String(r.fide_id) : null, fed: 'ESP', place: r.provincia || r.club || '', club: r.club || '', title: r.titulo || '', birth: r.nac || null, sex: sexOf(r.sexo) };
     out.push(item); if (item.fideId) byFide.set(item.fideId, item);
   }
   for (const r of fide) {

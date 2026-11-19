@@ -125,7 +125,7 @@ export function gameScore(t, s, n = 1) {
 }
 
 export function standings(t) {
-  const rows = t.players.map(p => ({ id: p.id, name: p.name, seed: p.seed, rating: p.rating || null, source: p.source || null, fideId: p.fideId || null, fed: p.fed || null, title: p.title || null, birth: p.birth || null, sex: p.sex || null, active: p.active, registered: !!p.accountId,
+  const rows = t.players.map(p => ({ id: p.id, name: p.name, seed: p.seed, rating: p.rating || null, source: p.source || null, fideId: p.fideId || null, fed: p.fed || null, title: p.title || null, birth: p.birth || null, sex: p.sex || null, club: p.club || null, active: p.active, registered: !!p.accountId,
     points: 0, wins: 0, buchholz: 0, sonneborn: 0, played: 0, byes: 0, opponents: [], colors: [], sheet: [] }));
   const map = new Map(rows.map(p => [p.id, p]));
   const arenaRuns = new Map(rows.map(p => [p.id, { wins: 0, drawSinceWin: false }]));
@@ -321,13 +321,14 @@ function presencialEntry(input) {
   // Año de nacimiento (de las listas FIDE/FADA o escrito a mano): para los premios Sub y Supra.
   const year = Number(input?.birth), birth = Number.isInteger(year) && year >= 1900 && year <= new Date().getFullYear() ? year : null;
   const sex = input?.sex === 'M' || input?.sex === 'F' ? input.sex : null; // de las listas: M masculino, F femenino
-  return { name, rating: rating || null, source: rating ? source : null, fideId, fed, title, birth, sex };
+  const club = cleanName(input?.club, 80) || null;
+  return { name, rating: rating || null, source: rating ? source : null, fideId, fed, title, birth, sex, club };
 }
 function addPresencial(t, entry, now, extra = {}) {
   requireThat(!t.players.some(p => sameKey(p.name, entry.name)), `Ya hay un jugador con ese nombre («${entry.name}»). Añade un apellido.`);
   requireThat(t.players.length < t.capacity, 'El torneo está completo.');
   const p = { id: crypto.randomUUID(), hash: extra.hash || crypto.randomUUID(), name: entry.name, active: true, seed: t.players.length + 1, joinedAt: now,
-    rating: entry.rating, ...(entry.source ? { source: entry.source } : {}), ...(entry.fideId ? { fideId: entry.fideId } : {}), ...(entry.fed ? { fed: entry.fed } : {}), ...(entry.title ? { title: entry.title } : {}), ...(entry.birth ? { birth: entry.birth } : {}), ...(entry.sex ? { sex: entry.sex } : {}), ...(extra.accountId ? { accountId: extra.accountId } : {}) };
+    rating: entry.rating, ...(entry.source ? { source: entry.source } : {}), ...(entry.fideId ? { fideId: entry.fideId } : {}), ...(entry.fed ? { fed: entry.fed } : {}), ...(entry.title ? { title: entry.title } : {}), ...(entry.birth ? { birth: entry.birth } : {}), ...(entry.sex ? { sex: entry.sex } : {}), ...(entry.club ? { club: entry.club } : {}), ...(extra.accountId ? { accountId: extra.accountId } : {}) };
   t.players.push(p);
   return p;
 }
@@ -625,6 +626,7 @@ export function act(t, playerId, host, action, now = Date.now()) {
       if (e.title) p.title = e.title; else delete p.title;
       if (e.birth) p.birth = e.birth; else delete p.birth;
       if (e.sex) p.sex = e.sex; else delete p.sex;
+      if (Object.hasOwn(action, 'club')) { if (e.club) p.club = e.club; else delete p.club; }
     } else if (action.type === 'presencial-approve' || action.type === 'presencial-reject') {
       const r = (t.requests || []).find(r => r.id === action.requestId);
       requireThat(r, 'Esa solicitud ya no está pendiente.', 404);

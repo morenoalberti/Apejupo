@@ -1,0 +1,146 @@
+#to-prizes-dialog {
+  width: min(920px, calc(100% - 32px));
+  padding: clamp(14px, 3vw, 24px);
+}
+#to-prizes-dialog .pr-head,
+#to-prizes-dialog .pr-footer,
+#to-prizes-dialog .pr-result-header,
+#to-prizes-dialog .pr-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+#to-prizes-dialog .pr-meta { color: var(--muted); margin: 0; font-size: .84rem; }
+#to-prizes-dialog #to-prizes-feedback { font-weight: 600; }
+#to-prizes-dialog #to-prizes-feedback[data-state="dirty"] { color: light-dark(#9a5b00, #ffc75a); }
+#to-prizes-dialog #to-prizes-feedback[data-state="saved"] { color: light-dark(#13723a, #4ade80); }
+#to-prizes-dialog #to-prizes-feedback[data-state="error"] { color: light-dark(#b42318, #ff8a8a); }
+#to-prizes-dialog .pr-icon-btn { display: inline-flex; align-items: center; gap: 7px; }
+#to-prizes-dialog .pr-icon-btn svg { flex: 0 0 auto; }
+#to-prizes-dialog .pr-winner { width: auto; min-width: 200px; max-width: min(100%, 320px); min-height: 34px; padding: 4px 8px; }
+#to-prizes-dialog .pr-winner-box { display: inline-flex; flex-wrap: nowrap; vertical-align: middle; gap: 6px; align-items: center; max-width: 100%; }
+#to-prizes-dialog .pr-winner-box .pr-winner { min-width: 70px; width: 70px; }
+#to-prizes-dialog .pr-winner-name { flex: 0 1 230px; width: 230px; min-width: 120px; min-height: 34px; padding: 4px 8px; }
+.pr-blank-line { display: inline-block; width: 60mm; border-bottom: 1px solid currentColor; vertical-align: bottom; }
+#to-prizes-dialog .pr-results-table td small { margin-left: calc(2.6em + 8px); }
+.pr-results-table .pr-place { display: inline-block; min-width: 2.6em; margin-right: 8px; font-weight: 700; white-space: nowrap; }
+/* Título de cada categoría con su icono (el mismo de la lista de la izquierda). */
+.pr-title { display: flex; align-items: center; gap: 8px; }
+.pr-title .pr-icon { display: inline-grid; color: var(--blue); }
+.pr-title svg { width: 18px; height: 18px; display: block; }
+#to-prizes-dialog .pr-head-actions { display: flex; align-items: center; gap: 16px; margin-left: auto; }
+#to-prizes-dialog .pr-add { position: relative; margin-left: auto; } /* en la línea de «Categorías» y «Ganadores», a la derecha */
+#to-prizes-dialog .pr-menu { position: absolute; top: calc(100% + 6px); right: 0; z-index: 20; width: min(310px, calc(100vw - 48px)); max-height: min(70vh, 520px); overflow: auto; margin: 0; padding: 10px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); box-shadow: 0 18px 40px rgb(0 0 0 / .35); }
+#to-prizes-dialog .pr-menu[hidden] { display: none; }
+#to-prizes-dialog .pr-menu { display: grid; gap: 2px; }
+#to-prizes-dialog .pr-menu button { min-height: 0; padding: 6px 8px; border-color: transparent; background: transparent; line-height: 1.25; }
+#to-prizes-dialog .pr-menu button:hover, #to-prizes-dialog .pr-menu button:focus-visible { background: color-mix(in srgb, var(--blue) 14%, transparent); border-color: color-mix(in srgb, var(--blue) 40%, transparent); }
+#to-prizes-dialog .pr-menu button > span { font-weight: 650; }
+#to-prizes-dialog .pr-menu button small { font-size: .76rem; font-weight: 400; }
+#to-prizes-dialog .pr-menu-title { margin: 2px 4px 4px; color: var(--blue); font-size: .78rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+#to-prizes-dialog .pr-budget { display: grid; text-align: right; font-size: .8rem; color: var(--muted); }
+#to-prizes-dialog .pr-budget strong { color: light-dark(#835105, #ffd48a); font-size: 1.3rem; font-variant-numeric: tabular-nums; }
+#to-prizes-dialog .pr-nav { display: flex; gap: 8px; padding: 14px 0; }
+#to-prizes-dialog [aria-pressed="true"] {
+  background: color-mix(in srgb, var(--blue) 16%, var(--card));
+  border-color: var(--blue);
+  font-weight: 650;
+}
+.pr-layout { display: grid; grid-template-columns: minmax(190px, 245px) minmax(0, 1fr); gap: 14px; align-items: start; }
+.pr-sidebar, .pr-content {
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--card);
+  min-width: 0;
+}
+.pr-sidebar > button { width: 100%; }
+.pr-templates, .pr-categories, .pr-positions { display: grid; gap: 7px; margin-top: 10px; }
+#to-prizes-dialog .pr-categories { margin-top: 0; }
+#to-prizes-dialog .pr-categories:empty::before { content: "Sin categorías. Añádelas con «Añadir categoría»."; color: var(--muted); font-size: .85rem; }
+.pr-templates button, .pr-categories button {
+  width: 100%;
+  text-align: left;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+.pr-templates button small, .pr-categories button small { display: block; margin-top: 2px; color: var(--muted); }
+.pr-templates .pr-icon, .pr-categories .pr-icon { color: var(--blue); flex: 0 0 20px; text-align: center; }
+.pr-templates button svg, .pr-categories button svg { width: 18px; height: 18px; display: block; }
+.pr-content h3 { margin: 0 0 7px; font-size: 1rem; }
+.pr-fields { display: grid; gap: 0 12px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.pr-full { grid-column: 1 / -1; }
+.pr-section { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); }
+#to-prizes-dialog .pr-section-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; }
+#to-prizes-dialog .pr-section-head h3 { margin: 0; }
+#to-prizes-dialog .pr-section-head .pr-tier-adder { margin: 0 0 0 auto; align-items: center; gap: 8px; }
+#to-prizes-dialog .pr-section-head .pr-tier-adder input { width: 90px; min-height: 34px; padding: 4px 10px; }
+/* «Añadir» acaba donde acaba «Premio en especie» (deja sitio a la columna de la papelera). */
+#to-prizes-dialog .pr-add-row { display: flex; justify-content: flex-end; margin-top: 4px; } /* debajo del último puesto */
+#to-prizes-dialog .pr-add-slot { margin-left: auto; margin-right: 50px; }
+#to-prizes-dialog .pr-small { min-height: 34px; padding: 4px 12px; font-size: .85rem; }
+#to-prizes-dialog .pr-trash { display: grid; place-items: center; width: 42px; padding: 0; color: #f0686d; }
+#to-prizes-dialog .pr-trash:hover:not(:disabled) { color: #fff; background: color-mix(in srgb, #e5484d 80%, transparent); border-color: #e5484d; }
+#to-prizes-dialog .pr-trash:disabled { color: var(--muted); }
+.pr-position {
+  display: grid;
+  grid-template-columns: max-content minmax(98px, .65fr) minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: end;
+  padding: 8px 0;
+}
+.pr-position b { align-self: center; }
+#to-prizes-dialog .pr-position label { margin: 0; }
+.pr-position button { min-height: 42px; }
+.pr-position .pr-manual { grid-column: 2 / -1; }
+#to-prizes-dialog .pr-footer { padding-top: 14px; margin-top: 14px; border-top: 1px solid var(--line); }
+#to-prizes-dialog .pr-footer .to-actions { margin-left: auto; justify-content: flex-end; align-items: center; }
+#to-prizes-dialog .pr-accumulates { display: flex; align-items: center; gap: 8px; margin-right: 6px; font-size: .9rem; font-weight: 600; cursor: pointer; }
+#to-prizes-dialog .pr-accumulates input { appearance: none; position: relative; flex: 0 0 auto; width: 38px; height: 22px; min-height: 0; margin: 0; padding: 0; border: 1px solid var(--line); border-radius: 999px; background: color-mix(in srgb, var(--muted) 30%, transparent); cursor: pointer; transition: background .15s, border-color .15s; }
+#to-prizes-dialog .pr-accumulates input::after { content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fff; transition: transform .15s; }
+#to-prizes-dialog .pr-accumulates input:checked { background: var(--blue); border-color: var(--blue); }
+#to-prizes-dialog .pr-accumulates input:checked::after { transform: translateX(16px); }
+#to-prizes-dialog .pr-accumulates input:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+#to-prizes-dialog .pr-tier-adder { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px; margin: 10px 0 4px; }
+#to-prizes-dialog .pr-tier-adder label { display: flex; align-items: center; gap: 10px; color: var(--muted); font-weight: 600; }
+#to-prizes-dialog .pr-tier-adder input { width: 110px; }
+#to-prizes-dialog .pr-accumulates[hidden] { display: none; }
+.pr-result-group + .pr-result-group { margin-top: 16px; }
+.pr-results-table { width: 100%; border-collapse: collapse; text-align: left; }
+.pr-results-table th, .pr-results-table td { padding: 8px 6px; border-bottom: 1px solid var(--line); overflow-wrap: anywhere; }
+.pr-results-table th:last-child, .pr-results-table td:last-child { text-align: right; }
+.pr-results-table td small { display: block; color: var(--muted); }
+#to-prizes-categories [draggable="true"] { cursor: grab; }
+#to-prizes-categories .pr-cat { position: relative; border-radius: 12px; }
+#to-prizes-categories .pr-cat > [data-pr-action="select"] { padding-right: 34px; }
+#to-prizes-categories .pr-cat-remove { position: absolute; top: 5px; right: 5px; display: grid; place-items: center; width: 24px; height: 24px; padding: 0; border: 0; border-radius: 6px; background: transparent; color: var(--muted); font-size: 1.2rem; line-height: 1; cursor: pointer; opacity: 0; transition: opacity .12s, background .12s, color .12s; }
+#to-prizes-categories .pr-cat:hover .pr-cat-remove, #to-prizes-categories .pr-cat-remove:focus-visible { opacity: 1; }
+#to-prizes-categories .pr-cat-remove:hover { color: #fff; background: color-mix(in srgb, #e5484d 75%, transparent); }
+@media (hover: none) { #to-prizes-categories .pr-cat-remove { opacity: 1; } }
+#to-prizes-categories .pr-dragging { border: 2px dashed color-mix(in srgb, var(--blue) 60%, var(--line)); background: transparent; box-shadow: none; }
+#to-prizes-categories .pr-dragging > * { visibility: hidden; }
+.pr-results-table .pr-title-cell h3 { margin: 0; font-size: 1rem; }
+.pr-results-table thead th { vertical-align: bottom; }
+#to-print-sheet .pr-result-group { margin-top: 5mm; break-inside: avoid; }
+#to-print-sheet .pr-results-table .pr-title-cell h3 { font-size: 12pt; }
+#to-print-sheet .pr-results-table th:last-child, #to-print-sheet .pr-results-table td:last-child { width: 38mm; }
+/* Cada nombre en una sola línea, alineado a la izquierda, y los de una categoría uno debajo de otro sin rayas. */
+#to-print-sheet .pr-results-table th:first-child, #to-print-sheet .pr-results-table td:first-child { width: auto; text-align: left; white-space: nowrap; }
+#to-print-sheet .pr-results-table td { border-bottom: 0; padding-top: .8mm; padding-bottom: .8mm; }
+#to-print-sheet .pr-results-table small { white-space: normal; }
+#to-print-sheet .pr-results-table small { color: #555; }
+@media (max-width: 620px) {
+  #to-prizes-dialog { inset: 0; width: 100%; max-width: 100%; height: 100dvh; max-height: 100dvh; margin: 0; border-radius: 0; }
+  .pr-layout { grid-template-columns: minmax(0, 1fr); }
+  .pr-position { grid-template-columns: max-content minmax(84px, .65fr) minmax(0, 1fr); }
+  #to-prizes-dialog .pr-add-slot { margin-right: 0; } /* en el móvil la papelera baja de línea */
+  .pr-position button, .pr-position .pr-manual { grid-column: 2 / -1; }
+  .pr-position button { justify-self: end; }
+}
+
+@media print {
+  body.to-printing-standings #to-prizes-dialog::backdrop { display: none; }
+}

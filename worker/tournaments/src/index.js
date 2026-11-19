@@ -3,6 +3,7 @@ export { AccountStore } from './accounts.js';
 export { ChallengeHub } from './retos.js';
 import bbpWasm from './bbp/bbp.wasm';
 import { loadBbp, runDutch } from './bbp-engine.js';
+import { PRIZE_BODY_LIMIT, prizeResults, prizeYear, savedPrizes, validatePrizes } from './prizes.js';
 import { GameError, requireThat, isArena, setSwissEngine, startTournament, createTournament, editTournament, joinTournament, requestPresencial, isPresencial, act, advance, pairArena, nextAlarm, snapshot, sharedSnapshot, personalPart, moveMessage, summary, exportPgn, RETENTION_MS } from './core.js';
 
 // El navegador manda "ping" cada 30 s; sin señal en este margen, el jugador no se considera presente.
@@ -23,10 +24,10 @@ export async function hash(value) {
 }
 function randomHex(size = 12) { return [...crypto.getRandomValues(new Uint8Array(size))].map(b => b.toString(16).padStart(2, '0')).join(''); }
 function bearer(request) { return (request.headers.get('Authorization') || '').replace(/^Bearer /, ''); }
-async function body(request) {
-  requireThat(Number(request.headers.get('Content-Length') || 0) <= 4096, 'La petición es demasiado grande.', 413);
+async function body(request, limit = 4096) {
+  requireThat(Number(request.headers.get('Content-Length') || 0) <= limit, 'La petición es demasiado grande.', 413);
   const text = await request.text();
-  requireThat(new TextEncoder().encode(text).length <= 4096, 'La petición es demasiado grande.', 413);
+  requireThat(new TextEncoder().encode(text).length <= limit, 'La petición es demasiado grande.', 413);
   try { const b = JSON.parse(text); requireThat(b && typeof b === 'object' && !Array.isArray(b), 'Datos no válidos.'); return b; }
   catch { throw new GameError('Datos no válidos.'); }
 }
@@ -124,6 +125,11 @@ export class TournamentRoom extends DurableObject {
   }
   // Organizador: el navegador que creó el torneo o, con su cuenta, cualquier otro dispositivo (ver «hello»).
   isHost(h) { return !!h && (h === this.t.hostHash || (this.t.hostHashes || []).includes(h)); }
+  prizeAccess(accountId, admin) {
+    if (this.t.challenge || this.t.status === 'cancelled') return null;
+    if (accountId && accountId === this.t.hostAccountId) return 'creator';
+    return admin === true ? 'admin' : null;
+  }
   capabilities(playerHash, hostHash, accountId = null, admin = false) {
     const registered = accountId && this.t.players.find(p => p.accountId === accountId);
     const host = this.isHost(hostHash) || !!(accountId && accountId === this.t.hostAccountId) || admin === true;
@@ -132,7 +138,8 @@ export class TournamentRoom extends DurableObject {
   send(ws) {
     const a = ws.deserializeAttachment() || {};
     const c = this.capabilities(a.playerHash, a.hostHash, a.accountId, a.admin);
-    ws.send(JSON.stringify(snapshot(this.t, c.playerId, c.host, a.game, Date.now(), a.playerHash)));
+    ws.send(JSON.stringify({ ...snapshot(this.t, c.playerId, c.host, a.game, Date.now(), a.playerHash),
+      prizeAccess: this.prizeAccess(a.accountId, a.admin) }));
   }
   broadcast() {
     if (this.flushTimer) return;
@@ -152,9 +159,13 @@ export class TournamentRoom extends DurableObject {
         const playerId = accounts.get(a.accountId) || players.get(a.playerHash) || null;
         // Quien espera a que aprueben su solicitud presencial recibe también la suya.
         const pending = !playerId && a.playerHash && this.t.requests?.some(r => r.hash === a.playerHash) ? a.playerHash : null;
-        const key = `${playerId}|${host}|${a.game}|${pending}`;
+        const prizeAccess = this.prizeAccess(a.accountId, a.admin);
+        const key = `${playerId}|${host}|${a.game}|${pending}|${prizeAccess}`;
         let personal = details.get(key);
-        if (!personal) { personal = JSON.stringify(personalPart(this.t, playerId, host, a.game, pending)).slice(1); details.set(key, personal); }
+        if (!personal) {
+          personal = JSON.stringify({ ...personalPart(this.t, playerId, host, a.game, pending), prizeAccess }).slice(1);
+          details.set(key, personal);
+        }
         ws.send(shared + ',' + personal);
       } catch { try { ws.close(1011, 'Reconecta para recuperar la partida.'); } catch {} }
     }
@@ -215,7 +226,24 @@ export class TournamentRoom extends DurableObject {
           return new Response(text, { headers: { 'Content-Type': 'application/x-chess-pgn; charset=utf-8', 'Content-Disposition': `attachment; filename="apejupo-${this.t.id}.pgn"`, 'Cache-Control': 'no-store' } });
         }
         if (request.method === 'GET') return json(snapshot(this.t, null, false, url.searchParams.get('game')));
-        const b = await body(request);
+        const b = await body(request, url.pathname === '/prizes' ? PRIZE_BODY_LIMIT : undefined);
+        if (url.pathname === '/prizes') {
+          requireThat(this.prizeAccess(b.actorId, b.admin), 'Solo el creador o el administrador pueden configurar los premios.', 403);
+          const saved = savedPrizes(this.t);
+          if (Object.hasOwn(b, 'config')) {
+            requireThat(!Object.hasOwn(b, 'preview'), 'Guarda los premios o solicita una vista previa en consultas separadas.');
+            requireThat(b.version === saved.version, 'Los premios cambiaron en otra sesión. Cierra y vuelve a abrir la pantalla para cargar la versión actual.', 409);
+            this.t.prizes = validatePrizes(b.config, this.t.players);
+            this.t.prizeVersion = saved.version + 1;
+            await this.save();
+          }
+          const config = savedPrizes(this.t);
+          const preview = Object.hasOwn(b, 'preview') ? validatePrizes(b.preview, this.t.players) : config;
+          return json({ config, results: prizeResults(this.t, preview), status: this.t.status, round: this.t.round,
+            // Con ELO, año de nacimiento y sexo, la pantalla solo ofrece a quien cumple las condiciones de cada premio.
+            year: prizeYear(this.t),
+            players: this.t.players.map(({ id, name, club, rating, birth, sex }) => ({ id, name, club: club || '', rating: rating || null, birth: birth || null, sex: sex || null })) });
+        }
         if (url.pathname === '/config' || url.pathname === '/edit') {
           // El router verifica la identidad del creador o la clave de administrador.
           requireThat(b.admin === true || !!(b.actorId && b.actorId === this.t.hostAccountId) || (TOKEN.test(b.hostToken) && this.isHost(await hash(b.hostToken))), 'Solo el creador o el administrador pueden editar el torneo.', 403);
@@ -380,7 +408,7 @@ export default {
         // La sesión viaja en la cabecera Authorization; la IP solo sirve para frenar intentos repetidos.
         return withCors(await askAccounts(account[1], { ...b, session: bearer(request), ip: request.headers.get('CF-Connecting-IP') || 'local' }));
       }
-      const room = /^\/api\/tournaments\/([a-f0-9]{24})(?:\/(join|socket|pgn|delete|config|edit))?$/.exec(path);
+      const room = /^\/api\/tournaments\/([a-f0-9]{24})(?:\/(join|socket|pgn|delete|config|edit|prizes))?$/.exec(path);
       if (path === '/api/tournaments/admin/comprobar') {
         requireThat(request.method === 'POST', 'Método no permitido.', 405);
         return withCors(await checkAdmin());
@@ -399,11 +427,12 @@ export default {
       }
       requireThat(room && ROOM_ID.test(room[1]), 'No encontrado.', 404);
       const suffix = room[2] || '';
-      requireThat(!['join', 'delete', 'config', 'edit'].includes(suffix) || request.method === 'POST', 'Método no permitido.', 405);
+      requireThat(!['join', 'delete', 'config', 'edit', 'prizes'].includes(suffix) || request.method === 'POST', 'Método no permitido.', 405);
       requireThat(!['socket', 'pgn', ''].includes(suffix) || request.method === 'GET', 'Método no permitido.', 405);
       if (suffix === 'socket') requireThat(origin && allowed.includes(origin), 'Conexión no autorizada.', 403);
-      if (['delete', 'config', 'edit'].includes(suffix)) {
-        const b = await body(request);
+      if (['delete', 'config', 'edit', 'prizes'].includes(suffix)) {
+        if (suffix === 'prizes') requireThat(bearer(request), 'Entra con tu cuenta para gestionar los premios.', 401);
+        const b = await body(request, suffix === 'prizes' ? PRIZE_BODY_LIMIT - 200 : undefined);
         // Se sobrescriben los permisos del cuerpo: solo cuentan la sesión o la clave verificadas.
         b.admin = false; b.actorId = null;
         if (bearer(request)) {

@@ -1,7 +1,8 @@
 import { Chess } from '../assets/chess/chess.js';
 import { session, currentUser, openAuth } from './cuenta.js?v=20261117-admin1';
 import { send as sendReto } from './retos.js?v=20261115-match1';
-import { searchPlayers, findExact, warmUp, birthYears } from './torneo-elo.js?v=20261117-sexo1';
+import { searchPlayers, findExact, warmUp, birthYears } from './torneo-elo.js?v=20261118-premios2';
+import { createPrizePanel } from './torneo-premios.js?v=20261119-condiciones';
 
 const $ = id => document.getElementById(id);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -711,12 +712,18 @@ function renderMatches() {
 function renderControls() {
   if (!state) return;
   const t = state, mine = t.standings.find(p => p.id === t.me), ended = ['finished', 'cancelled'].includes(t.status);
-  $('to-host').hidden = !t.host || ended;
+  const canUsePrizes = !!(currentUser() && t.prizeAccess && t.status !== 'cancelled' && !boardsMode);
+  $('to-host').hidden = !canUsePrizes && (!t.host || ended);
   $('to-sound').hidden = presencial(t);
-  $('to-key-edit').hidden = presencial(t);
-  $('to-host-key').hidden = presencial(t);
-  $('to-host-edit').hidden = t.status !== 'waiting' && !t.editable;
+  $('to-key-edit').hidden = ended || presencial(t);
+  $('to-host-key').hidden = ended || presencial(t);
+  $('to-host-edit').hidden = ended || (t.status !== 'waiting' && !t.editable);
+  const prizes = $('to-prizes-edit');
+  prizes.hidden = !canUsePrizes;
+  prizes.disabled = !connected;
+  if (prizes.hidden && $('to-prizes-dialog').open) $('to-prizes-dialog').close();
   $('to-start').hidden = t.status !== 'waiting'; $('to-start').disabled = !connected || t.count < 2;
+  $('to-cancel').hidden = ended;
   $('to-cancel').disabled = !connected;
   $('to-presencial-reset').disabled = !connected;
   $('to-host-key').innerHTML = t.joinKey ? `<svg class="to-lock" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>Clave: <strong>${esc(t.joinKey)}</strong>` : 'Sin clave: cualquiera con el enlace puede inscribirse';
@@ -1093,14 +1100,17 @@ function printStandings() {
   if (!state) return;
   const t = state, view = standingsView(t);
   if (!view.rows.length) return;
-  clearStandingsPrint?.();
   const keys = view.initial || arena(t) ? [] : (t.tiebreaks?.length ? t.tiebreaks : closed(t) ? ['sb'] : ['bh']).filter(k => TB[k]).slice(0, 2);
   const number = n => n == null ? '-' : Number.isInteger(n) || n % 1 === .5 ? formatPoints(n) : n.toLocaleString('es-ES', { maximumFractionDigits: 2 });
   const extraHeaders = view.initial ? '' : '<th>Pts</th>' + (arena(t) ? '<th>PJ</th>' : keys.map(k => `<th>${esc(TB[k][1])}</th>`).join(''));
   const rows = view.rows.map((p, i) => `<tr><td>${i + 1}</td><td class="to-print-name">${p.title ? esc(p.title) + ' ' : ''}${esc(p.name)}${p.fed ? `<small>${esc(p.fed)}</small>` : ''}</td><td>${fideRating(p) || '-'}</td>${view.initial ? '' : `<td><strong>${formatPoints(pointsOf(p))}</strong></td>${arena(t) ? `<td>${p.played}</td>` : keys.map(k => `<td>${esc(number(p.tb?.[k]))}</td>`).join('')}`}</tr>`).join('');
   const note = view.initial ? 'Ordenados por Elo FIDE, de mayor a menor. Los jugadores sin Elo FIDE figuran al final.' : $('to-tiebreak').textContent;
+  printTournamentSheet(`<header><p class="to-print-brand">APEJUPO · CHESS CLUB</p><h1>${esc(t.title)}</h1><h2>${esc(view.title)}</h2><p class="to-print-meta">${esc(formatLabel(t))} · ${t.minutes} + ${t.increment} · ${view.rows.length} participantes</p></header><table><thead><tr><th>N.º</th><th class="to-print-name">Jugador</th><th>Elo FIDE</th>${extraHeaders}</tr></thead><tbody>${rows}</tbody></table><p class="to-print-note">${esc(note)}</p>`);
+}
+function printTournamentSheet(markup) {
+  clearStandingsPrint?.();
   const sheet = document.createElement('section'); sheet.id = 'to-print-sheet'; sheet.setAttribute('aria-hidden', 'true');
-  sheet.innerHTML = `<header><p class="to-print-brand">APEJUPO · CHESS CLUB</p><h1>${esc(t.title)}</h1><h2>${esc(view.title)}</h2><p class="to-print-meta">${esc(formatLabel(t))} · ${t.minutes} + ${t.increment} · ${view.rows.length} participantes</p></header><table><thead><tr><th>N.º</th><th class="to-print-name">Jugador</th><th>Elo FIDE</th>${extraHeaders}</tr></thead><tbody>${rows}</tbody></table><p class="to-print-note">${esc(note)}</p>`;
+  sheet.innerHTML = markup;
   document.body.append(sheet); document.body.classList.add('to-printing-standings');
   const cleanup = () => {
     sheet.remove(); document.body.classList.remove('to-printing-standings');
@@ -1361,14 +1371,18 @@ function openPicker(sel) {
 $('to-create-form').addEventListener('change', () => pickerButtons());
 $('to-start-day').addEventListener('input', () => pickerButtons());
 $('to-join-account').addEventListener('click', () => openAuth('entrar'));
-addEventListener('apejupo:cuenta', () => {
-  if (state) render();
+function refreshOrganizer() {
+  if (state) {
+    state.prizeAccess = null;
+    render();
+  }
   // Si se entra en la cuenta con el torneo ya abierto, hay que volver a identificarse en la sala.
   if (roomId && connected && !boardsMode) hello();
   else if (!roomId) loadLobby();
-});
+}
+addEventListener('apejupo:cuenta', refreshOrganizer);
 addEventListener('storage', event => {
-  if (event.key === 'apejupoAdminCuentas' && roomId && connected && !boardsMode) hello();
+  if (event.key === 'apejupoAdminCuentas' && roomId && !boardsMode) refreshOrganizer();
 });
 $('to-join-form').addEventListener('submit', async event => {
   event.preventDefault(); const button = event.currentTarget.querySelector('button'); button.disabled = true;
@@ -1564,13 +1578,13 @@ function warnDuplicate(p) {
 }
 attachSearch('to-pz-search', 'to-pz-sugs', p => {
   if (warnDuplicate(p)) return;
-  if (send({ type: 'presencial-player', name: p.name, rating: p.rating ?? '', source: p.source, fideId: p.fideId, fed: p.fed, title: p.title, birth: p.birth, sex: p.sex })) message('');
+  if (send({ type: 'presencial-player', name: p.name, rating: p.rating ?? '', source: p.source, fideId: p.fideId, fed: p.fed, title: p.title, birth: p.birth, sex: p.sex, club: p.club })) message('');
   $('to-pz-search').focus();
 }, text => `Añadir «${text}»`);
 attachSearch('to-pz-ask-search', 'to-pz-ask-sugs', async p => {
   try {
     const id = read(playerKey()) || token(), user = currentUser(); write(playerKey(), id);
-    await request(`/api/tournaments/${roomId}/join`, { method: 'POST', key: user ? session() : '', body: JSON.stringify({ name: p.name, rating: p.rating ?? '', source: p.source, fideId: p.fideId, fed: p.fed, title: p.title, birth: p.birth, sex: p.sex, token: id }) });
+    await request(`/api/tournaments/${roomId}/join`, { method: 'POST', key: user ? session() : '', body: JSON.stringify({ name: p.name, rating: p.rating ?? '', source: p.source, fideId: p.fideId, fed: p.fed, title: p.title, birth: p.birth, sex: p.sex, club: p.club, token: id }) });
     askChanging = false; hello(); message('');
   } catch (e) { if (isDupError(e.message)) noticeBox('Ese nombre ya está inscrito', e.message); else message(e.message, true); }
 }, text => `Pedir plaza como «${text}»`);
@@ -1592,6 +1606,7 @@ $('to-pz-host').addEventListener('click', async event => {
     const p = state.standings.find(p => p.id === edit); if (!p) return;
     $('to-pz-edit-form').dataset.id = p.id;
     $('to-pz-edit-name').value = p.name; $('to-pz-edit-rating').value = p.rating ?? ''; $('to-pz-edit-birth').value = p.birth ?? ''; $('to-pz-edit-sex').value = p.sex ?? '';
+    $('to-pz-edit-club').value = p.club ?? '';
     $('to-pz-edit-source').textContent = p.source ? `Elo de la lista ${p.source}${p.fideId ? ` · FIDE ${p.fideId}` : ''}. Si lo cambias, quedará como Elo manual.` : '';
     $('to-pz-edit-dialog').showModal(); $('to-pz-edit-name').select();
   }
@@ -1601,7 +1616,7 @@ $('to-pz-edit-form').addEventListener('submit', event => {
   const p = state.standings.find(p => p.id === event.currentTarget.dataset.id); if (!p) return;
   const rating = $('to-pz-edit-rating').value === '' ? null : Number($('to-pz-edit-rating').value);
   const sameRating = rating === (p.rating ?? null);
-  if (send({ type: 'presencial-edit', playerId: p.id, name: $('to-pz-edit-name').value, rating: rating ?? '', source: sameRating ? p.source : null, fideId: p.fideId, fed: p.fed, title: p.title, birth: $('to-pz-edit-birth').value, sex: $('to-pz-edit-sex').value })) $('to-pz-edit-dialog').close();
+  if (send({ type: 'presencial-edit', playerId: p.id, name: $('to-pz-edit-name').value, rating: rating ?? '', source: sameRating ? p.source : null, fideId: p.fideId, fed: p.fed, title: p.title, birth: $('to-pz-edit-birth').value, sex: $('to-pz-edit-sex').value, club: $('to-pz-edit-club').value })) $('to-pz-edit-dialog').close();
 });
 
 // Lista pegada: «Nombre; Elo», «Nombre<Tab>Elo» o solo el nombre (el Elo se busca en las listas).
@@ -1642,14 +1657,14 @@ $('to-pz-paste-check').addEventListener('click', async () => {
   for (let i = 0; i < missing.length; i++) {
     drawPaste(`Buscando el Elo en las listas… ${i + 1} de ${missing.length}`);
     const hit = await findExact(missing[i].name).catch(() => null);
-    if (hit) Object.assign(missing[i], { rating: hit.rating, source: hit.source, fideId: hit.fideId, fed: hit.fed, title: hit.title, birth: hit.birth, sex: hit.sex, fide: hit.fide, fada: hit.fada, found: true });
+    if (hit) Object.assign(missing[i], { rating: hit.rating, source: hit.source, fideId: hit.fideId, fed: hit.fed, title: hit.title, birth: hit.birth, sex: hit.sex, club: hit.club, fide: hit.fide, fada: hit.fada, found: true });
   }
   $('to-pz-paste-check').disabled = false;
   drawPaste();
 });
 $('to-pz-paste-form').addEventListener('submit', event => {
   event.preventDefault();
-  const players = pasted.filter(p => !p.problem).map(({ name, rating, source, fideId, fed, title }) => ({ name, rating: rating ?? '', source, fideId, fed, title }));
+  const players = pasted.filter(p => !p.problem).map(({ name, rating, source, fideId, fed, title, birth, sex, club }) => ({ name, rating: rating ?? '', source, fideId, fed, title, birth, sex, club }));
   if (players.length && send({ type: 'presencial-players', players })) $('to-pz-paste-dialog').close();
 });
 
@@ -1953,6 +1968,30 @@ $('to-events').addEventListener('click', async event => {
 
 $('to-waiting-boards').addEventListener('click', () => openBoards());
 $('to-host-edit').addEventListener('click', async () => { try { await openEdit(roomId); } catch (error) { message(error.message, true); } });
+async function prizeConfiguration(fields = {}) {
+  if ($('to-prizes-edit').hidden || !connected) throw new Error('Recupera la conexión con tu cuenta para configurar los premios.');
+  const key = state.prizeAccess === 'creator' ? session() : adminKey();
+  return (await request(`/api/tournaments/${roomId}/prizes`, { method: 'POST', key, body: JSON.stringify(fields) })).json();
+}
+const prizePanel = createPrizePanel({ request: prizeConfiguration, confirm: confirmAction, print: printTournamentSheet });
+let openingPrizes = false;
+$('to-prizes-edit').addEventListener('click', async () => {
+  const button = $('to-prizes-edit');
+  if (openingPrizes || $('to-prizes-dialog').open) return;
+  openingPrizes = true;
+  button.disabled = true;
+  const accountSession = session();
+  try {
+    const data = await prizeConfiguration();
+    if (button.hidden || !connected || session() !== accountSession) return;
+    prizePanel.open(data, state.title);
+  } catch (error) {
+    message(error.message, true);
+  } finally {
+    openingPrizes = false;
+    button.disabled = !connected;
+  }
+});
 $('to-key-edit').addEventListener('click', () => { $('to-joinkey-input').value = state?.joinKey || ''; $('to-joinkey-remove').hidden = !state?.joinKey; $('to-joinkey-dialog').showModal(); $('to-joinkey-input').focus(); });
 $('to-joinkey-form').addEventListener('submit', event => {
   event.preventDefault();
