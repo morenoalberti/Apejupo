@@ -6,6 +6,8 @@
 (function () {
   "use strict";
   var API = "https://apejupo-eventos.chessrival-worker.workers.dev/traducir";
+  // En local (localhost:8080) se usa el Worker de pruebas del equipo (npx wrangler dev, puerto 8787).
+  if (/^(localhost|127\.0\.0\.1)$/.test(location.hostname)) API = "http://127.0.0.1:8787/traducir";
   try { var q = /[?&]traductor=([^&]+)/.exec(location.search); if (q && /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?\/traducir$/.test(decodeURIComponent(q[1]))) API = decodeURIComponent(q[1]); } catch (_) {} // pruebas en local
   var CLAVE = "apejupo-idioma", CACHE = "apejupo-traducciones-en", LOTE = 40, MAX_CACHE = 4000;
   var ATRIBUTOS = ["placeholder", "title", "aria-label", "alt"];
@@ -100,9 +102,10 @@
   function lote(grupo) {
     grupo.forEach(function (t) { pendientes.get(t).enviado = true; });
     enVuelo++; marcar();
-    fetch(API, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ to: "en", texts: grupo }) })
+    fetch(API, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ to: "en", texts: grupo }), signal: AbortSignal.timeout ? AbortSignal.timeout(25000) : undefined })
       .then(function (r) { if (!r.ok) throw 0; return r.json(); })
       .then(function (j) {
+        if (!j || !Array.isArray(j.translations)) throw 0; // respuesta que no es del traductor
         grupo.forEach(function (t, i) {
           var tr = j.translations && j.translations[i];
           var esperan = pendientes.get(t) || []; pendientes.delete(t);
@@ -110,8 +113,20 @@
         });
         guardar();
       })
-      .catch(function () { grupo.forEach(function (t) { pendientes.delete(t); }); }) // sin conexión: se queda en español
+      .catch(function () { grupo.forEach(function (t) { pendientes.delete(t); }); fallo(); }) // sin traductor: se queda en español y se avisa
       .then(function () { enVuelo--; marcar(); });
+  }
+  // Si el traductor no responde, se avisa y las banderas vuelven al español.
+  var avisado = false;
+  function fallo() {
+    if (avisado || idioma !== "en") return;
+    avisado = true; setTimeout(function () { avisado = false; }, 4000);
+    cambiar("es");
+    var aviso = document.createElement("div");
+    aviso.className = "lang-aviso notranslate"; aviso.setAttribute("role", "status");
+    aviso.textContent = "No se ha podido traducir la página ahora. Inténtalo de nuevo en unos minutos.";
+    document.body.appendChild(aviso);
+    setTimeout(function () { aviso.remove(); }, 5000);
   }
   function marcar() { document.documentElement.classList.toggle("traduciendo", enVuelo > 0); }
 

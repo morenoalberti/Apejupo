@@ -1638,3 +1638,4 @@ body.card-dragging .tour-tip { display: none !important; }
 .lang-flags svg { width: 26px; height: 17px; display: block; border-radius: 3px; }
 html.traduciendo { cursor: progress; }
 @media (max-width: 420px) { .lang-flags { gap: 4px; margin-right: 6px; } .lang-flags button { width: 26px; } .lang-flags svg { width: 22px; height: 15px; } }
+.lang-aviso { position: fixed; left: 50%; bottom: 24px; z-index: 9999; transform: translateX(-50%); max-width: min(92vw, 460px); padding: 12px 16px; border: 1px solid rgba(255, 255, 255, .15); border-radius: 12px; background: #1b2a44; color: #fff; font-size: .92rem; box-shadow: 0 12px 30px rgba(0, 0, 0, .35); }
