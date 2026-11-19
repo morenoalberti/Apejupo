@@ -441,7 +441,9 @@ const TR_MAX_TEXTOS = 40, TR_MAX_LARGO = 1200, TR_MAX_TOTAL = 16000;
 const TR_SISTEMA = 'You translate texts from the website of a Spanish chess club into natural, concise English. ' +
   'Chess and site terms: "en directo" = "live", "Torneos en directo" = "Live tournaments", "Inscríbete" = "Sign up", "Entrar" = "Sign in", ' +
   '"Clasificación" = "Standings", "Ronda" = "Round", "tablas" = "draw", "Abandonar" = "Resign", "Emparejamientos" = "Pairings", ' +
-  '"partida" = "game", "ritmo" = "time control", "Sistema suizo" = "Swiss system", "Desempates" = "Tiebreaks", "inscritos" = "registered players". ' +
+  '"partida" = "game", "ritmo" = "time control", "Sistema suizo" = "Swiss system", "Desempates" = "Tiebreaks", "inscritos" = "registered players", ' +
+  '"final"/"finales" (chess) = "endgame"/"endgames", "medio juego" = "middlegame", "apertura" = "opening", "táctica" = "tactics", ' +
+  '"patrones de mate" = "checkmate patterns", "jaque" = "check", "jaque mate" = "checkmate", "alfil" = "bishop", "caballo" = "knight", "torre" = "rook", "dama" = "queen", "peón" = "pawn". ' +
   'Never translate proper names of people, clubs, places or tournaments, nor the word "Apejupo". Keep numbers, symbols, punctuation and capitalization style. ' +
   'Answer ONLY with a JSON array of strings with exactly the same length and order as the input array.';
 function trOrigen(request) {
@@ -471,7 +473,7 @@ async function traducir(request, env, ctx) {
   const textos = Array.isArray(body?.texts) ? body.texts : null;
   if (!IDIOMAS[body?.to] || !textos || textos.length > TR_MAX_TEXTOS || textos.some((t) => typeof t !== "string" || t.length > TR_MAX_LARGO) || textos.join("").length > TR_MAX_TOTAL) return json({ error: "Datos no válidos" }, 400);
   const cache = typeof caches !== "undefined" ? caches.default : null;
-  const claves = await Promise.all(textos.map(async (t) => new Request("https://apejupo.invalid/traducir/l33/" + body.to + "/" + (await huella(t))))); // l33: modelo actual (cambiarlo vacía la caché)
+  const claves = await Promise.all(textos.map(async (t) => new Request("https://apejupo.invalid/traducir/l33b/" + body.to + "/" + (await huella(t))))); // l33: modelo actual (cambiarlo vacía la caché)
   const salida = await Promise.all(textos.map(async (t, i) => {
     if (!t.trim()) return t;
     if (cache) { const hit = await cache.match(claves[i]); if (hit) return hit.text(); }

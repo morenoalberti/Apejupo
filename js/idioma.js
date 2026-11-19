@@ -9,7 +9,7 @@
   // En local (localhost:8080) se usa el Worker de pruebas del equipo (npx wrangler dev, puerto 8787).
   if (/^(localhost|127\.0\.0\.1)$/.test(location.hostname)) API = "http://127.0.0.1:8787/traducir";
   try { var q = /[?&]traductor=([^&]+)/.exec(location.search); if (q && /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?\/traducir$/.test(decodeURIComponent(q[1]))) API = decodeURIComponent(q[1]); } catch (_) {} // pruebas en local
-  var CLAVE = "apejupo-idioma", CACHE = "apejupo-traducciones-en", LOTE = 40, MAX_CACHE = 4000;
+  var CLAVE = "apejupo-idioma", CACHE = "apejupo-traducciones-en", LOTE = 20, MAX_CACHE = 4000;
   var ATRIBUTOS = ["placeholder", "title", "aria-label", "alt"];
   var SALTAR = "script,style,noscript,code,pre,textarea,svg,canvas,iframe,[translate='no'],.notranslate,.lang-flags,.cu-nick,.to-board,.board,cg-board,.cm-content";
 
@@ -128,7 +128,31 @@
     document.body.appendChild(aviso);
     setTimeout(function () { aviso.remove(); }, 5000);
   }
-  function marcar() { document.documentElement.classList.toggle("traduciendo", enVuelo > 0); }
+  function marcar() { document.documentElement.classList.toggle("traduciendo", enVuelo > 0 && idioma === "en"); }
+
+  // ── Traducción por adelantado ──
+  // Con la página en español, en cuanto el navegador está libre se piden ya (en segundo plano) las
+  // traducciones de sus textos. Así, al pulsar la bandera inglesa todo cambia al instante.
+  function recoger(raiz, salida) {
+    var w = document.createTreeWalker(raiz, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT, {
+      acceptNode: function (n) { return n.nodeType === 1 && saltar(n) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT; },
+    });
+    var n;
+    while ((n = w.nextNode())) {
+      if (n.nodeType === 3) { if (traducible(n.nodeValue)) salida.add(n.nodeValue.trim()); }
+      else ATRIBUTOS.forEach(function (at) { var v = n.getAttribute(at); if (v != null && traducible(v)) salida.add(v.trim()); });
+    }
+    return salida;
+  }
+  function anticipar() {
+    if (idioma !== "es" || !document.body) return;
+    var lista = recoger(document.body, new Set());
+    if (traducible(tituloOriginal)) lista.add(tituloOriginal.trim());
+    lista.forEach(function (texto) { if (!memoria[texto] && !pendientes.has(texto)) { pendientes.set(texto, []); programar(); } });
+  }
+  function anticiparLuego() {
+    if (window.requestIdleCallback) requestIdleCallback(anticipar, { timeout: 3000 }); else setTimeout(anticipar, 1500);
+  }
 
   // ── Cambios que hace la página mientras está en inglés ──
   var observador = new MutationObserver(function (cambios) {
@@ -174,6 +198,9 @@
       '<button type="button" data-lang="es" title="Español" aria-label="Español">' + ES + '</button>';
     chip.parentNode.insertBefore(caja, chip);
     caja.addEventListener("click", function (e) { var b = e.target.closest("[data-lang]"); if (b) cambiar(b.getAttribute("data-lang")); });
+    // Al acercar el ratón (o el dedo) a la bandera inglesa se piden ya los textos que la página haya cargado después.
+    caja.querySelector('[data-lang="en"]').addEventListener("pointerenter", anticipar);
+    caja.querySelector('[data-lang="en"]').addEventListener("focus", anticipar);
     pintar();
   }
   function pintar() {
@@ -194,6 +221,7 @@
     // «Entrar» lo pone cuenta.js: si aún no está, se esperan las banderas un momento.
     if (!document.querySelector(".lang-flags")) { var n = 0, t = setInterval(function () { botones(); if (document.querySelector(".lang-flags") || ++n > 40) clearInterval(t); }, 100); }
     if (idioma === "en") aIngles();
+    else { anticiparLuego(); setTimeout(anticipar, 6000); } // otra vez cuando la página ya ha cargado lo suyo (noticias, torneos…)
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", iniciar); else iniciar();
 })();
