@@ -53,8 +53,13 @@ const playerKey = () => 'apejupoTorneoJugador:' + roomId;
 const hostKey = id => 'apejupoTorneoOrganizador:' + id;
 const managementKey = id => read(hostKey(id)) ? '' : adminKey() || session();
 function message(text, error = false) { $('to-message').hidden = !text; $('to-message').textContent = text; $('to-message').classList.toggle('error', error); }
+// Torneo borrado, caducado o inexistente: ya no hay nada que compartir.
+let roomGone = false;
+function shareable(on, why = '') { $('to-share').disabled = !on; $('to-share').title = on ? '' : why; }
 function setConnection(text, online = false) {
   connected = online;
+  roomGone = ['Torneo borrado', 'Torneo archivado', 'Torneo no disponible'].includes(text);
+  if (roomGone) shareable(false, 'El torneo ya no existe: no se puede compartir.');
   for (const id of ['to-connection', 'to-boards-conn']) { $(id).textContent = text; $(id).classList.toggle('online', online); }
   if (state) { boardKey = ''; renderGame(); renderControls(); }
 }
@@ -308,8 +313,9 @@ function render() {
   $('to-focus-pause').hidden = !arena(t);
   $('to-focus-pause').textContent = mine?.paused ? 'Entrar en el torneo' : 'Salir del torneo';
   $('to-focus-pause').disabled = !connected;
-  // Con el torneo en juego no se muestra «Compartir torneo».
+  // «Compartir torneo» no se muestra en juego; cancelado o ya inexistente, se ve desactivado.
   $('to-share').hidden = !!t.challenge || ['playing', 'between'].includes(t.status);
+  shareable(!roomGone && t.status !== 'cancelled', roomGone ? 'El torneo ya no existe: no se puede compartir.' : 'El torneo está cancelado: no se puede compartir.');
   // Los invitados que entran con el enlace no ven la lista de torneos: solo el organizador.
   $('to-back').hidden = !t.host;
   $('to-focus-title').textContent = t.title;
@@ -1862,6 +1868,7 @@ $('to-confirm-no').addEventListener('click', () => closeConfirm(false));
 $('to-confirm-yes').addEventListener('click', () => closeConfirm(true));
 $('to-confirm-dialog').addEventListener('cancel', () => { confirmResolve?.(false); confirmResolve = null; });
 $('to-share').addEventListener('click', async () => {
+  if ($('to-share').disabled) return;
   try { await navigator.clipboard.writeText(location.origin + location.pathname + '?id=' + roomId); message('Enlace del torneo copiado. Ya puedes compartirlo.'); }
   catch { message('Comparte la dirección de esta página para invitar a otros jugadores.'); }
 });
