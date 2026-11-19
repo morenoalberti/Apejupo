@@ -1026,7 +1026,7 @@ function updateClocks() {
     : isMatch(t) && t.status === 'finished' ? 'Match terminado'
     : t.status === 'waiting' || t.challenge ? ''
     : arena(t) && t.status === 'playing' ? (closing ? 'Tiempo cumplido: esperando las últimas partidas, que cuentan para la clasificación final' : t.pairingsCloseAt && now >= t.pairingsCloseAt ? (me?.active && !me.playing ? 'Ya no hay emparejamientos nuevos' : '') : me?.active && !me.playing && !me.paused ? 'Buscando rival…' : '')
-    : t.status === 'between' ? (presencial(t) ? `Ronda ${t.round} completada · Esperando a la organización` : `Siguiente ronda en ${Math.max(0, Math.ceil((t.nextRoundAt - now) / 1000))} s`) : t.status === 'playing' ? `Ronda ${t.round} de ${t.rounds}` : t.status === 'finished' ? 'Clasificación final' : 'Torneo cancelado';
+    : t.status === 'between' ? (presencial(t) ? `Ronda ${t.round} completada · Esperando a la organización` : `Siguiente ronda en ${Math.max(0, Math.ceil((t.nextRoundAt - now) / 1000))} s`) : t.status === 'playing' ? `Ronda ${t.round} de ${t.rounds}` : t.status === 'finished' ? '' : 'Torneo cancelado'; // terminado: sin rótulo (ya lo dice la etiqueta «Finalizado»)
   // Cuenta atrás grande del arena, como en Lichess.
   const counting = arena(t) && t.status === 'playing' && now < t.endsAt;
   $('to-countdown').hidden = !counting;
