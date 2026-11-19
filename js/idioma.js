@@ -17,6 +17,20 @@
   try { idioma = localStorage.getItem(CLAVE) === "en" ? "en" : "es"; } catch (_) {}
   if (idioma === "en") document.documentElement.lang = "en"; // las fechas que pinte la página saldrán ya en inglés
 
+  // ── Diccionario de la web: data/i18n/en.json ──
+  // Pares «texto en español» → «texto en inglés», revisables a mano. Es lo primero que se usa; solo lo que
+  // no está en él (noticias, nombres de torneos…) se pide al traductor automático. Se completa con
+  // «node scripts/traducciones.mjs» (ver el propio script).
+  var diccionario = {};
+  var diccionarioListo = fetch("data/i18n/en.json", { cache: "no-cache" })
+    .then(function (r) { return r.ok ? r.json() : {}; })
+    .catch(function () { return {}; })
+    .then(function (d) { diccionario = d && typeof d === "object" ? d : {}; });
+  function esperarDiccionario(hecho) { // como mucho 1,5 s: sin diccionario, se sigue con el traductor
+    var listo = false, una = function () { if (!listo) { listo = true; hecho(); } };
+    diccionarioListo.then(una); setTimeout(una, 1500);
+  }
+
   // ── Memoria de traducciones (también entre páginas, en este navegador) ──
   var memoria = {};
   try { memoria = JSON.parse(localStorage.getItem(CACHE)) || {}; } catch (_) {}
@@ -53,6 +67,7 @@
 
   var pendientes = new Map(); // texto original → [aplicadores]
   function pedir(texto, aplicar) {
+    if (Object.prototype.hasOwnProperty.call(diccionario, texto) && diccionario[texto]) { aplicar(diccionario[texto]); return; }
     if (memoria[texto]) { aplicar(memoria[texto]); return; }
     if (!pendientes.has(texto)) pendientes.set(texto, []);
     pendientes.get(texto).push(aplicar);
@@ -156,7 +171,7 @@
     if (idioma !== "es" || !document.body) return;
     var lista = recoger(document.body, new Set());
     if (traducible(tituloOriginal)) lista.add(tituloOriginal.trim());
-    lista.forEach(function (texto) { if (!memoria[texto] && !pendientes.has(texto)) { pendientes.set(texto, []); programar(); } });
+    lista.forEach(function (texto) { if (!diccionario[texto] && !memoria[texto] && !pendientes.has(texto)) { pendientes.set(texto, []); programar(); } });
   }
   function anticiparLuego() {
     if (window.requestIdleCallback) requestIdleCallback(anticipar, { timeout: 3000 }); else setTimeout(anticipar, 1500);
@@ -239,8 +254,16 @@
     botones();
     // «Entrar» lo pone cuenta.js: si aún no está, se esperan las banderas un momento.
     if (!document.querySelector(".lang-flags")) { var n = 0, t = setInterval(function () { botones(); if (document.querySelector(".lang-flags") || ++n > 40) clearInterval(t); }, 100); }
-    if (idioma === "en") aIngles();
-    else { anticiparLuego(); setTimeout(anticipar, 6000); } // otra vez cuando la página ya ha cargado lo suyo (noticias, torneos…)
+    esperarDiccionario(function () {
+      if (idioma === "en") aIngles();
+      else { anticiparLuego(); setTimeout(anticipar, 6000); } // otra vez cuando la página ya ha cargado lo suyo (noticias, torneos…)
+    });
   }
+  // Para scripts/traducciones.mjs: los textos traducibles de la página y los que aún no están en el diccionario.
+  window.ApejupoIdioma = {
+    textos: function () { var s = recoger(document.body, new Set()); if (traducible(tituloOriginal)) s.add(tituloOriginal.trim()); return Array.from(s); },
+    faltan: function () { return this.textos().filter(function (t) { return !diccionario[t]; }); },
+    listo: function () { return diccionarioListo; },
+  };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", iniciar); else iniciar();
 })();
