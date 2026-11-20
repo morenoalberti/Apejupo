@@ -18,9 +18,11 @@
     },
     // Nombre de ronda siempre en español («Round 3», «Runde 3», «Rodada 3»… → «Ronda 3»)
     ronda: function (n) {
+      n = String(n || "").replace(/^\s*(?:Game|Partida)\s+(\d+)\b/i, "$1.ª partida");
       n = String(n || "").replace(/^\s*(\d+)\s*[.ºª°]*\s*(?:Round|Runde|Rodada|Ronde|Rond|Runda|Rundan|Kolo|Kierros|Tour|Turn|Turno|Raund|Раунд|Тур|Forduló|Tur)(?![A-Za-zÀ-ÿ])/i, "Ronda $1"); // «2.ª Rodada» → «Ronda 2»
       return n.replace(/^\s*(Round|Runde|Rodada|Ronde|Rond|Runda|Rundan|Kolo|Kierros|Tour|Turn|Turno|Raund|Раунд|Тур|Forduló|Tur)(?=\s*\d)/i, "Ronda");
     },
+    roundStartLabel: function (name) { return /^\s*(?:Game|Partida)\s+\d+\b|^\s*\d+[.ª\s]*partida\b/i.test(name || "") ? "Inicio de partida:" : "Inicio de ronda:"; },
     // Ritmo de juego corto: solo «90 min + 30 s» (o «90 min / 40 jugadas + 30 min + 30 s»), sin «por jugada», «desde la jugada 1»…
     ritmo: function (tc) {
       var s = " " + String(tc || "").replace(/\\/g, "") + " ";
@@ -59,15 +61,16 @@
     // imagen, etiqueta, nombre, ronda y hora, y botón «Ver torneo» que abre nuestro visor (torneo.html)
     bcCard: function (it, badge, cls, withLink) {
       var t = it.tour || {}, r = it.round || {}, esc = U.esc;
+      var linkRound = it.roundToLink && it.roundToLink.id ? it.roundToLink : r;
       var img = t.image ? '<img loading="lazy" src="' + esc(U.safeUrl(t.image)) + '" alt="">' : "";
       var when = r.startsAt ? U.fmt(r.startsAt, { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "";
       return '<article class="card" data-id="' + esc(t.id || "") + '"' + U.tipAttr(t) + '>' + img + '<div class="body">' +
         '<span class="badge ' + cls + '">' + badge + '</span>' +
         '<h4 translate="no">' + esc(t.name) + '</h4>' + // nombre del torneo: no se traduce
         '<p class="meta">' + esc(U.ronda(r.name)) + (when ? " · " + esc(when) : "") + '</p>' +
-        // Con ronda abierta se ve en nuestra web; «Próximamente» sin ronda queda solo informativa
-        ((withLink || cls !== "soon") && r.id
-          ? '<a class="more btn-view" target="_blank" rel="noopener" href="torneo.html?r=' + encodeURIComponent(r.id) + '&t=' + encodeURIComponent(t.name || "") + '">Ver torneo</a>'
+        // Lichess puede anunciar la próxima ronda y enlazar otra ya publicada del mismo torneo.
+        ((withLink || cls !== "soon" || linkRound !== r) && linkRound.id
+          ? '<a class="more btn-view" target="_blank" rel="noopener" href="torneo.html?r=' + encodeURIComponent(linkRound.id) + '&t=' + encodeURIComponent(t.name || "") + '">Ver torneo</a>'
           : "") +
         '</div></article>';
     },
@@ -80,6 +83,23 @@
     safeUrl: function (u) { return /^https?:\/\//i.test(u || "") ? u : "#"; },
     // Fechas en el idioma de la página (las banderas de js/idioma.js cambian <html lang>).
     fmt: function (d, opts) { return new Date(d).toLocaleString(document.documentElement.lang === "en" ? "en-GB" : "es-ES", opts); }
+  };
+  // Solo enlaces de reproductores admitidos: no se incrustan páginas arbitrarias ni dominios parecidos.
+  U.streamSource = function (input) {
+    try {
+      var url = new URL(input), host = url.hostname.replace(/^www\./, ""), id, channel;
+      if (!/^https?:$/.test(url.protocol) || url.username || url.password || url.port) return null;
+      if (host === "youtu.be") id = (/^\/([\w-]{11})\/?$/.exec(url.pathname) || [])[1];
+      if (host === "youtube.com" || host === "m.youtube.com") {
+        id = url.pathname === "/watch" ? url.searchParams.get("v") : (/^\/(?:live|embed|shorts)\/([\w-]{11})\/?$/.exec(url.pathname) || [])[1];
+      }
+      if (id && /^[\w-]{11}$/.test(id)) return { type: "youtube", videoId: id, label: "YouTube · emisión elegida" };
+      channel = (/^\/([A-Za-z0-9_-]+)\/?$/.exec(url.pathname) || [])[1];
+      if (!channel) return null;
+      if (host === "twitch.tv" && /^[A-Za-z0-9_]{1,25}$/.test(channel) && !/^(?:videos|directory|downloads|settings|subscriptions|login|signup|search|turbo|jobs|team|embed)$/i.test(channel)) return { type: "twitch", channel: channel, label: "Twitch · " + channel };
+      if (host === "kick.com" && /^[A-Za-z0-9_-]{1,100}$/.test(channel) && !/^(?:videos|categories|browse|search|settings|login|signup|subscriptions|dashboard|clips)$/i.test(channel)) return { type: "kick", channel: channel, label: "Kick · " + channel };
+    } catch (_) {}
+    return null;
   };
   // ---------- Tarjetas que se arrastran con el ratón para cambiarlas de sitio ----------
   function readOrder(key) { try { var o = JSON.parse(localStorage.getItem(key)); return Array.isArray(o) ? o : []; } catch (_) { return []; } }

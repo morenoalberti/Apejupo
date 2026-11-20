@@ -19,11 +19,12 @@
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" type="image/svg+xml" href="assets/icon.svg">
 <meta name="description" content="Sigue en directo los torneos de ajedrez más importantes: tableros en vivo de Lichess y retransmisiones con comentaristas en Twitch y YouTube.">
-<link rel="stylesheet" href="css/style.css?v=20261120-idioma2">
+<link rel="stylesheet" href="css/style.css?v=20261120-junto-tableros1">
+<link rel="stylesheet" href="css/streams.css?v=20261120-espacio1">
 <script defer src="js/analytics.js?v=20261120-cloudflare1"></script>
 <link rel="stylesheet" href="css/cuenta.css?v=20261117-admin1">
 <script type="application/ld+json" id="datos-pagina">{"@context": "https://schema.org", "@graph": [{"@type": "WebPage", "@id": "https://apejupo.com/torneos-live.html#pagina", "url": "https://apejupo.com/torneos-live.html", "name": "Ajedrez en directo: torneos en vivo · Apejupo", "description": "Sigue en directo los torneos de ajedrez más importantes: tableros en vivo de Lichess y retransmisiones con comentaristas en Twitch y YouTube.", "inLanguage": "es-ES", "isPartOf": {"@type": "WebSite", "name": "Apejupo Chess Club", "url": "https://apejupo.com/"}}, {"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Inicio", "item": "https://apejupo.com/"}, {"@type": "ListItem", "position": 2, "name": "Torneos en directo", "item": "https://apejupo.com/torneos-live.html"}]}]}</script>
-<script src="js/idioma.js?v=20261120-fin"></script>
+<script src="js/idioma.js?v=20261120-preferencia1"></script>
 </head>
 <body>
 <header class="site-header">
@@ -72,15 +73,7 @@
     <div id="upcoming" class="cards"></div>
   </section>
 
-  <section id="streams" class="wrap section">
-    <h2>Streams con comentaristas</h2>
-    <p class="muted">Eventos de Chess.com, la FIDE y otros canales, en Twitch y YouTube.</p>
-    <div id="stream-tabs" class="tabs" role="tablist"></div>
-    <p id="stream-info" class="stream-info" hidden></p>
-    <div id="stream-off" class="stream-off" hidden></div>
-    <div class="stream" id="stream-box"><iframe id="stream-frame" title="Stream de ajedrez" allowfullscreen></iframe></div>
-    <p class="muted small" id="stream-note">Si el canal no está emitiendo, verás la pantalla de "sin conexión" o un aviso de vídeo no disponible. <a id="stream-link" target="_blank" rel="noopener" href="#">Abrir</a></p>
-  </section>
+  <section id="streams" class="wrap section" aria-label="Retransmisión del torneo"></section>
 </main>
 
 <footer class="site-footer">
@@ -90,10 +83,11 @@
 </footer>
 
 <script src="js/menu.js?v=20261113-menus"></script>
-<script src="js/util.js?v=20261120-dic"></script>
-<script src="js/data.js"></script>
+<script src="js/util.js?v=20261120-partida1"></script>
+<script src="js/data.js?v=20261120-boton1"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
-<script src="js/live.js?v=20261120-dic"></script>
+<script src="js/live.js?v=20261120-cabecera-bilingue1"></script>
+<script src="js/streams.js?v=20261120-junto-tableros1"></script>
 <script src="js/torneo-config.js?v=20261114-publicado"></script>
 <script type="module" src="js/cuenta.js?v=20261117-admin1"></script>
 </body>

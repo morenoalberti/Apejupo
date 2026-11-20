@@ -548,14 +548,16 @@
   $("lv-grid").addEventListener("pointerdown", function (e) {
     if (e.pointerType === "touch" || e.button !== 0 || thDrag) return;
     var el = e.target.closest(".th"); if (!el || e.target.closest("[data-del],[data-eye]")) return;
-    var st = { el: el, x: e.clientX, y: e.clientY, lx: e.clientX, ly: e.clientY, on: false, ghost: null, dx: 0, dy: 0 };
+    var st = { el: el, x: e.clientX, y: e.clientY, lx: e.clientX, ly: e.clientY, on: false, ghost: null, dx: 0, dy: 0, scale: 1 };
     thDrag = st;
     function begin() {
       st.on = true;
       var r = el.getBoundingClientRect();
+      st.scale = parseFloat(getComputedStyle(el).zoom) || 1;
       st.dx = st.x - r.left; st.dy = st.y - r.top;
-      var g = el.cloneNode(true); g.className = "th th-ghost"; g.style.width = r.width + "px"; g.style.height = r.height + "px";
-      g.style.left = st.lx - st.dx + "px"; g.style.top = st.ly - st.dy + "px";
+      var g = el.cloneNode(true); g.className = "th th-ghost"; g.style.zoom = String(st.scale);
+      g.style.width = r.width / st.scale + "px"; g.style.height = r.height / st.scale + "px";
+      g.style.left = (st.lx - st.dx) / st.scale + "px"; g.style.top = (st.ly - st.dy) / st.scale + "px";
       document.body.appendChild(g); paintPieces(g); st.ghost = g; el.classList.add("dragging");
     }
     function move(ev) {
@@ -565,7 +567,7 @@
         begin();
       }
       if (!st.ghost) return;
-      st.ghost.style.left = ev.clientX - st.dx + "px"; st.ghost.style.top = ev.clientY - st.dy + "px";
+      st.ghost.style.left = (ev.clientX - st.dx) / st.scale + "px"; st.ghost.style.top = (ev.clientY - st.dy) / st.scale + "px";
       var under = document.elementFromPoint(ev.clientX, ev.clientY), t = under && under.closest && under.closest(".th");
       if (t && t !== el && t.parentNode === el.parentNode) {
         var tr = t.getBoundingClientRect(), after = ev.clientX > tr.left + tr.width / 2 && ev.clientY > tr.top || ev.clientY > tr.bottom - tr.height / 4;
@@ -578,7 +580,7 @@
           var moved = [];
           sibs.forEach(function (x, i) {
             var q = x.getBoundingClientRect(), dx = from[i][0] - q.left, dy = from[i][1] - q.top;
-            if (dx || dy) { x.style.transition = "none"; x.style.transform = "translate(" + dx + "px," + dy + "px)"; moved.push(x); }
+            if (dx || dy) { x.style.transition = "none"; x.style.transform = "translate(" + dx / st.scale + "px," + dy / st.scale + "px)"; moved.push(x); }
           });
           if (moved.length) {
             void el.parentNode.offsetWidth;
@@ -931,11 +933,16 @@
     return fideCache[id] || (fideCache[id] = fetch("https://lichess.org/api/fide/player/" + encodeURIComponent(id)).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; }));
   }
   function closeFide() { fbd.hidden = true; fbox.hidden = true; }
+  function panelHead(title, copyLabel) {
+    return '<div class="lv-fhead"><span>' + esc(title) + '</span><div class="lv-factions">' +
+      (copyLabel ? '<button type="button" class="btn-ghost lv-copy" id="lv-fcopy" title="' + esc(copyLabel) + '" aria-label="' + esc(copyLabel) + '">' + ic('<rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>') + '</button>' : '') +
+      '<button type="button" class="btn-ghost" id="lv-fclose">' + ic('<path d="m6 6 12 12M18 6 6 18"/>') + '<span>Cerrar</span></button></div></div>';
+  }
   function openFide(gid) {
     var g = games[gid]; if (!g) return;
     var t = g.tags, rd = t.Round ? "Ronda " + t.Round : "Partida";
     fbd.hidden = false; fbox.hidden = false; fbox.classList.remove("wide");
-    fbox.innerHTML = '<div class="lv-fhead"><span>' + esc(rd) + '</span><button type="button" class="btn-ghost" id="lv-fclose">Cerrar</button></div><p class="muted" style="padding:16px">Cargando fichas…</p>';
+    fbox.innerHTML = panelHead(rd, false) + '<p class="muted" style="padding:16px">Cargando fichas…</p>';
     $("lv-fclose").addEventListener("click", closeFide);
     Promise.all([fideGet(t.WhiteFideId), fideGet(t.BlackFideId)]).then(function (r) {
       if (fbox.hidden) return;
@@ -966,7 +973,7 @@
         return '<div class="lv-fver">' + txt + "</div>";
       }
       function link(x) { return x.id ? '<a target="_blank" rel="noopener" href="https://ratings.fide.com/profile/' + esc(x.id) + '">' + esc(x.id) + '</a>' : "—"; }
-      fbox.innerHTML = '<div class="lv-fhead"><span>' + esc(rd) + ' · Ficha FIDE</span><button type="button" class="btn-ghost" id="lv-fclose">Cerrar</button></div>' +
+      fbox.innerHTML = panelHead(rd + ' · Ficha FIDE', false) +
         '<table class="lv-ftab"><colgroup><col style="width:28%"><col style="width:36%"><col style="width:36%"></colgroup><tr><td></td>' + head(P[0], 0) + head(P[1], 1) + '</tr>' +
         row(ICONS.t + "Título", esc(P[0].t), esc(P[1].t)) + row(ICONS.f + "Federación", P[0].fed, P[1].fed) + row(ICONS.n + "Nacimiento", esc(P[0].y), esc(P[1].y)) +
         row(ICONS.c + "Clásico", c0[0], c0[1], "rt big") + row(ICONS.r + "Rápidas", c1[0], c1[1], "rt") + row(ICONS.b + "Blitz", c2[0], c2[1], "rt") + row(ICONS.i + "ID FIDE", link(P[0]), link(P[1])) + '</table>' +
@@ -1195,15 +1202,42 @@
     var pausa = function () { return new Promise(function (ok) { setTimeout(ok, 1500); }); };
     tourRounds.filter(function (r) { return r.finished && r.id !== roundId; }).forEach(function (r) { c = c.then(function () { return rcache[r.id] != null ? null : roundTxt(r, 0).then(pausa); }); });
   }
+  // Las etiquetas de la cabecera tienen versiones revisadas en ambos idiomas:
+  // no se envía toda la línea (con fechas y nombres propios) al traductor automático.
+  function headerText(el, spanish, english) {
+    el.setAttribute("data-en", english);
+    el.textContent = spanish;
+  }
+  function showRoundStart(round) {
+    var time = $("viewer-start"); if (!time) return;
+    var start = round && round.startsAt;
+    var valid = typeof start === "number" && Number.isFinite(start) && start > 0 && Number.isFinite(new Date(start).getTime());
+    time.hidden = false;
+    if (valid) {
+      time.dateTime = new Date(start).toISOString();
+      time.textContent = U.roundStartLabel(round.name) + " " + fmt(start, { timeZone: "Europe/Madrid", day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }) + " · Madrid";
+    } else {
+      time.removeAttribute("datetime"); time.textContent = "Hora de inicio por confirmar · Madrid";
+    }
+  }
+  function publishBroadcast(tour, round, group) {
+    window.ApejupoBroadcast = { tour: tour || null, round: round || null, group: group || null };
+    document.dispatchEvent(new CustomEvent("apejupo:broadcast", { detail: window.ApejupoBroadcast }));
+  }
   function onTour(j) {
     tourId = j.tour && j.tour.id;
     if (!tourId) return;
+    var requestedTourId = tourId;
     loadFeds();
     fetch("https://lichess.org/api/broadcast/" + encodeURIComponent(tourId)).then(function (r) { return r.json(); }).then(function (t) {
+      if (!window.ApejupoBroadcast || !window.ApejupoBroadcast.tour || window.ApejupoBroadcast.tour.id !== requestedTourId) return;
       var rs = U.rondas(t.rounds), s = $("viewer-round"); tourRounds = rs; setTimeout(prefetchRounds, 4000);
+      var selectedRound = rs.filter(function (r) { return r.id === roundId; })[0];
+      publishBroadcast(Object.assign({}, window.ApejupoBroadcast.tour, t.tour || {}), Object.assign({}, window.ApejupoBroadcast.round, selectedRound || {}), t.group || window.ApejupoBroadcast.group);
       if (!rs.length) { s.hidden = true; syncRoundPicker(); return; }
       s.hidden = false;
       var cur = rs.filter(function (r) { return r.id === roundId; })[0];
+      if (cur && cur.startsAt) showRoundStart(cur);
       if (cur && cur.finished && !roundDone) { // ronda sin cerrar en Lichess pero ya superada: sus partidas no están en juego
         roundDone = true;
         Object.keys(games).forEach(function (k) { games[k].over = true; });
@@ -1227,8 +1261,42 @@
   window.addEventListener("popstate", function () { location.reload(); });
   function openPanel(title, html, wide) {
     fbd.hidden = false; fbox.hidden = false; fbox.classList.toggle("wide", !!wide);
-    fbox.innerHTML = '<div class="lv-fhead"><span>' + esc(title) + '</span><button type="button" class="btn-ghost" id="lv-fclose">Cerrar</button></div>' + html;
+    var standings = /class="[^"]*\bstand\b/.test(html), pairings = /class="[^"]*\bpairs\b/.test(html);
+    fbox.innerHTML = panelHead(title, standings ? "Copiar clasificación" : pairings ? "Copiar emparejamientos" : "") + html;
     $("lv-fclose").addEventListener("click", closeFide);
+    var copy = $("lv-fcopy"), table = fbox.querySelector("table.stand, table.pairs");
+    if (copy && table) {
+      var status = document.createElement("p"); status.className = "sr-only"; status.setAttribute("role", "status"); fbox.appendChild(status);
+      copy.addEventListener("click", function () {
+        // Se copian todas las filas y los nombres completos, aunque estén recortados en pantalla.
+        var text = $("viewer-title").textContent + "\n" + title + "\n\n" + Array.from(table.rows).map(function (row) {
+          return Array.from(row.cells).map(function (cell) {
+            var value = cell.cloneNode(true);
+            value.querySelectorAll(".liveDot[title]").forEach(function (dot) { dot.textContent = dot.title; });
+            return value.textContent.replace(/\s+/g, " ").trim();
+          }).join("\t");
+        }).join("\n");
+        var notes = Array.from(fbox.querySelectorAll(".lv-ffoot")).map(function (p) { return p.textContent.trim(); }).join("\n");
+        if (notes) text += "\n\n" + notes;
+        function finish(ok) {
+          if (!copy.isConnected) return;
+          status.textContent = ok ? (standings ? "Clasificación copiada" : "Emparejamientos copiados") : "No se pudo copiar la tabla. Vuelve a intentarlo.";
+          status.className = ok ? "sr-only" : "lv-ffoot";
+          if (ok) {
+            copy.innerHTML = ic('<path d="m5 12 4 4L19 6"/>');
+            setTimeout(function () { if (copy.isConnected) copy.innerHTML = ic('<rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>'); }, 1800);
+          }
+        }
+        function fallback() {
+          var input = document.createElement("textarea"); input.value = text; input.readOnly = true;
+          input.style.position = "fixed"; input.style.opacity = "0"; fbox.appendChild(input); input.select();
+          var ok = false; try { ok = document.execCommand("copy"); } catch (_) {}
+          input.remove(); copy.focus({ preventScroll: true }); finish(ok);
+        }
+        if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(text).then(function () { finish(true); }, fallback);
+        else fallback();
+      });
+    }
     fbox.scrollTop = 0;
   }
   function fmtPts(x) { var f = Math.floor(x), h = x - f > 0; return h ? (f ? f : "") + "½" : String(f); }
@@ -1416,11 +1484,12 @@
   var more = $("viewer-more"), pickB = $("viewer-pick-b"), pickL = $("viewer-pick-l");
   function pickSide(g, col) {
     var w = col === "w", t = g.tags[w ? "WhiteTitle" : "BlackTitle"];
-    return '<span class="lv-pick-p">' + nameFlag(g, col) + (t ? '<em class="lv-pick-tt">' + esc(t) + "</em>" : "") + esc(g.tags[w ? "White" : "Black"]) + "</span>";
+    var name = g.tags[w ? "White" : "Black"];
+    return '<span class="lv-pick-p">' + nameFlag(g, col) + (t ? '<em class="lv-pick-tt">' + esc(t) + "</em>" : "") + '<span class="lv-pick-name" title="' + esc(name) + '">' + esc(name) + "</span></span>";
   }
   function pickHtml(g) {
-    var r = g.over ? { "1-0": "1-0", "0-1": "0-1", "1/2-1/2": "½-½" }[g.tags.Result] : "";
-    return pickSide(g, "w") + '<span class="lv-pick-vs">–</span>' + pickSide(g, "b") + (r ? '<span class="lv-pick-r">' + r + "</span>" : "");
+    var r = g.over ? ({ "1-0": "1-0", "0-1": "0-1", "1/2-1/2": "½-½" }[g.tags.Result] || "–") : '<span class="liveDot" title="En juego" role="img" aria-label="En juego"></span>';
+    return pickSide(g, "w") + '<span class="lv-pick-r">' + r + "</span>" + pickSide(g, "b");
   }
   function pickShow() {
     var g = games[more.value];
@@ -1470,11 +1539,16 @@
     reviewStop(); reviewState = null; rvVer++; listKey = "";
     if (inPlace) { stop(); if (!viewer.hidden) closeBig(); curId = ""; ply = -1; order = []; $("lv-grid").innerHTML = ""; }
     roundId = rid; roundDone = false; games = {}; evalCache = {}; order = []; userOrder = loadUserOrder(); try { extras = JSON.parse(localStorage.getItem("apejupoExtra" + rid)) || []; } catch (_) { extras = []; } try { removed = JSON.parse(localStorage.getItem("apejupoDel" + rid)) || []; } catch (_) { removed = []; } miniStop(); setMode("open");
+    showRoundStart(null);
+    publishBroadcast(null, { id: rid }, null);
     $("viewer-title").textContent = title || "Torneo";
     document.title = ($("viewer-title").textContent) + " · Apejupo Chess Club";
     fetch("https://lichess.org/api/broadcast/-/-/" + rid).then(function (r) { return r.json(); }).then(function (j) {
+      if (rid !== roundId) return;
       if (!inPlace) onTour(j); else if ($("viewer-round").value !== roundId) $("viewer-round").value = roundId;
       var i = (j.tour && j.tour.info) || {}, r = j.round || {};
+      publishBroadcast(j.tour, r, j.group);
+      showRoundStart(r);
       if (rid === roundId && r.finished && !roundDone) { // la primera carga pudo llegar antes que este dato
         roundDone = true;
         Object.keys(games).forEach(function (k) { games[k].over = true; });
@@ -1489,27 +1563,33 @@
           .replace(/\bmin(utes?)?\b/gi, "min").replace(/\bsec(onds?)?\b/gi, "s").replace(/\/\s*move\b/i, "por jugada").replace(/\bper move\b/i, "por jugada")
           .replace(/\bmoves\b/gi, "jugadas").replace(/\bhours?\b/gi, "h").replace(/\bplus\b/gi, "+");
       }
-      var dt = (j.tour && j.tour.dates) || [], dtxt = "";
-      if (dt[0]) {
+      var dt = (j.tour && j.tour.dates) || [];
+      function dateRange(locale) {
+        if (!dt[0]) return "";
         var z = i.timeZone || undefined, d1 = new Date(dt[0]), d2 = dt[1] ? new Date(dt[1]) : null;
-        function dd(d, o) { try { return d.toLocaleDateString(document.documentElement.lang === "en" ? "en-GB" : "es-ES", Object.assign({ timeZone: z }, o)); } catch (_) { return d.toLocaleDateString("es-ES", o); } }
+        function dd(d, o) { try { return d.toLocaleDateString(locale, Object.assign({ timeZone: z }, o)); } catch (_) { return d.toLocaleDateString(locale, o); } }
         var same = d2 && dd(d1, { day: "numeric", month: "numeric", year: "numeric" }) === dd(d2, { day: "numeric", month: "numeric", year: "numeric" });
-        dtxt = !d2 || same ? dd(d1, { day: "numeric", month: "short", year: "numeric" })
-          : "del " + dd(d1, { day: "numeric", month: "short" }) + " al " + dd(d2, { day: "numeric", month: "short", year: "numeric" });
+        return !d2 || same ? dd(d1, { day: "numeric", month: "short", year: "numeric" })
+          : (locale === "en-GB" ? "from " : "del ") + dd(d1, { day: "numeric", month: "short" }) + (locale === "en-GB" ? " to " : " al ") + dd(d2, { day: "numeric", month: "short", year: "numeric" });
       }
       var np = (/(\d+)[- ]players?\b/i.exec(i.format || "") || [])[1];
-      var bits = [U.ronda(r.name), i.location, dtxt, es((i.format || "").replace(/\s*\d+[- ]players?\b\s*/i, " ").trim()), U.ritmo(i.tc)].filter(Boolean);
-      $("viewer-info").textContent = bits.join(" · ");
-      var npEl = $("viewer-np"); npEl.textContent = np ? np + " jugadores" : "";
+      var format = (i.format || "").replace(/\s*\d+[- ]players?\b\s*/i, " ").trim(), roundName = U.ronda(r.name), tc = U.ritmo(i.tc);
+      var bits = [roundName, i.location, dateRange("es-ES"), es(format), tc].filter(Boolean);
+      var englishBits = [roundName.replace(/^Ronda\b/i, "Round").replace(/^(\d+)\.ª partida\b/i, "Game $1"), i.location, dateRange("en-GB"), format, tc.replace(/\bjugadas\b/g, "moves").replace(/después de/g, "after")].filter(Boolean);
+      headerText($("viewer-info"), bits.join(" · "), englishBits.join(" · "));
+      var npEl = $("viewer-np"); headerText(npEl, np ? np + " jugadores" : "", np ? np + (+np === 1 ? " player" : " players") : "");
       var tid = j.tour && j.tour.id; // jugadores, Elo medio y países salen de la lista de participantes
       if (tid) tournamentPlayers(tid).then(function (ps) {
         if (!ps.length || rid !== roundId) return;
         var rs = ps.map(function (p) { return p.rating; }).filter(function (v) { return v > 0; }), fs = {};
         ps.forEach(function (p) { if (p.fed) fs[p.fed] = 1; });
-        var nf = Object.keys(fs).length, parts = [ps.length + " jugadores"];
-        if (rs.length) parts.push("ELO medio " + Math.round(rs.reduce(function (a, v) { return a + v; }, 0) / rs.length));
-        if (nf) parts.push(nf + (nf === 1 ? " país" : " países"));
-        npEl.textContent = parts.join(" - ");
+        var nf = Object.keys(fs).length, parts = [ps.length + " jugadores"], englishParts = [ps.length + (ps.length === 1 ? " player" : " players")];
+        if (rs.length) {
+          var average = Math.round(rs.reduce(function (a, v) { return a + v; }, 0) / rs.length);
+          parts.push("ELO medio " + average); englishParts.push("Average Elo " + average);
+        }
+        if (nf) { parts.push(nf + (nf === 1 ? " país" : " países")); englishParts.push(nf + (nf === 1 ? " country" : " countries")); }
+        headerText(npEl, parts.join(" - "), englishParts.join(" - "));
       }).catch(function () {});
     }).catch(function () {});
     sel.innerHTML = "<option>Cargando partidas…</option>";
@@ -1575,8 +1655,7 @@
         var items = j.currentPageResults || [];
         if (!items.length && page === 1) {
           box.innerHTML = "";
-          say('No he encontrado ningún torneo con «' + esc(q) + '» en Lichess. Prueba con menos palabras o con el nombre en inglés, o pega aquí el enlace del torneo. ' +
-              '<a target="_blank" rel="noopener" href="https://lichess.org/broadcast?q=' + encodeURIComponent(q) + '">Buscar directamente en Lichess →</a>');
+          say("");
           more.hidden = true; return;
         }
         say(page === 1 ? items.length + (j.nextPage ? "+" : "") + " resultado" + (items.length === 1 && !j.nextPage ? "" : "s") : "");
@@ -1744,16 +1823,12 @@
         link(e.liveUrl, "Resultados en directo") + link(e.standingsUrl, "Clasificación") + link(e.pairingsUrl, "Emparejamientos") +
         '</div></article>';
     }
-    function card(e) {
-      if (e.source !== "Chess.com") return cardExterna(e);
-      var when = fmt(e.start, { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
-      return '<article class="card"><div class="body"><span class="badge ' + (e.status === "live" ? "live" : "soon") + '">' + (e.status === "live" ? "EN DIRECTO" : "PRÓXIMAMENTE") + '</span>' +
-        '<h4 translate="no">' + esc(e.title) + '</h4><p class="meta">' + esc(e.source) + " · " + esc(when) + '</p>' +
-        '<a class="more btn-view" target="_blank" rel="noopener" href="https://www.chess.com/es/events/current">Ver en Chess.com →</a>' +
-        '<a class="more" target="_blank" rel="noopener" href="' + esc(safeUrl(e.url)) + '">Ver la retransmisión en ' + esc(e.via === "twitch" ? "Twitch" : e.via === "youtube" ? "YouTube" : e.source) + ' →</a></div></article>';
-    }
     var OK = "apejupoOtras", OTTL = 5 * 60 * 1000;
-    function paintO(list) { box.innerHTML = list.map(card).join(""); window.apejupoOtrasN = list.length; window.apejupoCount(); }
+    function paintO(list) {
+      // Los vídeos se abren desde el torneo al que pertenecen, con su único botón de retransmisión.
+      list = list.filter(function (e) { return e.source !== "Chess.com"; });
+      box.innerHTML = list.map(cardExterna).join(""); window.apejupoOtrasN = list.length; window.apejupoCount();
+    }
     function load(force) {
       if (!force) { try { var c = JSON.parse(localStorage.getItem(OK)); if (c && Array.isArray(c.live) && Date.now() - c.t < OTTL) { paintO(c.live); return; } } catch (_) {} }
       fetch(EVENTS_URL).then(function (r) { if (!r.ok) throw 0; return r.json(); }).then(function (j) {
@@ -1766,143 +1841,4 @@
     if ($("live-refresh")) $("live-refresh").addEventListener("click", function () { setTimeout(function () { load(true); }, 1500); });
   })();
 
-  // ---------- Streams (Twitch y YouTube) ----------
-  // Primero lo que de verdad se emite: el calendario de Chess.com (a través del Worker) dice qué hay en directo y qué viene.
-  // Si hay una emisión en directo en Twitch o YouTube se abre sola; si no, se avisa de las próximas en lugar de un reproductor apagado.
-  // Los canales fijos (js/data.js) quedan como pestañas para quien quiera abrirlos igualmente.
-  var tabs = $("stream-tabs"), sframe = $("stream-frame");
-  if (!tabs) return;
-  var EV_URL = "https://apejupo-eventos.chessrival-worker.workers.dev";
-  try { var qe = /[?&]eventos=([^&]+)/.exec(location.search); if (qe && /^(https:\/\/|\/|worker\/)/.test(decodeURIComponent(qe[1]))) EV_URL = decodeURIComponent(qe[1]); } catch (_) {} // para pruebas, como más arriba
-  var fijos = (D.streams || []).slice(), eventos = [], proximos = [], sel = -1, elegida = null; // elegida: próxima emisión abierta con «Ver aquí»
-  // Retransmisión de un evento: canal de Twitch o vídeo de YouTube sacado de su enlace
-  function deEvento(e) {
-    var m = /twitch\.tv\/([A-Za-z0-9_]+)/.exec(e.url || "");
-    if (m) return { type: "twitch", channel: m[1], ev: e };
-    m = /youtube\.com\/watch\?v=([\w-]{6,})/.exec(e.url || "");
-    if (m) return { type: "youtube", videoId: m[1], ev: e };
-    return null; // otras plataformas (Kick…) no se pueden incrustar
-  }
-  function cuando(ms) {
-    var d = new Date(ms), hoy = new Date(), man = new Date(); man.setDate(hoy.getDate() + 1);
-    var h = fmt(ms, { hour: "2-digit", minute: "2-digit" });
-    if (d.toDateString() === hoy.toDateString()) return "hoy a las " + h;
-    if (d.toDateString() === man.toDateString()) return "mañana a las " + h;
-    return fmt(ms, { weekday: "long", day: "numeric", month: "short" }) + " a las " + h;
-  }
-  function plataforma(e) {
-    var m = /twitch\.tv\/([A-Za-z0-9_]+)/.exec(e.url || "");
-    return m ? "Twitch (" + m[1] + ")" : e.via === "youtube" ? "YouTube" : e.via === "kick" ? "Kick" : e.source;
-  }
-  function todos() { return eventos.concat(elegida ? [elegida] : [], fijos); }
-  function pintaTabs() {
-    // «Próximas emisiones» (si las hay) siempre como primera pestaña, para poder volver a la lista
-    tabs.innerHTML = (proximos.length ? '<button type="button" role="tab" data-i="-1" aria-selected="' + (sel === -1) + '">Próximas emisiones</button>' : "") +
-      todos().map(function (s, i) {
-        var et = !s.ev ? esc(s.label)
-          : s.prox ? esc(fmt(s.ev.start, { hour: "2-digit", minute: "2-digit" })) + " · " + esc(s.ev.title)
-          : '<span class="dot" aria-hidden="true"></span>EN DIRECTO · ' + esc(s.ev.title);
-        return '<button type="button" role="tab" data-i="' + i + '" aria-selected="' + (i === sel) + '"' + (s.ev && !s.prox ? ' class="tab-live"' : "") + ">" + et + "</button>";
-      }).join("");
-  }
-  function verPanel(on) { $("stream-off").hidden = !on; $("stream-box").hidden = on; $("stream-note").hidden = on; }
-  // Sin nada en directo: aviso con las próximas emisiones
-  function sinDirecto() {
-    sel = -1; pintaTabs(); sframe.removeAttribute("src"); verPanel(true);
-    var av = $("stream-box").querySelector(".terceros"); if (av) av.remove();
-    $("stream-info").hidden = true;
-    $("stream-off").innerHTML = (eventos.length ? "" : '<p class="so-h">Ahora mismo no hay ninguna retransmisión con comentaristas en directo.</p>') +
-      (proximos.length ? '<p class="so-sub">Próximas emisiones</p><div class="cards so-cards">' + proximos.map(tarjetaProxima).join("") + "</div>" : "") +
-      '<p class="so-pie">También puedes abrir uno de los canales de arriba, aunque es posible que no esté emitiendo.</p>';
-  }
-  // «Hoy, martes 10 nov» / «Mañana, miércoles 11 nov» / «jueves 12 nov»
-  function fecha(ms) {
-    var d = new Date(ms), hoy = new Date(), man = new Date(); man.setDate(hoy.getDate() + 1);
-    var f = fmt(ms, { weekday: "long", day: "numeric", month: "short" }).replace(/^(\S+),/, "$1"); // «martes 10 nov», sin coma
-    if (d.toDateString() === hoy.toDateString()) return "Hoy, " + f;
-    if (d.toDateString() === man.toDateString()) return "Mañana, " + f;
-    return f.charAt(0).toUpperCase() + f.slice(1);
-  }
-  // Tarjeta de una próxima emisión: franja con el color y el canal de la plataforma, etiqueta, nombre, hora y botón
-  function tarjetaProxima(e) {
-    var m = /twitch\.tv\/([A-Za-z0-9_]+)/.exec(e.url || ""), via = m ? "twitch" : e.via === "youtube" ? "youtube" : e.via === "kick" ? "kick" : "otra";
-    var nombre = { twitch: "Twitch", youtube: "YouTube", kick: "Kick", otra: e.source }[via];
-    var hoy = new Date(e.start).toDateString() === new Date().toDateString(), k = proximos.indexOf(e);
-    return '<article class="card so-card"><div class="so-band ' + via + '"><span class="so-pl">' + esc(nombre) + "</span>" +
-      (m ? '<span class="so-ch">' + esc(m[1]) + "</span>" : "") + "</div>" +
-      '<div class="body"><span class="badge soon">' + (hoy ? "HOY" : "PRÓXIMAMENTE") + "</span>" +
-      "<h4 translate=\"no\">" + esc(e.title) + "</h4>" +
-      // cuándo (día y hora) y dónde (plataforma y canal), cada cosa en su línea
-      '<p class="so-dato"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>' +
-      esc(fecha(e.start)) + " · <b>" + esc(fmt(e.start, { hour: "2-digit", minute: "2-digit" })) + "</b></p>" +
-      '<p class="so-dato"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="4" width="20" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg>' +
-      esc(nombre) + (m ? " · " + esc(m[1]) : "") + " <span>(" + esc(e.source) + ")</span></p>" +
-      // Twitch y YouTube se ven aquí mismo; Kick no se puede incrustar y su enlace lleva a la página de eventos de Chess.com
-      (deEvento(e)
-        ? '<div class="so-btns"><button type="button" class="more btn-view" data-ver="' + k + '">Ver aquí</button>' +
-          '<a class="so-ext" target="_blank" rel="noopener" href="' + esc(safeUrl(e.url)) + '">Abrir en ' + esc(nombre) + "</a></div>"
-        : '<a class="more btn-view" target="_blank" rel="noopener" href="' + esc(safeUrl(e.url)) + '">' + (via === "kick" ? "Ver en Chess.com" : "Abrir en " + esc(nombre)) + "</a>") +
-      "</div></article>";
-  }
-  function pickStream(i) {
-    var s = todos()[i]; if (!s) return;
-    sel = i; pintaTabs(); verPanel(false);
-    var url, quien;
-    if (s.type === "youtube") {
-      quien = "YouTube";
-      url = s.videoId
-        ? "https://www.youtube.com/embed/" + encodeURIComponent(s.videoId)
-        : "https://www.youtube.com/embed/live_stream?channel=" + encodeURIComponent(s.channelId);
-      $("stream-link").href = s.videoId
-        ? "https://www.youtube.com/watch?v=" + encodeURIComponent(s.videoId)
-        : "https://www.youtube.com/channel/" + encodeURIComponent(s.channelId) + "/live";
-      $("stream-link").textContent = "Abrir en YouTube";
-    } else {
-      quien = "Twitch";
-      url = "https://player.twitch.tv/?channel=" + encodeURIComponent(s.channel) +
-        "&muted=true&autoplay=false&parent=" + encodeURIComponent(location.hostname || "localhost");
-      $("stream-link").href = "https://www.twitch.tv/" + encodeURIComponent(s.channel);
-      $("stream-link").textContent = "Abrir en Twitch";
-    }
-    // El reproductor de Twitch o YouTube puede instalar cookies: se carga cuando el visitante lo pide (o si ya lo permitió)
-    sframe.removeAttribute("src");
-    U.aviso($("stream-box"), { titulo: "Directo en " + quien, quien: quien, boton: "Ver el directo", icono: '<circle cx="12" cy="12" r="10"/><path d="m10 8 6 4-6 4V8z"/>' }, function () { if (sel === i) sframe.src = url; });
-    var info = $("stream-info");
-    info.hidden = !s.ev;
-    if (s.ev) info.innerHTML = s.prox
-      ? "<b>" + esc(s.ev.title) + "</b> · empieza " + esc(cuando(s.ev.start)) + " en " + esc(plataforma(s.ev)) +
-        (s.type === "twitch" ? " · hasta entonces el canal puede aparecer desconectado" : "")
-      : '<span class="dot" aria-hidden="true"></span><b>' + esc(s.ev.title) + "</b> · " + esc(s.ev.source) + " en " + esc(plataforma(s.ev));
-    $("stream-note").hidden = !!s.ev; // el aviso de «sin conexión» solo tiene sentido en los canales fijos
-  }
-  tabs.addEventListener("click", function (e) {
-    var b = e.target.closest("button[data-i]"); if (!b) return;
-    var i = +b.getAttribute("data-i");
-    if (i < 0) sinDirecto(); else pickStream(i);
-  });
-  // «Ver aquí» en una próxima emisión: se abre en el reproductor de la página, con su propia pestaña
-  $("stream-off").addEventListener("click", function (e) {
-    var b = e.target.closest("button[data-ver]"); if (!b) return;
-    var ev = proximos[+b.getAttribute("data-ver")], s = ev && deEvento(ev); if (!s) return;
-    s.prox = true; elegida = s;
-    pickStream(eventos.length); // va justo detrás de las que están en directo
-    $("streams").scrollIntoView({ behavior: "smooth", block: "start" });
-  });
-  if (!fijos.length) $("streams").hidden = true;
-  pintaTabs();
-  fetch(EV_URL).then(function (r) { if (!r.ok) throw 0; return r.json(); }).then(function (j) {
-    var visto = {};
-    eventos = (j.live || []).map(deEvento).filter(function (s) {
-      if (!s) return false;
-      var k = s.channel || s.videoId; if (visto[k]) return false; visto[k] = 1; return true;
-    });
-    var vistoP = {};
-    proximos = (j.upcoming || []).filter(function (e) {
-      var k = e.title + "|" + e.start; if (vistoP[k]) return false; vistoP[k] = 1; return true;
-    }).slice(0, 3);
-    $("streams").hidden = false;
-    if (eventos.length) pickStream(0); else sinDirecto();
-  }).catch(function () {
-    if (fijos.length) pickStream(0); // sin calendario: como antes, el primer canal fijo
-  });
 })();

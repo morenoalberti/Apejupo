@@ -13,12 +13,17 @@ async function chesscom() {
   for (const s of j.streams || []) {
     const start = Date.parse(s.startAt), end = Date.parse(s.endAt);
     if (!s.title || isNaN(start) || isNaN(end)) continue;
-    const key = s.title + "|" + s.startAt;
+    const channel = typeof s.channel === "string" ? s.channel.trim() : "";
+    const valid = s.type === "youtube" ? /^[\w-]{11}$/.test(channel)
+                : s.type === "twitch" ? /^[A-Za-z0-9_]{1,25}$/.test(channel)
+                : s.type === "kick" ? /^[A-Za-z0-9_-]{1,100}$/.test(channel) : false;
+    if (!valid) continue; // Sin plataforma y canal válidos no hay un reproductor que abrir en Apejupo.
+    const key = s.type + "|" + channel + "|" + s.title + "|" + s.startAt;
     if (byTitle.has(key)) continue; // el mismo directo viene repetido por cada sección del torneo
-    const url = s.type === "twitch" ? "https://www.twitch.tv/" + s.channel
-              : s.type === "youtube" ? "https://www.youtube.com/watch?v=" + s.channel
-              : "https://www.chess.com/events";
-    byTitle.set(key, { source: "Chess.com", id: "cc-" + (s.eventId || key), title: s.title, short: s.shortTitle || s.title, start, end, url, via: s.type });
+    const url = s.type === "twitch" ? "https://www.twitch.tv/" + channel
+              : s.type === "youtube" ? "https://www.youtube.com/watch?v=" + channel
+              : "https://kick.com/" + channel;
+    byTitle.set(key, { source: "Chess.com", id: "cc-" + (s.eventId || "") + "|" + key, eventId: s.eventId, language: s.language?.locale, title: s.title, short: s.shortTitle || s.title, start, end, url, via: s.type });
   }
   return [...byTitle.values()];
 }

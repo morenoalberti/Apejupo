@@ -1,4 +1,4 @@
-// Idioma de la web: banderas inglesa y española a la izquierda de «Entrar».
+// Idioma de la web: selector en el menú de la portada; la elección se aplica a todas las páginas.
 // La web está escrita en español; en inglés se traduce «en caliente», sin recargar: se recogen los textos
 // visibles (y títulos, avisos y textos de ayuda), se traducen en el Worker de eventos (IA de Cloudflare,
 // con caché) y se sustituyen en su sitio. Lo que la página va cambiando (torneos en directo, ventanas…)
@@ -187,18 +187,17 @@
         });
         guardar();
       })
-      .catch(function () { grupo.forEach(function (t) { pendientes.delete(t); }); fallo(); }) // sin traductor: se queda en español y se avisa
+      .catch(function () { grupo.forEach(function (t) { pendientes.delete(t); }); fallo(); }) // conserva las traducciones disponibles y el idioma elegido
       .then(function () { enVuelo--; marcar(); });
   }
-  // Si el traductor no responde, se avisa y las banderas vuelven al español.
+  // Un fallo del servicio no cambia la preferencia del usuario ni deshace el diccionario local.
   var avisado = false;
   function fallo() {
     if (avisado || idioma !== "en") return;
-    avisado = true; setTimeout(function () { avisado = false; }, 4000);
-    cambiar("es");
+    avisado = true;
     var aviso = document.createElement("div");
     aviso.className = "lang-aviso notranslate"; aviso.setAttribute("role", "status");
-    aviso.textContent = "No se ha podido traducir la página ahora. Inténtalo de nuevo en unos minutos.";
+    aviso.textContent = "Some texts could not be translated right now. English remains selected.";
     document.body.appendChild(aviso);
     setTimeout(function () { aviso.remove(); }, 5000);
   }
@@ -258,6 +257,7 @@
   }
   function aEspanol() {
     observador.disconnect();
+    document.querySelectorAll(".lang-aviso").forEach(function (aviso) { aviso.remove(); });
     pendientes.clear();
     textos.forEach(function (n) { var st = estadoTexto.get(n); if (st && st.tr && n.nodeValue === st.tr) n.nodeValue = st.orig; estadoTexto.delete(n); });
     elementos.forEach(function (el) {
@@ -274,14 +274,14 @@
   var GB = '<svg viewBox="0 0 60 30" aria-hidden="true"><clipPath id="lf-gb"><path d="M0 0v30h60V0z"/></clipPath><clipPath id="lf-gb2"><path d="M30 15h30v15zv15H0zH0V0zV0h30z"/></clipPath><g clip-path="url(#lf-gb)"><path d="M0 0v30h60V0z" fill="#012169"/><path d="M0 0l60 30m0-30L0 30" stroke="#fff" stroke-width="6"/><path d="M0 0l60 30m0-30L0 30" clip-path="url(#lf-gb2)" stroke="#C8102E" stroke-width="4"/><path d="M30 0v30M0 15h60" stroke="#fff" stroke-width="10"/><path d="M30 0v30M0 15h60" stroke="#C8102E" stroke-width="6"/></g></svg>';
   var ES = '<svg viewBox="0 0 60 40" aria-hidden="true"><path d="M0 0h60v40H0z" fill="#AA151B"/><path d="M0 10h60v20H0z" fill="#F1BF00"/></svg>';
   function botones() {
-    var chip = document.getElementById("cuenta-chip");
-    if (!chip || document.querySelector(".lang-flags")) return;
+    var menu = document.getElementById("home-language");
+    if (!menu || document.querySelector(".lang-flags")) return;
     var caja = document.createElement("div");
     caja.className = "lang-flags notranslate"; caja.setAttribute("translate", "no");
     caja.setAttribute("role", "group"); caja.setAttribute("aria-label", "Idioma / Language");
     caja.innerHTML = '<button type="button" data-lang="en" title="English" aria-label="English">' + GB + '</button>' +
       '<button type="button" data-lang="es" title="Español" aria-label="Español">' + ES + '</button>';
-    chip.parentNode.insertBefore(caja, chip);
+    menu.appendChild(caja);
     caja.addEventListener("click", function (e) { var b = e.target.closest("[data-lang]"); if (b) cambiar(b.getAttribute("data-lang")); });
     // Al acercar el ratón (o el dedo) a la bandera inglesa se piden ya los textos que la página haya cargado después.
     caja.querySelector('[data-lang="en"]').addEventListener("pointerenter", anticipar);
@@ -303,8 +303,6 @@
 
   function iniciar() {
     botones();
-    // «Entrar» lo pone cuenta.js: si aún no está, se esperan las banderas un momento.
-    if (!document.querySelector(".lang-flags")) { var n = 0, t = setInterval(function () { botones(); if (document.querySelector(".lang-flags") || ++n > 40) clearInterval(t); }, 100); }
     esperarDiccionario(function () {
       if (idioma === "en") aIngles();
       else { anticiparLuego(); setTimeout(anticipar, 6000); } // otra vez cuando la página ya ha cargado lo suyo (noticias, torneos…)

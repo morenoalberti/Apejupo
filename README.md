@@ -30,6 +30,26 @@ Abre http://localhost:8080.
 
 Los directos de Lichess se cargan en el navegador de cada visitante, así que siempre están al día.
 
+## Tamaño de los tableros
+
+El control de `torneo.html` permite reducir y ampliar la tarjeta completa de cada partida: tablero, piezas, nombres, Elo, banderas, relojes y resultado. Los menús, ventanas y botones de la página conservan su tamaño. La escala va del 75 % al 150 %, con límite según el ancho disponible, se recuerda en este navegador y se puede restablecer al 100 %.
+
+El componente está aislado en `js/board-size.js` y `css/board-size.css`. El arrastre de tarjetas conserva su escala. Los controles de ronda, clasificación y emparejamientos están en la barra inmediatamente anterior a los tableros. Comprobación local con datos simulados: `node scripts/test_board_size.cjs`.
+
+La elección de español o inglés se conserva al abrir menús y navegar, incluso cuando falla el servicio de traducción. El diccionario local incluye los controles y avisos de los tableros; los textos dinámicos restantes usan el traductor. Comprobación sin conexiones externas: `node scripts/test_language.cjs` (ambos idiomas, atributos de accesibilidad, errores de red/HTTP y recuperación del servicio).
+
+## Comentaristas en ventana flotante
+
+En `torneo.html`, un único botón abre la emisión asociada al torneo que se está viendo. Si no hay una emisión programada en ese momento, el botón queda gris y debajo aparece la próxima hora de emisión en Madrid; si solo se conoce el inicio de la ronda, se identifica como tal. Sin horario publicado se indica «por confirmar». La lista de torneos invita a abrir un torneo, sin tarjetas ni selectores de canales genéricos.
+
+La asociación se establece por ID de torneo/ronda, nombre exacto, vídeo concreto publicado en la descripción del torneo o relaciones comprobadas en `APEJUPO.commentary` (`js/data.js`). Un canal genérico por sí solo no identifica qué torneo se está comentando. El calendario aporta los horarios, no una comprobación en tiempo real de la señal del emisor. El Worker conserva el canal de Kick y los identificadores del evento. Solo se admiten los reproductores de YouTube, Twitch y Kick.
+
+El reproductor flotante se mueve con ratón, dedo o flechas del teclado. Permite cambiar de tamaño, minimizar (conserva el sonido), volver a la página y cerrar (detiene la reproducción). Mover, minimizar o acoplar conserva el mismo reproductor. Cambiar de ronda detiene el vídeo anterior.
+
+`js/streams.js` conserva el consentimiento para contenidos de terceros de `js/util.js`. Estilos en `css/streams.css`. Comprobación local: `node scripts/test_stream_window.cjs` (Playwright y Chrome/Edge); sustituye las emisiones por un vídeo de prueba y no genera visitas de analítica. También comprueba que la lista de partidas mantiene blancas, negras y resultados en columnas.
+
+La cabecera de los tableros muestra el inicio de la ronda publicado por Lichess en `Europe/Madrid`, con fecha y cambio de horario de verano automático. Si falta el horario, indica «por confirmar». La ronda, el intervalo de fechas, el formato, el ritmo y el resumen de jugadores/Elo/países llevan versiones explícitas en español e inglés, sin depender del traductor automático para esas líneas. El colector de emisiones se comprueba con `node scripts/test_event_streams.mjs`.
+
 ## Estadísticas de visitas
 
 El seguimiento usa **Cloudflare Web Analytics**, con instalación manual para **Apejupo**, dominio `apejupo.com` (incluido `www.apejupo.com`). La web sigue alojada en GitHub Pages; este servicio de estadísticas no necesita un servidor propio.

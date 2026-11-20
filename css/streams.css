@@ -1,0 +1,45 @@
+/* Un único reproductor: al flotar o volver a la página no se recarga el vídeo. */
+.stream-window { border: 1px solid var(--line); border-radius: 14px; overflow: hidden; background: var(--card); margin: 12px 0; }
+.stream-window[hidden], #stream-float[hidden], .stream-manual [hidden] { display: none; }
+.sw-head { display: flex; align-items: center; gap: 4px; padding: 6px; background: var(--navy); color: #E8EEF7; }
+.sw-head button { font: inherit; color: inherit; border: 0; background: transparent; border-radius: 7px; cursor: pointer; }
+.sw-head button:focus-visible { outline: 2px solid #9cc3ff; outline-offset: -2px; }
+.sw-drag { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; text-align: left; padding: 4px 8px; height: 38px; }
+#sw-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .85rem; font-weight: 650; }
+.sw-drag > span:first-child { font-size: 1.4rem; color: #9cc3ff; }
+.sw-actions { display: flex; flex: none; gap: 2px; }
+.sw-actions button { width: 36px; height: 38px; font-size: 1.25rem; }
+.sw-actions button:hover { background: #ffffff20; }
+#sw-close:hover { background: #b91c1c; }
+.sw-body .stream { border-radius: 0; }
+.sw-floating { position: fixed; z-index: 1100; margin: 0; max-width: calc(100vw - 24px); max-height: calc(100dvh - 24px); box-shadow: 0 16px 50px #0006; }
+.sw-floating .sw-drag { cursor: grab; touch-action: none; user-select: none; }
+.sw-floating.sw-moving .sw-drag { cursor: grabbing; }
+.sw-floating .stream { padding-top: 0; height: max(200px, calc((var(--sw-width, 448px) - 2px) * .5625)); }
+.sw-floating[data-provider="twitch"] .stream { min-height: 300px; }
+.sw-floating .sw-body { max-height: calc(100dvh - 112px); overflow: auto; }
+.sw-floating .terceros { overflow-y: auto; }
+.sw-moving .sw-body { pointer-events: none; }
+.sw-minimized .sw-body { display: none; }
+.stream-launch { display: flex; flex-direction: column; align-items: flex-start; gap: 7px; margin-bottom: 16px; }
+.lv-addrow > .stream-launch { flex: 1 0 100%; width: 100%; margin: 16px 0 0; }
+.stream-launch .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; font: inherit; font-weight: 600; cursor: pointer; background: #f3ead9; color: #3d3529; border: 1px solid #c8b48e; }
+.stream-launch .btn:hover:not(:disabled) { background: #e8d9bd; }
+.stream-launch .btn:focus-visible { outline: 2px solid var(--text); outline-offset: 3px; }
+.stream-launch .btn:disabled { background: #e9e4da; color: #655e53; border: 1px solid #beb4a4; opacity: 1; cursor: not-allowed; box-shadow: none; transform: none; }
+#stream-status { color: #374151; font-size: .85rem; font-weight: 500; line-height: 1.5; }
+#stream-status.is-live { color: #15803d; }
+@media (prefers-color-scheme: dark) {
+  #stream-status { color: #d1d5db; }
+  #stream-status.is-live { color: #86efac; }
+}
+@media (max-width: 600px), (max-height: 500px) and (pointer: coarse) {
+  .live-tournament .lv-sticky-header:not(.lv-options-open) .lv-addrow > .stream-launch { display: flex; }
+}
+@media (max-width: 480px) {
+  .sw-head { flex-wrap: wrap; }
+  .sw-drag { flex-basis: calc(100% - 12px); }
+  .sw-actions { width: 100%; justify-content: flex-end; }
+  .sw-actions button { width: 44px; height: 40px; }
+  .sw-floating .sw-body { max-height: calc(100dvh - 156px); }
+}
