@@ -755,23 +755,52 @@
   function loadTournament(id) {
     var api = (window.APEJUPO_TORNEOS_API || "").replace(/\/$/, "");
     msg("Cargando las partidas del torneo…");
-    fetch(api + "/api/tournaments/" + encodeURIComponent(id) + "/pgn", { cache: "no-store" })
-      .then(function (r) { return r.text().then(function (t) { if (!r.ok) { var e = "No se pudieron cargar las partidas del torneo."; try { e = JSON.parse(t).error || e; } catch (x) {} throw new Error(e); } return t; }); })
-      .then(function (text) {
+    var base = api + "/api/tournaments/" + encodeURIComponent(id);
+    var pgnReq = fetch(base + "/pgn", { cache: "no-store" })
+      .then(function (r) { return r.text().then(function (t) { if (!r.ok) { var e = "No se pudieron cargar las partidas del torneo."; try { e = JSON.parse(t).error || e; } catch (x) {} throw new Error(e); } return t; }); });
+    // La clasificación trae la federación y el título FIDE de cada jugador (el PGN solo trae el nombre).
+    var infoReq = fetch(base, { cache: "no-store" }).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; });
+    Promise.all([pgnReq, infoReq])
+      .then(function (res) {
+        var text = res[0], info = res[1], byName = {};
+        ((info && info.standings) || []).forEach(function (p) { if (p && p.name) byName[p.name] = p; });
         var games = text.replace(/\r\n?/g, "\n").split(/\n\s*\n(?=\[Event )/).map(function (t) { return t.trim(); }).filter(Boolean);
         if (!games.length) throw new Error("No hay partidas para analizar.");
         var head = function (t, k) { var m = t.match(new RegExp("\\[" + k + ' "([^"]*)"\\]')); return m ? m[1] : ""; };
         var e = function (t) { return String(t).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); };
         var title = head(games[0], "Event");
-        if (title) { $("an-games-title").textContent = title; $("an-games-title").setAttribute("translate", "no"); }
-        $("an-games-sel").innerHTML = games.map(function (t, i) {
-          var res = head(t, "Result").replace("1/2-1/2", "½-½"), round = head(t, "Round");
-          return '<option value="' + i + '" translate="no">' + (round ? "R" + e(round) + " · " : "") + e(head(t, "White") || "?") + " – " + e(head(t, "Black") || "?") + (res && res !== "*" ? " · " + e(res) : "") + "</option>";
+        // Cada partida como en el combo de Torneos Live: bandera, título, nombre · resultado · y lo mismo del rival.
+        var side = function (name) {
+          var p = byName[name] || {}, flag = p.fed && window.U && U.flag ? U.flag(p.fed) : "";
+          return '<span class="lv-pick-p">' + flag + (p.title ? '<em class="lv-pick-tt">' + e(p.title) + "</em>" : "") + '<span class="lv-pick-name" title="' + e(name) + '">' + e(name || "?") + "</span></span>";
+        };
+        var row = function (t) {
+          var r = { "1-0": "1-0", "0-1": "0-1", "1/2-1/2": "½-½" }[head(t, "Result")] || "–";
+          return side(head(t, "White")) + '<span class="lv-pick-r">' + r + "</span>" + side(head(t, "Black"));
+        };
+        var rounds = games.map(function (t) { return head(t, "Round"); }), several = rounds.some(function (r) { return r !== rounds[0]; });
+        var pickB = $("an-pick-b"), pickL = $("an-pick-l"), cur = 0;
+        pickL.innerHTML = games.map(function (t, i) {
+          var sep = several && (i === 0 || rounds[i] !== rounds[i - 1]) ? '<div class="an-pick-round">Ronda ' + e(rounds[i]) + "</div>" : "";
+          return sep + '<button type="button" role="option" translate="no" data-i="' + i + '">' + row(t) + "</button>";
         }).join("");
-        $("an-games-sel").onchange = function () { var err = loadPgn(games[this.value]); if (err) msg(err, true); };
+        function show(i) {
+          cur = i; pickB.querySelector("span").innerHTML = row(games[i]);
+          pickL.querySelectorAll("[data-i]").forEach(function (o) { o.setAttribute("aria-selected", String(+o.dataset.i === i)); });
+          var err = loadPgn(games[i]); if (err) msg(err, true);
+        }
+        function open(o) { pickL.hidden = !o; pickB.setAttribute("aria-expanded", String(o)); if (o) { var s = pickL.querySelector('[aria-selected="true"]'); if (s) { s.focus(); s.scrollIntoView({ block: "nearest" }); } } }
+        pickB.onclick = function (ev) { ev.stopPropagation(); open(pickL.hidden); };
+        pickL.onclick = function (ev) { var o = ev.target.closest("[data-i]"); if (!o) return; show(+o.dataset.i); open(false); pickB.focus(); };
+        pickL.onkeydown = function (ev) {
+          var items = Array.prototype.slice.call(pickL.querySelectorAll("[data-i]")), k = items.indexOf(document.activeElement);
+          if (ev.key === "ArrowDown" || ev.key === "ArrowUp") { ev.preventDefault(); ev.stopPropagation(); var n = items[Math.max(0, Math.min(items.length - 1, k + (ev.key === "ArrowDown" ? 1 : -1)))]; if (n) n.focus(); }
+          if (ev.key === "Escape") { open(false); pickB.focus(); }
+        };
+        document.addEventListener("click", function (ev) { if (!pickL.hidden && !$("an-games").contains(ev.target)) open(false); });
         $("an-games").hidden = false;
         document.title = (title ? title + " · " : "") + "Tablero de análisis · Apejupo Chess Club";
-        var err = loadPgn(games[0]); if (err) msg(err, true);
+        show(0);
       })
       .catch(function (err) { msg(err.message || "No se pudieron cargar las partidas del torneo.", true); });
   }

@@ -22,7 +22,7 @@
 <link rel="stylesheet" href="css/style.css?v=20261120-idioma2">
 <script defer src="js/analytics.js?v=20261120-cloudflare1"></script>
 <link rel="stylesheet" href="css/cuenta.css?v=20261117-admin1">
-<link rel="stylesheet" href="css/analisis.css?v=20261120-torneo1">
+<link rel="stylesheet" href="css/analisis.css?v=20261120-torneo3">
 <script type="application/ld+json" id="datos-pagina">{"@context": "https://schema.org", "@graph": [{"@type": "WebPage", "@id": "https://apejupo.com/analisis.html#pagina", "url": "https://apejupo.com/analisis.html", "name": "Tablero de análisis de ajedrez con Stockfish · Apejupo", "description": "Tablero de análisis de ajedrez gratis con Stockfish: mueve las piezas, carga una partida en PGN o una posición en FEN y consulta las mejores jugadas.", "inLanguage": "es-ES", "isPartOf": {"@type": "WebSite", "name": "Apejupo Chess Club", "url": "https://apejupo.com/"}}, {"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Inicio", "item": "https://apejupo.com/"}, {"@type": "ListItem", "position": 2, "name": "Tablero de análisis", "item": "https://apejupo.com/analisis.html"}]}]}</script>
 <script src="js/idioma.js?v=20261120-comodin1"></script>
 </head>
@@ -44,6 +44,7 @@
   <h1 class="sr-only">Tablero de análisis</h1>
   <section class="an" aria-label="Tablero de análisis">
     <div class="an-left">
+      <div id="an-games" class="an-games" hidden><div class="lv-pick an-pick"><button id="an-pick-b" class="lv-pick-b" type="button" aria-haspopup="listbox" aria-expanded="false" aria-label="Elegir partida"><span></span><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button><div id="an-pick-l" class="lv-pick-l" role="listbox" aria-label="Partidas del torneo" hidden></div></div></div>
       <div id="an-pal-top" class="an-pal" hidden></div>
       <div id="an-player-top" class="an-player" hidden></div>
       <div class="an-boardrow">
@@ -75,7 +76,6 @@
     </div>
     <div class="an-right">
       <div class="an-panel">
-        <div id="an-games" class="an-games" hidden><label for="an-games-sel" id="an-games-title">Partidas del torneo</label><select id="an-games-sel"></select></div>
         <div class="an-engine-head">
           <label class="an-switch" title="Activar o desactivar Stockfish"><input id="an-sf" type="checkbox"><span></span></label>
           <strong id="an-evalbig" class="an-evalbig"></strong>
@@ -114,7 +114,7 @@
 <script src="js/util.js?v=20261120-dic"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
 <script src="js/aperturas.js?v=20261114-aperturas"></script>
-<script src="js/analisis.js?v=20261120-torneo1"></script>
+<script src="js/analisis.js?v=20261120-torneo3"></script>
 <script src="js/torneo-config.js?v=20261114-publicado"></script>
 <script type="module" src="js/cuenta.js?v=20261117-admin1"></script>
 </body>
