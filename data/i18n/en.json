@@ -1,6 +1,5 @@
 {
   ", en Málaga. Y cuando apetece, también jugamos otros días.": ", in Málaga. And when we feel like it, we also play on other days.",
-  ", instalados en un servidor administrado por el responsable de la web y alojado en Hetzner, Alemania, para consultar las visitas, las páginas más vistas, la procedencia, el país aproximado y el tipo de dispositivo. No se utiliza el servicio en la nube de Umami.": ", installed on a server managed by the web administrator and hosted in Hetzner, Germany, to consult visits, most viewed pages, origin, approximate country and device type. Umami's cloud service is not used.",
   ", la fecha de alta y una huella de tu contraseña (derivación PBKDF2 con sal: nunca guardamos la contraseña en sí). El nick es público, porque aparece en los torneos que juegues; el correo no se muestra a nadie. Si subes una": ", the registration date and a hash of your password (PBKDF2 derivation with salt: we never store the password itself). The nick is public, because it appears in the tournaments you play; the email is not shown to anyone. If you upload a",
   ", las noticias y el": ", the news and the",
   ", listas de Elo de la FIDE y de la Federación Andaluza de Ajedrez, noticias de medios de ajedrez, calendarios de Chess.com, vídeos de YouTube y Twitch, y mapas de Google Maps. Cada contenido pertenece a su fuente, que se cita junto a él.": "FIDE Elo ratings and Andalusian Chess Federation ratings, chess media news, Chess.com calendars, YouTube and Twitch videos, and Google Maps. Each content belongs to its source, which is cited along with it.",
@@ -1091,7 +1090,6 @@
   "Esperando…": "Waiting…",
   "EST": "EST",
   "Esta jugada": "This move",
-  "Esta medición no instala cookies ni guarda identificadores persistentes en tu navegador. La dirección IP y los datos técnicos del navegador se procesan para estimar visitantes mediante identificadores estadísticos; no se guardan las direcciones IP en las bases de datos de analítica. No enviamos el contenido de formularios ni búsquedas, ni los parámetros o fragmentos de las direcciones de las páginas. El seguimiento no se carga si el navegador comunica Do Not Track o Global Privacy Control.": "This measurement does not install cookies or store persistent identifiers in your browser. The IP address and browser technical data are processed to estimate visitors through statistical identifiers; IP addresses are not stored in analytics databases. We do not send form content or searches, nor parameters or fragments of page addresses. Tracking is not loaded if the browser communicates Do Not Track or Global Privacy Control.",
   "Esta web cuenta lo que hace el grupo y ofrece contenidos de ajedrez: noticias, retransmisiones de torneos, calendario de torneos, listas de Elo y material de entrenamiento. Su uso es gratuito y no requiere registro.": "This website features the group's activities and offers chess content: news, live tournament broadcasts, tournament calendar, Elo lists, and training materials. Its use is free and does not require registration.",
   "Esta web es un proyecto personal y gratuito, sin actividad económica: no vende nada, no cobra por ningún servicio, no tiene publicidad y no recoge datos de quien la visita, salvo los que tú nos envías si te inscribes.": "This website is a personal and free project, with no economic activity: it sells nothing, charges for no service, has no advertising and collects no data from visitors, except for what you send us if you sign up.",
   "esta web no instala cookies propias, ni de analítica ni de publicidad. Los mapas y vídeos de terceros, que sí pueden instalarlas, solo se cargan cuando tú lo pides.": "this web does not install its own cookies, nor analytics or advertising cookies. Maps and videos from third parties, which may install them, are only loaded when you request them.",
@@ -2277,8 +2275,6 @@
   "Última actualización: 12 de noviembre de 2026": "Last update: 12 November 2026",
   "Última actualización: 13 de noviembre de 2026": "Last update: 13 de noviembre de 2026",
   "Última ronda": "Last round",
-  "Umami y PulseMetrics": "Umami and PulseMetrics",
-  "Umami y PulseMetrics recogen estadísticas de navegación en un servidor propio, sin instalar cookies ni guardar identificadores persistentes en tu navegador. El seguimiento respeta Do Not Track y Global Privacy Control. Puedes consultar qué datos se miden en la": "Umami and PulseMetrics collect navigation statistics on their own server, without installing cookies or storing persistent identifiers in your browser. Tracking respects Do Not Track and Global Privacy Control. You can check what data is measured at the",
   "Un clic y entras. Tu nombre se recuerda en este navegador.": "One click and sign in. Your name is remembered in this browser.",
   "Un día más haciendo lo que más nos \"gusta\"": "Another day doing what we \"love\" most",
   "Un ejemplo muy instructivo de coordinación entre Torre y Caballo (Topcheiev, 1927)": "A very instructive example of coordination between Rook and Knight (Topcheiev, 1927)",
@@ -2395,5 +2391,11 @@
   "Zambia": "Zambia",
   "ZIM": "ZIM",
   "Zimbabue": "Zimbabwe",
-  "Zugzwang": "Zugzwang"
+  "Zugzwang": "Zugzwang",
+  "Cloudflare Web Analytics": "Cloudflare Web Analytics",
+  ", de Cloudflare, Inc., para consultar las visitas, las páginas más vistas, la procedencia, el país aproximado, el tipo de dispositivo y el rendimiento de la web. Puedes consultar la": ", provided by Cloudflare, Inc., to view visits, the most viewed pages, referral sources, approximate country, device type and website performance. You can read the",
+  "política de privacidad de Cloudflare": "Cloudflare privacy policy",
+  "Esta medición no instala cookies ni guarda identificadores persistentes en tu navegador, ni realiza seguimiento entre sitios. Cloudflare recibe datos de navegación y rendimiento y la dirección IP necesaria para recibir la conexión; según su documentación, descarta esta dirección sin guardarla en sus bases de datos de analítica ni en sus registros. El seguimiento no recoge el contenido de formularios ni se carga si el navegador comunica Do Not Track o Global Privacy Control.": "This measurement does not install cookies, store persistent identifiers in your browser or track you across websites. Cloudflare receives navigation and performance data and the IP address needed to receive the connection; according to its documentation, it discards this address without storing it in its analytics databases or logs. Tracking does not collect form content and does not load if your browser signals Do Not Track or Global Privacy Control.",
+  "Cloudflare Web Analytics recoge estadísticas de visitas y rendimiento, sin instalar cookies ni guardar identificadores persistentes en tu navegador. El seguimiento respeta Do Not Track y Global Privacy Control. Puedes consultar qué datos se miden en la": "Cloudflare Web Analytics collects visit and performance statistics without installing cookies or storing persistent identifiers in your browser. Tracking respects Do Not Track and Global Privacy Control. You can check what data is measured in the",
+  "Última actualización: 20 de noviembre de 2026": "Last updated: 20 November 2026"
 }

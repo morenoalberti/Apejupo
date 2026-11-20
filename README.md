@@ -32,11 +32,13 @@ Los directos de Lichess se cargan en el navegador de cada visitante, así que si
 
 ## Estadísticas de visitas
 
-Umami (`https://metricas.chessrival.net`) y PulseMetrics (`https://pulsemetrics.chessrival.net`) tienen registrado el sitio **Apejupo**, dominio `apejupo.com`.
+El seguimiento usa **Cloudflare Web Analytics**, con instalación manual para **Apejupo**, dominio `apejupo.com` (incluido `www.apejupo.com`). La web sigue alojada en GitHub Pages; este servicio de estadísticas no necesita un servidor propio.
 
-Las 25 páginas incluyen `js/analytics.js`. El cargador solo actúa por HTTPS en `apejupo.com` y `www.apejupo.com`, respeta Do Not Track y Global Privacy Control, evita cargas duplicadas y excluye parámetros y fragmentos de las páginas. Solo contiene identificadores públicos; las claves administrativas permanecen en el servidor.
+Las páginas incluyen `js/analytics.js`. El cargador solo actúa por HTTPS en `apejupo.com` y `www.apejupo.com`, respeta Do Not Track y Global Privacy Control y evita cargar el beacon dos veces. No se carga analítica en local ni en dominios de pruebas. Cloudflare mide visitas y rendimiento sin cookies ni identificadores persistentes en el navegador.
 
-PulseMetrics recupera la lista actual de sitios y las estadísticas al abrir el programa con la conexión guardada. Las visitas anteriores a instalar el seguimiento no se pueden reconstruir. Las pruebas locales deben interceptar la recogida para no generar estadísticas ficticias; la comprobación final usa visitas reales a la web publicada.
+Activación: en Cloudflare → Web Analytics → Añadir sitio, registrar `apejupo.com` y copiar el valor público `token` del bloque `data-cf-beacon` de «Gestionar sitio» en la variable `token` de `js/analytics.js`. Un token vacío o inválido desactiva el seguimiento. Usar la instalación manual y evitar la inyección automática para que las preferencias de privacidad se apliquen desde este cargador. No introducir claves API ni credenciales de Cloudflare en el código.
+
+Las estadísticas nuevas se consultan en Cloudflare → Web Analytics. El historial de los servicios anteriores no se migra automáticamente. Las pruebas deben interceptar el beacon y la recogida para no generar visitas ficticias. Retirar el seguimiento de Apejupo no cancela el servidor compartido ni modifica las estadísticas de otras webs.
 
 ## Servidor auxiliar
 
