@@ -62,19 +62,24 @@ const server = http.createServer((req, res) => {
           const panel=document.querySelector('#to-game-panel'), board=document.querySelector('#to-board');
           const squares=[...board.querySelectorAll('button')], clocks=[...panel.querySelectorAll('.to-clock')].map(rect), names=[...panel.querySelectorAll('.to-player>span')].map(rect), b=rect(board);
           return { board:b,panel:rect(panel),cell:rect(squares[0]),squares:squares.length,pieces:board.querySelectorAll('canvas').length,clocks,names,
-            overflow:document.documentElement.scrollWidth>document.documentElement.clientWidth,
+            sidebar:rect(document.querySelector('.to-sidebar')),standings:rect(document.querySelector('#to-standings-panel')),overflow:document.documentElement.scrollWidth>document.documentElement.clientWidth,
             overlap:clocks.some((c,i)=>names[i].right>c.x+1),compact:document.body.classList.contains('to-compact-game'),landscape:document.body.classList.contains('to-landscape-game'),scroll:scrollY,
             contained:squares.every(s=>{const r=rect(s);return r.x>=b.x-1&&r.y>=b.y-1&&r.right<=b.right+1&&r.bottom<=b.bottom+1;}),
             actions:[...document.querySelector('#to-game-actions').children].filter(b=>!b.hidden).map(rect) };
         });
         for (const [width,height] of sizes) {
           await page.setViewportSize({width,height}); await page.waitForTimeout(160);
+          if (height<=500) await page.waitForFunction(() => {
+            const r=document.querySelector('#to-game-panel').getBoundingClientRect();
+            return document.body.classList.contains('to-compact-game') && r.top>=-1 && r.bottom<=(visualViewport?.height||innerHeight)+1;
+          },null,{timeout:2500});
           const m=await read(), label=`${engine} ${format} ${language} ${width}x${height}`;
           assert.equal(m.overflow,false,label+' desbordamiento horizontal');
           assert.equal(m.squares,64,label); assert.equal(m.pieces,32,label);
           assert.ok(m.contained && Math.abs(m.board.w-m.board.h)<1,label+' tablero cuadrado completo');
           assert.equal(m.overlap,false,label+' nombres y relojes');
           assert.ok(m.cell.w>=28,label+' casillas demasiado pequeñas: '+m.cell.w);
+          if (m.landscape) assert.ok(m.sidebar.h>0 && m.standings.h>0,label+' información del torneo accesible bajo la partida');
           if (m.compact) {
             assert.ok(m.panel.y>=-1 && m.panel.bottom<=height+1,label+' tarjeta fuera de la vista: '+JSON.stringify(m.panel));
             for (const b of m.actions) assert.ok(b.x>=m.panel.x && b.right<=m.panel.right+1 && b.bottom<=height+1,label+' botones fuera de la tarjeta');

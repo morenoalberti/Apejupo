@@ -30,6 +30,7 @@ let lastArenaClosing = false;
 let gameFitFrame = null;
 let gameCompactScroll = null;
 let gameCompactViewport = '';
+let gameScrollFrame = null;
 let editingId = null, keyFieldRequired = false; // formulario de organizar: torneo que se edita y si se pide la clave de organización
 let createModeChoices = {};
 let tournamentAdmin = false;
@@ -914,6 +915,12 @@ function scheduleGameFit() {
   if (gameFitFrame !== null) return;
   gameFitFrame = requestAnimationFrame(() => { gameFitFrame = null; fitGame(); });
 }
+function settleGameScroll(callback) {
+  if (gameScrollFrame !== null) cancelAnimationFrame(gameScrollFrame);
+  gameScrollFrame = requestAnimationFrame(() => {
+    gameScrollFrame = requestAnimationFrame(() => { gameScrollFrame = null; callback(); });
+  });
+}
 function fitGame() {
   const panel = $('to-game-panel'), room = $('to-room');
   const active = !boardsMode && !panel.hidden && document.body.classList.contains('to-focus');
@@ -934,7 +941,9 @@ function fitGame() {
   placeGameActions();
   if (!compact && wasCompact && gameCompactScroll) {
     const previous = gameCompactScroll; gameCompactScroll = null;
-    requestAnimationFrame(() => window.scrollTo({ left: previous.x, top: previous.y, behavior: 'instant' }));
+    settleGameScroll(() => {
+      if (!document.body.classList.contains('to-compact-game')) window.scrollTo({ left: previous.x, top: previous.y, behavior: 'instant' });
+    });
   }
   if (!active) {
     panel.style.removeProperty('--to-game-width');
@@ -974,8 +983,8 @@ function fitGame() {
   room.style.setProperty('--to-play-height', `${Math.floor(Math.min(availableHeight, sidebarHeight))}px`);
   room.style.setProperty('--to-standings-height', `${Math.floor(boardRect.height)}px`);
   // Solo al entrar en esta vista o cambiar de orientación: nunca al recibir una jugada.
-  if (reposition) requestAnimationFrame(() => {
-    if (document.body.classList.contains('to-compact-game') && !document.querySelector('dialog[open]')) {
+  if (reposition) settleGameScroll(() => {
+    if (gameCompactViewport === viewportKey && document.body.classList.contains('to-compact-game') && !document.querySelector('dialog[open]')) {
       window.scrollTo({ top: panel.getBoundingClientRect().top + scrollY - inset, behavior: 'instant' });
     }
   });

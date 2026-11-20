@@ -510,6 +510,7 @@ body.to-focus .to-sidebar > .to-game-actions { padding: 0; border: 0; margin: 0 
 /* Pantallas táctiles bajas: la cabecera se puede desplazar y la partida cabe en la vista.
    En horizontal se aprovecha el ancho con los datos y las acciones junto al tablero. */
 body.to-compact-game .site-header { position: relative; }
+body.to-compact-game { overflow-anchor: none; }
 body.to-landscape-game .to-room-layout { grid-template-columns: minmax(0, 1fr); }
 body.to-landscape-game #to-game-panel {
   display: grid; grid-template-columns: var(--to-board-size) minmax(0, 1fr);
@@ -523,7 +524,7 @@ body.to-landscape-game #to-player-bottom { grid-row: 2; }
 body.to-landscape-game #to-game-actions { grid-column: 2; grid-row: 3; align-self: start; width: 100%; margin-top: 0; padding-top: 8px; }
 body.to-landscape-game #to-game-status { grid-column: 2; grid-row: 4; }
 body.to-landscape-game #to-rematch-box { grid-column: 2; grid-row: 5; }
-body.to-landscape-game .to-sidebar { max-height: none; }
+body.to-focus.to-landscape-game .to-sidebar { max-height: none; }
 body.to-low-landscape #to-game-panel { padding: 2px; }
 body.to-focus #to-standings-panel { display: flex; flex-direction: column; min-height: 0; margin-bottom: 0; }
 body.to-focus #to-standings-panel > .to-section-head { flex: none; }

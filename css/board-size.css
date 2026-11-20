@@ -1,14 +1,14 @@
 /* El tamaño se aplica exclusivamente a las tarjetas de partidas. */
-.board-size-control { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; width: fit-content; max-width: 100%; margin: 12px 0; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); }
-.board-size-label { font-size: .85rem; font-weight: 600; }
-.board-size-actions { display: flex; flex: 0 1 auto; flex-wrap: wrap; align-items: center; gap: 7px; min-width: 0; max-width: 100%; }
-.board-size-actions button { display: inline-flex; align-items: center; justify-content: center; flex: none; min-width: 34px; min-height: 34px; padding: 4px 9px; border: 1px solid var(--line); border-radius: 7px; background: var(--card); color: var(--text); font: inherit; cursor: pointer; }
+.board-size-control { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; width: fit-content; max-width: 100%; margin: 12px 0; padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); }
+.board-size-label { font-size: .8rem; font-weight: 600; }
+.board-size-actions { display: flex; flex: 0 1 auto; flex-wrap: wrap; align-items: center; gap: 5px; min-width: 0; max-width: 100%; }
+.board-size-actions button { display: inline-flex; align-items: center; justify-content: center; flex: none; min-width: 28px; min-height: 28px; padding: 3px 6px; border: 1px solid var(--line); border-radius: 6px; background: var(--card); color: var(--text); font: inherit; line-height: 1; cursor: pointer; }
 .board-size-actions button:hover:not(:disabled) { border-color: var(--blue); }
 .board-size-actions button:disabled { opacity: .45; cursor: default; }
 .board-size-actions button:focus-visible, #board-size-range:focus-visible { outline: 2px solid var(--blue); outline-offset: 3px; }
-#board-size-range { flex: 1 1 200px; min-width: 72px; max-width: 200px; width: 200px; accent-color: var(--blue); cursor: pointer; }
-#board-size-value { flex: none; min-width: 43px; text-align: center; font-size: .82rem; font-variant-numeric: tabular-nums; }
-#board-size-reset { font-size: .8rem; }
+#board-size-range { flex: 1 1 100px; min-width: 72px; max-width: 100px; width: 100px; accent-color: var(--blue); cursor: pointer; }
+#board-size-value { flex: none; min-width: 36px; text-align: center; font-size: .75rem; font-variant-numeric: tabular-nums; }
+#board-size-reset { font-size: .75rem; }
 #lv-grid.lv-board-sized { grid-template-columns: repeat(auto-fill, minmax(0, var(--match-column, 255px))); align-items: start; }
 #lv-grid.lv-board-sized[data-size="100"] { grid-template-columns: repeat(auto-fill, minmax(min(100%, 255px), 1fr)); }
 #lv-grid.lv-board-sized > .th { zoom: var(--match-scale, 1); }
