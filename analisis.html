@@ -22,7 +22,7 @@
 <link rel="stylesheet" href="css/style.css?v=20261120-idioma2">
 <script defer src="js/analytics.js?v=20261120-cloudflare1"></script>
 <link rel="stylesheet" href="css/cuenta.css?v=20261117-admin1">
-<link rel="stylesheet" href="css/analisis.css?v=20261120-apertura3">
+<link rel="stylesheet" href="css/analisis.css?v=20261120-boton1">
 <script type="application/ld+json" id="datos-pagina">{"@context": "https://schema.org", "@graph": [{"@type": "WebPage", "@id": "https://apejupo.com/analisis.html#pagina", "url": "https://apejupo.com/analisis.html", "name": "Tablero de análisis de ajedrez con Stockfish · Apejupo", "description": "Tablero de análisis de ajedrez gratis con Stockfish: mueve las piezas, carga una partida en PGN o una posición en FEN y consulta las mejores jugadas.", "inLanguage": "es-ES", "isPartOf": {"@type": "WebSite", "name": "Apejupo Chess Club", "url": "https://apejupo.com/"}}, {"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Inicio", "item": "https://apejupo.com/"}, {"@type": "ListItem", "position": 2, "name": "Tablero de análisis", "item": "https://apejupo.com/analisis.html"}]}]}</script>
 <script src="js/idioma.js?v=20261120-banderas1"></script>
 </head>
@@ -56,7 +56,7 @@
       </div>
       <div id="an-pal-bottom" class="an-pal" hidden></div>
       <div id="an-game" class="an-game" hidden>
-        <div class="an-under"><div id="an-player-bottom" class="an-player" hidden></div><button id="an-analyze" class="an-analyze" type="button"></button></div>
+        <div class="an-under"><div id="an-player-bottom" class="an-player" hidden></div></div>
         <div class="an-progress" hidden><i id="an-progress"></i></div>
         <div id="an-summary" class="an-summary" aria-live="polite"></div>
       </div>
@@ -85,6 +85,7 @@
         <div id="an-lines" class="an-lines"></div>
         <div id="an-moves" class="an-moves" aria-label="Jugadas"></div>
         <div id="an-editor" class="an-editor" hidden></div>
+        <button id="an-analyze" class="an-analyze" type="button"></button>
       </div>
       <p id="an-msg" class="an-msg an-msg-side" role="status"></p>
       <div class="an-nav">
