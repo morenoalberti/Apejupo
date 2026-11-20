@@ -264,17 +264,16 @@
 .an-sq.an-sel, .an-sq.dk.an-sel { background: rgba(20, 85, 30, .5); }
 .an-sq.an-chk, .an-sq.dk.an-chk { background: radial-gradient(circle, #ff0000 0%, #e70000aa 30%, transparent 75%); }
 
-/* Partidas de un torneo (?torneo=…): combo encima del tablero, alineado con su borde izquierdo, con bandera,
-   título y resultado como el de Torneos Live. */
-.an-games { width: min(460px, var(--an-size)); max-width: calc(100% - 26px); margin: 0 0 10px 26px; }
-.an-left:has(> .an-games:not([hidden])) { --an-size: min(calc(100vh - 250px), 640px); }
+/* Partidas de un torneo (?torneo=…): combo arriba de la tarjeta del motor, con bandera, título y resultado
+   como el de Torneos Live. */
+.an-games { flex: none; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+.an-panel:has(> .an-games:not([hidden])) { overflow: visible; } /* que la lista de partidas no se corte */
 .an-pick { flex: none; width: 100%; }
-.an-pick .lv-pick-b { min-height: 40px; background: var(--card); }
+.an-pick .lv-pick-b { min-height: 40px; }
 .an-pick .lv-pick-b > span { display: grid; grid-template-columns: minmax(0, 1fr) 40px minmax(0, 1fr); align-items: center; gap: 6px; }
 .an-pick .lv-pick-l { z-index: 60; max-height: min(60vh, 460px); }
 .an-pick .flag { flex: none; width: 20px; height: 14px; object-fit: cover; border-radius: 2px; margin-right: 5px; box-shadow: 0 0 0 1px rgba(255, 255, 255, .15); }
 .an-pick-round { padding: 8px 9px 3px; font-size: .74rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
-@media (max-width: 900px) { .an-games { order: 0; width: auto; max-width: none; margin: 0 0 0 20px; } }
 /* En escritorio, el panel derecho (motor, mensajes y botones) empieza y acaba a la altura del tablero. */
 @media (min-width: 901px) {
   .an-right { margin-top: var(--an-board-top, 0px); height: var(--an-board-h, 600px); }
