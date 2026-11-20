@@ -274,7 +274,9 @@
   var GB = '<svg viewBox="0 0 60 30" aria-hidden="true"><clipPath id="lf-gb"><path d="M0 0v30h60V0z"/></clipPath><clipPath id="lf-gb2"><path d="M30 15h30v15zv15H0zH0V0zV0h30z"/></clipPath><g clip-path="url(#lf-gb)"><path d="M0 0v30h60V0z" fill="#012169"/><path d="M0 0l60 30m0-30L0 30" stroke="#fff" stroke-width="6"/><path d="M0 0l60 30m0-30L0 30" clip-path="url(#lf-gb2)" stroke="#C8102E" stroke-width="4"/><path d="M30 0v30M0 15h60" stroke="#fff" stroke-width="10"/><path d="M30 0v30M0 15h60" stroke="#C8102E" stroke-width="6"/></g></svg>';
   var ES = '<svg viewBox="0 0 60 40" aria-hidden="true"><path d="M0 0h60v40H0z" fill="#AA151B"/><path d="M0 10h60v20H0z" fill="#F1BF00"/></svg>';
   function botones() {
-    var menu = document.getElementById("home-language");
+    // En todas las páginas con menú: el hueco de la portada (#home-language) o, si no lo hay, uno igual al final del menú.
+    var menu = document.getElementById("home-language"), nav = document.querySelector(".site-header nav");
+    if (!menu && nav) { menu = document.createElement("div"); menu.id = "home-language"; menu.className = "home-language"; nav.appendChild(menu); }
     if (!menu || document.querySelector(".lang-flags")) return;
     var caja = document.createElement("div");
     caja.className = "lang-flags notranslate"; caja.setAttribute("translate", "no");

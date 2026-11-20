@@ -787,7 +787,7 @@
         function show(i) {
           cur = i; pickB.querySelector("span").innerHTML = row(games[i]);
           pickL.querySelectorAll("[data-i]").forEach(function (o) { o.setAttribute("aria-selected", String(+o.dataset.i === i)); });
-          var err = loadPgn(games[i]); if (err) msg(err, true);
+          var err = loadPgn(games[i]); msg(err || "", !!err); // la partida cargada ya se ve en el desplegable
         }
         function open(o) { pickL.hidden = !o; pickB.setAttribute("aria-expanded", String(o)); if (o) { var s = pickL.querySelector('[aria-selected="true"]'); if (s) { s.focus(); s.scrollIntoView({ block: "nearest" }); } } }
         pickB.onclick = function (ev) { ev.stopPropagation(); open(pickL.hidden); };
