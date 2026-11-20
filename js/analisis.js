@@ -938,6 +938,7 @@
     if (left) root.style.setProperty("--an-board-top", Math.max(0, b.top - left.getBoundingClientRect().top) + "px");
   };
   var ro = new ResizeObserver(sync); ro.observe(board); if (left) ro.observe(left);
+  sync(); window.addEventListener("load", sync); window.addEventListener("resize", sync);
 })();
 
 // Si el navegador cancela el arrastre (cambio de pestaña, gesto del sistema…), se quita la pieza que seguía al ratón.

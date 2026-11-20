@@ -219,7 +219,7 @@
 .an-opening, .an-game { width: var(--an-size); max-width: calc(100% - 26px); margin-left: 26px; }
 .an-opening { margin-top: 0; margin-bottom: 6px; height: 1.5em; line-height: 1.5em; font-size: .95rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* La apertura va encima del jugador de arriba; con una partida cargada se reserva su línea para que el tablero no salte. */
-.an-page .an-left:has(#an-player-top:not([hidden])) .an-opening[hidden] { display: block !important; visibility: hidden; }
+body:not(.an-editing) .an-page .an-opening[hidden] { display: block !important; visibility: hidden; } /* su línea siempre reservada: el tablero no salta al aparecer la apertura */
 .an-opening b { color: var(--text); margin-right: 6px; font-variant-numeric: tabular-nums; }
 .an-game { margin-top: 12px; display: flex; flex-direction: column; gap: 10px; }
 .an-analyze { display: inline-flex; align-items: center; justify-content: center; gap: 10px; padding: 11px 18px; border: 0; border-radius: 10px; background: #629924; color: #fff; font: inherit; font-weight: 700; cursor: pointer; }
