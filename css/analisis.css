@@ -284,9 +284,9 @@ body:not(.an-editing) .an-page .an-opening[hidden] { display: block !important; 
   .an-editing .an-right .an-panel { flex: none; }
 }
 /* «Analizar partida»: a todo lo ancho, en la parte de abajo de la tarjeta de jugadas; solo con una partida cargada. */
-.an-panel > .an-analyze { flex: none; display: flex; width: auto; margin: 8px 10px 10px; padding: 7px 14px; border-radius: 8px; font-size: .92rem; }
-.an-panel > .an-analyze svg { width: 17px; height: 17px; }
-.an-page:has(#an-game[hidden]) .an-panel > .an-analyze, .an-editing .an-panel > .an-analyze { display: none; }
+.an-right > .an-analyze { flex: none; display: flex; width: 100%; margin: 0; padding: 7px 14px; border-radius: 8px; font-size: .92rem; }
+.an-right > .an-analyze svg { width: 17px; height: 17px; }
+.an-page:has(#an-game[hidden]) .an-right > .an-analyze, .an-editing .an-right > .an-analyze { display: none; }
 /* Cuadro de una jugada como el de ChessBase: borrar, promocionar, textos, símbolos (submenús) y diagrama. */
 .an-ctx hr { margin: 5px 4px; border: 0; border-top: 1px solid var(--line); }
 .an-ctx button:disabled { opacity: .4; cursor: default; background: none; }
