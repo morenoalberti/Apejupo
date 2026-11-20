@@ -574,7 +574,7 @@
           return '<button type="button" role="menuitemcheckbox" aria-checked="' + on + '" data-sym="' + sym + '"><b>' + sym + "</b>" + NAG_TITLE[sym] + "</button>";
         }).join("") + "</div></div>";
     };
-    m.innerHTML = '<p class="an-ctx-title">' + fig(node.san) + "</p>"
+    m.innerHTML = ""
       + it("delvar", "Borrar variante", main, "danger")
       + it("delrest", "Borrar jugadas restantes", !node.children.length, "danger")
       + it("promote", "Promocionar variante", main)
