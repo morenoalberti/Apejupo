@@ -34,7 +34,7 @@
   #stream-status.is-live { color: #86efac; }
 }
 @media (max-width: 600px), (max-height: 500px) and (pointer: coarse) {
-  .live-tournament .lv-sticky-header:not(.lv-options-open) .lv-addrow > .stream-launch { display: flex; }
+  .live-tournament .lv-addrow > .stream-launch { display: none; }
 }
 @media (max-width: 480px) {
   .sw-head { flex-wrap: wrap; }

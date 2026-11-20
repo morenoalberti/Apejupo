@@ -36,6 +36,8 @@ El control de `torneo.html` permite reducir y ampliar la tarjeta completa de cad
 
 El componente está aislado en `js/board-size.js` y `css/board-size.css`. El arrastre de tarjetas conserva su escala. Los controles de ronda, clasificación y emparejamientos están en la barra inmediatamente anterior a los tableros. Comprobación local con datos simulados: `node scripts/test_board_size.cjs`.
 
+En móvil, la vista del torneo oculta el bloque de retransmisión, «Detalles y controles» y el ajuste de tamaño. Los tableros se adaptan automáticamente al ancho al 100 %, conservando la preferencia de tamaño para el ordenador; ronda, clasificación y emparejamientos siguen disponibles.
+
 La elección de español o inglés se conserva al abrir menús y navegar, incluso cuando falla el servicio de traducción. El diccionario local incluye los controles y avisos de los tableros; los textos dinámicos restantes usan el traductor. Comprobación sin conexiones externas: `node scripts/test_language.cjs` (ambos idiomas, atributos de accesibilidad, errores de red/HTTP y recuperación del servicio).
 
 En las partidas de `jugar-torneo.html`, las pantallas táctiles de poca altura usan un ajuste automático. En horizontal, nombres, relojes y acciones quedan junto al tablero; en vertical se conserva su distribución habitual. Las casillas mantienen un tamaño mínimo según el ancho disponible. Al cambiar de orientación la vista se sitúa en la partida y al volver se recupera la posición anterior, sin recolocar la página con cada jugada. Comprobación aislada: `node scripts/test_playing_mobile.cjs` (19 tamaños, arena y suizo, ambos idiomas, Chromium y WebKit si está instalado, pulsaciones y arrastre táctil).

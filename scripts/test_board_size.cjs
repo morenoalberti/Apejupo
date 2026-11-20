@@ -105,6 +105,29 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
       assert.equal(await page.locator('#viewer-stand').isVisible(), true);
       const toolsBox = await page.locator('#viewer-tools').boundingBox(), gridBox = await page.locator('#lv-grid').boundingBox();
       assert.ok(gridBox.y - toolsBox.y - toolsBox.height >= 0 && gridBox.y - toolsBox.y - toolsBox.height <= 24, 'Controles junto al borde superior de los tableros');
+      if (width < 600) {
+        await page.evaluate(() => localStorage.setItem('apejupoBoardSize','75'));
+        await page.reload();
+        await page.waitForFunction(() => document.querySelectorAll('#lv-grid > .th').length === 10 && document.querySelector('#lv-grid').dataset.size === '100');
+        for (const [w,h] of [[390,900],[320,700],[844,390]]) {
+          await page.setViewportSize({width:w,height:h}); await wait(80);
+          assert.equal(await page.locator('#board-size-control').isVisible(),false);
+          assert.equal(await page.locator('#stream-launch').isVisible(),false);
+          assert.equal(await page.locator('#viewer-options').isVisible(),false);
+          assert.equal(await range.inputValue(),'100');
+          assert.equal(await page.evaluate(() => localStorage.getItem('apejupoBoardSize')),'75','Conserva la preferencia de ordenador');
+          assert.equal((await read()).overflow,false);
+          assert.equal(await page.locator('#viewer-stand').isVisible(),true);
+          assert.equal(await page.locator('#viewer-pair').isVisible(),true);
+        }
+        await page.setViewportSize({width:390,height:900});
+        await page.screenshot({path:path.join(root,'build/browser-check/live-mobile-clean.png')});
+        await page.locator('#viewer-pair').click(); await page.locator('table.pairs').waitFor(); await page.locator('#lv-fclose').click();
+        await page.locator('#lv-grid > .th').first().dblclick(); await page.locator('#viewer').waitFor({state:'visible'});
+        assert.deepEqual(errors,[]);
+        console.log('Móvil OK: sin retransmisión, detalles ni ajuste; tableros automáticos al 100 %, emparejamientos y visor accesibles.');
+        await context.close(); continue;
+      }
       await page.locator('#lv-grid > .th').first().evaluate(el => el.dataset.sizeMarker = 'retained');
       await minus.click(); assert.equal(await range.inputValue(), '95');
       await range.press('Home'); assert.equal(await range.inputValue(), '75'); assert.equal(await minus.isDisabled(), true);

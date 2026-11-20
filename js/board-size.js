@@ -3,6 +3,7 @@
   var grid = document.getElementById("lv-grid");
   if (!grid || document.getElementById("board-size-control") || !window.CSS || !CSS.supports("zoom", "1")) return;
   var KEY = "apejupoBoardSize", MIN = 75, MAX = 150, STEP = 5;
+  var mobile = matchMedia("(max-width: 600px), (max-height: 500px) and (pointer: coarse)");
   function normalize(value) {
     var number = Number(value);
     return value === null || value === "" || !Number.isFinite(number) ? 100 : Math.max(MIN, Math.min(MAX, Math.round(number / STEP) * STEP));
@@ -31,8 +32,8 @@
     // Se conserva el ancho de referencia de la rejilla normal, sin medir tarjetas ya ampliadas.
     var columns = Math.max(1, Math.floor((width + gap) / (255 + gap)));
     var normalWidth = (width - gap * (columns - 1)) / columns;
-    var available = Math.min(MAX, Math.floor(width / normalWidth * 100 / STEP) * STEP);
-    effective = Math.min(requested, available);
+    var available = mobile.matches ? 100 : Math.min(MAX, Math.floor(width / normalWidth * 100 / STEP) * STEP);
+    effective = mobile.matches ? 100 : Math.min(requested, available);
     grid.style.setProperty("--match-scale", String(effective / 100));
     // Redondear hacia abajo evita que una fracción de píxel expulse la última columna.
     grid.style.setProperty("--match-column", Math.floor(normalWidth * effective / 100 * 64) / 64 + "px");
@@ -44,6 +45,7 @@
     reset.disabled = requested === 100;
   }
   function setSize(value) {
+    if (mobile.matches) return;
     requested = normalize(value);
     try { if (requested === 100) localStorage.removeItem(KEY); else localStorage.setItem(KEY, String(requested)); } catch (_) {}
     apply();
@@ -60,5 +62,6 @@
   }
   if (window.ResizeObserver) new ResizeObserver(resized).observe(grid);
   window.addEventListener("resize", resized);
+  mobile.addEventListener("change", apply);
   apply();
 })();

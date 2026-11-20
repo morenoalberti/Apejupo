@@ -999,7 +999,7 @@ body.card-dragging .tour-tip { display: none !important; }
   .live-tournament .lv-addrow .lv-tt strong { font-size: .95rem; line-height: 1.35; }
   .live-tournament .lv-info { font-size: .75rem; line-height: 1.4; }
   .live-tournament .lv-thumbs .lv-voice { width: 44px; height: 44px; }
-  .live-tournament .lv-mobile-options { display: inline-flex; align-items: center; min-height: 44px; margin-top: 8px; padding: 6px 10px; font-size: .82rem; }
+  .live-tournament .lv-mobile-options { display: none; }
   .live-tournament .lv-sticky-header:not(.lv-options-open) .lv-info,
   .live-tournament .lv-sticky-header:not(.lv-options-open) #viewer-add,
   .live-tournament .lv-sticky-header:not(.lv-options-open) .lv-addrow > :not(.lv-tt) { display: none; }

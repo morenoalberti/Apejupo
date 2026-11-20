@@ -93,6 +93,25 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
       const expectedTime = new Intl.DateTimeFormat('es-ES', { timeZone: 'Europe/Madrid', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(now + 3600000);
       assert.ok((await page.locator('#stream-status').textContent()).includes(expectedTime));
       assert.ok((await page.locator('#stream-status').textContent()).includes('hora de Madrid'));
+      if (width < 600) {
+        assert.equal(await page.locator('#stream-launch').isVisible(),false);
+        currentFeed=activeFeed('https://kick.com/gmhikaru'); await goto();
+        assert.equal(await page.locator('#stream-open').isEnabled(),true);
+        for (const [w,h] of [[390,900],[320,700],[844,390]]) {
+          await page.setViewportSize({width:w,height:h});
+          assert.equal(await page.locator('#stream-launch').isVisible(),false,'También oculta una emisión activa en móvil');
+          assert.equal(await page.locator('#viewer-options').isVisible(),false);
+          assert.equal(await page.locator('#board-size-control').isVisible(),false);
+          assert.equal(await page.locator('#viewer-stand').isVisible(),true);
+          assert.equal(await page.locator('#viewer-pair').isVisible(),true);
+        }
+        assert.equal(embeds.length,0);
+        await page.locator('#viewer-stand').click(); await page.locator('table.stand').waitFor(); await page.locator('#lv-fclose').click();
+        await page.locator('#viewer-pair').click(); await page.locator('table.pairs').waitFor(); await page.locator('#lv-fclose').click();
+        assert.deepEqual(errors,[]);
+        console.log('390px OK: bloque oculto en vertical y horizontal, ronda/clasificación/emparejamientos accesibles y ningún vídeo cargado.');
+        await context.close(); continue;
+      }
       assert.ok((await page.locator('#stream-status').boundingBox()).y >= (await page.locator('#stream-open').boundingBox()).y + (await page.locator('#stream-open').boundingBox()).height);
       assert.equal(embeds.length, 0); assert.equal(await page.locator('#viewer-start').isVisible(), true);
       assert.ok((await page.locator('#viewer-start').textContent()).includes('09:00'));
