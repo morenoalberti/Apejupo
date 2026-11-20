@@ -78,8 +78,8 @@
     if (!comodines) {
       comodines = Object.keys(diccionario).filter(function (k) { return k.indexOf("{*}") >= 0 && diccionario[k]; }).map(function (k) {
         var re = "^" + k.split("{*}").map(function (s) { return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); }).join("([\\s\\S]+?)") + "$";
-        return { re: new RegExp(re), tr: diccionario[k] };
-      });
+        return { re: new RegExp(re), tr: diccionario[k], fijo: k.replace(/\{\*\}/g, "").length };
+      }).sort(function (a, b) { return b.fijo - a.fijo; }); // primero las más concretas: «Partida cargada: {*}» antes que «Partida {*}»
     }
     for (var i = 0; i < comodines.length; i++) {
       var m = comodines[i].re.exec(texto);

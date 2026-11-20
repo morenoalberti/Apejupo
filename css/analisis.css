@@ -263,3 +263,9 @@
 .an-sq.an-lm, .an-sq.dk.an-lm { background: rgba(155, 199, 0, .41); }
 .an-sq.an-sel, .an-sq.dk.an-sel { background: rgba(20, 85, 30, .5); }
 .an-sq.an-chk, .an-sq.dk.an-chk { background: radial-gradient(circle, #ff0000 0%, #e70000aa 30%, transparent 75%); }
+
+/* Partidas de un torneo (?torneo=…): desplegable encima del motor. */
+.an-games { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+.an-games label { font-size: .78rem; font-weight: 700; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.an-games select { width: 100%; min-width: 0; font: inherit; font-size: .9rem; padding: 8px 10px; border-radius: 6px; border: 1px solid var(--line); background: var(--bg); color: var(--text); cursor: pointer; }
+.an-games select:focus-visible { outline: 2px solid var(--blue); outline-offset: 1px; }

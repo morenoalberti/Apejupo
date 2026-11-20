@@ -747,6 +747,34 @@
   var q = new URLSearchParams(location.search).get("fen");
   if (q && new Chess().validate_fen(q).valid) { resetTree(q); flipped = q.split(" ")[1] === "b"; }
   render();
+
+  // ?torneo=… (desde «Analizar partidas» de la sala): todas las partidas del torneo en un desplegable.
+  var torneo = new URLSearchParams(location.search).get("torneo");
+  // torneo-config.js (la dirección del servidor de torneos) se carga después de este script.
+  if (torneo) { if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", function () { loadTournament(torneo); }); else loadTournament(torneo); }
+  function loadTournament(id) {
+    var api = (window.APEJUPO_TORNEOS_API || "").replace(/\/$/, "");
+    msg("Cargando las partidas del torneo…");
+    fetch(api + "/api/tournaments/" + encodeURIComponent(id) + "/pgn", { cache: "no-store" })
+      .then(function (r) { return r.text().then(function (t) { if (!r.ok) { var e = "No se pudieron cargar las partidas del torneo."; try { e = JSON.parse(t).error || e; } catch (x) {} throw new Error(e); } return t; }); })
+      .then(function (text) {
+        var games = text.replace(/\r\n?/g, "\n").split(/\n\s*\n(?=\[Event )/).map(function (t) { return t.trim(); }).filter(Boolean);
+        if (!games.length) throw new Error("No hay partidas para analizar.");
+        var head = function (t, k) { var m = t.match(new RegExp("\\[" + k + ' "([^"]*)"\\]')); return m ? m[1] : ""; };
+        var e = function (t) { return String(t).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); };
+        var title = head(games[0], "Event");
+        if (title) { $("an-games-title").textContent = title; $("an-games-title").setAttribute("translate", "no"); }
+        $("an-games-sel").innerHTML = games.map(function (t, i) {
+          var res = head(t, "Result").replace("1/2-1/2", "½-½"), round = head(t, "Round");
+          return '<option value="' + i + '" translate="no">' + (round ? "R" + e(round) + " · " : "") + e(head(t, "White") || "?") + " – " + e(head(t, "Black") || "?") + (res && res !== "*" ? " · " + e(res) : "") + "</option>";
+        }).join("");
+        $("an-games-sel").onchange = function () { var err = loadPgn(games[this.value]); if (err) msg(err, true); };
+        $("an-games").hidden = false;
+        document.title = (title ? title + " · " : "") + "Tablero de análisis · Apejupo Chess Club";
+        var err = loadPgn(games[0]); if (err) msg(err, true);
+      })
+      .catch(function (err) { msg(err.message || "No se pudieron cargar las partidas del torneo.", true); });
+  }
 })();
 
 // El panel derecho acompaña la altura del tablero.

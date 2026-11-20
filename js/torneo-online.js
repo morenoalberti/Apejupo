@@ -260,7 +260,7 @@ function connect() {
 
 function render() {
   const t = state;
-  $('to-title').textContent = t.title; document.title = t.title + ' · Torneo Apejupo';
+  $('to-title').textContent = t.title; $('to-title').translate = false; document.title = t.title + ' · Torneo Apejupo'; // el nombre del torneo no se traduce
   $('to-subtitle').textContent = presencial(t) ? '' : canJoin(t) && arena(t) && t.status === 'playing' && !t.standings.some(p => p.id === t.me) ? 'El arena está en marcha: únete y empieza a jugar ya.' : t.challenge ? (t.status === 'waiting' ? 'La partida empieza en cuanto los dos tengáis el tablero abierto.' : '') : t.status === 'waiting' ? 'Las inscripciones están abiertas. Reserva tu sitio en el tablero.' : 'Sigue tus partidas, los tableros y la clasificación en directo.';
   $('to-subtitle').hidden = !$('to-subtitle').textContent;
   // Reto: solo el tablero (y el marcador entre los dos) bajo la cabecera de la web.
@@ -328,7 +328,7 @@ function render() {
   shareable(!roomGone && t.status !== 'cancelled', roomGone ? 'El torneo ya no existe: no se puede compartir.' : 'El torneo está cancelado: no se puede compartir.');
   // Los invitados que entran con el enlace no ven la lista de torneos: solo el organizador.
   $('to-back').hidden = !t.host;
-  $('to-focus-title').textContent = t.title;
+  $('to-focus-title').textContent = t.title; $('to-focus-title').translate = false;
   $('to-focus-format').textContent = `${t.minutes} + ${t.increment} · ${formatLabel(t)}`;
   renderPodium(); renderMatches(); renderGame(); renderControls(); renderBoards(); renderPresencial(); updateClocks();
 }
@@ -778,6 +778,7 @@ function renderControls() {
   $('to-draw-offer').hidden = !g || !!g.result || !ownGame || !g.offer || g.offer === t.me;
   $('to-accept').disabled = !connected; $('to-decline').disabled = !connected;
   $('to-all-pgn').hidden = presencial(t) || !ended || !t.games.some(g => !g.bye);
+  $('to-analyze-games').hidden = $('to-all-pgn').hidden;
   // Reto terminado: cualquiera de los dos puede pedir la revancha (mismo ritmo, colores cambiados).
   $('to-rematch-box').hidden = !t.challenge || !g || !ownGame || !g.result || t.status !== 'finished';
   if ($('to-rematch-box').hidden) { rematch = null; $('to-rematch-msg').textContent = ''; }
@@ -1969,6 +1970,8 @@ $('to-share').addEventListener('click', async () => {
 });
 $('to-pgn').addEventListener('click', () => download(state.game.id));
 $('to-all-pgn').addEventListener('click', () => download());
+// Tablero de análisis con un desplegable de todas las partidas del torneo (en otra pestaña, para no salir de la sala).
+$('to-analyze-games').addEventListener('click', () => window.open(`analisis.html?torneo=${encodeURIComponent(roomId)}`, '_blank', 'noopener'));
 $('to-print-top').addEventListener('click', printStandings);
 function review(ply) { if (!replay) return; replayPly = Math.max(0, Math.min(replay.length - 1, ply)); boardKey = ''; renderGame(); }
 $('to-replay-range').addEventListener('input', event => review(Number(event.target.value)));
