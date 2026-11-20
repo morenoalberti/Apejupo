@@ -245,7 +245,12 @@
   $("an-next").addEventListener("click", function () { go(ply + 1); });
   $("an-last").addEventListener("click", function () { go(line.length); });
   function flip() { flipped = !flipped; render(); drawArrow(); }
-  $("an-moves").addEventListener("click", function (e) { var b = e.target.closest("[data-id]"); if (b && nodes[b.dataset.id]) { setCur(nodes[b.dataset.id]); selected = null; render(); } });
+  $("an-moves").addEventListener("click", function (e) {
+    var b = e.target.closest("[data-id]"), node = b && nodes[b.dataset.id]; if (!node) return;
+    setCur(node); selected = null; render();
+    // En una variante, el clic normal también abre el cuadro para promocionarla, hacerla principal o borrarla.
+    if (!isMainline(node)) { var r = b.getBoundingClientRect(); openCtx(node, e.clientX || r.right, e.clientY || r.bottom); }
+  });
   document.addEventListener("keydown", function (e) {
     if (e.key === "Escape") closeMenu();
     if (editing || /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName) || document.querySelector("dialog[open]")) return;
