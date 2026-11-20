@@ -287,3 +287,45 @@
 .an-panel > .an-analyze { flex: none; display: flex; width: auto; margin: 8px 10px 10px; padding: 7px 14px; border-radius: 8px; font-size: .92rem; }
 .an-panel > .an-analyze svg { width: 17px; height: 17px; }
 .an-page:has(#an-game[hidden]) .an-panel > .an-analyze, .an-editing .an-panel > .an-analyze { display: none; }
+/* Cuadro de una jugada como el de ChessBase: borrar, promocionar, textos, símbolos (submenús) y diagrama. */
+.an-ctx hr { margin: 5px 4px; border: 0; border-top: 1px solid var(--line); }
+.an-ctx button:disabled { opacity: .4; cursor: default; background: none; }
+.an-ctx-sub { position: relative; }
+.an-ctx-arrow { margin-left: auto; font-size: 1.1rem; line-height: 1; color: var(--muted); }
+.an-ctx-fly { display: none; position: absolute; top: -7px; left: calc(100% + 4px); min-width: 250px; padding: 6px; border: 1px solid var(--line); border-radius: 8px; background: var(--card); box-shadow: 0 18px 40px #0008; }
+.an-ctx.fly-left .an-ctx-fly { left: auto; right: calc(100% + 4px); }
+.an-ctx-sub:hover > .an-ctx-fly, .an-ctx-sub.open > .an-ctx-fly, .an-ctx-sub:focus-within > .an-ctx-fly { display: block; }
+.an-ctx-fly button b { flex: none; width: 26px; text-align: center; font-weight: 800; }
+.an-ctx-fly button[aria-checked="true"] { background: #3b82f633; }
+/* Barra de símbolos: se aplican a la jugada actual (pulsar otra vez los quita). */
+.an-nags { flex: none; display: grid; grid-template-columns: repeat(18, minmax(0, 1fr)); gap: 2px; margin: 8px 10px 0; padding-top: 8px; border-top: 1px solid var(--line); }
+.an-nags button { display: grid; place-items: center; min-width: 0; height: 26px; padding: 0; border: 1px solid transparent; border-radius: 5px; background: #ffffff08; color: var(--text); font: inherit; font-size: .78rem; font-weight: 700; white-space: nowrap; cursor: pointer; }
+.an-nags button:hover:not(:disabled) { border-color: var(--blue, #3b82f6); }
+.an-nags button[aria-pressed="true"] { background: #3b82f6; color: #fff; }
+.an-nags button:disabled { opacity: .35; cursor: default; }
+.an-nags svg { width: 14px; height: 14px; }
+.an-nags button[data-nag="↑"] { color: #4ade80; }
+.an-nags button[data-nag="↑"][aria-pressed="true"] { color: #fff; }
+.an-editing .an-nags { display: none; }
+/* Lo que pone el usuario en la lista de jugadas: símbolos, textos y diagramas. */
+.an-mark.user { color: #facc15; }
+.an-sym.user { color: var(--text); }
+.an-txt { align-self: center; padding: 2px 4px; color: #93c5fd; font-size: .86rem; font-style: italic; line-height: 1.35; }
+.an-diagram-row { flex-basis: 100%; }
+.an-diagram { display: grid; grid-template-columns: repeat(8, 1fr); width: 168px; max-width: 70%; aspect-ratio: 1; margin: 6px 0 6px 4px; border-radius: 3px; overflow: hidden; box-shadow: 0 0 0 1px #0006; }
+.an-diagram i { display: block; aspect-ratio: 1; background: #f0d9b5; }
+.an-diagram i.dk { background: #b58863; }
+.an-diagram img { display: block; width: 100%; height: 100%; }
+/* Color corporativo (ámbar de Apejupo) en el cuadro de la jugada y en la barra de símbolos. */
+.an-ctx { border-top-color: var(--amber); }
+.an-ctx button:hover:not(:disabled), .an-ctx button:focus-visible, .an-ctx-sub.open > button { background: color-mix(in srgb, var(--amber) 16%, transparent); }
+.an-ctx button.danger:hover:not(:disabled) { background: #ef44441f; }
+.an-ctx-fly { min-width: 290px; border-top: 3px solid var(--amber); }
+.an-ctx-fly button { white-space: nowrap; }
+.an-ctx-fly button b { color: var(--amber); }
+.an-ctx-fly button[aria-checked="true"] { background: var(--amber); color: #0F1B2D; }
+.an-ctx-fly button[aria-checked="true"] b { color: #0F1B2D; }
+.an-nags button:hover:not(:disabled) { border-color: var(--amber); }
+.an-nags button[aria-pressed="true"], .an-nags button[data-nag="↑"][aria-pressed="true"] { background: var(--amber); color: #0F1B2D; }
+.an-mark.user, .an-mv.cur .an-mark.user { color: var(--amber); }
+.an-mv.cur .an-mark.user { color: #fff; }

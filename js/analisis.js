@@ -9,6 +9,13 @@
   // continuación principal. «line» es el camino de la raíz a la jugada actual más su continuación principal,
   // y «ply» la posición en ese camino: así la navegación, la flecha y las marcas trabajan sobre «line».
   var players = null; // jugadores del PGN: { w: { name, title, elo }, b: … }
+  // Símbolos que pone el usuario en una jugada (como en ChessBase): n.mv (calidad de la jugada), n.ev
+  // (valoración de la posición), n.ex (iniciativa, contrajuego); además n.before / n.after (textos) y n.diagram.
+  var SYM_MV = ["!!", "!", "!?", "?!", "?", "??"], SYM_EV = ["+−", "±", "⩲", "=", "∞", "≌", "⩱", "∓", "−+"], SYM_EX = ["↑", "⇄"];
+  var NAG_NUM = { "!": 1, "?": 2, "!!": 3, "??": 4, "!?": 5, "?!": 6, "=": 10, "∞": 13, "⩲": 14, "⩱": 15, "±": 16, "∓": 17, "+−": 18, "−+": 19, "↑": 36, "≌": 44, "⇄": 132 };
+  var NAG_TITLE = { "!!": "Jugada brillante", "!": "Buena jugada", "!?": "Jugada interesante", "?!": "Jugada dudosa", "?": "Mala jugada", "??": "Error grave",
+    "+−": "Las blancas tienen ventaja decisiva", "±": "Las blancas están mejor", "⩲": "Las blancas están ligeramente mejor", "=": "Posición igualada", "∞": "Posición poco clara",
+    "≌": "Con compensación", "⩱": "Las negras están ligeramente mejor", "∓": "Las negras están mejor", "−+": "Las negras tienen ventaja decisiva", "↑": "Con iniciativa", "⇄": "Con contrajuego" };
   var nodes = {}, nextId = 1, pgnResult = null, root = newNode(null, { fen: START }); // pgnResult: { node, text } del PGN
   function newNode(parent, data) {
     var n = { id: nextId++, san: data.san || "", fen: data.fen, from: data.from || "", to: data.to || "", parent: parent, children: [] };
@@ -62,7 +69,7 @@
       return '<div class="' + cls + '" data-sq="' + sq + '">' + img + coords + "</div>";
     }).join("");
     $("an-board").setAttribute("aria-label", "Tablero. Juegan " + (g.turn() === "w" ? "blancas" : "negras") + (g.in_checkmate() ? ". Jaque mate" : g.in_check() ? ". Jaque" : ""));
-    renderMoves(); renderFen(); renderNav(); renderPlayers(); renderOpening(); drawArrow(); analyse();
+    renderMoves(); renderNags(); renderFen(); renderNav(); renderPlayers(); renderOpening(); drawArrow(); analyse();
   }
   // Nombres de los jugadores (si los trae el PGN), con título y Elo: arriba el bando que está arriba en el tablero.
   function renderPlayers() {
@@ -97,16 +104,31 @@
   // las variantes en bloques entre paréntesis (que a su vez pueden tener variantes).
   function moveHtml(n, forceNum) {
     var parts = n.parent.fen.split(" "), num = Number(parts[5]) || 1, white = parts[1] === "w", j = judgeNode(n);
-    var pre = white ? '<span class="an-num">' + num + ".</span>" : forceNum ? '<span class="an-num">' + num + "…</span>" : "";
+    // Lo que pone el usuario (símbolos, textos, diagrama) va por delante de la valoración automática.
+    if (j && n.mv) j = null;
+    var pre = (n.before ? '<span class="an-txt">' + escHtml(n.before) + "</span>" : "")
+      + (white ? '<span class="an-num">' + num + ".</span>" : forceNum || n.before ? '<span class="an-num">' + num + "…</span>" : "");
     return pre + '<button type="button" class="an-mv' + (n === curNode() ? " cur" : "") + '" data-id="' + n.id + '">' + fig(n.san)
-      + (j && j.mark ? '<b class="an-mark ' + j.kind + '">' + j.mark + "</b>" : "") + "</button>"
-      + (j && j.sym ? '<span class="an-sym" title="' + j.symTitle + '">' + j.sym + "</span>" : "")
-      + (j && j.mark && j.best ? '<span class="an-note ' + j.kind + '">mejor ' + j.best + "</span>" : "");
+      + (n.mv ? '<b class="an-mark user" title="' + NAG_TITLE[n.mv] + '">' + n.mv + "</b>" : j && j.mark ? '<b class="an-mark ' + j.kind + '">' + j.mark + "</b>" : "") + "</button>"
+      + (n.ev || (n.ex && n.ex.length) ? '<span class="an-sym user">' + [n.ev].concat(n.ex || []).filter(Boolean).map(function (s) { return '<span title="' + NAG_TITLE[s] + '">' + s + "</span>"; }).join(" ") + "</span>"
+        : j && j.sym ? '<span class="an-sym" title="' + j.symTitle + '">' + j.sym + "</span>" : "")
+      + (j && j.mark && j.best ? '<span class="an-note ' + j.kind + '">mejor ' + j.best + "</span>" : "")
+      + (n.after ? '<span class="an-txt">' + escHtml(n.after) + "</span>" : "")
+      + (n.diagram ? diagramHtml(n.fen) : "");
+  }
+  function escHtml(t) { return String(t).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
+  // Diagrama dentro de la lista de jugadas: la posición tras la jugada, pequeña y con la orientación del tablero.
+  function diagramHtml(fen) {
+    var g = new Chess(fen);
+    return '<div class="an-diagram-row"><div class="an-diagram" aria-label="Diagrama">' + squares().map(function (sq) {
+      var p = g.get(sq), dark = (FILES.indexOf(sq[0]) + Number(sq[1])) % 2 === 0;
+      return '<i class="' + (dark ? "dk" : "") + '">' + (p ? '<img src="assets/pieces/' + p.color + p.type.toUpperCase() + '.png" alt="">' : "") + "</i>";
+    }).join("") + "</div></div>";
   }
   function seqHtml(first, forceNum) {
     var html = "", force = forceNum;
     for (var n = first; n; n = n.children[0]) {
-      html += moveHtml(n, force); force = false;
+      html += moveHtml(n, force); force = !!(n.after || n.diagram); // tras un texto o un diagrama, la jugada siguiente lleva su número
       if (n.parent.children[0] === n && n.parent.children.length > 1) {
         n.parent.children.slice(1).forEach(function (v) { html += '<div class="an-var">' + seqHtml(v, true) + "</div>"; });
         force = true; // tras una variante, la siguiente jugada lleva su número
@@ -324,7 +346,11 @@
     var out = [], force = forceNum;
     for (var n = first; n; n = n.children[0]) {
       var parts = n.parent.fen.split(" "), num = Number(parts[5]) || 1, white = parts[1] === "w";
-      out.push((white ? num + ". " : force ? num + "... " : "") + n.san); force = false;
+      // Textos como {comentario}; símbolos y diagrama como NAG ($1, $14, $220…), que entienden ChessBase y Lichess.
+      var cm = function (t) { return "{" + String(t).replace(/[{}]/g, "") + "} "; };
+      var nags = [n.mv, n.ev].concat(n.ex || []).filter(Boolean).map(function (s) { return " $" + NAG_NUM[s]; }).join("") + (n.diagram ? " $220" : "");
+      out.push((n.before ? cm(n.before) : "") + (white ? num + ". " : force || n.before ? num + "... " : "") + n.san + nags + (n.after ? " " + cm(n.after).trim() : ""));
+      force = !!(n.after || n.diagram);
       if (n.parent.children[0] === n && n.parent.children.length > 1) {
         n.parent.children.slice(1).forEach(function (v) { out.push("(" + pgnSeq(v, true) + ")"); });
         force = true;
@@ -540,33 +566,120 @@
     if (!m) { m = document.createElement("div"); m.id = "an-ctx"; m.className = "an-ctx"; m.setAttribute("role", "menu"); document.body.appendChild(m); m.addEventListener("click", ctxAction); }
     ctxNode = node;
     var main = isMainline(node);
-    var I = function (d) { return '<svg viewBox="0 0 24 24" aria-hidden="true">' + d + "</svg>"; };
+    var it = function (act, label, off, cls) { return '<button type="button" role="menuitem" data-ctx="' + act + '"' + (cls ? ' class="' + cls + '"' : "") + (off ? " disabled" : "") + ">" + label + "</button>"; };
+    var sub = function (key, label, list) {
+      return '<div class="an-ctx-sub"><button type="button" role="menuitem" aria-haspopup="true" data-sub="' + key + '">' + label + '<span class="an-ctx-arrow" aria-hidden="true">›</span></button>'
+        + '<div class="an-ctx-fly" role="menu">' + list.map(function (sym) {
+          var on = node.mv === sym || node.ev === sym || (node.ex || []).indexOf(sym) >= 0;
+          return '<button type="button" role="menuitemcheckbox" aria-checked="' + on + '" data-sym="' + sym + '"><b>' + sym + "</b>" + NAG_TITLE[sym] + "</button>";
+        }).join("") + "</div></div>";
+    };
     m.innerHTML = '<p class="an-ctx-title">' + fig(node.san) + "</p>"
-      + (!main ? '<button type="button" role="menuitem" data-ctx="promote">' + I('<path d="M12 19V5M5 12l7-7 7 7"/>') + "Promocionar variante</button>" : "")
-      + '<button type="button" role="menuitem" data-ctx="delete" class="danger">' + I('<path d="M4 7h16M10 11v6M14 11v6M5 7l1 13h12l1-13M9 7V4h6v3"/>') + (main ? "Borrar desde aquí" : "Borrar variante") + "</button>"
-      + '<button type="button" role="menuitem" data-ctx="copy">' + I('<path d="M8 4h8a2 2 0 0 1 2 2v14H6V6a2 2 0 0 1 2-2z"/><path d="M9 9h6M9 13h6M9 17h3"/>') + "Copiar PGN</button>";
+      + it("delvar", "Borrar variante", main, "danger")
+      + it("delrest", "Borrar jugadas restantes", !node.children.length, "danger")
+      + it("promote", "Promocionar variante", main)
+      + it("main", "Variante principal", main)
+      + "<hr>"
+      + it("before", node.before ? "Cambiar texto previo" : "Texto previo")
+      + it("after", node.after ? "Cambiar texto posterior" : "Texto posterior")
+      + sub("mv", "{!, ?, …}", SYM_MV)
+      + sub("ev", "+−, =, …", SYM_EV.concat(SYM_EX))
+      + it("diagram", node.diagram ? "Quitar diagrama" : "Insertar diagrama");
     m.hidden = false;
     var w = m.offsetWidth, h = m.offsetHeight;
-    m.style.left = Math.max(8, Math.min(x, innerWidth - w - 8)) + "px"; m.style.top = Math.max(8, Math.min(y, innerHeight - h - 8)) + "px";
-    var firstBtn = m.querySelector("button"); if (firstBtn) firstBtn.focus();
+    var left = Math.max(8, Math.min(x, innerWidth - w - 8)), top = Math.max(8, Math.min(y, innerHeight - h - 8));
+    m.style.left = left + "px"; m.style.top = top + "px";
+    m.classList.toggle("fly-left", left + w + 250 > innerWidth); // sin sitio a la derecha, los submenús se abren a la izquierda
+    var firstBtn = m.querySelector("button:not([disabled])"); if (firstBtn) firstBtn.focus();
+    m.querySelectorAll(".an-ctx-sub").forEach(function (s) { s.addEventListener("mouseenter", function () { placeFly(s); }); });
+  }
+  // Submenú: si no cabe por abajo, sube lo necesario para que se vea entero.
+  function placeFly(s) {
+    var f = s.querySelector(".an-ctx-fly"); if (!f) return;
+    f.style.top = "";
+    requestAnimationFrame(function () {
+      var r = f.getBoundingClientRect(); if (!r.height) return;
+      if (r.bottom > innerHeight - 8) f.style.top = (-7 - Math.min(r.bottom - innerHeight + 8, r.top - 8)) + "px";
+    });
+  }
+  // Pone o quita un símbolo en una jugada: uno de calidad, uno de valoración y los de iniciativa/contrajuego.
+  function toggleSym(node, sym) {
+    if (SYM_MV.indexOf(sym) >= 0) node.mv = node.mv === sym ? null : sym;
+    else if (SYM_EV.indexOf(sym) >= 0) node.ev = node.ev === sym ? null : sym;
+    else { var ex = node.ex || []; node.ex = ex.indexOf(sym) >= 0 ? ex.filter(function (x) { return x !== sym; }) : ex.concat(sym); }
   }
   function ctxAction(e) {
-    var b = e.target.closest("[data-ctx]"); if (!b || !ctxNode) return;
+    var s = e.target.closest("[data-sub]");
+    if (s) {
+      var open = s.parentNode.classList.contains("open");
+      $("an-ctx").querySelectorAll(".an-ctx-sub").forEach(function (x) { x.classList.remove("open"); });
+      s.parentNode.classList.toggle("open", !open); placeFly(s.parentNode); return;
+    }
+    var y = e.target.closest("[data-sym]");
+    if (y && ctxNode) { var nd = ctxNode; closeCtx(); toggleSym(nd, y.dataset.sym); render(); return; }
+    var b = e.target.closest("[data-ctx]"); if (!b || b.disabled || !ctxNode) return;
     var node = ctxNode, act = b.dataset.ctx; closeCtx();
     if (act === "promote") {
       // Sube la variante un nivel: pasa a ser la continuación principal en el punto donde se separa.
       for (var n = node; n.parent; n = n.parent) if (n.parent.children[0] !== n) { var sib = n.parent.children; sib.splice(sib.indexOf(n), 1); sib.unshift(n); break; }
     } else if (act === "main") {
       for (var k = node; k.parent; k = k.parent) { var ch = k.parent.children; ch.splice(ch.indexOf(k), 1); ch.unshift(k); }
-    } else if (act === "delete") {
-      // En una variante se borra entera, desde su primera jugada; en la línea principal, desde la jugada elegida.
-      if (!isMainline(node)) while (node.parent && node.parent.children[0] === node) node = node.parent;
+    } else if (act === "delvar") {
+      // La variante entera, desde su primera jugada.
+      while (node.parent && node.parent.children[0] === node) node = node.parent;
       var cur = curNode(), inside = false;
       for (var c = cur; c; c = c.parent) if (c === node) inside = true;
       node.parent.children.splice(node.parent.children.indexOf(node), 1);
       if (inside) { setCur(node.parent); render(); return; }
-    } else if (act === "copy") { $("an-copy").click(); return; }
+    } else if (act === "delrest") {
+      // Lo que viene después de esta jugada (con sus variantes); la jugada se queda.
+      var after = false;
+      for (var d = curNode(); d; d = d.parent) if (d.parent === node) after = true;
+      node.children = [];
+      if (after) { setCur(node); render(); return; }
+    } else if (act === "before" || act === "after") { askText(node, act); return; }
+    else if (act === "diagram") node.diagram = !node.diagram;
     setCur(curNode()); render();
+  }
+  // Texto previo / posterior de una jugada: ventana con un cuadro de texto (vacío = se quita).
+  function askText(node, where) {
+    var d = $("an-txt-dialog");
+    if (!d) {
+      d = document.createElement("dialog"); d.id = "an-txt-dialog"; d.className = "an-pgn-dialog";
+      d.innerHTML = '<form method="dialog"><h2 id="an-txt-title"></h2><p class="an-pgn-help" id="an-txt-help"></p><textarea id="an-txt-text" rows="4" spellcheck="true"></textarea>'
+        + '<div class="an-pgn-actions"><button type="button" class="an-btn" id="an-txt-cancel">Cancelar</button><button type="submit" class="an-ed-go">Guardar</button></div></form>';
+      document.body.appendChild(d);
+      $("an-txt-cancel").addEventListener("click", function () { d.close(); });
+      d.querySelector("form").addEventListener("submit", function () {
+        var t = $("an-txt-text").value.trim(), n = d._node; if (!n) return;
+        n[d._where] = t || null; render();
+      });
+    }
+    d._node = node; d._where = where;
+    $("an-txt-title").textContent = where === "before" ? "Texto previo" : "Texto posterior";
+    $("an-txt-help").textContent = (where === "before" ? "Se escribe antes de " : "Se escribe después de ") + node.san + ". Déjalo vacío para quitarlo.";
+    $("an-txt-text").value = node[where] || "";
+    d.showModal(); $("an-txt-text").focus();
+  }
+  // Barra de símbolos (como la de ChessBase) en la tarjeta de jugadas: se aplican a la jugada actual.
+  function renderNags() {
+    var bar = $("an-nags"); if (!bar) return;
+    var n = ply ? curNode() : null;
+    if (!bar.childElementCount) {
+      var diag = '<button type="button" data-nag="diagram" title="Insertar diagrama" aria-label="Insertar diagrama"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3h18v18H3z" fill="none" stroke="currentColor" stroke-width="2"/><path d="M3 3h6v6H3zM15 3h6v6h-6zM9 9h6v6H9zM3 15h6v6H3zM15 15h6v6h-6z" fill="currentColor"/></svg></button>';
+      bar.innerHTML = diag + ["↑"].concat(SYM_MV, SYM_EV, ["⇄"]).map(function (sym) {
+        return '<button type="button" data-nag="' + sym + '" title="' + NAG_TITLE[sym] + '" aria-label="' + NAG_TITLE[sym] + '">' + sym + "</button>";
+      }).join("");
+      bar.addEventListener("click", function (e) {
+        var b = e.target.closest("[data-nag]"), cur = ply ? curNode() : null; if (!b || !cur) return;
+        if (b.dataset.nag === "diagram") cur.diagram = !cur.diagram; else toggleSym(cur, b.dataset.nag);
+        render();
+      });
+    }
+    bar.querySelectorAll("[data-nag]").forEach(function (b) {
+      var k = b.dataset.nag, on = !!n && (k === "diagram" ? !!n.diagram : n.mv === k || n.ev === k || (n.ex || []).indexOf(k) >= 0);
+      b.disabled = !n; b.setAttribute("aria-pressed", String(on));
+    });
   }
   $("an-moves").addEventListener("contextmenu", function (e) {
     var b = e.target.closest("[data-id]"); if (!b || !nodes[b.dataset.id]) return;
