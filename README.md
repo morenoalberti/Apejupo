@@ -38,6 +38,8 @@ El componente está aislado en `js/board-size.js` y `css/board-size.css`. El arr
 
 La elección de español o inglés se conserva al abrir menús y navegar, incluso cuando falla el servicio de traducción. El diccionario local incluye los controles y avisos de los tableros; los textos dinámicos restantes usan el traductor. Comprobación sin conexiones externas: `node scripts/test_language.cjs` (ambos idiomas, atributos de accesibilidad, errores de red/HTTP y recuperación del servicio).
 
+En las partidas de `jugar-torneo.html`, las pantallas táctiles de poca altura usan un ajuste automático. En horizontal, nombres, relojes y acciones quedan junto al tablero; en vertical se conserva su distribución habitual. Las casillas mantienen un tamaño mínimo según el ancho disponible. Al cambiar de orientación la vista se sitúa en la partida y al volver se recupera la posición anterior, sin recolocar la página con cada jugada. Comprobación aislada: `node scripts/test_playing_mobile.cjs` (19 tamaños, arena y suizo, ambos idiomas, Chromium y WebKit si está instalado, pulsaciones y arrastre táctil).
+
 ## Comentaristas en ventana flotante
 
 En `torneo.html`, un único botón abre la emisión asociada al torneo que se está viendo. Si no hay una emisión programada en ese momento, el botón queda gris y debajo aparece la próxima hora de emisión en Madrid; si solo se conoce el inicio de la ronda, se identifica como tal. Sin horario publicado se indica «por confirmar». La lista de torneos invita a abrir un torneo, sin tarjetas ni selectores de canales genéricos.

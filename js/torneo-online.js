@@ -28,6 +28,8 @@ let boardKey = '', lastRound = null, viewedRound = null, replay = null, replayPl
 let confirmResolve = null, dropped = null, lobby = new Map();
 let lastArenaClosing = false;
 let gameFitFrame = null;
+let gameCompactScroll = null;
+let gameCompactViewport = '';
 let editingId = null, keyFieldRequired = false; // formulario de organizar: torneo que se edita y si se pide la clave de organización
 let createModeChoices = {};
 let tournamentAdmin = false;
@@ -913,9 +915,28 @@ function scheduleGameFit() {
   gameFitFrame = requestAnimationFrame(() => { gameFitFrame = null; fitGame(); });
 }
 function fitGame() {
-  placeGameActions();
   const panel = $('to-game-panel'), room = $('to-room');
-  if (boardsMode || panel.hidden || !document.body.classList.contains('to-focus')) {
+  const active = !boardsMode && !panel.hidden && document.body.classList.contains('to-focus');
+  const viewportHeight = window.visualViewport?.height || innerHeight;
+  const viewportWidth = window.visualViewport?.width || innerWidth;
+  const touch = matchMedia('(pointer: coarse)').matches || navigator.maxTouchPoints > 0;
+  const compact = active && touch && viewportHeight <= 500;
+  const landscape = compact && viewportWidth >= 480 && viewportWidth > viewportHeight;
+  const inset = landscape && viewportHeight < 260 ? 4 : 8;
+  const wasCompact = document.body.classList.contains('to-compact-game');
+  const viewportKey = compact ? `${Math.round(viewportWidth)}x${Math.round(viewportHeight)}` : '';
+  const reposition = compact && viewportKey !== gameCompactViewport;
+  gameCompactViewport = viewportKey;
+  if (compact && !wasCompact) gameCompactScroll = { x: scrollX, y: scrollY };
+  document.body.classList.toggle('to-compact-game', compact);
+  document.body.classList.toggle('to-landscape-game', landscape);
+  document.body.classList.toggle('to-low-landscape', landscape && viewportHeight < 260);
+  placeGameActions();
+  if (!compact && wasCompact && gameCompactScroll) {
+    const previous = gameCompactScroll; gameCompactScroll = null;
+    requestAnimationFrame(() => window.scrollTo({ left: previous.x, top: previous.y, behavior: 'instant' }));
+  }
+  if (!active) {
     panel.style.removeProperty('--to-game-width');
     panel.style.removeProperty('--to-board-size');
     room.style.removeProperty('--to-play-height');
@@ -924,23 +945,24 @@ function fitGame() {
   }
   const column = panel.parentElement, board = $('to-board');
   if (!column.clientWidth) return;
-  const viewportHeight = window.visualViewport?.height || innerHeight;
   const top = panel.getBoundingClientRect().top + scrollY;
-  const availableHeight = Math.max(0, viewportHeight - top - 16);
+  const availableHeight = Math.max(0, viewportHeight - (compact ? inset * 2 : top + 16));
   const style = getComputedStyle(panel);
   const edges = parseFloat(style.paddingLeft) + parseFloat(style.paddingRight) + parseFloat(style.borderLeftWidth) + parseFloat(style.borderRightWidth);
-  const width = Math.min(640, column.clientWidth);
+  const width = landscape ? column.clientWidth : Math.min(640, column.clientWidth);
   panel.style.setProperty('--to-game-width', `${width}px`);
-  let size = Math.min(width - edges, parseFloat(style.getPropertyValue('--to-board-max-size')));
+  const boardWidth = width - edges - (landscape ? 192 : 0); // 180 px para nombres y controles + separación.
+  const minimum = Math.min(boardWidth, touch ? 226 : 160);
+  let size = Math.min(boardWidth, parseFloat(style.getPropertyValue('--to-board-max-size')));
   panel.style.setProperty('--to-board-size', `${size}px`);
   const actions = $('to-game-actions'), buttons = [...actions.children].filter(button => !button.hidden);
   const gap = parseFloat(getComputedStyle(actions).columnGap) || 0;
   const buttonsWidth = actions.hidden || !panel.contains(actions) ? 0 : buttons.reduce((sum, button) => sum + button.getBoundingClientRect().width, 0) + gap * Math.max(0, buttons.length - 1);
-  const minimumPanelWidth = Math.min(width, Math.max(260, buttonsWidth + edges + 2));
+  const minimumPanelWidth = landscape ? width : Math.min(width, Math.max(260, buttonsWidth + edges + 2));
   // Mantener espacio para los botones: reducir el tablero no debe apilarlos innecesariamente.
   for (let i = 0; i < 5; i++) {
     const overhead = panel.getBoundingClientRect().height - board.getBoundingClientRect().height;
-    const next = Math.min(size, Math.floor(Math.max(160, availableHeight - overhead)));
+    const next = Math.min(size, Math.floor(Math.max(minimum, availableHeight - overhead)));
     panel.style.setProperty('--to-game-width', `${Math.min(width, Math.max(minimumPanelWidth, next + edges))}px`);
     panel.style.setProperty('--to-board-size', `${next}px`);
     if (next >= size - .5 && panel.getBoundingClientRect().height <= availableHeight + .5) break;
@@ -951,12 +973,18 @@ function fitGame() {
   const sidebarHeight = Math.max(0, boardRect.bottom - sidebar.getBoundingClientRect().top);
   room.style.setProperty('--to-play-height', `${Math.floor(Math.min(availableHeight, sidebarHeight))}px`);
   room.style.setProperty('--to-standings-height', `${Math.floor(boardRect.height)}px`);
+  // Solo al entrar en esta vista o cambiar de orientación: nunca al recibir una jugada.
+  if (reposition) requestAnimationFrame(() => {
+    if (document.body.classList.contains('to-compact-game') && !document.querySelector('dialog[open]')) {
+      window.scrollTo({ top: panel.getBoundingClientRect().top + scrollY - inset, behavior: 'instant' });
+    }
+  });
 }
 function placeGameActions() {
   const actions = $('to-game-actions');
   // Con dos columnas, quedan entre la información y la clasificación. En móvil,
   // siguen junto al tablero para que los controles de la partida estén a mano.
-  const before = matchMedia('(min-width: 761px)').matches ? $('to-duel') : $('to-rematch-box');
+  const before = matchMedia('(min-width: 761px)').matches && !document.body.classList.contains('to-landscape-game') ? $('to-duel') : $('to-rematch-box');
   if (actions.parentElement !== before.parentElement || actions.nextElementSibling !== before) before.before(actions);
 }
 function renderBoard() {

@@ -507,6 +507,24 @@ body.to-focus .to-sidebar > .to-game-actions { padding: 0; border: 0; margin: 0 
   body.to-focus .to-game-actions { gap: 6px; padding-top: 8px; margin-top: 2px; }
 }
 @media (min-width: 480px) and (max-width: 1000px) { .to-game-panel { --to-board-max-size: 480px; } }
+/* Pantallas táctiles bajas: la cabecera se puede desplazar y la partida cabe en la vista.
+   En horizontal se aprovecha el ancho con los datos y las acciones junto al tablero. */
+body.to-compact-game .site-header { position: relative; }
+body.to-landscape-game .to-room-layout { grid-template-columns: minmax(0, 1fr); }
+body.to-landscape-game #to-game-panel {
+  display: grid; grid-template-columns: var(--to-board-size) minmax(0, 1fr);
+  grid-template-rows: auto auto 1fr auto auto; gap: 6px 12px;
+  max-width: none; padding: 8px;
+}
+body.to-landscape-game #to-game-panel > .to-board-wrap { grid-column: 1; grid-row: 1 / 6; align-self: start; }
+body.to-landscape-game #to-game-panel > .to-player { grid-column: 2; width: 100%; min-width: 0; min-height: 0; gap: 6px; padding: 4px; }
+body.to-landscape-game #to-player-top { grid-row: 1; }
+body.to-landscape-game #to-player-bottom { grid-row: 2; }
+body.to-landscape-game #to-game-actions { grid-column: 2; grid-row: 3; align-self: start; width: 100%; margin-top: 0; padding-top: 8px; }
+body.to-landscape-game #to-game-status { grid-column: 2; grid-row: 4; }
+body.to-landscape-game #to-rematch-box { grid-column: 2; grid-row: 5; }
+body.to-landscape-game .to-sidebar { max-height: none; }
+body.to-low-landscape #to-game-panel { padding: 2px; }
 body.to-focus #to-standings-panel { display: flex; flex-direction: column; min-height: 0; margin-bottom: 0; }
 body.to-focus #to-standings-panel > .to-section-head { flex: none; }
 body.to-focus #to-standings-panel .to-table-wrap { min-height: 0; overflow: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: var(--muted) transparent; }
