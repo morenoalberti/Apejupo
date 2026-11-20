@@ -275,3 +275,10 @@
 .an-pick .flag { flex: none; width: 20px; height: 14px; object-fit: cover; border-radius: 2px; margin-right: 5px; box-shadow: 0 0 0 1px rgba(255, 255, 255, .15); }
 .an-pick-round { padding: 8px 9px 3px; font-size: .74rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
 @media (max-width: 900px) { .an-games { order: 0; width: auto; max-width: none; margin: 0 0 0 20px; } }
+/* En escritorio, el panel derecho (motor, mensajes y botones) empieza y acaba a la altura del tablero. */
+@media (min-width: 901px) {
+  .an-right { margin-top: var(--an-board-top, 0px); height: var(--an-board-h, 600px); }
+  .an-right .an-panel { flex: 1 1 0; height: auto; min-height: 0; }
+  .an-editing .an-right { margin-top: 0; height: auto; }
+  .an-editing .an-right .an-panel { flex: none; }
+}

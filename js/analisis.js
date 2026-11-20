@@ -810,7 +810,15 @@
 (function () {
   var board = document.getElementById("an-board");
   if (!board || !window.ResizeObserver) return;
-  new ResizeObserver(function () { document.documentElement.style.setProperty("--an-board-h", board.getBoundingClientRect().height + "px"); }).observe(board);
+  // --an-board-top: lo que hay encima del tablero (desplegable de partidas, nombre del jugador), para que el
+  // panel empiece a la altura del tablero.
+  var left = document.querySelector(".an-left"), root = document.documentElement;
+  var sync = function () {
+    var b = board.getBoundingClientRect();
+    root.style.setProperty("--an-board-h", b.height + "px");
+    if (left) root.style.setProperty("--an-board-top", Math.max(0, b.top - left.getBoundingClientRect().top) + "px");
+  };
+  var ro = new ResizeObserver(sync); ro.observe(board); if (left) ro.observe(left);
 })();
 
 // Si el navegador cancela el arrastre (cambio de pestaña, gesto del sistema…), se quita la pieza que seguía al ratón.
