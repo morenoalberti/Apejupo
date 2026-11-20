@@ -543,7 +543,6 @@
     var I = function (d) { return '<svg viewBox="0 0 24 24" aria-hidden="true">' + d + "</svg>"; };
     m.innerHTML = '<p class="an-ctx-title">' + fig(node.san) + "</p>"
       + (!main ? '<button type="button" role="menuitem" data-ctx="promote">' + I('<path d="M12 19V5M5 12l7-7 7 7"/>') + "Promocionar variante</button>" : "")
-      + (!main ? '<button type="button" role="menuitem" data-ctx="main">' + I('<path d="M4 12h16M14 6l6 6-6 6"/>') + "Convertir en línea principal</button>" : "")
       + '<button type="button" role="menuitem" data-ctx="delete" class="danger">' + I('<path d="M4 7h16M10 11v6M14 11v6M5 7l1 13h12l1-13M9 7V4h6v3"/>') + (main ? "Borrar desde aquí" : "Borrar variante") + "</button>"
       + '<button type="button" role="menuitem" data-ctx="copy">' + I('<path d="M8 4h8a2 2 0 0 1 2 2v14H6V6a2 2 0 0 1 2-2z"/><path d="M9 9h6M9 13h6M9 17h3"/>') + "Copiar PGN</button>";
     m.hidden = false;
