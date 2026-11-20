@@ -217,7 +217,9 @@
 .an-pgn-actions .an-ed-go { padding: 9px 22px; }
 /* Bajo el tablero: apertura, «Analizar partida» y resumen */
 .an-opening, .an-game { width: var(--an-size); max-width: calc(100% - 26px); margin-left: 26px; }
-.an-opening { margin-top: 10px; margin-bottom: 0; font-size: .95rem; color: var(--muted); }
+.an-opening { margin-top: 0; margin-bottom: 6px; height: 1.5em; line-height: 1.5em; font-size: .95rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* La apertura va encima del jugador de arriba; con una partida cargada se reserva su línea para que el tablero no salte. */
+.an-page .an-left:has(#an-player-top:not([hidden])) .an-opening[hidden] { display: block !important; visibility: hidden; }
 .an-opening b { color: var(--text); margin-right: 6px; font-variant-numeric: tabular-nums; }
 .an-game { margin-top: 12px; display: flex; flex-direction: column; gap: 10px; }
 .an-analyze { display: inline-flex; align-items: center; justify-content: center; gap: 10px; padding: 11px 18px; border: 0; border-radius: 10px; background: #629924; color: #fff; font: inherit; font-weight: 700; cursor: pointer; }
@@ -235,7 +237,7 @@
 .an-sum-row .dubious { color: #56b4e9; } .an-sum-row .mistake { color: #e69f00; } .an-sum-row .blunder { color: #df5353; }
 .an-note { align-self: center; font-size: .78rem; padding: 1px 6px; border-radius: 4px; color: var(--muted); background: #ffffff0a; }
 .an-note.blunder { color: #f08f8f; } .an-note.mistake { color: #f0b545; } .an-note.dubious { color: #8ccbee; }
-@media (max-width: 900px) { .an-opening, .an-game { order: 3; width: auto; max-width: none; margin-left: 0; } }
+@media (max-width: 900px) { .an-game { order: 3; width: auto; max-width: none; margin-left: 0; } .an-opening { order: 2; width: auto; max-width: none; margin-left: 20px; } }
 /* «Analizar partida» pegado al tablero por abajo y alineado con su borde derecho */
 .an-game { margin-top: 6px; align-items: flex-end; }
 .an-game .an-progress, .an-game .an-summary { align-self: stretch; }

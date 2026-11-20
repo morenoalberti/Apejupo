@@ -22,7 +22,7 @@
 <link rel="stylesheet" href="css/style.css?v=20261120-idioma2">
 <script defer src="js/analytics.js?v=20261120-cloudflare1"></script>
 <link rel="stylesheet" href="css/cuenta.css?v=20261117-admin1">
-<link rel="stylesheet" href="css/analisis.css?v=20261120-torneo5">
+<link rel="stylesheet" href="css/analisis.css?v=20261120-apertura3">
 <script type="application/ld+json" id="datos-pagina">{"@context": "https://schema.org", "@graph": [{"@type": "WebPage", "@id": "https://apejupo.com/analisis.html#pagina", "url": "https://apejupo.com/analisis.html", "name": "Tablero de análisis de ajedrez con Stockfish · Apejupo", "description": "Tablero de análisis de ajedrez gratis con Stockfish: mueve las piezas, carga una partida en PGN o una posición en FEN y consulta las mejores jugadas.", "inLanguage": "es-ES", "isPartOf": {"@type": "WebSite", "name": "Apejupo Chess Club", "url": "https://apejupo.com/"}}, {"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Inicio", "item": "https://apejupo.com/"}, {"@type": "ListItem", "position": 2, "name": "Tablero de análisis", "item": "https://apejupo.com/analisis.html"}]}]}</script>
 <script src="js/idioma.js?v=20261120-banderas1"></script>
 </head>
@@ -45,6 +45,7 @@
   <section class="an" aria-label="Tablero de análisis">
     <div class="an-left">
       <div id="an-pal-top" class="an-pal" hidden></div>
+      <p id="an-opening" class="an-opening" hidden></p>
       <div id="an-player-top" class="an-player" hidden></div>
       <div class="an-boardrow">
         <div class="an-boardbox">
@@ -59,7 +60,6 @@
         <div class="an-progress" hidden><i id="an-progress"></i></div>
         <div id="an-summary" class="an-summary" aria-live="polite"></div>
       </div>
-      <p id="an-opening" class="an-opening" hidden></p>
       <!-- FEN y PGN ocultos: la página funciona sin ellos; «Copiar PGN» está en el menú. -->
       <div class="an-io" hidden>
         <label for="an-fen">FEN</label>
