@@ -1005,9 +1005,14 @@ body.card-dragging .tour-tip { display: none !important; }
   .live-tournament .lv-sticky-header:not(.lv-options-open) .lv-addrow > :not(.lv-tt) { display: none; }
   .live-tournament .lv-pick { flex: 1 1 140px; }
   .live-tournament .lv-addrow > #viewer-add { flex: none; }
-  .live-tournament .lv-addrow .lv-tools, .live-tournament .lv-board-toolbar > .lv-tools { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); width: 100%; gap: 8px; }
-  .live-tournament #viewer-round { grid-column: 1 / -1; width: auto; max-width: 240px; justify-self: start; }
-  .live-tournament #viewer-round-open:not([hidden]) { grid-column: 1 / -1; width: 100%; max-width: 240px; justify-self: start; }
+  .live-tournament .lv-addrow .lv-tools, .live-tournament .lv-board-toolbar > .lv-tools { display: grid; grid-template-columns: minmax(0, 1fr) 40px 40px; width: 100%; gap: 8px; }
+  .live-tournament #viewer-round, .live-tournament #viewer-round-open:not([hidden]) { grid-column: 1; grid-row: 1; width: 100%; min-width: 0; max-width: none; justify-self: stretch; }
+  .live-tournament #viewer-bell, .live-tournament #viewer-reset { grid-row: 1; width: 40px; height: 40px; }
+  .live-tournament #viewer-bell { grid-column: 2; }
+  .live-tournament #viewer-reset { grid-column: 3; }
+  .live-tournament #viewer-stand, .live-tournament #viewer-pair { grid-column: 1 / -1; grid-row: 2; width: calc(50% - 4px); }
+  .live-tournament #viewer-stand { justify-self: start; }
+  .live-tournament #viewer-pair { justify-self: end; }
   .live-tournament .lv-tools .btn-ghost { justify-content: center; min-height: 44px; padding: 6px 8px; font-size: .78rem; }
   .live-tournament .lv-vpop { max-width: calc(100vw - 48px); }
 }

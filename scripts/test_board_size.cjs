@@ -68,7 +68,10 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
             return route.fulfill({ json: { tour: { id: 'tour1234', name, description, dates: [now - 864e5, now + 864e5], info: {} }, group,
               round: { id, name: 'Ronda 1', startsAt: id === 'unknown1' ? undefined : id === 'summer12' ? Date.UTC(2026, 6, 20, 8) : Date.UTC(2026, 10, 20, 8) } } });
           }
-          if (url.includes('/api/broadcast/tour1234')) return route.fulfill({ json: { rounds: [] } });
+          if (url.includes('/api/broadcast/tour1234')) return route.fulfill({ json: { rounds: [
+            {id:'test1234',name:'Round 1',ongoing:true},
+            {id:'summer12',name:'Round 2',startsAt:now+86400000}
+          ] } });
           return route.fulfill({ json: { active: [], upcoming: [], rounds: [], players: [] } });
         }
         return route.fulfill({ body: '', status: 200 });
@@ -119,6 +122,11 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
           assert.equal((await read()).overflow,false);
           assert.equal(await page.locator('#viewer-stand').isVisible(),true);
           assert.equal(await page.locator('#viewer-pair').isVisible(),true);
+          const roundBox=await page.locator('#viewer-round-open').boundingBox(),bellBox=await page.locator('#viewer-bell').boundingBox(),orderBox=await page.locator('#viewer-reset').boundingBox();
+          assert.ok(roundBox && Math.abs(roundBox.y-bellBox.y)<1 && Math.abs(roundBox.y-orderBox.y)<1,'Ronda, sonido y restablecer en la misma fila');
+          assert.ok(roundBox.x+roundBox.width<=bellBox.x && bellBox.x+bellBox.width<=orderBox.x,'Sonido y restablecer a la derecha del selector');
+          const standBox=await page.locator('#viewer-stand').boundingBox(),pairBox=await page.locator('#viewer-pair').boundingBox();
+          assert.ok(standBox.y>=roundBox.y+roundBox.height && Math.abs(standBox.y-pairBox.y)<1 && standBox.x+standBox.width<=pairBox.x,'Clasificación y emparejamientos en la fila inferior');
         }
         await page.setViewportSize({width:390,height:900});
         await page.screenshot({path:path.join(root,'build/browser-check/live-mobile-clean.png')});
