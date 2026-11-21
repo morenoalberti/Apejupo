@@ -23,6 +23,7 @@
 <script type="application/ld+json" id="datos-club">{"@context": "https://schema.org", "@type": "SportsClub", "name": "Apejupo Chess Club", "alternateName": "Apejupo", "description": "Grupo de amigos que juega al ajedrez todos los miércoles a las 17:00 h en Málaga y organiza sus propios torneos.", "url": "https://apejupo.com/", "logo": "https://apejupo.com/assets/og-apejupo.jpg", "image": "https://apejupo.com/assets/og-apejupo.jpg", "sport": "Ajedrez", "address": {"@type": "PostalAddress", "streetAddress": "Calle Francisco Jiménez Lomas, 11", "addressLocality": "Málaga", "postalCode": "29004", "addressRegion": "Andalucía", "addressCountry": "ES"}, "location": {"@type": "Place", "name": "Centro Ciudadano Parque Mediterráneo", "address": {"@type": "PostalAddress", "streetAddress": "Calle Francisco Jiménez Lomas, 11", "addressLocality": "Málaga", "postalCode": "29004", "addressCountry": "ES"}}, "hasMap": "https://maps.app.goo.gl/yKii3MrJB7TaUyds5", "openingHoursSpecification": [{"@type": "OpeningHoursSpecification", "dayOfWeek": "https://schema.org/Wednesday", "opens": "17:00"}], "isAccessibleForFree": true}</script>
 <script defer src="js/analytics.js?v=20261120-cloudflare1"></script>
 <link rel="stylesheet" href="css/cuenta.css?v=20261117-admin1">
+<link rel="stylesheet" href="css/base-datos.css?v=20261121-azul1">
 <script type="application/ld+json" id="datos-pagina">{"@context": "https://schema.org", "@graph": [{"@type": "WebSite", "@id": "https://apejupo.com/#web", "url": "https://apejupo.com/", "name": "Apejupo Chess Club", "inLanguage": "es-ES"}]}</script>
 <script src="js/idioma.js?v=20261120-banderas1"></script>
 </head>
@@ -92,11 +93,25 @@
   </div>
 </footer>
 
+<button type="button" id="base-datos-button" class="base-datos-button" aria-haspopup="dialog" aria-label="Bajar base de datos">
+  <img src="assets/mega-database-2027-blue.png" width="508" height="74" alt="">
+</button>
+<dialog id="base-datos-dialog" class="cu-dialog base-datos-dialog" aria-labelledby="base-datos-title">
+  <div class="cu-box">
+    <button type="button" class="cu-close" data-base-close aria-label="Cerrar">×</button>
+    <h2 id="base-datos-title">Bajar base de datos</h2>
+    <p id="base-datos-status" role="status" aria-live="polite"></p>
+    <div id="base-datos-link"></div>
+    <button type="button" class="btn cu-submit" id="base-datos-retry" hidden>Reintentar</button>
+  </div>
+</dialog>
+
 <script src="js/menu.js?v=20261113-menus"></script>
 <script src="js/util.js?v=20261120-partida1"></script>
 <script src="js/data.js"></script>
 <script src="js/home.js?v=20261120-idioma"></script>
 <script src="js/torneo-config.js?v=20261114-publicado"></script>
 <script type="module" src="js/cuenta.js?v=20261117-admin1"></script>
+<script type="module" src="js/base-datos.js?v=20261121-base1"></script>
 </body>
 </html>
