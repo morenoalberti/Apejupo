@@ -1678,7 +1678,7 @@ html.traduciendo { cursor: progress; }
 /* Torneos live: «Ver torneo» y «Compartir» en la misma fila, y el aviso al copiar la imagen */
 .card .card-btns { margin-top: auto; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .card .card-btns a.btn-view { margin-top: 0; }
-.card .btn-share { display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border-radius: 8px; border: 1px solid var(--line); background: transparent; color: var(--text); font: inherit; font-size: .9rem; font-weight: 500; cursor: pointer; }
+.card .btn-share { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border-radius: 8px; border: 1px solid var(--line); background: transparent; color: var(--text); font: inherit; font-size: .9rem; font-weight: 500; cursor: pointer; }
 .card .btn-share:hover { border-color: var(--blue); color: var(--blue); }
 .card .btn-share:disabled { opacity: .6; cursor: progress; }
 .share-note { position: fixed; z-index: 60; left: 50%; bottom: 20px; transform: translateX(-50%); width: min(440px, calc(100vw - 32px)); box-sizing: border-box; padding: 14px 40px 14px 16px; border-radius: 12px; border: 1px solid var(--line); background: var(--card); color: var(--text); box-shadow: 0 14px 34px rgba(0, 0, 0, .4); font-size: .9rem; line-height: 1.45; }
