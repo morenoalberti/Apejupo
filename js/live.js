@@ -82,7 +82,7 @@
 
   function parseGame(txt) {
     var g = { tags: {}, san: [], clk: [], over: false };
-    txt.replace(/^\[(\w+) "([^"]*)"\]/gm, function (_, k, v) { g.tags[k] = v; return ""; });
+    txt.replace(/^\[(\w+) "([^"]*)"\]/gm, function (_, k, v) { g.tags[k] = k === "White" || k === "Black" ? U.enie(v) : v; return ""; });
     var body = txt.replace(/^\[.*\]\s*$/gm, "");
     var re = /(\{[^}]*\})|(\d+\.(?:\.\.)?)|(1-0|0-1|1\/2-1\/2|\*)|([^\s{}]+)/g, m;
     while ((m = re.exec(body))) {
@@ -938,6 +938,7 @@
       return r.json();
     }).then(function (data) {
       if (!Array.isArray(data)) throw new Error("Lista de jugadores no válida");
+      data.forEach(function (p) { if (p && p.name) p.name = U.enie(p.name); }); // con Ñ, igual que en las partidas
       playersCache[id] = { at: Date.now(), data: data };
       delete playersPending[id];
       return data;
@@ -1394,8 +1395,8 @@
           var wt = tag("WhiteTeam"), bt = tag("BlackTeam"); if (!wt || !bt) return;
           var key = [wt, bt].sort().join("|"), M = matches[key] || (matches[key] = { a: wt, b: bt, pa: 0, pb: 0, open: 0 });
           var sc = { "1-0": [1, 0], "0-1": [0, 1], "1/2-1/2": [.5, .5] }[tag("Result")], bd = +((/\.(\d+)$/.exec(tag("Round")) || [])[1] || 0);
-          player(wt, tag("White"), tag("WhiteTitle"), tag("WhiteElo"), bd, sc ? sc[0] : null);
-          player(bt, tag("Black"), tag("BlackTitle"), tag("BlackElo"), bd, sc ? sc[1] : null);
+          player(wt, U.enie(tag("White")), tag("WhiteTitle"), tag("WhiteElo"), bd, sc ? sc[0] : null);
+          player(bt, U.enie(tag("Black")), tag("BlackTitle"), tag("BlackElo"), bd, sc ? sc[1] : null);
           if (!sc) { M.open++; return; }
           var home = wt === M.a; M.pa += home ? sc[0] : sc[1]; M.pb += home ? sc[1] : sc[0];
         });
@@ -1461,7 +1462,7 @@
           var w = /\[White "([^"]*)"\]/.exec(g), b = /\[Black "([^"]*)"\]/.exec(g), res = /\[Result "([^"]*)"\]/.exec(g);
           if (!w || !b || !res) return;
           var a = ({ "1-0": [1, 0], "0-1": [0, 1], "1/2-1/2": [0.5, 0.5] })[res[1]]; if (!a) return;
-          pts[w[1]] = (pts[w[1]] || 0) + a[0]; pts[b[1]] = (pts[b[1]] || 0) + a[1];
+          pts[U.enie(w[1])] = (pts[U.enie(w[1])] || 0) + a[0]; pts[U.enie(b[1])] = (pts[U.enie(b[1])] || 0) + a[1];
         });
         ps.forEach(function (p) { p.score = pts[p.name] || 0; });
         ps.sort(function (a, b) { return b.score - a.score || (b.rating || 0) - (a.rating || 0); });
@@ -1763,7 +1764,7 @@
       var c = plCache[id];
       if (c && Date.now() - c.at < 10 * 60 * 1000) return Promise.resolve(c.data);
       return fetch("https://apejupo-eventos.chessrival-worker.workers.dev/?players=" + encodeURIComponent(id)).then(function (r) { return r.ok ? r.json() : []; })
-        .then(function (d) { d = Array.isArray(d) ? d : []; plCache[id] = { at: Date.now(), data: d }; return d; }).catch(function () { return []; });
+        .then(function (d) { d = Array.isArray(d) ? d : []; d.forEach(function (p) { if (p && p.name) p.name = U.enie(p.name); }); plCache[id] = { at: Date.now(), data: d }; return d; }).catch(function () { return []; });
     }
     // Sin tildes ni mayúsculas, y sin importar el orden: «magnus carlsen» encuentra «Carlsen, Magnus»
     function norm(x) { return (x || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase(); }

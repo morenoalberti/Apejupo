@@ -376,6 +376,17 @@
     SWE: "se", SYR: "sy", THA: "th", TJK: "tj", TKM: "tm", TUN: "tn", TUR: "tr", UKR: "ua", USA: "us", UZB: "uz", VEN: "ve",
     YEM: "ye"
   };
+  // Lichess y la FIDE escriben los nombres sin Ñ («Nunez Munoz»). Se recupera en los apellidos y nombres españoles
+  // que la llevan casi siempre (sacados de la lista de la FADA; se dejan fuera los que existen también sin Ñ, como Nino o Campana).
+  var ENIE = {"acuna": "acuña", "banez": "bañez", "banos": "baños", "bascunana": "bascuñana", "begona": "begoña", "bolano": "bolaño", "bolanos": "bolaños", "cabanas": "cabañas", "canabate": "cañabate", "canadas": "cañadas", "canestro": "cañestro", "canete": "cañete", "canizares": "cañizares", "canuelo": "cañuelo", "carreno": "carreño", "castaneda": "castañeda", "castano": "castaño", "castanon": "castañon", "duenas": "dueñas", "espana": "españa", "goni": "goñi", "guadano": "guadaño", "ibanez": "ibañez", "inaki": "iñaki", "inigo": "iñigo", "larranaga": "larrañaga", "linan": "liñan", "lupianez": "lupiañez", "madueno": "madueño", "magana": "magaña", "minarro": "miñarro", "montano": "montaño", "muniz": "muñiz", "munoz": "muñoz", "nunez": "nuñez", "ocana": "ocaña", "onate": "oñate", "ordonez": "ordoñez", "orduna": "orduña", "ortuno": "ortuño", "patino": "patiño", "pedreno": "pedreño", "pena": "peña", "penaloza": "peñaloza", "penalver": "peñalver", "penuela": "peñuela", "perianez": "periañez", "perinan": "periñan", "pinero": "piñero", "pinteno": "pinteño", "quinones": "quiñones", "saldana": "saldaña", "sedeno": "sedeño", "trevino": "treviño", "trivino": "triviño", "urena": "ureña", "vinas": "viñas", "vinolo": "viñolo", "yanez": "yañez", "zuniga": "zuñiga"};
+  U.enie = function (name) {
+    if (!name || !/n/i.test(name)) return name || "";
+    return String(name).replace(/[A-Za-z]+/g, function (w) {
+      var f = ENIE[w.toLowerCase()]; if (!f) return w;
+      if (w === w.toUpperCase()) return f.toUpperCase();
+      return w[0] === w[0].toUpperCase() ? f[0].toUpperCase() + f.slice(1) : f;
+    });
+  };
   U.flagCode = function (fed) { var c = (fed || "").trim().toUpperCase(); return c in ESPECIAL ? ESPECIAL[c] : c in ISO3 ? ISO3[c] : ""; };
   /** Nombre del país en español a partir del código de federación FIDE («NOR» -> «Noruega»). */
   U.pais = function (fed) {
