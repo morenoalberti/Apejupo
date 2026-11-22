@@ -1945,12 +1945,12 @@
       var c = $("live-count"), a = window.apejupoLiveN || 0, o = window.apejupoOtrasN || 0;
       if (c) c.textContent = a + o ? (a + o) + " Torneos en directo" : "En directo";
     };
-    var EVENTS_URL = "https://apejupo-eventos.chessrival-worker.workers.dev"; // Worker de Cloudflare (Chess.com, ChessRoster y ChessRegister)
+    var EVENTS_URL = "https://apejupo-eventos.chessrival-worker.workers.dev"; // Worker de Cloudflare (Chess.com y ChessRegister)
     try { var q = /[?&]eventos=([^&]+)/.exec(location.search); if (q && /^(https:\/\/|\/|worker\/)/.test(decodeURIComponent(q[1]))) EVENTS_URL = decodeURIComponent(q[1]); } catch (_) {}
     if (!EVENTS_URL) return;
     var box = document.createElement("div"); box.id = "otras"; box.className = "cards"; box.setAttribute("aria-live", "polite");
     $("live").parentNode.insertBefore(box, $("live").nextSibling);
-    // ChessRoster y ChessRegister: torneos presenciales en curso (sin tableros en vivo), con enlace a su página.
+    // ChessRegister: torneos presenciales en curso (sin tableros en vivo), con enlace a su página.
     function link(href, label, main) { return href ? '<a class="more' + (main ? ' btn-view' : '') + '" target="_blank" rel="noopener" href="' + esc(safeUrl(href)) + '">' + esc(label) + ' →</a>' : ""; }
     function cardExterna(e) {
       var dia = { day: "numeric", month: "short", timeZone: "UTC" }, ini = fmt(e.start, dia), fin = fmt(e.end - 86400000, dia);
@@ -1963,7 +1963,8 @@
     var OK = "apejupoOtras", OTTL = 5 * 60 * 1000;
     function paintO(list) {
       // Los vídeos se abren desde el torneo al que pertenecen, con su único botón de retransmisión.
-      list = list.filter(function (e) { return e.source !== "Chess.com"; });
+      // ChessRoster tampoco sale: no publica las jugadas, así que sus torneos no tienen tableros que ver aquí.
+      list = list.filter(function (e) { return e.source !== "Chess.com" && e.source !== "ChessRoster"; });
       box.innerHTML = list.map(cardExterna).join(""); window.apejupoOtrasN = list.length; window.apejupoCount();
     }
     function load(force) {

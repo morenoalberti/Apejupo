@@ -1,7 +1,7 @@
 // Colector de torneos en directo de fuentes que el navegador no puede leer (sin CORS).
-// Chess.com, ChessRoster, ChessRegister, FIDE y jugadores/clasificaciones de Lichess. Cada fuente tiene su propia caché.
+// Chess.com, ChessRegister, FIDE y jugadores/clasificaciones de Lichess. Cada fuente tiene su propia caché.
 
-const SOURCES = [chesscom, chessroster, chessregister];
+const SOURCES = [chesscom, chessregister];
 
 async function chesscom() {
   const r = await fetch("https://www.chess.com/callback/events/upcoming-streams", {
@@ -28,8 +28,8 @@ async function chesscom() {
   return [...byTitle.values()];
 }
 
-// ───────── ChessRoster y ChessRegister ─────────
-// Plataformas de inscripción y resultados de torneos presenciales (sobre todo de EE. UU.). No tienen API
+// ───────── ChessRegister ─────────
+// Plataforma de inscripción y resultados de torneos presenciales (sobre todo de EE. UU.). No tienen API
 // pública: se lee su lista pública de torneos (permitida en su robots.txt) y solo se toman los que están en
 // curso, con enlace a la página original. No hay tableros en vivo: lo «en directo» son emparejamientos y
 // clasificación que publica el árbitro.
@@ -38,29 +38,6 @@ const MESES = { Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 4, Jun: 5, Jul: 6, Aug: 7, 
 const DIA = 86400000;
 const plano = (html) => html.replace(/<[^>]*>/g, " ").replace(/&amp;/g, "&").replace(/&#39;|&#x27;/g, "'").replace(/&quot;/g, '"').replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/\s+/g, " ").trim();
 const attr = (html, nombre) => { const m = new RegExp(nombre + '="([^"]*)"').exec(html); return m ? m[1].replace(/&amp;/g, "&") : ""; };
-
-async function chessroster() {
-  const r = await fetch("https://chessroster.com/tournaments", { headers: UA });
-  if (!r.ok) throw new Error("ChessRoster " + r.status);
-  const html = await r.text();
-  const out = [];
-  for (const card of html.split('data-testid="tournament-discovery-card"').slice(1)) {
-    const c = card.slice(0, 5000);
-    if (!/>\s*In Progress\s*</.test(c)) continue; // solo los torneos en curso
-    const enlace = /<h3[^>]*>\s*<a[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/.exec(c);
-    if (!enlace || !/^https:\/\/([a-z0-9-]+\.)?chessroster\.com\//.test(enlace[1])) continue;
-    const fechas = [...plano((/data-testid="card-date-line"[^>]*>([\s\S]*?)<\/span>/.exec(c) || [])[1] || "").matchAll(/([A-Z][a-z]{2}) (\d{1,2}), (\d{4})/g)]
-      .map((m) => Date.UTC(+m[3], MESES[m[1]], +m[2]));
-    if (!fechas.length) continue;
-    const venue = plano((/data-testid="card-venue-line"[^>]*>([\s\S]*?)<\/p>/.exec(c) || [])[1] || "");
-    const url = enlace[1].replace(/\/$/, "");
-    out.push({
-      source: "ChessRoster", id: "cr-" + url.split("/").pop(), title: plano(enlace[2]), short: plano(enlace[2]),
-      start: fechas[0], end: (fechas[1] || fechas[0]) + DIA, url, liveUrl: url + "/live", place: venue, via: "chessroster", inProgress: true,
-    });
-  }
-  return out;
-}
 
 // Las fechas de ChessRegister no llevan año («Oct 23»): se toma el más cercano a hoy.
 function fechaSinAnio(txt, ahora) {
@@ -109,7 +86,7 @@ async function collect() {
     if (r.status === "fulfilled") out.push(...r.value); else errors.push(String(r.reason?.message || r.reason));
   }
   const now = Date.now();
-  // ChessRoster y ChessRegister ya dicen qué torneos están en curso (inProgress).
+  // ChessRegister ya dice qué torneos están en curso (inProgress).
   const live = out.filter((e) => e.inProgress || (e.start <= now && now <= e.end)).map((e) => ({ ...e, status: "live" }));
   const upcoming = out.filter((e) => !e.inProgress && e.start > now).sort((a, b) => a.start - b.start).slice(0, 20).map((e) => ({ ...e, status: "soon" }));
   return { updated: now, live, upcoming, errors };
