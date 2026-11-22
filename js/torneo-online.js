@@ -1965,7 +1965,10 @@ $('to-confirm-yes').addEventListener('click', () => closeConfirm(true));
 $('to-confirm-dialog').addEventListener('cancel', () => { confirmResolve?.(false); confirmResolve = null; });
 $('to-share').addEventListener('click', async () => {
   if ($('to-share').disabled) return;
-  try { await navigator.clipboard.writeText(location.origin + location.pathname + '?id=' + roomId); message('Enlace del torneo copiado. Ya puedes compartirlo.'); }
+  // Se copia el nombre, el día y la hora del torneo y, debajo, el enlace: listo para pegar en WhatsApp
+  const url = location.origin + location.pathname + '?id=' + roomId;
+  const text = [state.title, state.startsAt ? date(state.startsAt) : '', url].filter(Boolean).join('\n');
+  try { await navigator.clipboard.writeText(text); message('Torneo copiado (nombre, día, hora y enlace). Ya puedes compartirlo.'); }
   catch { message('Comparte la dirección de esta página para invitar a otros jugadores.'); }
 });
 $('to-pgn').addEventListener('click', () => download(state.game.id));
