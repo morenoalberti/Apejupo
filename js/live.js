@@ -1338,16 +1338,17 @@
   }
   // Clasificación por equipos: 2 puntos por encuentro ganado, 1 por empate; desempata la suma de puntos de tablero
   function teamStandings() {
-    var done = tourRounds.filter(function (r) { return r.finished || r.ongoing; }), k = 0, chain = Promise.resolve([]);
-    done.forEach(function (r) {
-      chain = chain.then(function (acc) {
-        return roundTxt(r, 0).then(function (t) {
-          acc.push({ r: r, t: t }); k++;
-          var el = fbox.querySelector("p.muted"); if (el) el.textContent = "Cargando clasificación… (" + k + "/" + done.length + ")";
-          return acc;
-        });
-      });
-    });
+    // La ronda que se está viendo ya está en memoria; las demás se piden a Lichess a la vez (no una tras otra)
+    var done = tourRounds.filter(function (r) { return r.finished || r.ongoing; });
+    if (!done.some(function (r) { return r.id === roundId; }) && order.length) done.push({ id: roundId });
+    var chain = Promise.all(done.map(function (r) {
+      if (r.id === roundId && order.length) return Promise.resolve({ r: r, t: order.map(function (id) {
+        var g = games[id]; if (!g) return "";
+        var t = Object.assign({}, g.tags); if (!g.over) t.Result = "*";
+        return '[Event "-"]\n' + Object.keys(t).map(function (k) { return "[" + k + ' "' + String(t[k]).replace(/"/g, "'") + '"]'; }).join("\n");
+      }).join("\n\n") });
+      return roundTxt(r, 0).then(function (t) { return { r: r, t: t }; });
+    }));
     return chain.then(function (rs) {
       var teams = {}, enJuego = 0;
       function team(n) { return teams[n] || (teams[n] = { name: n, mp: 0, bp: 0, w: 0, d: 0, l: 0, n: 0, pl: {} }); }
@@ -1395,9 +1396,9 @@
         // Debajo del equipo, sus jugadores por orden de tablero (el tablero medio en el que han jugado)
         var med = function (p) { return p.boards.length ? p.boards.reduce(function (a, b) { return a + b; }, 0) / p.boards.length : 99; };
         var pls = Object.keys(t.pl).map(function (n) { return t.pl[n]; }).sort(function (a, b) { return med(a) - med(b) || b.elo - a.elo; });
-        if (pls.length) h += '<tr class="tm-pl"><td></td><td colspan="7">' + pls.map(function (p) {
-          return "<span>" + (p.title ? '<em class="ttl">' + esc(p.title) + "</em> " : "") + esc(p.name) + (p.elo ? " <small>" + p.elo + "</small>" : "") + "</span>";
-        }).join('<i class="sr-only"> · </i>') + "</td></tr>";
+        if (pls.length) h += '<tr class="tm-pl"><td></td><td colspan="7"><ul>' + pls.map(function (p) {
+          return "<li>" + (p.title ? '<em class="ttl">' + esc(p.title) + "</em> " : "") + esc(p.name) + (p.elo ? " <small>" + p.elo + "</small>" : "") + "</li>";
+        }).join("") + "</ul></td></tr>";
       });
       openPanel(standTitle(), h + "</table>" +
         '<p class="lv-ffoot">Pts: 2 por encuentro ganado y 1 por empate. Tab.: puntos de tablero (primer desempate).</p>' +
