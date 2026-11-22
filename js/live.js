@@ -1231,10 +1231,33 @@
   var rcache = {};
   function roundTxt(r, n) {
     if (rcache[r.id] != null) return Promise.resolve(rcache[r.id]);
+    // Las rondas terminadas ya no cambian: su PGN se guarda en el navegador y, al volver a abrirlas, no se pide a
+    // Lichess (si Lichess contesta «demasiadas peticiones», la espera para reintentar se nota varios segundos).
+    var saved = pgnGet(r.id); if (saved) { rcache[r.id] = saved; return Promise.resolve(saved); }
     return fetch("https://lichess.org/api/broadcast/round/" + encodeURIComponent(r.id) + ".pgn").then(function (x) {
       if (x.status === 429 && n < 4) return new Promise(function (ok) { setTimeout(ok, 1500 * (n + 1)); }).then(function () { return roundTxt(r, n + 1); });
-      return x.ok ? x.text().then(function (t) { if (r.finished) { rcache[r.id] = t; saveTags(r, t); } return t; }) : "";
+      return x.ok ? x.text().then(function (t) { lastTxt[r.id] = t; if (r.finished || (r.id === roundId && roundDone)) roundSave(r.id); return t; }) : "";
     }).catch(function () { return ""; });
+  }
+  // La ronda que se abre se pide antes de saber si ha terminado: se guarda en cuanto se sabe (roundSave)
+  var lastTxt = {};
+  function roundSave(id) { var t = lastTxt[id]; if (!t || rcache[id] != null) return; rcache[id] = t; saveTags({ id: id }, t); pgnPut(id, t); }
+  // Se guardan las últimas 12 rondas terminadas que se han abierto (unos 100 KB cada una)
+  var PGN_IDX = "apejupoPgnIdx", PGN_MAX = 12;
+  function pgnGet(id) { try { return localStorage.getItem("apejupoPgn" + id); } catch (_) { return null; } }
+  function pgnPut(id, t) {
+    if (!t || !/\[Event /.test(t)) return;
+    var idx; try { idx = JSON.parse(localStorage.getItem(PGN_IDX)) || []; } catch (_) { idx = []; }
+    idx = idx.filter(function (x) { return x !== id; }); idx.push(id);
+    while (idx.length) {
+      try {
+        while (idx.length > PGN_MAX) localStorage.removeItem("apejupoPgn" + idx.shift());
+        localStorage.setItem("apejupoPgn" + id, t); localStorage.setItem(PGN_IDX, JSON.stringify(idx)); return;
+      } catch (_) { // sin sitio: se borra la más antigua y se reintenta
+        if (idx.length <= 1) return;
+        try { localStorage.removeItem("apejupoPgn" + idx.shift()); } catch (__) { return; }
+      }
+    }
   }
   // Para la clasificación por equipos basta con las etiquetas de cada partida (sin las jugadas). Las de las rondas
   // terminadas se guardan en el navegador: no cambian, y así la clasificación no espera a Lichess, que limita las peticiones.
@@ -1293,7 +1316,7 @@
       var cur = rs.filter(function (r) { return r.id === roundId; })[0];
       if (cur && cur.startsAt) showRoundStart(cur);
       if (cur && cur.finished && !roundDone) { // ronda sin cerrar en Lichess pero ya superada: sus partidas no están en juego
-        roundDone = true;
+        roundDone = true; roundSave(roundId);
         Object.keys(games).forEach(function (k) { games[k].over = true; });
         if (order.length) refresh();
       }
@@ -1695,7 +1718,7 @@
       publishBroadcast(j.tour, r, j.group);
       showRoundStart(r);
       if (rid === roundId && r.finished && !roundDone) { // la primera carga pudo llegar antes que este dato
-        roundDone = true;
+        roundDone = true; roundSave(roundId);
         Object.keys(games).forEach(function (k) { games[k].over = true; });
         if (order.length) refresh();
       }
