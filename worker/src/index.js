@@ -1,7 +1,7 @@
 // Colector de torneos en directo de fuentes que el navegador no puede leer (sin CORS).
-// Chess.com, ChessRegister, FIDE y jugadores/clasificaciones de Lichess. Cada fuente tiene su propia caché.
+// Chess.com, FIDE y jugadores/clasificaciones de Lichess. Cada fuente tiene su propia caché.
 
-const SOURCES = [chesscom, chessregister];
+const SOURCES = [chesscom];
 
 async function chesscom() {
   const r = await fetch("https://www.chess.com/callback/events/upcoming-streams", {
@@ -28,57 +28,6 @@ async function chesscom() {
   return [...byTitle.values()];
 }
 
-// ───────── ChessRegister ─────────
-// Plataforma de inscripción y resultados de torneos presenciales (sobre todo de EE. UU.). No tienen API
-// pública: se lee su lista pública de torneos (permitida en su robots.txt) y solo se toman los que están en
-// curso, con enlace a la página original. No hay tableros en vivo: lo «en directo» son emparejamientos y
-// clasificación que publica el árbitro.
-const UA = { "User-Agent": "Mozilla/5.0 (compatible; ApejupoChessClub/1.0; +https://apejupo.com)", Accept: "text/html" };
-const MESES = { Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 4, Jun: 5, Jul: 6, Aug: 7, Sep: 8, Oct: 9, Nov: 10, Dec: 11 };
-const DIA = 86400000;
-const plano = (html) => html.replace(/<[^>]*>/g, " ").replace(/&amp;/g, "&").replace(/&#39;|&#x27;/g, "'").replace(/&quot;/g, '"').replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/\s+/g, " ").trim();
-const attr = (html, nombre) => { const m = new RegExp(nombre + '="([^"]*)"').exec(html); return m ? m[1].replace(/&amp;/g, "&") : ""; };
-
-// Las fechas de ChessRegister no llevan año («Oct 23»): se toma el más cercano a hoy.
-function fechaSinAnio(txt, ahora) {
-  const m = /([A-Z][a-z]{2}) (\d{1,2})/.exec(txt || "");
-  if (!m || MESES[m[1]] === undefined) return NaN;
-  const hoy = new Date(ahora), candidatos = [-1, 0, 1].map((d) => Date.UTC(hoy.getUTCFullYear() + d, MESES[m[1]], +m[2]));
-  return candidatos.reduce((a, b) => (Math.abs(b - ahora) < Math.abs(a - ahora) ? b : a));
-}
-
-async function chessregister() {
-  const ahora = Date.now(), out = [], vistos = new Set();
-  // Torneos de pago y gratuitos (son dos listas en la web); cada una ordenada por fecha de inicio.
-  for (const clase of ["PAID", "FREE"]) {
-    const r = await fetch("https://www.chessregister.com/events?sel_evtype=ACTIVE&sel_evcls=" + clase, { headers: UA });
-    if (!r.ok) throw new Error("ChessRegister " + r.status);
-    const html = await r.text();
-    const tabla = html.slice(html.indexOf('id="eventsTable"'));
-    for (const fila of tabla.split(/<tr[\s>]/).slice(2)) { // la primera es la cabecera
-      const celdas = [...fila.matchAll(/<td[^>]*>([\s\S]*?)<\/td>/g)].map((m) => m[1]);
-      if (celdas.length < 6) continue;
-      const nombre = /<a[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/.exec(celdas[0]);
-      if (!nombre) continue;
-      const inicio = fechaSinAnio(plano(celdas[4]), ahora), fin = fechaSinAnio(plano(celdas[5]), ahora);
-      if (isNaN(inicio) || isNaN(fin) || !(inicio <= ahora && ahora < fin + DIA)) continue; // solo los que se juegan hoy
-      const href = nombre[1].replace(/&amp;/g, "&"), id = "reg-" + (/event_key=([^&]+)/.exec(href) || [, href])[1];
-      if (vistos.has(id)) continue;
-      vistos.add(id);
-      const enlaces = [...celdas[1].matchAll(/<a[^>]*>/g)].map((m) => ({ titulo: attr(m[0], "title"), href: attr(m[0], "href") }));
-      const absoluta = (h) => (h && /^https?:\/\//.test(h) ? h : h ? "https://www.chessregister.com" + (h.startsWith("/") ? h : "/" + h) : "");
-      const busca = (re) => absoluta((enlaces.find((e) => re.test(e.titulo)) || {}).href);
-      const organizador = plano(celdas[3]);
-      out.push({
-        source: "ChessRegister", id, title: plano(nombre[2]), short: plano(nombre[2]),
-        start: inicio, end: fin + DIA, url: absoluta(href), standingsUrl: busca(/standings/i), pairingsUrl: busca(/pairings/i),
-        place: [plano(celdas[2]), organizador].filter(Boolean).join(" · "), via: "chessregister", inProgress: true,
-      });
-    }
-  }
-  return out;
-}
-
 async function collect() {
   const out = [], errors = [];
   // Las fuentes se piden a la vez; si una falla, las demás siguen saliendo.
@@ -86,9 +35,8 @@ async function collect() {
     if (r.status === "fulfilled") out.push(...r.value); else errors.push(String(r.reason?.message || r.reason));
   }
   const now = Date.now();
-  // ChessRegister ya dice qué torneos están en curso (inProgress).
-  const live = out.filter((e) => e.inProgress || (e.start <= now && now <= e.end)).map((e) => ({ ...e, status: "live" }));
-  const upcoming = out.filter((e) => !e.inProgress && e.start > now).sort((a, b) => a.start - b.start).slice(0, 20).map((e) => ({ ...e, status: "soon" }));
+  const live = out.filter((e) => (e.start <= now && now <= e.end)).map((e) => ({ ...e, status: "live" }));
+  const upcoming = out.filter((e) => e.start > now).sort((a, b) => a.start - b.start).slice(0, 20).map((e) => ({ ...e, status: "soon" }));
   return { updated: now, live, upcoming, errors };
 }
 

@@ -1939,44 +1939,14 @@
     load();
   })();
 
-  // ---------- Otras fuentes (Chess.com...) a través del Worker de Cloudflare: solo tarjetas con enlace externo ----------
+  // ---------- Contador de torneos en directo ----------
+  // (Antes también había tarjetas de ChessRoster y ChessRegister: se quitaron porque no publican las jugadas.)
   if ($("live")) (function () {
     window.apejupoCount = function () {
-      var c = $("live-count"), a = window.apejupoLiveN || 0, o = window.apejupoOtrasN || 0;
-      if (c) c.textContent = a + o ? (a + o) + " Torneos en directo" : "En directo";
+      var c = $("live-count"), a = window.apejupoLiveN || 0;
+      if (c) c.textContent = a ? a + " Torneos en directo" : "En directo";
     };
-    var EVENTS_URL = "https://apejupo-eventos.chessrival-worker.workers.dev"; // Worker de Cloudflare (Chess.com y ChessRegister)
-    try { var q = /[?&]eventos=([^&]+)/.exec(location.search); if (q && /^(https:\/\/|\/|worker\/)/.test(decodeURIComponent(q[1]))) EVENTS_URL = decodeURIComponent(q[1]); } catch (_) {}
-    if (!EVENTS_URL) return;
-    var box = document.createElement("div"); box.id = "otras"; box.className = "cards"; box.setAttribute("aria-live", "polite");
-    $("live").parentNode.insertBefore(box, $("live").nextSibling);
-    // ChessRegister: torneos presenciales en curso (sin tableros en vivo), con enlace a su página.
-    function link(href, label, main) { return href ? '<a class="more' + (main ? ' btn-view' : '') + '" target="_blank" rel="noopener" href="' + esc(safeUrl(href)) + '">' + esc(label) + ' →</a>' : ""; }
-    function cardExterna(e) {
-      var dia = { day: "numeric", month: "short", timeZone: "UTC" }, ini = fmt(e.start, dia), fin = fmt(e.end - 86400000, dia);
-      return '<article class="card"><div class="body"><span class="badge live">EN CURSO</span>' +
-        '<h4 translate="no">' + esc(e.title) + '</h4><p class="meta">' + esc(e.source) + " · " + esc(ini === fin ? ini : ini + " – " + fin) + (e.place ? " · " + esc(e.place) : "") + '</p>' +
-        link(e.url, "Ver en " + e.source, true) +
-        link(e.liveUrl, "Resultados en directo") + link(e.standingsUrl, "Clasificación") + link(e.pairingsUrl, "Emparejamientos") +
-        '</div></article>';
-    }
-    var OK = "apejupoOtras", OTTL = 5 * 60 * 1000;
-    function paintO(list) {
-      // Los vídeos se abren desde el torneo al que pertenecen, con su único botón de retransmisión.
-      // ChessRoster tampoco sale: no publica las jugadas, así que sus torneos no tienen tableros que ver aquí.
-      list = list.filter(function (e) { return e.source !== "Chess.com" && e.source !== "ChessRoster"; });
-      box.innerHTML = list.map(cardExterna).join(""); window.apejupoOtrasN = list.length; window.apejupoCount();
-    }
-    function load(force) {
-      if (!force) { try { var c = JSON.parse(localStorage.getItem(OK)); if (c && Array.isArray(c.live) && Date.now() - c.t < OTTL) { paintO(c.live); return; } } catch (_) {} }
-      fetch(EVENTS_URL).then(function (r) { if (!r.ok) throw 0; return r.json(); }).then(function (j) {
-        var l = j.live || [];
-        paintO(l);
-        try { localStorage.setItem(OK, JSON.stringify({ t: Date.now(), live: l })); } catch (_) {}
-      }).catch(function () { box.innerHTML = ""; });
-    }
-    load();
-    if ($("live-refresh")) $("live-refresh").addEventListener("click", function () { setTimeout(function () { load(true); }, 1500); });
+    window.apejupoCount(); // la lista de Lichess puede haberse pintado ya (desde la caché) antes de existir esta función
   })();
 
 })();
