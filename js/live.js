@@ -1788,55 +1788,6 @@
       var h = items.map(statusOf).join("");
       box.innerHTML = append ? box.innerHTML + h : h;
     }
-    // ---- Búsqueda por jugador: se mira en la lista de jugadores de cada torneo en directo ----
-    var plCache = {}; // id del torneo → { at, data }
-    function plOf(id) {
-      var c = plCache[id];
-      if (c && Date.now() - c.at < 10 * 60 * 1000) return Promise.resolve(c.data);
-      return fetch("https://apejupo-eventos.chessrival-worker.workers.dev/?players=" + encodeURIComponent(id)).then(function (r) { return r.ok ? r.json() : []; })
-        .then(function (d) { d = Array.isArray(d) ? d : []; d.forEach(function (p) { if (p && p.name) p.name = U.nombre(p.name, p.fed); }); plCache[id] = { at: Date.now(), data: d }; return d; }).catch(function () { return []; });
-    }
-    // Sin tildes ni mayúsculas, y sin importar el orden: «magnus carlsen» encuentra «Carlsen, Magnus»
-    function norm(x) { return (x || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase(); }
-    function matchName(name, words) { var n = norm(name); return words.every(function (w) { return n.indexOf(w) >= 0; }); }
-    function plLine(ps) {
-      return '<p class="tsearch-pl">' + ps.slice(0, 4).map(function (p) {
-        var f = U.flagCode(p.fed);
-        return "<span>" + (f ? '<img class="lv-flag" src="assets/flags/' + f + '.png" alt="" onerror="this.remove()">' : "") +
-          (p.title ? '<em class="ttl">' + U.esc(p.title) + "</em> " : "") + U.esc(p.name) + (p.rating ? " <small>" + p.rating + "</small>" : "") + "</span>";
-      }).join("") + (ps.length > 4 ? '<span class="muted">y ' + (ps.length - 4) + " más</span>" : "") + "</p>";
-    }
-    function withPlayers(it, ps) { return statusOf(it).replace("</p>", "</p>" + plLine(ps)); }
-    var found = null; // resultados de la búsqueda actual: { players: [{ it, ps }], names: [items] }
-    function paintFound(note) {
-      var seen = {}, h = "";
-      found.players.forEach(function (x) { seen[x.it.tour.id] = 1; h += withPlayers(x.it, x.ps); });
-      var rest = found.names.filter(function (it) { return !seen[it.tour && it.tour.id]; });
-      h += rest.map(statusOf).join("");
-      box.innerHTML = h;
-      var n = found.players.length, m = rest.length, bits = [];
-      if (n) bits.push(n + " torneo" + (n === 1 ? "" : "s") + " en directo con ese jugador");
-      if (m) bits.push(m + (found.more ? "+" : "") + " por el nombre del torneo");
-      if (note) bits.push(note);
-      say(bits.join(" · "));
-    }
-    function searchPlayers(words, my) {
-      var items = (window.apejupoLiveItems || []).filter(function (it) { return it.tour && it.tour.id; }), i = 0, done = 0;
-      if (!items.length) return Promise.resolve();
-      // De cuatro en cuatro, para no saturar a Lichess; los resultados van saliendo según llegan
-      function next() {
-        if (my !== seq || i >= items.length) return Promise.resolve();
-        var it = items[i++];
-        return plOf(it.tour.id).then(function (ps) {
-          done++;
-          if (my !== seq) return;
-          var hits = ps.filter(function (p) { return matchName(p.name, words); });
-          if (hits.length) found.players.push({ it: it, ps: hits });
-          paintFound(done < items.length ? "buscando jugadores… (" + done + "/" + items.length + ")" : "");
-        }).then(next);
-      }
-      return Promise.all([next(), next(), next(), next()]);
-    }
     // Enlace de Lichess pegado: se abre exactamente ese torneo o esa ronda
     function fromLink(txt) {
       var m = /lichess\.org\/broadcast\/(.+)$/i.exec(txt.trim()); if (!m) return null;
@@ -1867,31 +1818,17 @@
       var L = fromLink(txt);
       if (L) { more.hidden = true; viaLink(L, my); return; }
       say("Buscando…");
-      var byName = fetch("https://lichess.org/api/broadcast/search?q=" + encodeURIComponent(q) + "&page=" + page).then(function (r) { if (!r.ok) throw 0; return r.json(); });
-      if (page > 1) { // «Ver más resultados»: solo más torneos por nombre
-        byName.then(function (j) {
-          if (my !== seq) return;
-          show(j.currentPageResults || [], true); more.hidden = !j.nextPage; say("");
-        }).catch(function () { if (my === seq) say("No se pudo buscar ahora mismo. Inténtalo de nuevo en unos segundos."); });
-        return;
-      }
-      // Primera página: por el nombre del torneo y, a la vez, por jugador en los torneos en directo
-      found = { players: [], names: [], more: false };
-      var words = norm(q).split(/[\s,]+/).filter(function (w) { return w.length >= 2; }), nameOk = true;
-      byName.then(function (j) {
+      fetch("https://lichess.org/api/broadcast/search?q=" + encodeURIComponent(q) + "&page=" + page).then(function (r) { if (!r.ok) throw 0; return r.json(); }).then(function (j) {
         if (my !== seq) return;
-        found.names = j.currentPageResults || []; found.more = !!j.nextPage; more.hidden = !j.nextPage;
-        paintFound("");
-      }).catch(function () { nameOk = false; });
-      Promise.all([byName.catch(function () {}), words.length ? searchPlayers(words, my) : null]).then(function () {
-        if (my !== seq) return;
-        if (!found.players.length && !found.names.length) {
-          box.innerHTML = ""; more.hidden = true;
-          say(nameOk ? "No hay torneos con ese nombre ni torneos en directo con ese jugador." : "No se pudo buscar ahora mismo. Inténtalo de nuevo en unos segundos.");
-          return;
+        var items = j.currentPageResults || [];
+        if (!items.length && page === 1) {
+          box.innerHTML = "";
+          say("");
+          more.hidden = true; return;
         }
-        paintFound("");
-      });
+        say(page === 1 ? items.length + (j.nextPage ? "+" : "") + " resultado" + (items.length === 1 && !j.nextPage ? "" : "s") : "");
+        show(items, page > 1); more.hidden = !j.nextPage;
+      }).catch(function () { if (my === seq) say("No se pudo buscar ahora mismo. Inténtalo de nuevo en unos segundos."); });
     }
     inp.addEventListener("input", function () { clearTimeout(timer); timer = setTimeout(function () { run(false); }, 450); });
     inp.addEventListener("keydown", function (e) { if (e.key === "Enter") { clearTimeout(timer); run(false); } });
@@ -1965,7 +1902,6 @@
       var enJuego = U.applyOrder(live.filter(function (x) { return x.round.ongoing; }), OK, idDe);
       var resto = U.applyOrder(live.filter(function (x) { return !x.round.ongoing; }), OK, idDe);
       live.length = 0; Array.prototype.push.apply(live, enJuego.concat(resto));
-      window.apejupoLiveItems = live.slice(); // el buscador busca jugadores en estos torneos
       $("live").innerHTML = live.length
         ? live.map(cardHtml).join("")
         : '<p class="muted">Ahora mismo no hay torneos en directo.</p>';
