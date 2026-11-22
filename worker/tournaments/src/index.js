@@ -381,6 +381,39 @@ export class TournamentRoom extends DurableObject {
   }
 }
 
+// ---- Página para compartir un torneo (vista previa de WhatsApp y otras apps) ----
+const escHtml = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+const hoursLabel = m => m % 60 ? (m > 60 ? `${Math.floor(m / 60)} h ${m % 60} min` : `${m} min`) : `${m / 60} h`;
+// Mismos nombres que en la web (js/torneo-online.js: systemLabel)
+function shareSystem(t) {
+  if (t.challenge) return t.rounds > 1 ? `Match a ${t.rounds} partidas` : 'Reto';
+  if (t.format === 'arena') return `Arena de ${hoursLabel(t.duration || 60)}`;
+  if (t.format === 'double-closed') return 'Round-Robin doble vuelta';
+  if (t.format === 'closed') return 'Round-Robin' + (t.rounds ? ` · ${t.rounds} rondas` : ' (todos contra todos)');
+  return `Sistema suizo · ${t.rounds} ${t.rounds === 1 ? 'ronda' : 'rondas'}`;
+}
+// «22 nov, 17:00 h.» en hora de España (el Worker funciona en UTC)
+const shareDate = ms => new Intl.DateTimeFormat('es', { timeZone: 'Europe/Madrid', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(ms) + ' h.';
+async function sharePage(env, id) {
+  const site = (env.SITE_URL || 'https://apejupo.com').replace(/\/+$/, '');
+  const room = `${site}/jugar-torneo.html?id=${id}`;
+  let t = null;
+  try { const r = await env.TOURNAMENTS.getByName(id).fetch('https://room/summary'); if (r.ok) t = await r.json(); } catch (_) {}
+  const title = t ? t.title : 'Torneo de ajedrez · Apejupo Chess Club';
+  const desc = t ? [t.startsAt ? shareDate(t.startsAt) : 'Inicio a cargo del organizador', shareSystem(t), `${t.minutes}+${t.increment}`, t.mode === 'presencial' ? 'Presencial' : 'Online'].join(' · ') : 'Torneo de ajedrez del Apejupo Chess Club';
+  const html = `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${escHtml(title)}</title><meta name="description" content="${escHtml(desc)}">
+<meta property="og:type" content="website"><meta property="og:site_name" content="Apejupo Chess Club"><meta property="og:locale" content="es_ES">
+<meta property="og:title" content="${escHtml(title)}"><meta property="og:description" content="${escHtml(desc)}"><meta property="og:url" content="${escHtml(room)}">
+<meta property="og:image" content="${site}/assets/og-apejupo.jpg"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image"><meta name="robots" content="noindex">
+<meta http-equiv="refresh" content="0;url=${escHtml(room)}"><link rel="canonical" href="${escHtml(room)}">
+</head><body style="font-family:system-ui,sans-serif;background:#0B1422;color:#E8EEF7;padding:24px">
+<p><a style="color:#3B82F6" href="${escHtml(room)}">Ir al torneo «${escHtml(title)}»</a></p>
+<script>location.replace(${JSON.stringify(room)});</script></body></html>`;
+  return new Response(html, { status: t ? 200 : 404, headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'public, max-age=300' } });
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url), origin = request.headers.get('Origin');
@@ -430,6 +463,10 @@ export default {
         // La sesión viaja en la cabecera Authorization; la IP solo sirve para frenar intentos repetidos.
         return withCors(await askAccounts(account[1], { ...b, session: bearer(request), ip: request.headers.get('CF-Connecting-IP') || 'local' }));
       }
+      // Enlace para compartir (/t/<id>): WhatsApp no ejecuta JavaScript, así que la vista previa con los datos del
+      // torneo (día, hora, sistema y ritmo) tiene que venir ya en la página. Las personas pasan al momento a la sala.
+      const share = /^\/t\/([a-f0-9]{24})$/.exec(path);
+      if (share && request.method === 'GET') return sharePage(env, share[1]);
       const room = /^\/api\/tournaments\/([a-f0-9]{24})(?:\/(join|socket|pgn|delete|config|edit|prizes|trf))?$/.exec(path);
       if (path === '/api/tournaments/admin/comprobar') {
         requireThat(request.method === 'POST', 'Método no permitido.', 405);

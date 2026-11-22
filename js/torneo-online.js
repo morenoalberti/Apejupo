@@ -1965,10 +1965,10 @@ $('to-confirm-yes').addEventListener('click', () => closeConfirm(true));
 $('to-confirm-dialog').addEventListener('cancel', () => { confirmResolve?.(false); confirmResolve = null; });
 $('to-share').addEventListener('click', async () => {
   if ($('to-share').disabled) return;
-  // Se copia el nombre, el día y la hora del torneo y, debajo, el enlace: listo para pegar en WhatsApp
-  const url = location.origin + location.pathname + '?id=' + roomId;
-  const text = [state.title, state.startsAt ? date(state.startsAt) : '', url].filter(Boolean).join('\n');
-  try { await navigator.clipboard.writeText(text); message('Torneo copiado (nombre, día, hora y enlace). Ya puedes compartirlo.'); }
+  // Enlace del servidor de torneos (/t/<id>): su vista previa en WhatsApp muestra el nombre, el día y la hora,
+  // el sistema y el ritmo de juego (la página de GitHub Pages es la misma para todos los torneos). Lleva a esta sala.
+  const url = API ? `${API}/t/${roomId}` : location.origin + location.pathname + '?id=' + roomId;
+  try { await navigator.clipboard.writeText(url); message('Enlace del torneo copiado. Al pegarlo en WhatsApp se ven el día, la hora, el sistema y el ritmo de juego.'); }
   catch { message('Comparte la dirección de esta página para invitar a otros jugadores.'); }
 });
 $('to-pgn').addEventListener('click', () => download(state.game.id));
