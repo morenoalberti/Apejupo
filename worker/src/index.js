@@ -463,6 +463,27 @@ export default {
         return new Response(JSON.stringify({ error: "No se pudieron obtener los jugadores" }), { status: 502, headers: { ...headers, "Cache-Control": "no-store" } });
       }
     }
+    // Foto de un torneo de Lichess (/?img=https://image.lichess.org/...). Lichess no permite leerla desde otra web
+    // y hace falta para dibujar la tarjeta que se comparte. Solo se admiten sus servidores de imágenes.
+    const img = new URL(request.url).searchParams.get("img");
+    if (img !== null) {
+      let src;
+      try { src = new URL(img); } catch (_) { return new Response("", { status: 400, headers: CORS }); }
+      if (src.protocol !== "https:" || !/^image\.lichess1?\.org$/.test(src.hostname)) return new Response("", { status: 400, headers: CORS });
+      const cache = typeof caches !== "undefined" ? caches.default : null;
+      const key = new Request(new URL(request.url).origin + "/img/" + encodeURIComponent(src.href));
+      if (cache) { const hit = await cache.match(key); if (hit) return hit; }
+      try {
+        const up = await fetch(src.href, { headers: { "User-Agent": "Mozilla/5.0 (compatible; ApejupoChessClub/1.0; +https://apejupo.com)" } });
+        const type = up.headers.get("content-type") || "";
+        if (!up.ok || !/^image\//.test(type)) return new Response("", { status: 502, headers: { "Access-Control-Allow-Origin": "*" } });
+        const res = new Response(up.body, { headers: { "Access-Control-Allow-Origin": "*", "Content-Type": type, "Cache-Control": "public, max-age=86400" } });
+        if (cache) ctx.waitUntil(cache.put(key, res.clone()));
+        return res;
+      } catch (e) {
+        return new Response("", { status: 502, headers: { "Access-Control-Allow-Origin": "*" } });
+      }
+    }
     const foto = new URL(request.url).searchParams.get("foto");
     if (foto !== null) { // foto del perfil público de la FIDE: /?foto=2256657 (imagen). Solo se usa cuando otros servidores no la tienen.
       if (!/^\d{1,10}$/.test(foto)) return new Response("", { status: 400, headers: CORS });

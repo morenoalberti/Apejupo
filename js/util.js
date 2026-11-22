@@ -70,7 +70,11 @@
         '<p class="meta">' + esc(U.ronda(r.name)) + (when ? " · " + esc(when) : "") + '</p>' +
         // Lichess puede anunciar la próxima ronda y enlazar otra ya publicada del mismo torneo.
         ((withLink || cls !== "soon" || linkRound !== r) && linkRound.id
-          ? '<a class="more btn-view" target="_blank" rel="noopener" href="torneo.html?r=' + encodeURIComponent(linkRound.id) + '&t=' + encodeURIComponent(t.name || "") + '">Ver torneo</a>'
+          ? (U.shareCards ? '<div class="card-btns">' : "") +
+            '<a class="more btn-view" target="_blank" rel="noopener" href="torneo.html?r=' + encodeURIComponent(linkRound.id) + '&t=' + encodeURIComponent(t.name || "") + '">Ver torneo</a>' +
+            // «Compartir» (solo en Torneos live, js/compartir.js): imagen de la tarjeta para WhatsApp
+            (U.shareCards ? '<button type="button" class="btn-share" data-share>' +
+              '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.6 13.5 6.8 4M15.4 6.5l-6.8 4"/></svg> Compartir</button></div>' : "")
           : "") +
         '</div></article>';
     },
