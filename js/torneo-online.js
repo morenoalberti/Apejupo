@@ -111,6 +111,13 @@ function systemLabel(t) {
   return `Sistema suizo · ${t.rounds} ${t.rounds === 1 ? 'ronda' : 'rondas'}`;
 }
 function formatLabel(t) { return t.challenge ? (isMatch(t) ? `Match a ${t.rounds} partidas` : 'Reto') : arena(t) ? `Arena de ${duration(t.duration)}` : t.format === 'double-closed' ? 'Round-Robin doble vuelta' : closed(t) ? (t.rounds ? `Round-Robin a ${t.rounds} rondas` : 'Round-Robin: todos contra todos') : `${t.rounds} rondas`; }
+// «Salir del torneo» (pausa) ↔ «Entrar en el torneo» (play): cambian el texto y el icono, no el botón entero
+const PAUSE_ICON = '<rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/>', PLAY_ICON = '<path d="M7 5v14l11-7z"/>';
+function pauseButton(id, paused) {
+  const b = $(id); if (!b) return;
+  b.querySelector('span').textContent = paused ? 'Entrar en el torneo' : 'Salir del torneo';
+  b.querySelector('svg').innerHTML = paused ? PLAY_ICON : PAUSE_ICON;
+}
 // «15 nov, 16:00 h.»
 function date(value) { return new Intl.DateTimeFormat(document.documentElement.lang === 'en' ? 'en-GB' : 'es', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(value) + (document.documentElement.lang === 'en' ? '' : ' h.'); }
 function name(id) { return state?.standings.find(p => p.id === id)?.name || 'Jugador'; }
@@ -321,7 +328,7 @@ function render() {
   // Arena: la fila con «Salir del torneo» también se ve mientras juegas tu partida (la terminas y ya no se te empareja).
   $('to-focus-next').hidden = !focus || (ownActive && !arena(t));
   $('to-focus-pause').hidden = !arena(t);
-  $('to-focus-pause').textContent = mine?.paused ? 'Entrar en el torneo' : 'Salir del torneo';
+  pauseButton('to-focus-pause', mine?.paused);
   $('to-focus-pause').disabled = !connected;
   // «Compartir torneo» no se muestra en juego; cancelado o ya inexistente, se ve desactivado.
   $('to-share').hidden = !!t.challenge || ['playing', 'between'].includes(t.status);
@@ -647,7 +654,7 @@ function renderPresencial() {
   document.body.classList.toggle('to-pz-managing', managing);
   $('to-pz-host').hidden = !managing;
   if (managing) renderRoster(t);
-  $('to-start').textContent = 'Cerrar inscripción y emparejar';
+  $('to-start').querySelector('span').textContent = 'Cerrar inscripción y emparejar';
   $('to-pz-ask').hidden = t.host || !waiting || mine || (t.count >= t.capacity && !t.myRequest);
   $('to-pz-ask-form').hidden = !!t.myRequest && !askChanging;
   $('to-pz-ask-sent').hidden = !t.myRequest || askChanging;
@@ -760,9 +767,9 @@ function renderControls() {
   $('to-cancel').disabled = !connected;
   $('to-presencial-reset').disabled = !connected;
   $('to-host-key').innerHTML = t.joinKey ? `<svg class="to-lock" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>Clave: <strong>${esc(t.joinKey)}</strong>` : 'Sin clave: cualquiera con el enlace puede inscribirse';
-  $('to-key-edit').textContent = t.joinKey ? 'Cambiar clave' : 'Poner clave'; $('to-key-edit').disabled = !connected;
+  $('to-key-edit').querySelector('span').textContent = t.joinKey ? 'Cambiar clave' : 'Poner clave'; $('to-key-edit').disabled = !connected;
   $('to-pause').hidden = !arena(t) || !mine?.active || ended;
-  $('to-pause').textContent = mine?.paused ? 'Entrar en el torneo' : 'Salir del torneo'; $('to-pause').disabled = !connected;
+  pauseButton('to-pause', mine?.paused); $('to-pause').disabled = !connected;
   $('to-withdraw').hidden = !mine?.active || ended; $('to-withdraw-label').textContent = t.status === 'waiting' ? 'Cancelar inscripción' : 'Retirarme del torneo';
   $('to-withdraw').disabled = !connected;
   $('to-join-form').querySelector('button').disabled = !connected;
