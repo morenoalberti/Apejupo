@@ -1,25 +1,33 @@
-// «Compartir» en las tarjetas de Torneos live: se dibuja la tarjeta del torneo como imagen, con un botón «Ver» debajo,
-// para mandarla por WhatsApp. Un botón dentro de una imagen no se puede pulsar, así que el enlace va siempre como texto:
+// «Compartir» en las tarjetas de Torneos live: se dibuja la tarjeta del torneo como imagen (igual que en la web)
+// para mandarla por WhatsApp. El enlace al torneo va siempre como texto, que es lo que se puede pulsar:
 //  · en el móvil se abre el menú de compartir del teléfono con la imagen y el enlace;
 //  · en el ordenador se copia la imagen al portapapeles y se ofrece «Copiar enlace» para pegarlo debajo.
 (function () {
   if (!window.U) return;
   U.shareCards = true; // js/util.js (U.bcCard) añade el botón a las tarjetas
   var LOCAL = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
-  var WORKER = LOCAL ? "http://127.0.0.1:8787" : "https://apejupo-eventos.chessrival-worker.workers.dev";
+  var PROD = "https://apejupo-eventos.chessrival-worker.workers.dev";
+  // En local se prueba primero el Worker del equipo (si está arrancado) y, si no, el publicado
+  var WORKERS = LOCAL ? ["http://127.0.0.1:8787", PROD] : [PROD];
   var FONT = 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
   var C = { bg: "#0B1422", card: "#14233a", line: "#22344f", text: "#E8EEF7", muted: "#93a4bd", blue: "#3B82F6",
     badge: { live: ["#dc2626", "#ffffff"], soon: ["#F59E0B", "#0F1B2D"], done: ["#3a3f4b", "#cfd6e4"] } };
 
   // La foto del torneo está en Lichess, que no deja leerla desde otra web: pasa por nuestro Worker
-  function loadImg(src) {
+  function tryImg(url) {
     return new Promise(function (ok) {
-      if (!src) return ok(null);
-      var im = new Image(); im.crossOrigin = "anonymous";
-      im.onload = function () { ok(im); }; im.onerror = function () { ok(null); };
-      im.src = /^https:\/\/image\.lichess1?\.org\//.test(src) ? WORKER + "/?img=" + encodeURIComponent(src) : src;
-      setTimeout(function () { ok(null); }, 6000); // sin foto antes que dejar esperando
+      var im = new Image(), t = setTimeout(function () { ok(null); }, 5000); // sin foto antes que dejar esperando
+      im.crossOrigin = "anonymous";
+      im.onload = function () { clearTimeout(t); ok(im); }; im.onerror = function () { clearTimeout(t); ok(null); };
+      im.src = url;
     });
+  }
+  function loadImg(src) {
+    if (!src) return Promise.resolve(null);
+    if (!/^https:\/\/image\.lichess1?\.org\//.test(src)) return tryImg(src);
+    var i = 0;
+    function next() { if (i >= WORKERS.length) return null; return tryImg(WORKERS[i++] + "/?img=" + encodeURIComponent(src)).then(function (im) { return im || next(); }); }
+    return next();
   }
   function rr(x, c, y, w, h, r) { x.beginPath(); x.moveTo(c + r, y); x.arcTo(c + w, y, c + w, y + h, r); x.arcTo(c + w, y + h, c, y + h, r); x.arcTo(c, y + h, c, y, r); x.arcTo(c, y, c + w, y, r); x.closePath(); }
   function lines(x, text, max) {
@@ -28,19 +36,18 @@
     if (cur) out.push(cur);
     return out;
   }
-  // Dibujo de la tarjeta: foto, etiqueta, nombre, ronda y el botón «Ver» centrado
+  // Dibujo de la tarjeta, como se ve en la web: foto, etiqueta, nombre y ronda
   function draw(info, img) {
-    var S = 2, W = 600, P = 20, CW = W - 2 * P, PH = img ? Math.round(CW / 2) : 0, pad = 22;
+    var S = 2, W = 560, P = 0, CW = W, PH = img ? Math.round(CW / 2.2) : 0, pad = 22;
     var m = document.createElement("canvas").getContext("2d");
     m.font = "700 26px " + FONT; var tl = lines(m, info.title, CW - 2 * pad);
-    var H = P + PH + pad + 30 + 14 + tl.length * 34 + 8 + 24 + 26 + 52 + 16 + 20 + pad + P;
+    var H = PH + pad + 30 + 14 + tl.length * 34 + 8 + 24 + pad;
     var cv = document.createElement("canvas"); cv.width = W * S; cv.height = H * S;
     var x = cv.getContext("2d"); x.scale(S, S);
-    x.fillStyle = C.bg; x.fillRect(0, 0, W, H);
-    rr(x, P, P, CW, H - 2 * P, 16); x.fillStyle = C.card; x.fill(); x.strokeStyle = C.line; x.lineWidth = 1; x.stroke();
+    rr(x, 0.5, 0.5, W - 1, H - 1, 14); x.fillStyle = C.card; x.fill(); x.strokeStyle = C.line; x.lineWidth = 1; x.stroke();
     var y = P;
     if (img) { // foto recortada como en la web (object-fit: cover)
-      x.save(); rr(x, P, P, CW, H - 2 * P, 16); x.clip();
+      x.save(); rr(x, 0, 0, W, H, 14); x.clip();
       var r = Math.max(CW / img.width, PH / img.height), iw = img.width * r, ih = img.height * r;
       x.drawImage(img, P + (CW - iw) / 2, P + (PH - ih) / 2, iw, ih); x.restore();
       y += PH;
@@ -55,12 +62,6 @@
     tl.forEach(function (l) { y += 34; x.fillText(l, P + pad, y - 8); });
     y += 8;
     x.fillStyle = C.muted; x.font = "400 18px " + FONT; x.fillText(info.meta, P + pad, y + 18, CW - 2 * pad);
-    y += 24 + 26;
-    var vw = 160, vx = (W - vw) / 2; // botón «Ver», centrado
-    rr(x, vx, y, vw, 52, 12); x.fillStyle = C.blue; x.fill();
-    x.fillStyle = "#fff"; x.font = "700 22px " + FONT; x.textAlign = "center"; x.textBaseline = "middle"; x.fillText("Ver", W / 2, y + 27);
-    y += 52 + 16;
-    x.fillStyle = C.muted; x.font = "600 15px " + FONT; x.fillText("apejupo.com", W / 2, y + 10);
     return new Promise(function (ok) { cv.toBlob(ok, "image/png"); });
   }
   function infoOf(card) {
