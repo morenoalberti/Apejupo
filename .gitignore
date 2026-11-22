@@ -8,6 +8,7 @@ build/
 worker/node_modules/
 .dev.vars
 worker/tournaments/node_modules/
+worker/gateway/node_modules/
 worker/tournaments/.wrangler/
 
 # Notas locales con claves: nunca al repositorio
