@@ -14,7 +14,7 @@ function setAccount(token, user) {
 }
 export async function api(action, data = {}, { auth = false } = {}) {
   if (!API) throw new Error('Las cuentas todavía no están disponibles.');
-  const res = await fetch(`${API}/api/cuentas/${action}`, { method: 'POST', headers: { 'Content-Type': 'application/json', ...(auth && session() ? { Authorization: 'Bearer ' + session() } : {}) }, body: JSON.stringify(data), signal: AbortSignal.timeout(15000) });
+  const res = await fetch(`${API}/api/cuentas/${action}`, { method: 'POST', headers: { 'Content-Type': 'application/json', ...(auth && session() ? { Authorization: 'Bearer ' + session() } : {}) }, body: JSON.stringify(data), signal: AbortSignal.timeout(window.APEJUPO_TORNEOS_TIMEOUT || 15000) });
   const body = await res.json().catch(() => ({}));
   if (!res.ok) { const e = new Error(body.error || 'No se pudo completar la operación.'); e.status = res.status; throw e; }
   return body;

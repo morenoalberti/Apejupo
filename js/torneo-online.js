@@ -1,5 +1,5 @@
 import { Chess } from '../assets/chess/chess.js';
-import { session, currentUser, openAuth } from './cuenta.js?v=20261117-admin1';
+import { session, currentUser, openAuth } from './cuenta.js?v=20261122-conexion1';
 import { send as sendReto } from './retos.js?v=20261115-match1';
 import { searchPlayers, findExact, warmUp, birthYears, reportRatings } from './torneo-elo.js?v=20261119-trf1';
 import { createPrizePanel } from './torneo-premios.js?v=20261119-condiciones';
@@ -74,9 +74,26 @@ function setConnection(text, online = false) {
   if (state) { boardKey = ''; renderGame(); renderControls(); }
 }
 async function request(path, { key, ...options } = {}) {
-  const response = await fetch(API + path, { ...options, headers: { ...(options.body ? { 'Content-Type': 'application/json' } : {}), ...(key ? { Authorization: 'Bearer ' + key } : {}) }, signal: AbortSignal.timeout(15000) });
-  if (!response.ok) { const body = await response.json().catch(() => ({})); throw new Error(body.error || 'No se pudo completar la operación.'); }
-  return response;
+  const timeout = window.APEJUPO_TORNEOS_TIMEOUT || 15000, deadline = Date.now() + timeout;
+  // Solo se repite la lectura del listado. Nunca se repiten automáticamente altas,
+  // inscripciones ni otras acciones que podrían haberse guardado ya en el servidor.
+  const starting = path === '/api/tournaments' && (!options.method || options.method === 'GET') && timeout > 15000;
+  const pause = () => new Promise(resolve => setTimeout(resolve, 1500));
+  for (;;) {
+    let response;
+    try {
+      response = await fetch(API + path, { ...options, headers: { ...(options.body ? { 'Content-Type': 'application/json' } : {}), ...(key ? { Authorization: 'Bearer ' + key } : {}) }, signal: AbortSignal.timeout(Math.max(1, deadline - Date.now())) });
+    } catch (error) {
+      if (!starting || deadline - Date.now() <= 1500) throw error;
+      await pause(); continue;
+    }
+    // Durante el arranque Render puede responder con una página HTML o un 503.
+    if (starting && ([502, 503, 504].includes(response.status) || response.ok && !response.headers.get('content-type')?.includes('application/json')) && deadline - Date.now() > 1500) {
+      await response.body?.cancel(); await pause(); continue;
+    }
+    if (!response.ok) { const body = await response.json().catch(() => ({})); throw new Error(body.error || 'No se pudo completar la operación.'); }
+    return response;
+  }
 }
 const arena = t => t?.format === 'arena';
 const arenaClosing = (t, now = Date.now() + offset) => arena(t) && t.status === 'playing' && now >= t.endsAt;
@@ -168,6 +185,9 @@ async function loadLobby() {
     $('to-create-open').disabled = true; $('to-refresh').disabled = true; return;
   }
   $('to-refresh').disabled = true;
+  if (!lobby.size && (window.APEJUPO_TORNEOS_TIMEOUT || 0) > 15000) {
+    $('to-events').innerHTML = '<div class="to-empty"><strong>Conectando con los torneos…</strong>La primera conexión puede tardar alrededor de un minuto.</div>';
+  }
   try {
     const [data, admin] = await Promise.all([request('/api/tournaments', { key: session() }).then(res => res.json()), checkTournamentAdmin()]);
     const { tournaments, keyRequired } = data;

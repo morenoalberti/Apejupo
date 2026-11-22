@@ -1,4 +1,4 @@
-import { api, session, openAuth, refresh } from './cuenta.js?v=20261117-admin1';
+import { api, session, openAuth, refresh } from './cuenta.js?v=20261122-conexion1';
 
 const button = document.getElementById('base-datos-button');
 const dialog = document.getElementById('base-datos-dialog');
