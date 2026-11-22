@@ -82,7 +82,7 @@
 
   function parseGame(txt) {
     var g = { tags: {}, san: [], clk: [], over: false };
-    txt.replace(/^\[(\w+) "([^"]*)"\]/gm, function (_, k, v) { g.tags[k] = k === "White" || k === "Black" ? U.enie(v) : v; return ""; });
+    txt.replace(/^\[(\w+) "([^"]*)"\]/gm, function (_, k, v) { g.tags[k] = k === "White" || k === "Black" ? fixName(v) : v; return ""; });
     var body = txt.replace(/^\[.*\]\s*$/gm, "");
     var re = /(\{[^}]*\})|(\d+\.(?:\.\.)?)|(1-0|0-1|1\/2-1\/2|\*)|([^\s{}]+)/g, m;
     while ((m = re.exec(body))) {
@@ -938,20 +938,27 @@
       return r.json();
     }).then(function (data) {
       if (!Array.isArray(data)) throw new Error("Lista de jugadores no válida");
-      data.forEach(function (p) { if (p && p.name) p.name = U.enie(p.name); }); // con Ñ, igual que en las partidas
+      // Con Ñ y, si es de una federación de habla hispana, con tildes. Se apunta para corregir igual el nombre de sus partidas.
+      data.forEach(function (p) { if (!p || !p.name) return; var e = U.enie(p.name); p.name = U.nombre(p.name, p.fed); if (p.name !== e) accName[e] = p.name; });
       playersCache[id] = { at: Date.now(), data: data };
       delete playersPending[id];
       return data;
     }).catch(function (error) { delete playersPending[id]; throw error; });
     return playersPending[id];
   }
+  // Nombre con Ñ → nombre con tildes. Sale de la lista de jugadores del torneo, que es la que trae la federación.
+  var accName = {};
+  function fixName(n) { n = U.enie(n); return accName[n] || n; }
   function loadFeds() {
     if (!tourId || fedFor === tourId) return;
     var tid = fedFor = tourId;
     tournamentPlayers(tid).then(function (ps) {
       if (tid !== tourId) return;
       ps.forEach(function (p) { if (p.fed) { if (p.fideId) fedBy.id[p.fideId] = p.fed; fedBy.name[p.name] = p.fed; } });
-      if (order.length) refresh();
+      // Las partidas ya cargadas reciben ahora las tildes de sus jugadores
+      Object.keys(games).forEach(function (k) { var t = games[k].tags; t.White = fixName(t.White); t.Black = fixName(t.Black); });
+      Array.prototype.forEach.call(sel.options, function (o) { if (games[o.value]) o.textContent = optLabel(games[o.value]); });
+      if (order.length) { more.removeAttribute("data-k"); refresh(); gpickSync(); }
     }).catch(function () { fedFor = null; });
   }
   // Si falta la bandera en assets/flags se prueba flagcdn.com; si tampoco está, se quita
@@ -1395,8 +1402,8 @@
           var wt = tag("WhiteTeam"), bt = tag("BlackTeam"); if (!wt || !bt) return;
           var key = [wt, bt].sort().join("|"), M = matches[key] || (matches[key] = { a: wt, b: bt, pa: 0, pb: 0, open: 0 });
           var sc = { "1-0": [1, 0], "0-1": [0, 1], "1/2-1/2": [.5, .5] }[tag("Result")], bd = +((/\.(\d+)$/.exec(tag("Round")) || [])[1] || 0);
-          player(wt, U.enie(tag("White")), tag("WhiteTitle"), tag("WhiteElo"), bd, sc ? sc[0] : null);
-          player(bt, U.enie(tag("Black")), tag("BlackTitle"), tag("BlackElo"), bd, sc ? sc[1] : null);
+          player(wt, fixName(tag("White")), tag("WhiteTitle"), tag("WhiteElo"), bd, sc ? sc[0] : null);
+          player(bt, fixName(tag("Black")), tag("BlackTitle"), tag("BlackElo"), bd, sc ? sc[1] : null);
           if (!sc) { M.open++; return; }
           var home = wt === M.a; M.pa += home ? sc[0] : sc[1]; M.pb += home ? sc[1] : sc[0];
         });
@@ -1462,7 +1469,7 @@
           var w = /\[White "([^"]*)"\]/.exec(g), b = /\[Black "([^"]*)"\]/.exec(g), res = /\[Result "([^"]*)"\]/.exec(g);
           if (!w || !b || !res) return;
           var a = ({ "1-0": [1, 0], "0-1": [0, 1], "1/2-1/2": [0.5, 0.5] })[res[1]]; if (!a) return;
-          pts[U.enie(w[1])] = (pts[U.enie(w[1])] || 0) + a[0]; pts[U.enie(b[1])] = (pts[U.enie(b[1])] || 0) + a[1];
+          pts[fixName(w[1])] = (pts[fixName(w[1])] || 0) + a[0]; pts[fixName(b[1])] = (pts[fixName(b[1])] || 0) + a[1];
         });
         ps.forEach(function (p) { p.score = pts[p.name] || 0; });
         ps.sort(function (a, b) { return b.score - a.score || (b.rating || 0) - (a.rating || 0); });
@@ -1764,7 +1771,7 @@
       var c = plCache[id];
       if (c && Date.now() - c.at < 10 * 60 * 1000) return Promise.resolve(c.data);
       return fetch("https://apejupo-eventos.chessrival-worker.workers.dev/?players=" + encodeURIComponent(id)).then(function (r) { return r.ok ? r.json() : []; })
-        .then(function (d) { d = Array.isArray(d) ? d : []; d.forEach(function (p) { if (p && p.name) p.name = U.enie(p.name); }); plCache[id] = { at: Date.now(), data: d }; return d; }).catch(function () { return []; });
+        .then(function (d) { d = Array.isArray(d) ? d : []; d.forEach(function (p) { if (p && p.name) p.name = U.nombre(p.name, p.fed); }); plCache[id] = { at: Date.now(), data: d }; return d; }).catch(function () { return []; });
     }
     // Sin tildes ni mayúsculas, y sin importar el orden: «magnus carlsen» encuentra «Carlsen, Magnus»
     function norm(x) { return (x || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase(); }
