@@ -1396,12 +1396,11 @@
         var med = function (p) { return p.boards.length ? p.boards.reduce(function (a, b) { return a + b; }, 0) / p.boards.length : 99; };
         var pls = Object.keys(t.pl).map(function (n) { return t.pl[n]; }).sort(function (a, b) { return med(a) - med(b) || b.elo - a.elo; });
         if (pls.length) h += '<tr class="tm-pl"><td></td><td colspan="7">' + pls.map(function (p) {
-          return '<span>' + (p.title ? '<em class="ttl">' + esc(p.title) + "</em> " : "") + esc(p.name) + (p.elo ? " <small>" + p.elo + "</small>" : "") +
-            ' <b>' + fmtPts(p.pts) + "/" + p.n + "</b></span>";
+          return "<span>" + esc(p.name) + "</span>";
         }).join('<i class="sr-only"> · </i>') + "</td></tr>";
       });
       openPanel(standTitle(), h + "</table>" +
-        '<p class="lv-ffoot">Pts: 2 por encuentro ganado y 1 por empate. Tab.: puntos de tablero (primer desempate). Bajo cada equipo, sus jugadores con los puntos que llevan / partidas jugadas.</p>' +
+        '<p class="lv-ffoot">Pts: 2 por encuentro ganado y 1 por empate. Tab.: puntos de tablero (primer desempate).</p>' +
         (ts.enJuego ? '<p class="lv-ffoot">Los encuentros en juego (' + ts.enJuego + ") solo suman, de momento, sus puntos de tablero.</p>" : "") +
         '<p class="lv-ffoot">Calculada con las partidas retransmitidas en Lichess.</p>', true);
     }).catch(function () { openPanel(standTitle(), '<p class="muted" style="padding:16px">No se ha podido calcular la clasificación por equipos. Vuelve a intentarlo en unos instantes.</p>'); });
