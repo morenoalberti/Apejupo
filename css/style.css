@@ -1102,6 +1102,11 @@ body.card-dragging .tour-tip { display: none !important; }
 .lv-ptab.stand .c-s { width: 52px; } .lv-ptab.stand .c-g { width: 52px; } .lv-ptab.stand .c-r { width: 60px; }
 .lv-ptab.stand td { padding: 7px 6px; }
 .lv-ptab.stand.team .c-k { width: 48px; }
+.lv-ptab.stand.team tr:has(+ .tm-pl) td { border-bottom: 0; padding-bottom: 2px; }
+.lv-ptab.stand.team .tm-pl td { text-align: left; padding: 0 6px 10px; font-size: .78rem; color: #9fb0c8; white-space: normal; }
+.lv-ptab.stand.team .tm-pl span { display: inline-block; margin: 2px 14px 2px 0; white-space: nowrap; }
+.lv-ptab.stand.team .tm-pl small { color: #7f8ea6; }
+.lv-ptab.stand.team .tm-pl b { color: #dbe4f0; font-weight: 600; margin-left: 2px; }
 @media (max-width: 560px) { .lv-ptab.stand.team .c-n { width: 30px; } .lv-ptab.stand.team .c-k { width: 34px; } }
 .lv-ptab.stand td.l { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .lv-ptab.stand td.fd { text-align: left; white-space: nowrap; color: #9fb0c8; font-size: .82rem; }

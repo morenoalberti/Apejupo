@@ -1318,14 +1318,23 @@
     });
     return chain.then(function (rs) {
       var teams = {}, enJuego = 0;
-      function team(n) { return teams[n] || (teams[n] = { name: n, mp: 0, bp: 0, w: 0, d: 0, l: 0, n: 0 }); }
+      function team(n) { return teams[n] || (teams[n] = { name: n, mp: 0, bp: 0, w: 0, d: 0, l: 0, n: 0, pl: {} }); }
+      // Jugadores de cada equipo: título, ELO, tableros en los que han jugado y sus puntos
+      function player(tn, nm, ti, el, bd, pts) {
+        if (!nm) return;
+        var T = team(tn), P = T.pl[nm] || (T.pl[nm] = { name: nm, title: "", elo: 0, boards: [], pts: 0, n: 0 });
+        if (ti) P.title = ti; if (+el) P.elo = +el; if (bd) P.boards.push(bd);
+        if (pts != null) { P.pts += pts; P.n++; }
+      }
       rs.forEach(function (x) {
         var matches = {};
         x.t.split(/\n\s*\n(?=\[Event )/).forEach(function (g) {
           var tag = function (n) { var m = new RegExp("\\[" + n + ' "([^"]*)"\\]').exec(g); return m ? m[1] : ""; };
           var wt = tag("WhiteTeam"), bt = tag("BlackTeam"); if (!wt || !bt) return;
           var key = [wt, bt].sort().join("|"), M = matches[key] || (matches[key] = { a: wt, b: bt, pa: 0, pb: 0, open: 0 });
-          var sc = { "1-0": [1, 0], "0-1": [0, 1], "1/2-1/2": [.5, .5] }[tag("Result")];
+          var sc = { "1-0": [1, 0], "0-1": [0, 1], "1/2-1/2": [.5, .5] }[tag("Result")], bd = +((/\.(\d+)$/.exec(tag("Round")) || [])[1] || 0);
+          player(wt, tag("White"), tag("WhiteTitle"), tag("WhiteElo"), bd, sc ? sc[0] : null);
+          player(bt, tag("Black"), tag("BlackTitle"), tag("BlackElo"), bd, sc ? sc[1] : null);
           if (!sc) { M.open++; return; }
           var home = wt === M.a; M.pa += home ? sc[0] : sc[1]; M.pb += home ? sc[1] : sc[0];
         });
@@ -1351,9 +1360,16 @@
       ts.forEach(function (t, i) {
         var pos = i && ts[i - 1].mp === t.mp && ts[i - 1].bp === t.bp ? "" : i + 1;
         h += "<tr><td>" + pos + '</td><td class="l">' + esc(t.name) + "</td><td>" + t.n + "</td><td>" + t.w + "</td><td>" + t.d + "</td><td>" + t.l + "</td><td><b>" + t.mp + "</b></td><td>" + fmtPts(t.bp) + "</td></tr>";
+        // Debajo del equipo, sus jugadores por orden de tablero (el tablero medio en el que han jugado)
+        var med = function (p) { return p.boards.length ? p.boards.reduce(function (a, b) { return a + b; }, 0) / p.boards.length : 99; };
+        var pls = Object.keys(t.pl).map(function (n) { return t.pl[n]; }).sort(function (a, b) { return med(a) - med(b) || b.elo - a.elo; });
+        if (pls.length) h += '<tr class="tm-pl"><td></td><td colspan="7">' + pls.map(function (p) {
+          return '<span>' + (p.title ? '<em class="ttl">' + esc(p.title) + "</em> " : "") + esc(p.name) + (p.elo ? " <small>" + p.elo + "</small>" : "") +
+            ' <b>' + fmtPts(p.pts) + "/" + p.n + "</b></span>";
+        }).join('<i class="sr-only"> · </i>') + "</td></tr>";
       });
       openPanel(standTitle(), h + "</table>" +
-        '<p class="lv-ffoot">Pts: 2 por encuentro ganado y 1 por empate. Tab.: puntos de tablero (primer desempate).</p>' +
+        '<p class="lv-ffoot">Pts: 2 por encuentro ganado y 1 por empate. Tab.: puntos de tablero (primer desempate). Bajo cada equipo, sus jugadores con los puntos que llevan / partidas jugadas.</p>' +
         (ts.enJuego ? '<p class="lv-ffoot">Los encuentros en juego (' + ts.enJuego + ") solo suman, de momento, sus puntos de tablero.</p>" : "") +
         '<p class="lv-ffoot">Calculada con las partidas retransmitidas en Lichess.</p>', true);
     }).catch(function () { openPanel(standTitle(), '<p class="muted" style="padding:16px">No se ha podido calcular la clasificación por equipos. Vuelve a intentarlo en unos instantes.</p>'); });
