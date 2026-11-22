@@ -1225,8 +1225,22 @@
     if (rcache[r.id] != null) return Promise.resolve(rcache[r.id]);
     return fetch("https://lichess.org/api/broadcast/round/" + encodeURIComponent(r.id) + ".pgn").then(function (x) {
       if (x.status === 429 && n < 4) return new Promise(function (ok) { setTimeout(ok, 1500 * (n + 1)); }).then(function () { return roundTxt(r, n + 1); });
-      return x.ok ? x.text().then(function (t) { if (r.finished) rcache[r.id] = t; return t; }) : "";
+      return x.ok ? x.text().then(function (t) { if (r.finished) { rcache[r.id] = t; saveTags(r, t); } return t; }) : "";
     }).catch(function () { return ""; });
+  }
+  // Para la clasificación por equipos basta con las etiquetas de cada partida (sin las jugadas). Las de las rondas
+  // terminadas se guardan en el navegador: no cambian, y así la clasificación no espera a Lichess, que limita las peticiones.
+  var TAGS = ["WhiteFideId", "BlackFideId", "Round", "White", "Black", "WhiteTeam", "BlackTeam", "Result", "WhiteTitle", "BlackTitle", "WhiteElo", "BlackElo"];
+  function tagsOnly(t) {
+    return (t || "").split(/\n\s*\n(?=\[Event )/).map(function (g) {
+      return '[Event "-"]\n' + g.split("\n").filter(function (l) { var m = /^\[(\w+) "/.exec(l); return m && TAGS.indexOf(m[1]) >= 0; }).join("\n");
+    }).join("\n\n");
+  }
+  function saveTags(r, t) { if (t) try { localStorage.setItem("apejupoTags" + r.id, tagsOnly(t)); } catch (_) {} }
+  function roundTags(r) {
+    if (r.finished) { var v = null; try { v = localStorage.getItem("apejupoTags" + r.id); } catch (_) {} if (v) return Promise.resolve(v); }
+    if (rcache[r.id] != null) return Promise.resolve(rcache[r.id]);
+    return roundTxt(r, 0);
   }
   function prefetchRounds() {
     var c = Promise.resolve();
@@ -1342,13 +1356,27 @@
     var done = tourRounds.filter(function (r) { return r.finished || r.ongoing; });
     if (!done.some(function (r) { return r.id === roundId; }) && order.length) done.push({ id: roundId });
     var chain = Promise.all(done.map(function (r) {
-      if (r.id === roundId && order.length) return Promise.resolve({ r: r, t: order.map(function (id) {
+      if (r.id !== roundId || !order.length) {
+        var v = null; if (r.finished) try { v = localStorage.getItem("apejupoTags" + r.id); } catch (_) {}
+        return v ? { r: r, t: v } : (rcache[r.id] != null ? { r: r, t: rcache[r.id] } : null);
+      }
+      return Promise.resolve({ r: r, t: order.map(function (id) {
         var g = games[id]; if (!g) return "";
         var t = Object.assign({}, g.tags); if (!g.over) t.Result = "*";
         return '[Event "-"]\n' + Object.keys(t).map(function (k) { return "[" + k + ' "' + String(t[k]).replace(/"/g, "'") + '"]'; }).join("\n");
       }).join("\n\n") });
-      return roundTxt(r, 0).then(function (t) { return { r: r, t: t }; });
-    }));
+    })).then(function (rs) {
+      // Las rondas que no están en el navegador se piden de una en una: si se piden a la vez, Lichess contesta «demasiadas peticiones»
+      var c = Promise.resolve(), k = 0, falta = rs.filter(function (x) { return !x; }).length;
+      done.forEach(function (r, i) {
+        if (rs[i]) return;
+        c = c.then(function () { return roundTags(r); }).then(function (t) {
+          rs[i] = { r: r, t: t }; k++;
+          var el = fbox.querySelector("p.muted"); if (el && falta > 1) el.textContent = "Cargando clasificación… (" + k + "/" + falta + ")";
+        });
+      });
+      return c.then(function () { return rs; });
+    });
     return chain.then(function (rs) {
       var teams = {}, enJuego = 0;
       function team(n) { return teams[n] || (teams[n] = { name: n, mp: 0, bp: 0, w: 0, d: 0, l: 0, n: 0, pl: {} }); }
@@ -1398,7 +1426,7 @@
         var pls = Object.keys(t.pl).map(function (n) { return t.pl[n]; }).sort(function (a, b) { return med(a) - med(b) || b.elo - a.elo; });
         // Cada jugador, en su propia fila y con las mismas columnas: partidas, ganadas, tablas, perdidas y su total de puntos (en «Pts»)
         pls.forEach(function (p, j) {
-          h += '<tr class="tm-pl' + (j === pls.length - 1 ? " last" : "") + '"><td></td><td class="l">' + (p.title ? '<em class="ttl">' + esc(p.title) + "</em> " : "") + esc(p.name) + (p.elo ? " <small>" + p.elo + "</small>" : "") +
+          h += '<tr class="tm-pl' + (j === pls.length - 1 ? " last" : "") + '"><td></td><td class="l">' + flag(fedBy.name[p.name]) + (p.title ? '<em class="ttl">' + esc(p.title) + "</em> " : "") + esc(p.name) + (p.elo ? " <small>" + p.elo + "</small>" : "") +
             "</td><td>" + p.n + "</td><td>" + p.w + "</td><td>" + p.d + "</td><td>" + p.l + "</td><td><b>" + fmtPts(p.pts) + "</b></td><td></td></tr>";
         });
       });
