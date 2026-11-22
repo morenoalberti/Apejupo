@@ -1396,7 +1396,7 @@
         var med = function (p) { return p.boards.length ? p.boards.reduce(function (a, b) { return a + b; }, 0) / p.boards.length : 99; };
         var pls = Object.keys(t.pl).map(function (n) { return t.pl[n]; }).sort(function (a, b) { return med(a) - med(b) || b.elo - a.elo; });
         if (pls.length) h += '<tr class="tm-pl"><td></td><td colspan="7">' + pls.map(function (p) {
-          return "<span>" + (p.title ? '<em class="ttl">' + esc(p.title) + "</em> " : "") + esc(p.name) + "</span>";
+          return "<span>" + (p.title ? '<em class="ttl">' + esc(p.title) + "</em> " : "") + esc(p.name) + (p.elo ? " <small>" + p.elo + "</small>" : "") + "</span>";
         }).join('<i class="sr-only"> · </i>') + "</td></tr>";
       });
       openPanel(standTitle(), h + "</table>" +
