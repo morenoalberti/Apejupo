@@ -133,11 +133,8 @@
     else if (busy || !loaded) text = "Consultando la retransmisión del torneo…";
     else if (current.active) text = "En directo · " + ({ youtube: "YouTube", twitch: "Twitch", kick: "Kick" }[current.active.type]);
     else if (current.next) text = "Próxima emisión con comentaristas: " + madrid(current.next.event.start) + " · hora de Madrid";
-    else {
-      var start = context.round && context.round.startsAt;
-      text = failed ? "No se ha podido consultar la emisión." : "Sin emisión en directo confirmada para este torneo.";
-      text += typeof start === "number" && start > 0 ? " " + U.roundStartLabel(context.round.name) + " " + madrid(start) + " · Madrid" : " Horario de comienzo por confirmar.";
-    }
+    // La hora de inicio de la ronda ya sale en la cabecera del torneo: aquí no se repite.
+    else text = failed ? "No se ha podido consultar la emisión." : "Sin emisión en directo confirmada para este torneo.";
     status.classList.toggle("is-live", !!current.active && !busy);
     if (lastStatusText !== text) { status.textContent = text; lastStatusText = text; }
   }
