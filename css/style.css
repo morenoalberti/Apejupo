@@ -1548,6 +1548,8 @@ body.card-dragging .tour-tip { display: none !important; }
 
 /* Combo «Añadir» de la retransmisión: lista propia con bandera y título de cada jugador */
 .lv-pick { position: relative; flex: 0 1 460px; min-width: 0; }
+.lv-controls #viewer-gpick { flex: 1 1 100%; max-width: 100%; }
+#viewer-gpick .lv-pick-l { max-height: min(55vh, 460px); }
 .lv-pick-b { display: flex; align-items: center; gap: 8px; width: 100%; padding: 6px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--text); font: inherit; font-size: .9rem; text-align: left; cursor: pointer; }
 .lv-pick-b > span { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .lv-pick-b > svg { flex: none; opacity: .7; }
@@ -1562,7 +1564,7 @@ body.card-dragging .tour-tip { display: none !important; }
 .lv-pick .lv-flag { flex: none; width: 20px; height: 14px; object-fit: cover; margin-right: 5px; vertical-align: -2px; }
 .lv-pick-tt { flex: none; font-style: normal; font-weight: 700; color: var(--amber, #f59e0b); margin-right: 4px; font-size: .82em; }
 .lv-pick-r { display: flex; align-items: center; justify-content: center; text-align: center; white-space: nowrap; font-weight: 700; }
-#viewer-pick-t:has(.lv-pick-p) { display: grid; grid-template-columns: minmax(0, 1fr) 44px minmax(0, 1fr); align-items: center; gap: 6px; }
+#viewer-pick-t:has(.lv-pick-p), #viewer-gpick-t:has(.lv-pick-p) { display: grid; grid-template-columns: minmax(0, 1fr) 44px minmax(0, 1fr); align-items: center; gap: 6px; }
 @media (max-width: 760px) { .lv-pick, .live-tournament .lv-pick { flex: 1 1 100%; } }
 
 /* Emparejamientos: encabezado de cada ronda / encuentro por equipos */

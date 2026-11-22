@@ -125,6 +125,7 @@
         sel.value = curId;
       }
       Array.prototype.forEach.call(sel.options, function (o) { if (games[o.value]) o.textContent = optLabel(games[o.value]); });
+      gpickSync();
       refresh();
       if (ended.length) notifyEnd(ended);
     });
@@ -644,7 +645,7 @@
     openBig(b.getAttribute("data-g"));
   });
   function openBig(id) {
-    curId = id; sel.value = id; follow = true; ply = -1; vari = null; listKey = ""; anFen = "";
+    curId = id; sel.value = id; gpickSync(); follow = true; ply = -1; vari = null; listKey = ""; anFen = "";
     viewer.style.left = viewer.style.top = viewer.style.transform = ""; // vuelve al centro
     $("lv-backdrop").hidden = false; viewer.hidden = false;
     render(); renderGrid();
@@ -675,6 +676,37 @@
   })();
 
   sel.addEventListener("change", function () { curId = sel.value; follow = true; ply = -1; vari = null; listKey = ""; render(); renderGrid(); });
+  // El desplegable del tablero grande es la misma lista propia que la de «Añadir» (banderas, títulos y resultado en el centro).
+  // El <select> oculto sigue guardando la partida elegida.
+  var gpB = $("viewer-gpick-b"), gpL = $("viewer-gpick-l"), gpKey = "";
+  function gpickSync() {
+    var key = order.map(function (id) { return games[id] ? id + pickHtml(games[id]) : ""; }).join("|");
+    if (key !== gpKey) {
+      gpKey = key;
+      gpL.innerHTML = order.filter(function (id) { return games[id]; }).map(function (id) { return '<button type="button" role="option" data-id="' + esc(id) + '">' + pickHtml(games[id]) + "</button>"; }).join("");
+    }
+    var g = games[sel.value];
+    $("viewer-gpick-t").innerHTML = g ? pickHtml(g) : '<span class="muted">Sin partidas todavía</span>';
+    Array.prototype.forEach.call(gpL.children, function (o) { o.setAttribute("aria-selected", String(o.getAttribute("data-id") === sel.value)); });
+    gpB.disabled = !order.length;
+  }
+  function gpickOpen(o) {
+    gpL.hidden = !o; gpB.setAttribute("aria-expanded", String(o));
+    if (o) { var cur = gpL.querySelector('[aria-selected="true"]') || gpL.firstElementChild; if (cur) { cur.scrollIntoView({ block: "nearest" }); cur.focus({ preventScroll: true }); } }
+  }
+  gpB.addEventListener("click", function (e) { e.stopPropagation(); if (!gpB.disabled) gpickOpen(gpL.hidden); });
+  gpL.addEventListener("click", function (e) {
+    var o = e.target.closest("[data-id]"); if (!o) return;
+    gpickOpen(false); gpB.focus();
+    if (o.getAttribute("data-id") === sel.value) return;
+    sel.value = o.getAttribute("data-id"); gpickSync(); sel.dispatchEvent(new Event("change"));
+  });
+  gpL.addEventListener("keydown", function (e) {
+    var items = Array.prototype.slice.call(gpL.children), i = items.indexOf(document.activeElement);
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") { e.preventDefault(); e.stopPropagation(); var n = items[Math.max(0, Math.min(items.length - 1, i + (e.key === "ArrowDown" ? 1 : -1)))]; if (n) n.focus(); }
+    if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); gpickOpen(false); gpB.focus(); }
+  });
+  document.addEventListener("click", function (e) { if (!gpL.hidden && !$("viewer-gpick").contains(e.target)) gpickOpen(false); });
   $("lv-moves").addEventListener("click", function (e) {
     var t = e.target.closest("[data-p],[data-v],[data-vt]"), g = games[curId]; if (!t || !g) return;
     if (t.getAttribute("data-vt")) { vari.collapsed = !vari.collapsed; render(); return; }
