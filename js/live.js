@@ -1355,9 +1355,9 @@
       // Jugadores de cada equipo: título, ELO, tableros en los que han jugado y sus puntos
       function player(tn, nm, ti, el, bd, pts) {
         if (!nm) return;
-        var T = team(tn), P = T.pl[nm] || (T.pl[nm] = { name: nm, title: "", elo: 0, boards: [], pts: 0, n: 0 });
+        var T = team(tn), P = T.pl[nm] || (T.pl[nm] = { name: nm, title: "", elo: 0, boards: [], pts: 0, n: 0, w: 0, d: 0, l: 0 });
         if (ti) P.title = ti; if (+el) P.elo = +el; if (bd) P.boards.push(bd);
-        if (pts != null) { P.pts += pts; P.n++; }
+        if (pts != null) { P.pts += pts; P.n++; if (pts === 1) P.w++; else if (pts) P.d++; else P.l++; }
       }
       rs.forEach(function (x) {
         var matches = {};
@@ -1396,12 +1396,14 @@
         // Debajo del equipo, sus jugadores por orden de tablero (el tablero medio en el que han jugado)
         var med = function (p) { return p.boards.length ? p.boards.reduce(function (a, b) { return a + b; }, 0) / p.boards.length : 99; };
         var pls = Object.keys(t.pl).map(function (n) { return t.pl[n]; }).sort(function (a, b) { return med(a) - med(b) || b.elo - a.elo; });
-        if (pls.length) h += '<tr class="tm-pl"><td></td><td colspan="7"><ul>' + pls.map(function (p) {
-          return "<li>" + (p.title ? '<em class="ttl">' + esc(p.title) + "</em> " : "") + esc(p.name) + (p.elo ? " <small>" + p.elo + "</small>" : "") + "</li>";
-        }).join("") + "</ul></td></tr>";
+        // Cada jugador, en su propia fila y con las mismas columnas: partidas, ganadas, tablas, perdidas y sus puntos (en «Tab.»)
+        pls.forEach(function (p, j) {
+          h += '<tr class="tm-pl' + (j === pls.length - 1 ? " last" : "") + '"><td></td><td class="l">' + (p.title ? '<em class="ttl">' + esc(p.title) + "</em> " : "") + esc(p.name) + (p.elo ? " <small>" + p.elo + "</small>" : "") +
+            "</td><td>" + p.n + "</td><td>" + p.w + "</td><td>" + p.d + "</td><td>" + p.l + "</td><td></td><td>" + fmtPts(p.pts) + "</td></tr>";
+        });
       });
       openPanel(standTitle(), h + "</table>" +
-        '<p class="lv-ffoot">Pts: 2 por encuentro ganado y 1 por empate. Tab.: puntos de tablero (primer desempate).</p>' +
+        '<p class="lv-ffoot">Pts: 2 por encuentro ganado y 1 por empate. Tab.: puntos de tablero (primer desempate). En cada jugador: partidas jugadas, ganadas, tablas, perdidas y sus puntos.</p>' +
         (ts.enJuego ? '<p class="lv-ffoot">Los encuentros en juego (' + ts.enJuego + ") solo suman, de momento, sus puntos de tablero.</p>" : "") +
         '<p class="lv-ffoot">Calculada con las partidas retransmitidas en Lichess.</p>', true);
     }).catch(function () { openPanel(standTitle(), '<p class="muted" style="padding:16px">No se ha podido calcular la clasificación por equipos. Vuelve a intentarlo en unos instantes.</p>'); });
