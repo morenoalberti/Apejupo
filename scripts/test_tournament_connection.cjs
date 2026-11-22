@@ -1,5 +1,6 @@
 // Usa los archivos locales bajo el origen de la web para comprobar CORS real con Render.
 // No crea cuentas, torneos ni jugadores y bloquea las escrituras durante la prueba.
+// Requiere al menos un torneo público disponible; no depende de nombres ni de un número fijo.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -43,10 +44,10 @@ const origin = 'https://apejupo.com', api = 'https://apejupo-conexion.onrender.c
       await page.goto(origin + '/jugar-torneo.html', { waitUntil: 'domcontentloaded' });
       await page.waitForFunction(() => document.getElementById('to-events').textContent.includes('Conectando'));
       await page.locator('.to-event').first().waitFor({ state: 'visible', timeout: 30000 });
-      assert.equal(await page.locator('.to-event').count(), 2);
+      assert.ok(await page.locator('.to-event').count() > 0);
       assert.equal(listingRequests, 3); assert.equal(oldServerRequests, 0);
-      assert.match(await page.locator('#to-events').innerText(), /Abierto Apejupo/);
-      assert.match(await page.locator('#to-events').innerText(), /Abierto Apejupillo/);
+      const firstTitle = await page.locator('.to-event h3').first().innerText();
+      assert.ok(firstTitle.trim());
       // Las escrituras fallidas no se repiten, aunque el listado sí espere al arranque.
       const failure = await page.evaluate(async () => {
         const account = await import('./js/cuenta.js?v=20261122-conexion1');
@@ -57,7 +58,7 @@ const origin = 'https://apejupo.com', api = 'https://apejupo-conexion.onrender.c
       await page.screenshot({ path: path.join(root, `build/torneos-conexion-qa/listado-${width}.png`) });
       const room = await page.locator('.to-event-actions a').first().getAttribute('href');
       await page.goto(origin + '/' + room, { waitUntil: 'domcontentloaded' });
-      await page.waitForFunction(() => document.getElementById('to-title').textContent.includes('Abierto Apejupo'), { timeout: 30000 });
+      await page.waitForFunction(expected => document.getElementById('to-title').textContent.includes(expected), firstTitle, { timeout: 30000 });
       assert.ok(states > 0, 'La sala debe recibir el estado por WebSocket');
       assert.equal(oldServerRequests, 0); assert.deepEqual(errors, []);
       await context.close();
