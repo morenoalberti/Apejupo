@@ -1101,6 +1101,8 @@ body.card-dragging .tour-tip { display: none !important; }
 .lv-ptab.stand .c-n { width: 40px; } .lv-ptab.stand .c-f { width: 92px; } .lv-ptab.stand .c-e { width: 60px; }
 .lv-ptab.stand .c-s { width: 52px; } .lv-ptab.stand .c-g { width: 52px; } .lv-ptab.stand .c-r { width: 60px; }
 .lv-ptab.stand td { padding: 7px 6px; }
+.lv-ptab.stand.team .c-k { width: 48px; }
+@media (max-width: 560px) { .lv-ptab.stand.team .c-n { width: 30px; } .lv-ptab.stand.team .c-k { width: 34px; } }
 .lv-ptab.stand td.l { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .lv-ptab.stand td.fd { text-align: left; white-space: nowrap; color: #9fb0c8; font-size: .82rem; }
 .lv-ptab.stand td.fd .lv-flag { width: 22px; height: 15px; margin-right: 6px; vertical-align: -3px; }

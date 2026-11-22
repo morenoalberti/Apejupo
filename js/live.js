@@ -1300,9 +1300,68 @@
     fbox.scrollTop = 0;
   }
   function fmtPts(x) { var f = Math.floor(x), h = x - f > 0; return h ? (f ? f : "") + "½" : String(f); }
+  // Torneo por equipos: las partidas de la ronda llevan las etiquetas WhiteTeam y BlackTeam
+  function teamTour() {
+    return order.some(function (id) { var g = games[id]; return g && g.tags.WhiteTeam && g.tags.BlackTeam; });
+  }
+  // Clasificación por equipos: 2 puntos por encuentro ganado, 1 por empate; desempata la suma de puntos de tablero
+  function teamStandings() {
+    var done = tourRounds.filter(function (r) { return r.finished || r.ongoing; }), k = 0, chain = Promise.resolve([]);
+    done.forEach(function (r) {
+      chain = chain.then(function (acc) {
+        return roundTxt(r, 0).then(function (t) {
+          acc.push({ r: r, t: t }); k++;
+          var el = fbox.querySelector("p.muted"); if (el) el.textContent = "Cargando clasificación… (" + k + "/" + done.length + ")";
+          return acc;
+        });
+      });
+    });
+    return chain.then(function (rs) {
+      var teams = {}, enJuego = 0;
+      function team(n) { return teams[n] || (teams[n] = { name: n, mp: 0, bp: 0, w: 0, d: 0, l: 0, n: 0 }); }
+      rs.forEach(function (x) {
+        var matches = {};
+        x.t.split(/\n\s*\n(?=\[Event )/).forEach(function (g) {
+          var tag = function (n) { var m = new RegExp("\\[" + n + ' "([^"]*)"\\]').exec(g); return m ? m[1] : ""; };
+          var wt = tag("WhiteTeam"), bt = tag("BlackTeam"); if (!wt || !bt) return;
+          var key = [wt, bt].sort().join("|"), M = matches[key] || (matches[key] = { a: wt, b: bt, pa: 0, pb: 0, open: 0 });
+          var sc = { "1-0": [1, 0], "0-1": [0, 1], "1/2-1/2": [.5, .5] }[tag("Result")];
+          if (!sc) { M.open++; return; }
+          var home = wt === M.a; M.pa += home ? sc[0] : sc[1]; M.pb += home ? sc[1] : sc[0];
+        });
+        Object.keys(matches).forEach(function (key) {
+          var M = matches[key], A = team(M.a), B = team(M.b);
+          A.bp += M.pa; B.bp += M.pb;
+          if (M.open) { enJuego++; return; } // el encuentro aún no ha terminado: no reparte puntos de encuentro
+          A.n++; B.n++;
+          if (M.pa > M.pb) { A.mp += 2; A.w++; B.l++; } else if (M.pa < M.pb) { B.mp += 2; B.w++; A.l++; } else { A.mp++; B.mp++; A.d++; B.d++; }
+        });
+      });
+      var ts = Object.keys(teams).map(function (n) { return teams[n]; });
+      if (!ts.length) throw new Error("sin equipos");
+      ts.sort(function (a, b) { return b.mp - a.mp || b.bp - a.bp || a.name.localeCompare(b.name, "es"); });
+      ts.enJuego = enJuego;
+      return ts;
+    });
+  }
+  function showTeamStandings() {
+    teamStandings().then(function (ts) {
+      if (fbox.hidden) return;
+      var h = '<table class="lv-ptab stand team"><colgroup><col class="c-n"><col class="c-p"><col class="c-k"><col class="c-k"><col class="c-k"><col class="c-k"><col class="c-k"><col class="c-k"></colgroup><tr><th>#</th><th class="l">Equipo</th><th title="Encuentros jugados">Enc.</th><th title="Ganados">G</th><th title="Empatados">E</th><th title="Perdidos">P</th><th title="Puntos de encuentro">Pts</th><th title="Puntos de tablero">Tab.</th></tr>';
+      ts.forEach(function (t, i) {
+        var pos = i && ts[i - 1].mp === t.mp && ts[i - 1].bp === t.bp ? "" : i + 1;
+        h += "<tr><td>" + pos + '</td><td class="l">' + esc(t.name) + "</td><td>" + t.n + "</td><td>" + t.w + "</td><td>" + t.d + "</td><td>" + t.l + "</td><td><b>" + t.mp + "</b></td><td>" + fmtPts(t.bp) + "</td></tr>";
+      });
+      openPanel(standTitle(), h + "</table>" +
+        '<p class="lv-ffoot">Pts: 2 por encuentro ganado y 1 por empate. Tab.: puntos de tablero (primer desempate).</p>' +
+        (ts.enJuego ? '<p class="lv-ffoot">Los encuentros en juego (' + ts.enJuego + ") solo suman, de momento, sus puntos de tablero.</p>" : "") +
+        '<p class="lv-ffoot">Calculada con las partidas retransmitidas en Lichess.</p>', true);
+    }).catch(function () { openPanel(standTitle(), '<p class="muted" style="padding:16px">No se ha podido calcular la clasificación por equipos. Vuelve a intentarlo en unos instantes.</p>'); });
+  }
   $("viewer-stand").addEventListener("click", function () {
     if (!tourId) return;
     openPanel(standTitle(), '<p class="muted" style="padding:16px">Cargando clasificación…</p>', true);
+    if (teamTour()) { showTeamStandings(); return; }
     tournamentPlayers(tourId).then(function (ps) {
       if (ps.some(function (p) { return p.score != null; })) return ps;
       // Lichess no da los puntos de este torneo: se suman a partir de los resultados de las partidas terminadas
