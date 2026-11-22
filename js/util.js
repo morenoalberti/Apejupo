@@ -118,7 +118,8 @@
     return list;
   };
   // box: rejilla de tarjetas (.card con data-id) · keyFn(): clave de localStorage del orden actual · repaint(): repinta con el orden automático
-  U.sortable = function (box, keyFn, repaint) {
+  // opts.noReset: sin el botón «Restablecer el orden automático» (Torneos live)
+  U.sortable = function (box, keyFn, repaint, opts) {
     if (!box) return;
     var EASE = "transform .26s cubic-bezier(.2,.8,.2,1)";
     var el = null, sx = 0, sy = 0, px = 0, py = 0, gx = 0, gy = 0, active = false, raf = 0, justDragged = false;
@@ -127,7 +128,7 @@
     // Botón para volver al orden automático: solo se ve si hay un orden manual guardado
     var reset = document.createElement("button");
     reset.type = "button"; reset.className = "btn-ghost order-reset"; reset.textContent = "Restablecer el orden automático"; reset.hidden = true;
-    box.parentNode.insertBefore(reset, box.nextSibling);
+    if (!(opts && opts.noReset)) box.parentNode.insertBefore(reset, box.nextSibling);
     function sync() { reset.hidden = !readOrder(keyFn()).length || cards().length < 2; }
     reset.addEventListener("click", function () { try { localStorage.removeItem(keyFn()); } catch (_) {} repaint(); sync(); });
     if (window.MutationObserver) new MutationObserver(function () { if (!active) sync(); }).observe(box, { childList: true });

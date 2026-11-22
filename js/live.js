@@ -1907,7 +1907,7 @@
         : '<p class="muted">Ahora mismo no hay torneos en directo.</p>';
       $("live").setAttribute("aria-busy", "false");
       count(live.length);
-      if (up) {
+      if (up && $("upcoming")) { // Torneos live ya no muestra «Próximas»
         $("upcoming").innerHTML = up.length
           ? up.map(function (x) { return bcCard(x, "PRÓXIMAMENTE", "soon"); }).join("")
           : '<p class="muted">No hay retransmisiones programadas.</p>';
@@ -1966,7 +1966,7 @@
       });
     }
     if ($("live-refresh")) $("live-refresh").addEventListener("click", function () { load(true); });
-    U.sortable($("live"), function () { return OK; }, function () { var c = readCache(); if (c) paint(c.live, null); else load(true); });
+    U.sortable($("live"), function () { return OK; }, function () { var c = readCache(); if (c) paint(c.live, null); else load(true); }, { noReset: true });
     load();
   })();
 
