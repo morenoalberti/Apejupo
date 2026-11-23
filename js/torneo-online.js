@@ -1056,7 +1056,7 @@ function renderBoard() {
     const desc = piece ? `${pieceNames[piece[1].toLowerCase()]} de ${piece[0] === 'w' ? 'blancas' : 'negras'}` : 'vacía';
     return `<button type="button" class="to-square ${(row + col) % 2 ? 'dark ' : ''}${sq === selected ? 'selected ' : ''}${targets.includes(sq) ? 'target ' : ''}${last && (sq === last.from || sq === last.to) ? 'last ' : ''}${pre && (sq === pre.from || sq === pre.to) ? 'premove' : ''}" data-square="${sq}" tabindex="${sq === (activeSquare || (flipped ? 'h8' : 'a1')) ? 0 : -1}" aria-label="${sq}: ${desc}${targets.includes(sq) ? ', destino posible' : ''}${pre && sq === pre.to ? ', premovimiento' : ''}" aria-pressed="${sq === selected}">${piece ? `<canvas data-piece="${piece}" aria-hidden="true" width="80" height="80"></canvas>` : ''}${i % 8 === 0 ? `<span class="to-coordinate rank">${8 - row}</span>` : ''}${i >= 56 ? `<span class="to-coordinate file">${'abcdefgh'[col]}</span>` : ''}</button>`;
   }).join('');
-  for (const canvas of $('to-board').querySelectorAll('canvas')) paint(canvas, canvas.dataset.piece);
+  for (const canvas of $('to-board').querySelectorAll('canvas[data-piece]')) paint(canvas, canvas.dataset.piece); // no el fondo (js/lienzos.js)
   if (activeSquare) $('to-board').querySelector(`[data-square="${activeSquare}"]`)?.focus({ preventScroll: true });
   $('to-board').classList.toggle('can-move', canMove() || premoving);
   if (drag) $('to-board').querySelector(`[data-square="${drag.from}"] canvas`)?.classList.add('to-dragging');
@@ -1940,10 +1940,11 @@ $('to-board').addEventListener('pointerdown', event => {
   const canvas = $('to-board').querySelector(`[data-square="${square}"] canvas`);
   if (!canvas) return;
   event.preventDefault(); // sin selección de texto ni arrastre nativo del navegador
-  const size = $('to-board').getBoundingClientRect().width / 8, ghost = document.createElement('img');
-  ghost.src = 'assets/pieces/' + canvas.dataset.piece + '.png'; ghost.className = 'to-ghost'; ghost.alt = '';
+  // La pieza que se arrastra también es un lienzo (el modo oscuro del móvil no la recolorea).
+  const size = $('to-board').getBoundingClientRect().width / 8, ghost = document.createElement('canvas');
+  ghost.className = 'to-ghost'; ghost.setAttribute('aria-hidden', 'true');
   ghost.style.width = ghost.style.height = size + 'px';
-  document.body.append(ghost); document.body.classList.add('to-grabbing');
+  document.body.append(ghost); paint(ghost, canvas.dataset.piece); document.body.classList.add('to-grabbing'); // se pinta ya en la página
   drag = { from: square, ghost, size, wasSelected: selected === square, x: event.clientX, y: event.clientY, moved: false };
   moveGhost(event);
   selected = square; boardKey = ''; renderBoard();

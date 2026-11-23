@@ -315,10 +315,7 @@ body:not(.an-editing) .an-page .an-opening[hidden] { display: block !important; 
 .an-sym.user { color: var(--text); }
 .an-txt { align-self: center; padding: 2px 4px; color: #93c5fd; font-size: .86rem; font-style: italic; line-height: 1.35; }
 .an-diagram-row { flex-basis: 100%; }
-.an-diagram { display: grid; grid-template-columns: repeat(8, 1fr); width: 168px; max-width: 70%; aspect-ratio: 1; margin: 6px 0 6px 4px; border-radius: 3px; overflow: hidden; box-shadow: 0 0 0 1px #0006; }
-.an-diagram i { display: block; aspect-ratio: 1; background: #f0d9b5; }
-.an-diagram i.dk { background: #b58863; }
-.an-diagram img { display: block; width: 100%; height: 100%; }
+.an-diagram { display: block; width: 168px; height: auto; max-width: 70%; aspect-ratio: 1; margin: 6px 0 6px 4px; border-radius: 3px; overflow: hidden; box-shadow: 0 0 0 1px #0006; }
 /* Color corporativo (ámbar de Apejupo) en el cuadro de la jugada y en la barra de símbolos. */
 .an-ctx { border-top-color: var(--amber); }
 .an-ctx button:hover:not(:disabled), .an-ctx button:focus-visible, .an-ctx-sub.open > button { background: color-mix(in srgb, var(--amber) 16%, transparent); }

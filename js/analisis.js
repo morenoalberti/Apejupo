@@ -135,11 +135,20 @@
   function escHtml(t) { return String(t).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
   // Diagrama dentro de la lista de jugadas: la posición tras la jugada, pequeña y con la orientación del tablero.
   function diagramHtml(fen) {
-    var g = new Chess(fen);
-    return '<div class="an-diagram-row"><div class="an-diagram" aria-label="Diagrama">' + squares().map(function (sq) {
-      var p = g.get(sq), dark = (FILES.indexOf(sq[0]) + Number(sq[1])) % 2 === 0;
-      return '<i class="' + (dark ? "dk" : "") + '">' + (p ? '<img src="assets/pieces/' + p.color + p.type.toUpperCase() + '.png" alt="">' : "") + "</i>";
-    }).join("") + "</div></div>";
+    // Dibujado en un lienzo (casillas y piezas): el modo oscuro del móvil no lo recolorea (ver paintDiagrams).
+    return '<div class="an-diagram-row"><canvas class="an-diagram" width="320" height="320" role="img" aria-label="Diagrama" data-fen="' + fen + '"></canvas></div>';
+  }
+  function paintDiagrams(root) {
+    Array.prototype.forEach.call(root.querySelectorAll("canvas.an-diagram"), function (c) {
+      var g = new Chess(c.dataset.fen), ctx = c.getContext("2d"), s = c.width / 8;
+      squares().forEach(function (sq, i) {
+        var x = i % 8, y = (i - x) / 8, dark = (FILES.indexOf(sq[0]) + Number(sq[1])) % 2 === 1; // a1 oscura, a8 clara
+        ctx.fillStyle = dark ? "#b58863" : "#f0d9b5"; ctx.fillRect(x * s, y * s, s, s);
+        var p = g.get(sq); if (!p) return;
+        var im = img("assets/pieces/" + p.color + p.type.toUpperCase() + ".png"), put = function () { ctx.drawImage(im, x * s, y * s, s, s); };
+        if (im.complete && im.naturalWidth) put(); else im.addEventListener("load", put, { once: true });
+      });
+    });
   }
   function seqHtml(first, forceNum) {
     var html = "", force = forceNum;
@@ -161,6 +170,7 @@
     var jc = ply ? judgeNode(cur) : null;
     $("an-moves").innerHTML = '<div class="an-tree">' + seqHtml(root.children[0], true) + (end ? '<span class="an-res" title="Resultado">' + end + "</span>" : "") + "</div>"
       + (jc && jc.text ? '<p class="an-comment ' + jc.kind + '">' + jc.text + "</p>" : "");
+    paintDiagrams($("an-moves"));
     var el = $("an-moves").querySelector(".cur");
     if (el) el.scrollIntoView({ block: "nearest" });
   }
