@@ -10,7 +10,10 @@
 .yt-tabs button[aria-selected="true"] { background: var(--card); color: var(--text); box-shadow: 0 1px 0 #ffffff12 inset, 0 4px 12px -6px #000a; }
 .yt-tabs button:focus-visible { outline: 2px solid var(--blue); outline-offset: 1px; }
 .yt-player { position: relative; aspect-ratio: 16 / 9; width: 100%; overflow: hidden; border: 1px solid var(--line); border-radius: 12px; background: #000; display: grid; place-items: center; }
-.yt-player iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+.yt-player iframe { position: absolute; left: 0; width: 100%; border: 0; }
+/* El vídeo de YouTube un 24 % más alto que el recuadro: YouTube lo centra con franjas negras arriba y abajo, que es
+   donde pinta su título y el pie («Más vídeos», logo). Esas franjas quedan fuera (overflow: hidden) y la imagen se ve entera. */
+.yt-player iframe { top: -12%; height: 124%; }
 /* Reproductor limpio: capa transparente encima del vídeo (recibe los clics) y portada propia cuando está parado,
    que tapa el título, la barra y los «Más vídeos» de YouTube. */
 .yt-shield { position: absolute; inset: 0; z-index: 1; cursor: pointer; }
@@ -24,7 +27,8 @@
 .yt-note { margin: 10px 0 0; font-size: .85rem; }
 .yt-note[hidden] { display: none; }
 .yt-links { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
-.yt-links a { text-decoration: none; }
+.yt-links a { display: inline-flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none; }
+.yt-links a svg { flex: none; }
 /* Todos los vídeos del canal: cuadrícula de miniaturas; pulsar una la reproduce arriba. */
 .yt-all { margin-top: 18px; }
 .yt-all-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
