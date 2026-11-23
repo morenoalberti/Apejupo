@@ -19,17 +19,17 @@
   function rows(games) {
     return games.map(function (g) {
       var room = g.id.split("_")[0], h = "";
-      // Cabecera de cada torneo (o reto): nombre, tipo, día y ritmo; las partidas se numeran dentro de él.
+      // Cabecera de cada torneo (o reto): nombre, tipo y ritmo; las partidas se numeran dentro de él y la fecha va en su columna.
       if (room !== lastRoom) {
         lastRoom = room; n = 0;
-        h += '<tr class="grp"><td colspan="5"><b translate="no">' + esc(g.title) + "</b> · " + (g.kind === "reto" ? "Reto" : "Torneo") + " · " + day(g.at) + " · " + pace(g.tc) + "</td></tr>";
+        h += '<tr class="grp"><td colspan="6"><b translate="no">' + esc(g.title) + "</b> · " + (g.kind === "reto" ? "Reto" : "Torneo") + " · " + pace(g.tc) + "</td></tr>";
       }
       n++;
       var res = { "1-0": "1-0", "0-1": "0-1", "1/2-1/2": "½-½" }[g.result] || "–";
       var file = (g.white + "-" + g.black).replace(/[^\wÀ-ÿ-]+/g, "_") + ".pgn";
       return h + '<tr data-g="' + esc(g.id) + '" title="Abrir en el tablero de análisis"><td>' + n + '</td><td class="l">' + player(g.white, g.whiteElo)
         + '</td><td class="rs" title="' + esc(g.reason) + '">' + res + '</td><td class="l">' + player(g.black, g.blackElo)
-        + '</td><td class="pj-dl"><button type="button" data-pgn="' + esc(g.id) + '" data-file="' + esc(file) + '" aria-label="Descargar el PGN" title="Descargar el PGN">' + DOWNLOAD + "</button></td></tr>";
+        + '</td><td class="pj-date">' + day(g.at) + '</td><td class="pj-dl"><button type="button" data-pgn="' + esc(g.id) + '" data-file="' + esc(file) + '" aria-label="Descargar el PGN" title="Descargar el PGN">' + DOWNLOAD + "</button></td></tr>";
     }).join("");
   }
   function load(reset) {
