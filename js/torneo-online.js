@@ -113,7 +113,9 @@ const canChangeInitialRoster = t => presencial(t) && ['playing', 'between'].incl
 function standingsView(t) {
   const initial = !t.games.some(g => !g.bye && g.result);
   const rows = listed(t);
-  if (initial) rows.sort((a, b) => fideRating(b) - fideRating(a) || a.name.localeCompare(b.name, 'es', { sensitivity: 'base' }));
+  // Inscritos de mayor a menor ELO (online: ELO del club; presencial: Elo FIDE). Los invitados, sin ELO, al final.
+  const elo = presencial(t) ? fideRating : p => Number(p.rating) || 0;
+  if (initial) rows.sort((a, b) => elo(b) - elo(a) || a.name.localeCompare(b.name, 'es', { sensitivity: 'base' }));
   const title = initial ? 'Listado de participantes' : t.status === 'finished' ? 'Clasificación final'
     : arena(t) ? 'Clasificación provisional' : `Clasificación provisional ronda ${t.round}`;
   // Versión corta para el móvil, en una sola línea.
@@ -138,6 +140,9 @@ function pauseButton(id, paused) {
 // «15 nov, 16:00 h.»
 function date(value) { return new Intl.DateTimeFormat(document.documentElement.lang === 'en' ? 'en-GB' : 'es', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(value) + (document.documentElement.lang === 'en' ? '' : ' h.'); }
 function name(id) { return state?.standings.find(p => p.id === id)?.name || 'Jugador'; }
+// ELO del jugador (las cuentas; los invitados no tienen) y nombre con el ELO detrás, para los tableros.
+function eloOf(id) { return state?.standings.find(p => p.id === id)?.rating || null; }
+function nameEloHtml(id) { const e = eloOf(id); return esc(name(id)) + (e ? ` <small class="to-elo">${e}</small>` : ''); }
 function send(action) {
   if (!socket || socket.readyState !== WebSocket.OPEN || !connected) { message('Espera a recuperar la conexión antes de continuar.', true); return false; }
   socket.send(JSON.stringify(action)); return true;
@@ -493,7 +498,7 @@ function boardCard(g) {
   return { el, cells: [...el.querySelectorAll('.to-mini i')], pieces: {}, fen: null, last: '', names: '' };
 }
 function updateCard(c, g) {
-  const nb = (g.berserkB ? '<b class="to-bz">⚡</b>' : '') + esc(name(g.black)), nw = (g.berserkW ? '<b class="to-bz">⚡</b>' : '') + esc(name(g.white));
+  const nb = (g.berserkB ? '<b class="to-bz">⚡</b>' : '') + nameEloHtml(g.black), nw = (g.berserkW ? '<b class="to-bz">⚡</b>' : '') + nameEloHtml(g.white);
   if (c.names !== nb + '|' + nw) {
     c.names = nb + '|' + nw; c.el.querySelector('.to-nb').innerHTML = nb; c.el.querySelector('.to-nw').innerHTML = nw;
     c.el.setAttribute('aria-label', `Ver ${name(g.white)} contra ${name(g.black)}`);
@@ -759,10 +764,10 @@ function renderMatches() {
   // Arena: solo las partidas en juego, de la más reciente a la más antigua; al terminar, desaparecen de la lista.
   const list = arena(state) ? [...state.games].reverse().filter(g => !g.result && !g.bye && g.fen) : state.games.filter(g => g.round === viewedRound);
   $('to-matches').innerHTML = list.map(g => g.bye
-    ? `<div class="to-match bye"><span>${esc(name(g.white))}</span><strong>Descanso · +1</strong></div>`
+    ? `<div class="to-match bye"><span>${nameEloHtml(g.white)}</span><strong>Descanso · +1</strong></div>`
     : !g.result && g.fen
-      ? `<button type="button" data-watch="${g.id}" class="to-live ${g.id === state.game?.id ? 'selected' : ''} ${g.white === state.me || g.black === state.me ? 'mine' : ''}" aria-label="Ver ${esc(name(g.white))} contra ${esc(name(g.black))}, en juego"><span class="to-live-name">${g.berserkB ? '<b class="to-bz" title="Berserk">⚡</b>' : ''}${esc(name(g.black))}</span>${miniBoard(g)}<span class="to-live-name">${g.berserkW ? '<b class="to-bz" title="Berserk">⚡</b>' : ''}${esc(name(g.white))}</span></button>`
-      : `<button type="button" data-watch="${g.id}" class="to-match ${g.id === state.game?.id ? 'selected' : ''} ${g.white === state.me || g.black === state.me ? 'mine' : ''}"><span>♔ ${esc(name(g.white))}${g.berserkW ? ' ⚡' : ''}</span><strong>${g.result ? esc(g.result.replace('1/2-1/2', '½–½')) : 'en juego'}</strong><span>${g.berserkB ? '⚡ ' : ''}${esc(name(g.black))} ♚</span></button>`).join('') || `<p class="muted">${arena(state) && state.status === 'playing' ? 'Ahora mismo no hay partidas en juego.' : arena(state) && state.status === 'finished' ? 'El torneo ha terminado.' : 'Los tableros aparecerán al comenzar la primera ronda.'}</p>`;
+      ? `<button type="button" data-watch="${g.id}" class="to-live ${g.id === state.game?.id ? 'selected' : ''} ${g.white === state.me || g.black === state.me ? 'mine' : ''}" aria-label="Ver ${esc(name(g.white))} contra ${esc(name(g.black))}, en juego"><span class="to-live-name">${g.berserkB ? '<b class="to-bz" title="Berserk">⚡</b>' : ''}${nameEloHtml(g.black)}</span>${miniBoard(g)}<span class="to-live-name">${g.berserkW ? '<b class="to-bz" title="Berserk">⚡</b>' : ''}${nameEloHtml(g.white)}</span></button>`
+      : `<button type="button" data-watch="${g.id}" class="to-match ${g.id === state.game?.id ? 'selected' : ''} ${g.white === state.me || g.black === state.me ? 'mine' : ''}"><span>♔ ${nameEloHtml(g.white)}${g.berserkW ? ' ⚡' : ''}</span><strong>${g.result ? esc(g.result.replace('1/2-1/2', '½–½')) : 'en juego'}</strong><span>${g.berserkB ? '⚡ ' : ''}${nameEloHtml(g.black)} ♚</span></button>`).join('') || `<p class="muted">${arena(state) && state.status === 'playing' ? 'Ahora mismo no hay partidas en juego.' : arena(state) && state.status === 'finished' ? 'El torneo ha terminado.' : 'Los tableros aparecerán al comenzar la primera ronda.'}</p>`;
   $('to-matches').classList.toggle('has-live', list.some(g => !g.result && g.fen));
 }
 function renderControls() {
@@ -916,8 +921,9 @@ function renderGame() {
   const top = flipped ? 'w' : 'b', bottom = flipped ? 'b' : 'w';
   $('to-player-top').dataset.color = top; $('to-player-bottom').dataset.color = bottom;
   const bz = color => (color === 'w' ? g.berserkW : g.berserkB) ? ' ⚡ Berserk' : '';
-  $('to-player-top').querySelector('span').textContent = `${top === 'w' ? '♔' : '♚'} ${name(top === 'w' ? g.white : g.black)}${bz(top)}`;
-  $('to-player-bottom').querySelector('span').textContent = `${bottom === 'w' ? '♔' : '♚'} ${name(bottom === 'w' ? g.white : g.black)}${bz(bottom)}`;
+  // Nombre con el ELO detrás (los invitados, sin ELO).
+  $('to-player-top').querySelector('span').innerHTML = `${top === 'w' ? '♔' : '♚'} ${nameEloHtml(top === 'w' ? g.white : g.black)}${esc(bz(top))}`;
+  $('to-player-bottom').querySelector('span').innerHTML = `${bottom === 'w' ? '♔' : '♚'} ${nameEloHtml(bottom === 'w' ? g.white : g.black)}${esc(bz(bottom))}`;
   const status = g.result ? `${g.result.replace('1/2-1/2', '½–½')} · ${g.reason}` : pending ? 'Turno de tu rival' : !connected ? 'Recuperando conexión. Tu reloj sigue corriendo.' : canMove() ? 'Tu turno' : own ? 'Turno de tu rival' : `Juegan ${g.turn === 'w' ? 'blancas' : 'negras'}`;
   // Con la partida terminada, el resultado se ve en grande sobre el tablero, como una marca de agua.
   if (g.result) $('to-board').dataset.result = g.result.replace('1/2-1/2', '½–½'); else delete $('to-board').dataset.result;

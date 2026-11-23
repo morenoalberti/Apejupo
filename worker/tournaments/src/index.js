@@ -108,8 +108,26 @@ export class TournamentRoom extends DurableObject {
     }
     c.recordedRounds = [...done];
   }
+  // ELO del club: cada partida terminada entre dos cuentas se anota una sola vez (K = 20) y el ELO nuevo pasa a la
+  // clasificación y a los tableros. Los invitados (sin cuenta) no tienen ELO; los retos y los presenciales no cuentan.
+  async recordElo() {
+    if (this.t.challenge || isPresencial(this.t)) return;
+    const byId = new Map(this.t.players.map(p => [p.id, p]));
+    for (const g of this.t.games) {
+      if (g.bye || !g.result || g.eloDone || !['1-0', '0-1', '1/2-1/2'].includes(g.result)) continue;
+      const w = byId.get(g.white), b = byId.get(g.black);
+      if (!w?.accountId || !b?.accountId) { g.eloDone = true; continue; }
+      try {
+        const res = await this.env.ACCOUNTS.getByName('cuentas').fetch('https://cuentas/elo-anotar', { method: 'POST', body: JSON.stringify({ game: `${this.t.id}:${g.id}`, white: w.accountId, black: b.accountId, result: g.result }) });
+        if (!res.ok) continue; // se vuelve a intentar en el siguiente guardado
+        const after = await res.json();
+        w.rating = after.white; b.rating = after.black; g.eloDone = true;
+      } catch (error) { console.warn('No se pudo anotar el ELO:', error.message); }
+    }
+  }
   async save() {
     await this.recordDuel();
+    await this.recordElo();
     this.t.revision++;
     try {
       await this.ctx.storage.transaction(async storage => {

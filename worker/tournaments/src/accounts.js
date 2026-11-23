@@ -1,6 +1,7 @@
 import { DurableObject } from 'cloudflare:workers';
 import { GameError, requireThat } from './core.js';
 import { registeredPlayerNicks } from './player-directory.js';
+import { ELO_START, eloAfter } from './elo.js';
 
 // Cuentas al estilo Lichess: nick + contraseña; el correo confirma la cuenta y sirve para recuperarla.
 // Nunca se guarda la contraseña: solo su derivación PBKDF2 con sal. Sesiones y enlaces de correo se
@@ -66,7 +67,7 @@ async function sameSecret(a, b) {
   return diff === 0;
 }
 const json = (body, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' } });
-const publicUser = u => ({ id: u.id, nick: u.nick, email: u.email, verified: !!u.verified, createdAt: u.created_at, photo: u.photo_at || null });
+const publicUser = u => ({ id: u.id, nick: u.nick, email: u.email, verified: !!u.verified, createdAt: u.created_at, photo: u.photo_at || null, elo: Number.isInteger(u.elo) ? u.elo : ELO_START });
 // Foto de perfil: la web la reduce a 192×192 en JPEG antes de subirla; aquí solo se aceptan JPEG pequeños.
 export const PHOTO_MAX = 64 * 1024;
 const isJpeg = bytes => bytes.length > 4 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
@@ -81,14 +82,30 @@ export class AccountStore extends DurableObject {
       CREATE TABLE IF NOT EXISTS attempts (key TEXT PRIMARY KEY, count INTEGER NOT NULL, until INTEGER NOT NULL);
       CREATE TABLE IF NOT EXISTS photos (user_id TEXT PRIMARY KEY, data BLOB NOT NULL, updated_at INTEGER NOT NULL);
       CREATE TABLE IF NOT EXISTS duels (a TEXT NOT NULL, b TEXT NOT NULL, a_wins INTEGER NOT NULL DEFAULT 0, b_wins INTEGER NOT NULL DEFAULT 0, draws INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (a, b));
-      CREATE TABLE IF NOT EXISTS duel_games (room TEXT PRIMARY KEY, at INTEGER NOT NULL);`);
+      CREATE TABLE IF NOT EXISTS duel_games (room TEXT PRIMARY KEY, at INTEGER NOT NULL);
+      CREATE TABLE IF NOT EXISTS elo_games (game TEXT PRIMARY KEY, white TEXT NOT NULL, black TEXT NOT NULL, result TEXT NOT NULL, white_before INTEGER NOT NULL, black_before INTEGER NOT NULL, white_after INTEGER NOT NULL, black_after INTEGER NOT NULL, at INTEGER NOT NULL);`);
     // Última actividad (para la página de administración). Las bases anteriores no tenían la columna.
-    if (!this.sql.exec('PRAGMA table_info(users)').toArray().some(c => c.name === 'last_seen')) this.sql.exec('ALTER TABLE users ADD COLUMN last_seen INTEGER');
+    const columns = this.sql.exec('PRAGMA table_info(users)').toArray();
+    if (!columns.some(c => c.name === 'last_seen')) this.sql.exec('ALTER TABLE users ADD COLUMN last_seen INTEGER');
+    // ELO del club: toda cuenta empieza con 1500 (también las que ya existían).
+    if (!columns.some(c => c.name === 'elo')) this.sql.exec(`ALTER TABLE users ADD COLUMN elo INTEGER NOT NULL DEFAULT ${ELO_START}`);
   }
   // Marcador de los retos entre dos cuentas (victorias de cada una y tablas), guardado con el par ordenado.
   duel(x, y) {
     const [a, b] = x < y ? [x, y] : [y, x], row = this.one('SELECT * FROM duels WHERE a = ? AND b = ?', a, b) || { a_wins: 0, b_wins: 0, draws: 0 };
     return { wins: { [a]: row.a_wins, [b]: row.b_wins }, draws: row.draws };
+  }
+  // Partida de torneo entre dos cuentas: se aplica una sola vez (K = 20) y se devuelve el ELO nuevo de las dos.
+  recordElo(game, white, black, result, now) {
+    const done = this.one('SELECT white_after, black_after FROM elo_games WHERE game = ?', game);
+    if (done) return { white: done.white_after, black: done.black_after };
+    const w = this.one('SELECT elo FROM users WHERE id = ?', white), b = this.one('SELECT elo FROM users WHERE id = ?', black);
+    requireThat(w && b, 'Cuenta no encontrada.', 404);
+    const after = eloAfter(w.elo, b.elo, result);
+    this.sql.exec('UPDATE users SET elo = ? WHERE id = ?', after.white, white);
+    this.sql.exec('UPDATE users SET elo = ? WHERE id = ?', after.black, black);
+    this.sql.exec('INSERT INTO elo_games (game, white, black, result, white_before, black_before, white_after, black_after, at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', game, white, black, result, w.elo, b.elo, after.white, after.black, now);
+    return after;
   }
   recordDuel(room, white, black, result, now) {
     if (this.one('SELECT 1 AS x FROM duel_games WHERE room = ?', room)) return; // cada partida cuenta una sola vez
@@ -286,8 +303,8 @@ export class AccountStore extends DurableObject {
         // Uso interno de las salas de torneo: quién es esta sesión y si un nombre está reservado.
         case '/sesion': {
           const user = await this.user(b.session, now);
-          // «elo»: cuando las cuentas tengan Elo (se asignará al entrar por primera vez), irá aquí y el suizo lo usará.
-          return json({ user: user && user.verified ? { id: user.id, nick: user.nick, elo: Number.isInteger(user.elo) ? user.elo : null } : null, unverified: !!user && !user.verified });
+          // «elo»: ELO del club de la cuenta (1500 al darse de alta); con él se ordena la inscripción y se juega.
+          return json({ user: user && user.verified ? { id: user.id, nick: user.nick, elo: Number.isInteger(user.elo) ? user.elo : ELO_START } : null, unverified: !!user && !user.verified });
         }
         // Uso interno de los retos: marcador entre dos cuentas y anotación de una partida terminada.
         case '/duelo-ver': requireThat(/^[a-f0-9]{24}$/.test(b.a) && /^[a-f0-9]{24}$/.test(b.b), 'Cuentas no válidas.'); return json(this.duel(b.a, b.b));
@@ -296,6 +313,13 @@ export class AccountStore extends DurableObject {
           requireThat(['1-0', '0-1', '1/2-1/2'].includes(b.result), 'Resultado no válido.');
           this.recordDuel(b.room, b.white, b.black, b.result, now);
           return json(this.duel(b.white, b.black));
+        }
+        // Uso interno de las salas de torneo: ELO tras una partida entre dos cuentas (cada partida cuenta una sola vez).
+        case '/elo-anotar': {
+          requireThat(/^[a-f0-9]{24}$/.test(b.white) && /^[a-f0-9]{24}$/.test(b.black) && b.white !== b.black, 'Cuentas no válidas.');
+          requireThat(/^[a-f0-9]{24}:[0-9a-f-]{36}$/.test(String(b.game || '')), 'Partida no válida.');
+          requireThat(['1-0', '0-1', '1/2-1/2'].includes(b.result), 'Resultado no válido.');
+          return json(this.recordElo(b.game, b.white, b.black, b.result, now));
         }
         // Uso interno de los retos: nicks de las cuentas confirmadas (la lista de jugadores de retar.html).
         case '/jugadores': return json({ nicks: registeredPlayerNicks(this.sql.exec('SELECT nick, email FROM users WHERE verified = 1 ORDER BY nick_key').toArray()) });
