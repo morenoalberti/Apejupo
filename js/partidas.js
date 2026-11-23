@@ -29,28 +29,37 @@
   function player(name, elo, cls) { return '<span class="pj-name ' + cls + '" translate="no">' + esc(name) + "</span>" + (elo ? ' <small class="pj-elo">' + esc(elo) + "</small>" : ""); }
 
   // ---- Tablero pequeño con la posición final (al pasar el ratón) ----
-  var preview = null;
-  function board(fen, last) {
-    var rows = String(fen || "").split(" ")[0].split("/"), cells = [], from = last ? last.slice(0, 2) : "", to = last ? last.slice(2, 4) : "";
-    if (rows.length !== 8) return "";
+  // Dibujado en un lienzo (canvas): el modo oscuro de algunos móviles (Samsung Internet) recolorea los colores
+  // y las imágenes de la página, pero no lo que se pinta en un lienzo.
+  var preview = null, PIECES = {}, SIZE = 480;
+  function pieceImg(code) { var i = PIECES[code]; if (!i) { i = new Image(); i.src = "assets/pieces/" + code + ".png"; PIECES[code] = i; } return i; }
+  function drawBoard(canvas, fen, last) {
+    var rows = String(fen || "").split(" ")[0].split("/"), from = last ? last.slice(0, 2) : "", to = last ? last.slice(2, 4) : "";
+    if (rows.length !== 8) return;
+    var ctx = canvas.getContext("2d"), s = SIZE / 8, pieces = [];
+    for (var y = 0; y < 8; y++) for (var x = 0; x < 8; x++) {
+      var sq = "abcdefgh"[x] + (8 - y);
+      ctx.fillStyle = (x + y) % 2 ? "#b58863" : "#f0d9b5"; ctx.fillRect(x * s, y * s, s, s);
+      if (sq === from || sq === to) { ctx.fillStyle = "rgba(205, 210, 106, .75)"; ctx.fillRect(x * s, y * s, s, s); }
+    }
     rows.forEach(function (r, y) {
       var x = 0;
       r.split("").forEach(function (ch) {
-        if (/\d/.test(ch)) { for (var k = 0; k < +ch; k++) { cells.push(cell(x, y, "")); x++; } return; }
-        cells.push(cell(x, y, (ch === ch.toUpperCase() ? "w" : "b") + ch.toUpperCase())); x++;
+        if (/\d/.test(ch)) { x += +ch; return; }
+        pieces.push({ x: x, y: y, img: pieceImg((ch === ch.toUpperCase() ? "w" : "b") + ch.toUpperCase()) }); x++;
       });
     });
-    function cell(x, y, piece) {
-      var sq = "abcdefgh"[x] + (8 - y), cls = ((x + y) % 2 ? "dk" : "") + (sq === from || sq === to ? " lm" : "");
-      return '<i class="' + cls + '">' + (piece ? '<img src="assets/pieces/' + piece + '.png" alt="">' : "") + "</i>";
-    }
-    return cells.join("");
+    pieces.forEach(function (p) {
+      var paint = function () { if (canvas.dataset.fen === fen) ctx.drawImage(p.img, p.x * s, p.y * s, s, s); };
+      if (p.img.complete && p.img.naturalWidth) paint(); else p.img.addEventListener("load", paint, { once: true });
+    });
   }
   var shownFor = null;
+  // Solo con ratón: en el móvil, tocar una partida la abre directamente (sin tablerito intermedio).
   function showPreview(tr, ev) {
-    if (!tr.dataset.fen || !window.matchMedia("(hover: hover)").matches) return;
-    if (!preview) { preview = document.createElement("div"); preview.className = "pj-preview"; preview.setAttribute("aria-hidden", "true"); document.body.appendChild(preview); }
-    if (shownFor !== tr) { shownFor = tr; preview.innerHTML = '<div class="pj-mini">' + board(tr.dataset.fen, tr.dataset.last) + "</div>"; }
+    if (!tr.dataset.fen || ev.pointerType !== "mouse") return;
+    if (!preview) { preview = document.createElement("div"); preview.className = "pj-preview"; preview.setAttribute("aria-hidden", "true"); preview.innerHTML = '<canvas class="pj-mini" width="' + SIZE + '" height="' + SIZE + '"></canvas>'; document.body.appendChild(preview); }
+    if (shownFor !== tr) { shownFor = tr; var c = preview.firstChild; c.dataset.fen = tr.dataset.fen; drawBoard(c, tr.dataset.fen, tr.dataset.last); }
     preview.hidden = false;
     // A la derecha y debajo del puntero, siguiéndolo; si no cabe, al otro lado del puntero.
     var size = preview.offsetWidth || 260, gap = 18, x = ev.clientX, y = ev.clientY;
@@ -129,7 +138,7 @@
       sort = b.dataset.k === sort.k ? { k: sort.k, dir: -sort.dir } : { k: b.dataset.k, dir: 1 };
       hidePreview(); render();
     });
-    body.addEventListener("mousemove", function (ev) { var tr = ev.target.closest("tr[data-g]"); if (tr) showPreview(tr, ev); });
+    body.addEventListener("pointermove", function (ev) { var tr = ev.target.closest("tr[data-g]"); if (tr) showPreview(tr, ev); });
     body.addEventListener("mouseleave", hidePreview);
     body.addEventListener("click", function (ev) {
       // Borrar una partida (solo el administrador).

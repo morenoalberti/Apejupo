@@ -7,7 +7,7 @@
 .pj-bar { display: flex; align-items: center; gap: 12px; margin: 10px 0 8px; }
 .pj-search { position: relative; flex: 1; min-width: 0; display: block; }
 .pj-search svg { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); color: var(--muted); pointer-events: none; }
-.pj-root .pj-q { width: 100%; box-sizing: border-box; margin: 0; padding: 8px 12px 8px 34px; border: 1px solid var(--line); border-radius: 9px; background: var(--bg); color: var(--text); font: inherit; font-size: .9rem; }
+.pj-root .pj-search .pj-q, .cu-page .pj-root .pj-search .pj-q:not([type="checkbox"]) { width: 100%; box-sizing: border-box; margin: 0; padding: 8px 12px 8px 34px; border: 1px solid var(--line); border-radius: 9px; background: var(--bg); color: var(--text); font: inherit; font-size: .9rem; }
 .pj-root .pj-q:focus { outline: none; border-color: var(--blue); box-shadow: 0 0 0 3px color-mix(in srgb, var(--blue) 25%, transparent); }
 .pj-count { flex: none; color: var(--muted); font-size: .78rem; font-variant-numeric: tabular-nums; }
 .pj-msg { margin: 10px 0; }
@@ -30,7 +30,7 @@
 .pj-root.pj-admin .pj-table th:nth-child(6) { width: 62px; }
 .pj-table td { padding: 8px; border-bottom: 1px solid color-mix(in srgb, var(--line) 60%, transparent); text-align: center; vertical-align: middle; }
 .pj-table tbody tr:last-child td { border-bottom: 0; }
-.pj-table tbody tr { cursor: pointer; transition: background .12s; }
+.pj-table tbody tr { cursor: pointer; transition: background .12s; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; } /* al mantener pulsado en el móvil no se selecciona el texto */
 .pj-table tbody tr:hover td { background: color-mix(in srgb, var(--blue) 9%, transparent); }
 .pj-table td.l { text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pj-n { color: var(--muted); font-size: .76rem; font-variant-numeric: tabular-nums; }
@@ -64,11 +64,7 @@
 /* Tablero con la posición final, al pasar el ratón por una partida: a la derecha y debajo del puntero. */
 .pj-preview { position: fixed; z-index: 70; width: 260px; box-sizing: border-box; padding: 6px; border: 1px solid var(--line); border-radius: 10px; background: var(--card); box-shadow: 0 16px 40px -10px #000c; pointer-events: none; }
 .pj-preview[hidden] { display: none; }
-.pj-mini { display: grid; grid-template-columns: repeat(8, 1fr); aspect-ratio: 1; border: 1px solid #3a3024; }
-.pj-mini i { display: block; position: relative; background: #f0d9b5; }
-.pj-mini i.dk { background: #b58863; }
-.pj-mini i.lm { box-shadow: inset 0 0 0 99px rgba(205, 210, 106, .7); }
-.pj-mini img { position: absolute; inset: 0; width: 100%; height: 100%; }
+.pj-mini { display: block; width: 100%; height: auto; aspect-ratio: 1; border: 1px solid #3a3024; }
 
 @media (max-width: 600px) {
   .pj-page .cu-card, .pj-panel { padding: 12px 10px; }
