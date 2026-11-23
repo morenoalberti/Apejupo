@@ -1,7 +1,8 @@
 // Canal de YouTube «Cálculo letal»: reproductor limpio (últimos vídeos o directo) y, debajo, todos los vídeos del canal.
 // - Modo de privacidad mejorada de YouTube; no se carga hasta aceptar el aviso de contenidos de terceros (cookies.html).
 // - Sin el título ni la barra de YouTube: el vídeo va sin sus controles, una capa transparente recibe los clics
-//   (clic: pausa / sigue; doble clic: pantalla completa) y, parado, una portada propia tapa los rótulos de YouTube.
+//   (clic: pausa / sigue; doble clic: pantalla completa). Antes de empezar se ve una carátula propia; en pausa,
+//   el fotograma donde se paró con un botón de reproducir.
 // - «Últimos vídeos»: empieza por el más reciente y, al acabar uno, sigue con el siguiente del canal.
 // La lista de vídeos la da el servidor de torneos (/api/tournaments/youtube), que la consulta a YouTube cada hora.
 (function () {
@@ -26,8 +27,10 @@
   function portada() { return modo === "videos" && videos[idx] ? thumb(videos[idx].id) : ""; }
   function pinta() {
     box.classList.toggle("parado", estado !== 1);
+    // Antes de empezar, la carátula del vídeo; en pausa, el fotograma donde se paró (solo el botón encima).
+    box.classList.toggle("empezado", empezado);
     var c = box.querySelector(".yt-cover"); if (!c) return;
-    var img = portada(); c.style.backgroundImage = img ? 'url("' + img + '")' : "none";
+    var img = portada(); c.style.backgroundImage = img && !empezado ? 'url("' + img + '")' : "none";
     c.setAttribute("aria-label", estado === 1 ? "Pausa" : "Reproducir");
   }
   function pon() {

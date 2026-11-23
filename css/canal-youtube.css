@@ -19,6 +19,8 @@
 .yt-shield { position: absolute; inset: 0; z-index: 1; cursor: pointer; }
 .yt-cover { position: absolute; inset: 0; z-index: 2; display: grid; place-items: center; padding: 0; border: 0; background: #000 center / cover no-repeat; cursor: pointer; opacity: 0; pointer-events: none; transition: opacity .2s; }
 .yt-player.parado .yt-cover { opacity: 1; pointer-events: auto; }
+/* En pausa: el vídeo se sigue viendo, solo con el botón de reproducir encima. */
+.yt-player.empezado .yt-cover { background-color: transparent; }
 .yt-cover-play { display: grid; place-items: center; width: 76px; height: 54px; border-radius: 14px; background: #ff0033; color: #fff; box-shadow: 0 10px 30px -8px #000c; transition: transform .15s; }
 .yt-cover:hover .yt-cover-play, .yt-cover:focus-visible .yt-cover-play { transform: scale(1.08); }
 .yt-player:fullscreen { border-radius: 0; border: 0; }
