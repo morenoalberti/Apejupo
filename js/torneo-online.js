@@ -441,15 +441,16 @@ function renderPodium() {
 }
 let editingName = false;
 function renderJoin() {
-  // Con la sesión abierta se juega con el nick de la cuenta; sin ella, con un alias como siempre.
-  const user = currentUser(), remembered = read('apejupoTorneoNombre'), quick = !!user || (remembered.length >= 2 && !editingName);
-  $('to-name-row').hidden = quick; $('to-name').required = !quick;
-  if (quick) $('to-name').value = user ? user.nick : remembered;
-  $('to-join-label').textContent = quick ? `Unirse como ${user ? user.nick : remembered}` : 'Unirse';
-  $('to-change-name').hidden = !quick || !!user;
+  // Solo juegan usuarios registrados: con la sesión abierta se entra con el nick de la cuenta; sin ella, el botón
+  // abre la tarjeta para crear la cuenta (o entrar). Mirar el torneo sigue abierto a todos.
+  const user = currentUser();
+  $('to-name-row').hidden = true; $('to-name').required = false;
+  $('to-name').value = user ? user.nick : '';
+  $('to-join-label').textContent = user ? `Unirse como ${user.nick}` : 'Unirse';
+  $('to-change-name').hidden = true;
   $('to-join-account').hidden = !!user;
-  $('to-joinkey-row').hidden = !state.locked; $('to-joinkey').required = !!state.locked;
-  $('to-join-hint').textContent = state.locked ? 'Este torneo tiene clave: pídesela al organizador.' : user ? (user.verified ? 'Te inscribes con tu cuenta: podrás seguir desde cualquier dispositivo.' : 'Confirma tu correo (abre el enlace que te enviamos) para jugar con tu cuenta.') : 'Un clic y entras. Tu nombre se recuerda en este navegador.';
+  $('to-joinkey-row').hidden = !state.locked || !user; $('to-joinkey').required = !!state.locked && !!user;
+  $('to-join-hint').textContent = !user ? 'Para jugar necesitas una cuenta del club (es gratis). Sin cuenta puedes seguir el torneo como espectador.' : state.locked ? 'Este torneo tiene clave: pídesela al organizador.' : user.verified ? 'Te inscribes con tu cuenta: podrás seguir desde cualquier dispositivo.' : 'Confirma tu correo (abre el enlace que te enviamos) para jugar con tu cuenta.';
   $('to-join-title').textContent = arena(state) && state.status === 'playing' ? '¡El arena está en marcha!' : 'Juega este torneo';
 }
 function liveGames() { return (state?.games || []).filter(g => !g.result && !g.bye && g.fen); }
@@ -1495,18 +1496,19 @@ addEventListener('storage', event => {
   if (event.key === 'apejupoAdminCuentas' && roomId && !boardsMode) refreshOrganizer();
 });
 $('to-join-form').addEventListener('submit', async event => {
-  event.preventDefault(); const button = event.currentTarget.querySelector('button'); button.disabled = true;
+  event.preventDefault();
+  // Sin cuenta: la tarjeta de registro (desde ella también se puede entrar).
+  if (!currentUser()) { openAuth('registro'); return; }
+  const button = event.currentTarget.querySelector('button'); button.disabled = true;
   try {
     const id = read(playerKey()) || token(), user = currentUser(); write(playerKey(), id);
-    if (!user) write('apejupoTorneoNombre', $('to-name').value.trim());
-    await request(`/api/tournaments/${roomId}/join`, { method: 'POST', key: user ? session() : '', body: JSON.stringify({ name: $('to-name').value, token: id, joinKey: $('to-joinkey').value }) });
+    await request(`/api/tournaments/${roomId}/join`, { method: 'POST', key: session(), body: JSON.stringify({ name: $('to-name').value, token: id, joinKey: $('to-joinkey').value }) });
     $('to-joinkey').value = '';
     editingName = false; hello();
     message(arena(state) && state.status === 'playing' ? '¡Dentro! Te emparejamos con el próximo jugador libre.' : 'Inscripción completada. Mantén esta página abierta para el inicio.');
   } catch (e) {
     message(e.message, true);
-    // Si el nombre recordado ya está cogido, se muestra el campo para escribir otro.
-    if (/nombre/.test(e.message)) { editingName = true; renderJoin(); $('to-name').focus(); }
+    if (/sesión|cuenta/.test(e.message) && !/correo/.test(e.message)) openAuth('entrar');
     else if (/clave/.test(e.message)) { $('to-joinkey').select(); $('to-joinkey').focus(); }
   }
   finally { button.disabled = !connected; }

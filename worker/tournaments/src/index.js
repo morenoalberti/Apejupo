@@ -355,6 +355,8 @@ export class TournamentRoom extends DurableObject {
             await this.save(); this.broadcast();
             return json(r.player ? { playerId: r.player.id } : { requested: true }, r.player ? 200 : 202);
           }
+          // Torneos online: solo juegan usuarios registrados (mirar sigue abierto a todos).
+          requireThat(b.account, 'Para jugar un torneo online necesitas una cuenta. Entra o créala gratis.', 401);
           let p;
           try { p = joinTournament(this.t, b.name, playerHash, now, b.joinKey, b.account || null); }
           catch (error) { if (/clave/.test(error.message)) this.keyFails.count++; throw error; }
@@ -612,7 +614,7 @@ export default {
         return withCors(await env.TOURNAMENTS.getByName(room[1]).fetch('https://room/' + suffix, { method: 'POST', body: JSON.stringify(b) }));
       }
       if (suffix === 'join') {
-        // Con sesión, el jugador se inscribe con el nick de su cuenta; sin ella, su alias no puede ser el nick de otra cuenta.
+        // Con sesión, el jugador se inscribe con el nick de su cuenta; sin ella (solo presenciales), su alias no puede ser el nick de otra cuenta.
         const b = await body(request), session = bearer(request); delete b.account;
         if (session) {
           const { user, unverified } = await (await askAccounts('sesion', { session })).json();
