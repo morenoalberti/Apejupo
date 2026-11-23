@@ -352,6 +352,8 @@ function render() {
   const ownView = !!t.game && (t.game.white === t.me || t.game.black === t.me);
   const focus = !presencial(t) && (ownActive || (!!mine?.active && ownView && ['playing', 'between'].includes(t.status)));
   document.body.classList.toggle('to-focus', focus);
+  // El sonido lo decide cada jugador dentro de su partida: en la sala (inscripción, clasificación…) no se muestra.
+  $('to-sound').hidden = !focus;
   // Quien solo está viendo una partida (no inscrito) no necesita «Conectado», «Sonido» ni «Ver tableros».
   document.body.classList.toggle('to-watching', !presencial(t) && !t.me && !!t.game && ['playing', 'between', 'finished'].includes(t.status));
   // Arena: la fila con «Salir del torneo» también se ve mientras juegas tu partida (la terminas y ya no se te empareja).
@@ -784,7 +786,6 @@ function renderControls() {
   nextRound.disabled = !showTrf || !connected || t.format !== 'swiss' || t.status !== 'between';
   nextRound.title = t.format === 'swiss' ? 'Disponible entre rondas.' : 'El emparejamiento manual está disponible en el sistema suizo.';
   $('to-host').hidden = !showTrf && !canUsePrizes && (!t.host || ended);
-  $('to-sound').hidden = presencial(t);
   $('to-key-edit').hidden = ended || presencial(t);
   $('to-host-key').hidden = ended || presencial(t);
   $('to-host-edit').hidden = ended || (t.status !== 'waiting' && !t.editable);
