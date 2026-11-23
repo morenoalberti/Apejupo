@@ -13,7 +13,7 @@
   if (!box) return;
   var esc = function (s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); };
   var PLAY = '<svg viewBox="0 0 24 24" width="34" height="34" aria-hidden="true"><path d="M8 5v14l11-7z" fill="currentColor"/></svg>';
-  var videos = [], modo = "videos", idx = 0, cargado = false, frame = null, estado = -1, empezado = false;
+  var videos = [], modo = "videos", idx = 0, cargado = false, frame = null, estado = -1, empezado = false, segundo = 0;
   var thumb = function (id) { return "https://i.ytimg.com/vi/" + encodeURIComponent(id) + "/hqdefault.jpg"; };
 
   // ---- Reproductor (API de YouTube por mensajes) ----
@@ -34,7 +34,7 @@
     c.setAttribute("aria-label", estado === 1 ? "Pausa" : "Reproducir");
   }
   function pon() {
-    estado = -1; empezado = false;
+    estado = -1; empezado = false; segundo = 0;
     box.innerHTML = '<iframe src="' + src() + '" title="' + esc(modo === "directo" ? "Directo del canal «Cálculo letal»" : (videos[idx] && videos[idx].title) || "Vídeos del canal «Cálculo letal»") + '" allow="autoplay; encrypted-media; picture-in-picture" referrerpolicy="strict-origin-when-cross-origin"></iframe>'
       + '<div class="yt-shield" aria-hidden="true"></div>'
       + '<button type="button" class="yt-cover" aria-label="Reproducir"><span class="yt-cover-play">' + PLAY + "</span></button>";
@@ -45,6 +45,7 @@
   window.addEventListener("message", function (e) {
     if (e.origin !== ORIGEN || !frame || e.source !== frame.contentWindow) return;
     var m; try { m = JSON.parse(e.data); } catch (_) { return; }
+    if (m && m.info && typeof m.info.currentTime === "number") segundo = m.info.currentTime;
     var s = m && m.info && m.info.playerState;
     if (typeof s !== "number" || s === estado) return;
     estado = s; if (s === 1) empezado = true;
@@ -59,10 +60,21 @@
     if (document.fullscreenElement) document.exitFullscreen(); else box.requestFullscreen();
   });
 
+  // «Abrir en YouTube»: el vídeo que se está viendo (en el punto en que va) o el directo; sin lista, el canal.
+  var abrir = document.getElementById("yt-open");
+  function enlace() {
+    if (modo === "directo") return "https://www.youtube.com/channel/" + CANAL + "/live";
+    if (!videos[idx]) return "https://www.youtube.com/@josemanuelm.8753/videos";
+    var t = Math.floor(segundo);
+    return "https://www.youtube.com/watch?v=" + encodeURIComponent(videos[idx].id) + (t > 5 ? "&t=" + t + "s" : "");
+  }
+  if (abrir) abrir.addEventListener("click", function () { abrir.href = enlace(); if (estado === 1) cmd("pauseVideo"); });
+
   // ---- Pestañas y vídeo elegido ----
   function marca() {
     Array.prototype.forEach.call(tabs, function (t) { t.setAttribute("aria-selected", String(t.dataset.yt === modo)); });
     nota.hidden = modo !== "directo";
+    if (abrir) abrir.href = enlace();
     if (grid) Array.prototype.forEach.call(grid.querySelectorAll("[data-i]"), function (c) { c.classList.toggle("on", modo === "videos" && +c.dataset.i === idx); });
   }
   function elige(nuevoModo, i) { modo = nuevoModo; if (typeof i === "number") idx = i; marca(); if (cargado) pon(); }
