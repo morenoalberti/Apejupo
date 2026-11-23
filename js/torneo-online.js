@@ -307,8 +307,6 @@ function render() {
   $('to-membership-text').hidden = !mine || mine.active;
   $('to-membership-text').textContent = mine && !mine.active ? 'Retirado del torneo' : '';
   $('to-standings-title').innerHTML = `<span class="to-title-full">${esc(classification.title)}</span><span class="to-title-short" aria-hidden="true">${esc(classification.short)}</span>`;
-  // Impresora también arriba, a la derecha, junto al contador de jugadores.
-  $('to-print-top').hidden = registering || !classification.rows.length;
   $('to-standings-panel').classList.toggle('to-registration-panel', registering);
   $('to-player-count').textContent = `${listed(t).length}/${t.capacity}`;
   $('to-player-count').setAttribute('aria-label', `${listed(t).length} jugadores de ${t.capacity} plazas`);
@@ -811,9 +809,9 @@ function renderControls() {
   $('to-analyze-games').hidden = $('to-all-pgn').hidden;
   // Reto terminado: cualquiera de los dos puede pedir la revancha (mismo ritmo, colores cambiados).
   $('to-rematch-box').hidden = !t.challenge || !g || !ownGame || !g.result || t.status !== 'finished';
-  chatFrame();
   if ($('to-rematch-box').hidden) { rematch = null; $('to-rematch-msg').textContent = ''; }
   $('to-rematch').textContent = rematch ? 'Cancelar revancha' : 'Revancha';
+  chatFrame();
   scheduleGameFit();
 }
 // Revancha: se manda como un reto normal al rival, que tiene esta misma página abierta.
@@ -1197,17 +1195,6 @@ async function download(game) {
 }
 
 let clearStandingsPrint = null;
-function printStandings() {
-  if (!state) return;
-  const t = state, view = standingsView(t);
-  if (!view.rows.length) return;
-  const keys = view.initial || arena(t) ? [] : (t.tiebreaks?.length ? t.tiebreaks : closed(t) ? ['sb'] : ['bh']).filter(k => TB[k]).slice(0, 2);
-  const number = n => n == null ? '-' : Number.isInteger(n) || n % 1 === .5 ? formatPoints(n) : n.toLocaleString('es-ES', { maximumFractionDigits: 2 });
-  const extraHeaders = view.initial ? '' : '<th>Pts</th>' + (arena(t) ? '<th>PJ</th>' : keys.map(k => `<th>${esc(TB[k][1])}</th>`).join(''));
-  const rows = view.rows.map((p, i) => `<tr><td>${i + 1}</td><td class="to-print-name">${p.title ? esc(p.title) + ' ' : ''}${esc(p.name)}${p.fed ? `<small>${esc(p.fed)}</small>` : ''}</td><td>${fideRating(p) || '-'}</td>${view.initial ? '' : `<td><strong>${formatPoints(pointsOf(p))}</strong></td>${arena(t) ? `<td>${p.played}</td>` : keys.map(k => `<td>${esc(number(p.tb?.[k]))}</td>`).join('')}`}</tr>`).join('');
-  const note = view.initial ? 'Ordenados por Elo FIDE, de mayor a menor. Los jugadores sin Elo FIDE figuran al final.' : $('to-tiebreak').textContent;
-  printTournamentSheet(`<header><p class="to-print-brand">APEJUPO · CHESS CLUB</p><h1>${esc(t.title)}</h1><h2>${esc(view.title)}</h2><p class="to-print-meta">${esc(formatLabel(t))} · ${t.minutes} + ${t.increment} · ${view.rows.length} participantes</p></header><table><thead><tr><th>N.º</th><th class="to-print-name">Jugador</th><th>Elo FIDE</th>${extraHeaders}</tr></thead><tbody>${rows}</tbody></table><p class="to-print-note">${esc(note)}</p>`);
-}
 function printTournamentSheet(markup) {
   clearStandingsPrint?.();
   const sheet = document.createElement('section'); sheet.id = 'to-print-sheet'; sheet.setAttribute('aria-hidden', 'true');
@@ -2008,7 +1995,6 @@ $('to-pgn').addEventListener('click', () => download(state.game.id));
 $('to-all-pgn').addEventListener('click', () => download());
 // Tablero de análisis con un desplegable de todas las partidas del torneo (en otra pestaña, para no salir de la sala).
 $('to-analyze-games').addEventListener('click', () => window.open(`analisis.html?torneo=${encodeURIComponent(roomId)}`, '_blank', 'noopener'));
-$('to-print-top').addEventListener('click', printStandings);
 function review(ply) { if (!replay) return; replayPly = Math.max(0, Math.min(replay.length - 1, ply)); boardKey = ''; renderGame(); }
 $('to-replay-range').addEventListener('input', event => review(Number(event.target.value)));
 $('to-replay-prev').addEventListener('click', () => review(replayPly - 1));
@@ -2024,6 +2010,20 @@ const gameSizeObserver = new ResizeObserver(scheduleGameFit);
 for (const selector of ['.to-play-column', '.to-room-bar', '.site-header', '#to-game-actions', '#to-game-status', '#to-message']) {
   const element = document.querySelector(selector); if (element) gameSizeObserver.observe(element);
 }
+
+$('to-name').value = read('apejupoTorneoNombre');
+if (roomId) {
+  $('to-lobby').hidden = true; $('to-room').hidden = boardsMode; $('to-boards-page').hidden = !boardsMode;
+  document.body.classList.toggle('to-boards-mode', boardsMode);
+  if (!/^[a-f0-9]{24}$/.test(roomId)) message('El enlace del torneo no es válido.', true);
+  else if (!API) { message('Los torneos todavía no están disponibles.'); setConnection('No disponible'); }
+  else { connect(); checkKeyMode(); }
+} else loadLobby();
+setInterval(() => { updateClocks(); updateMiniClocks(); }, 100);
+// Los navegadores solo permiten sonido tras un gesto del usuario: clic, toque o teclado.
+function unlockAudio() { try { prepareAudio(); } catch {} }
+document.addEventListener('pointerdown', unlockAudio, { once: true });
+document.addEventListener('keydown', unlockAudio, { once: true });
 // ---- Chat del torneo ----
 // Columna a la izquierda del tablero, solo en pantallas grandes con ratón (en el móvil no sale).
 // Escriben los inscritos desde la caja de debajo del tablero; el organizador o el administrador borran mensajes.
@@ -2096,20 +2096,6 @@ $('to-chat-list').addEventListener('click', event => {
   if (del && state?.host && connected) send({ type: 'chat-delete', id: del.dataset.chatDel });
 });
 
-
-$('to-name').value = read('apejupoTorneoNombre');
-if (roomId) {
-  $('to-lobby').hidden = true; $('to-room').hidden = boardsMode; $('to-boards-page').hidden = !boardsMode;
-  document.body.classList.toggle('to-boards-mode', boardsMode);
-  if (!/^[a-f0-9]{24}$/.test(roomId)) message('El enlace del torneo no es válido.', true);
-  else if (!API) { message('Los torneos todavía no están disponibles.'); setConnection('No disponible'); }
-  else { connect(); checkKeyMode(); }
-} else loadLobby();
-setInterval(() => { updateClocks(); updateMiniClocks(); }, 100);
-// Los navegadores solo permiten sonido tras un gesto del usuario: clic, toque o teclado.
-function unlockAudio() { try { prepareAudio(); } catch {} }
-document.addEventListener('pointerdown', unlockAudio, { once: true });
-document.addEventListener('keydown', unlockAudio, { once: true });
 $('to-sound').addEventListener('click', () => {
   moveSound = !moveSound;
   $('to-sound').setAttribute('aria-checked', String(moveSound));

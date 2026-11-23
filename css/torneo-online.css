@@ -178,9 +178,8 @@
 .to-game-heading { margin-bottom: 12px; }
 .to-game-heading h2 { font-size: 1rem; }
 .to-game-heading button { font-size: .8rem !important; }
-/* Sonido de jugadas: en el tablero de la partida, junto a «Girar tablero» (antes estaba en la cabecera de la sala) */
+/* Herramientas del tablero; el sonido se controla en la barra de conexión de la sala. */
 .to-game-tools { display: flex; align-items: center; gap: 8px; }
-.to-main .to-game-heading .to-sound { width: auto; height: 34px; padding: 4px 10px; }
 .to-board { container-type: inline-size; position: relative; display: grid; grid-template-columns: repeat(8, 1fr); aspect-ratio: 1; width: 100%; user-select: none; -webkit-user-select: none; border: 1px solid #3a3024; }
 .to-square { position: relative; border: 0; border-radius: 0; margin: 0; padding: 0; width: 100%; height: 100%; min-width: 0; min-height: 0; display: grid; place-items: center; background: #f0d9b5; touch-action: manipulation; }
 .to-square.dark { background: #b58863; }
@@ -237,18 +236,13 @@
 #to-standings-panel .to-roster-heading { flex: 1; }
 #to-player-count { flex: none; align-self: flex-start; }
 #to-standings-panel .to-heading-text { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; min-width: 0; }
-.to-print-top { flex: none; margin: 0 0 0 auto; }
-.to-print-top[hidden] { display: none; }
 .to-title-short { display: none; }
-/* Móvil: título de la clasificación en una línea (abreviado), Imprimir de arriba solo con el icono
-   y la tabla sin salirse de la pantalla (el nombre puede partirse; las cifras no). */
+/* Móvil: título de la clasificación en una línea (abreviado) y la tabla dentro de la pantalla. */
 @media (max-width: 600px) {
   #to-standings-panel > .to-section-head { flex-wrap: nowrap; gap: 8px; }
   #to-standings-title { min-width: 0; font-size: 1.05rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   #to-standings-title .to-title-full { display: none; }
   #to-standings-title .to-title-short { display: inline; }
-  .to-main #to-print-top { min-height: 36px; padding: 6px 9px; }
-  .to-main #to-print-top > span { display: none; }
   .to-presencial-room .to-standings { min-width: 0; width: 100%; }
   .to-presencial-room .to-standings th, .to-presencial-room .to-standings td { padding-left: 4px; padding-right: 4px; }
   .to-presencial-room .to-standings td:nth-child(2) { white-space: normal; }
@@ -275,8 +269,6 @@
 .to-standings-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
 .to-main .to-standings-actions > .btn-ghost { display: flex; align-items: center; justify-content: center; min-width: 0; min-height: 40px; padding: 7px 5px; font-size: .78rem; line-height: 1.35; white-space: normal; overflow-wrap: anywhere; text-align: center; }
 .to-standings-actions:not(:has(> :not([hidden]))) { display: none; } /* sin botones visibles, sin hueco */
-.to-main #to-print-top { min-height: 40px; font-size: .82rem; background: color-mix(in srgb, var(--blue) 12%, var(--card)); border-color: color-mix(in srgb, var(--blue) 35%, var(--line)); }
-.to-main #to-print-top:hover:not(:disabled) { background: color-mix(in srgb, var(--blue) 21%, var(--card)); }
 .to-roster-icon { display: none; }
 .to-registration-panel {
   background: linear-gradient(145deg, color-mix(in srgb, var(--blue) 6%, var(--card)), var(--card) 65%);
@@ -284,8 +276,11 @@
   box-shadow: inset 0 1px 0 #ffffff0d, 0 12px 28px -20px #0b142280;
 }
 .to-registration-panel > .to-section-head { margin-bottom: 14px; gap: 8px; }
-.to-registration-panel .to-roster-icon { display: grid; place-items: center; width: 34px; height: 34px; flex: none; border: 1px solid #db9f3833; border-radius: 10px; color: #a16b12; background: #db9f3814; }
-.to-registration-panel #to-player-count { padding: 4px 9px; border: 1px solid color-mix(in srgb, var(--blue) 25%, var(--line)); border-radius: 8px; background: color-mix(in srgb, var(--blue) 11%, var(--card)); color: var(--text); font-size: .76rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+.to-registration-panel .to-roster-heading { display: grid; grid-template-columns: 34px minmax(0, 1fr); align-items: center; gap: 4px 10px; }
+#to-standings-panel.to-registration-panel .to-heading-text { display: contents; }
+.to-registration-panel .to-roster-icon { grid-column: 1; grid-row: 1; display: grid; place-items: center; width: 34px; height: 34px; flex: none; border: 1px solid #db9f3833; border-radius: 10px; color: #a16b12; background: #db9f3814; }
+.to-registration-panel #to-standings-title { grid-column: 2; grid-row: 1; }
+.to-registration-panel #to-player-count { grid-column: 1 / -1; grid-row: 2; justify-self: start; padding: 4px 9px; border: 1px solid color-mix(in srgb, var(--blue) 25%, var(--line)); border-radius: 8px; background: color-mix(in srgb, var(--blue) 11%, var(--card)); color: var(--text); font-size: .76rem; font-weight: 600; font-variant-numeric: tabular-nums; }
 .to-registration-progress { height: 4px; margin: 0 0 14px; border-radius: 99px; overflow: hidden; background: var(--line); }
 .to-registration-progress > span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--blue), #79bbd9); }
 .to-registration-panel .to-standings { border-collapse: separate; border-spacing: 0 5px; }
@@ -1080,6 +1075,11 @@ li.to-tb-dragging { position: relative; z-index: 2; transform: scale(1.03); back
   .to-picker-list button:active { background: color-mix(in srgb, var(--blue) 14%, transparent); }
   .to-picker-list button.on { color: #fff; background: linear-gradient(180deg, #5b9dff, #2f6ae0); box-shadow: 0 1px 0 #ffffff40 inset; }
   .to-picker-list button.on::after { content: ''; flex: none; width: 6px; height: 12px; margin-right: 4px; border-right: 2.5px solid #fff; border-bottom: 2.5px solid #fff; transform: rotate(45deg) translate(-2px, -2px); }
+  /* Puntuación en el móvil: la opción elegida en azul (el modo oscuro del teléfono no la estropea) */
+  .to-scoring { gap: 6px; padding: 4px; background: color-mix(in srgb, var(--text) 7%, transparent); border: 1px solid var(--line); }
+  .to-scoring span { padding: 10px 4px; font-size: .95rem; color: var(--text); opacity: .75; }
+  .to-scoring input:checked + span { opacity: 1; color: #fff; background: linear-gradient(180deg, #5b9dff, #2f6ae0); box-shadow: 0 1px 0 #ffffff55 inset, 0 6px 14px -6px #2f63d6; }
+}
 
 /* ---- Chat del torneo: columna a la izquierda del tablero (solo pantallas grandes) ---- */
 .to-chat { min-width: 0; display: flex; flex-direction: column; gap: 10px; }
@@ -1111,11 +1111,6 @@ li.to-tb-dragging { position: relative; z-index: 2; transform: scale(1.03); back
 @media (min-width: 1100px) {
   .to-room-layout.to-has-chat { grid-template-columns: 250px minmax(0, 1fr) var(--to-sidebar-width); }
   .to-room-layout.to-has-chat .to-game-panel { --to-board-max-size: 520px; max-width: 560px; }
-}
-  /* Puntuación en el móvil: la opción elegida en azul (el modo oscuro del teléfono no la estropea) */
-  .to-scoring { gap: 6px; padding: 4px; background: color-mix(in srgb, var(--text) 7%, transparent); border: 1px solid var(--line); }
-  .to-scoring span { padding: 10px 4px; font-size: .95rem; color: var(--text); opacity: .75; }
-  .to-scoring input:checked + span { opacity: 1; color: #fff; background: linear-gradient(180deg, #5b9dff, #2f6ae0); box-shadow: 0 1px 0 #ffffff55 inset, 0 6px 14px -6px #2f63d6; }
 }
 /* Pantallas medianas (860–1099 px): chat y clasificación más estrechos para dejar sitio al tablero. */
 @media (min-width: 860px) and (max-width: 1099px) {
