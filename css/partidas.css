@@ -28,8 +28,8 @@
 @keyframes pj-drop { from { opacity: 0; transform: translate(-50%, -8px); } to { opacity: 1; transform: translate(-50%, 0); } }
 @media (prefers-reduced-motion: reduce) { .pj-panel { animation: none; } }
 
-/* Tablero pequeño con la posición final, al pasar el ratón por una partida. */
-.pj-preview { position: fixed; z-index: 70; width: 184px; box-sizing: border-box; padding: 6px; border: 1px solid var(--line); border-radius: 10px; background: var(--card); box-shadow: 0 16px 40px -10px #000c; pointer-events: none; }
+/* Tablero con la posición final, al pasar el ratón por una partida: a la derecha y debajo del puntero. */
+.pj-preview { position: fixed; z-index: 70; width: 260px; box-sizing: border-box; padding: 6px; border: 1px solid var(--line); border-radius: 10px; background: var(--card); box-shadow: 0 16px 40px -10px #000c; pointer-events: none; }
 .pj-preview[hidden] { display: none; }
 .pj-mini { display: grid; grid-template-columns: repeat(8, 1fr); aspect-ratio: 1; border: 1px solid #3a3024; }
 .pj-mini i { display: block; position: relative; background: #f0d9b5; }

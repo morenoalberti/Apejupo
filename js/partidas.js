@@ -32,17 +32,19 @@
     }
     return cells.join("");
   }
-  function showPreview(tr) {
+  var shownFor = null;
+  function showPreview(tr, ev) {
     if (!tr.dataset.fen || !window.matchMedia("(hover: hover)").matches) return;
     if (!preview) { preview = document.createElement("div"); preview.className = "pj-preview"; preview.setAttribute("aria-hidden", "true"); document.body.appendChild(preview); }
-    preview.innerHTML = '<div class="pj-mini">' + board(tr.dataset.fen, tr.dataset.last) + "</div>";
-    var r = tr.getBoundingClientRect(), box = tr.closest(".pj-root").getBoundingClientRect(), size = 184, gap = 12;
-    // A la izquierda de la lista si cabe; si no, a la derecha; y a la altura de la partida.
-    var left = box.left - size - gap >= 8 ? box.left - size - gap : Math.min(innerWidth - size - 8, box.right + gap);
-    var top = Math.max(8, Math.min(innerHeight - size - 8, r.top + r.height / 2 - size / 2));
-    preview.style.left = left + "px"; preview.style.top = top + "px"; preview.hidden = false;
+    if (shownFor !== tr) { shownFor = tr; preview.innerHTML = '<div class="pj-mini">' + board(tr.dataset.fen, tr.dataset.last) + "</div>"; }
+    preview.hidden = false;
+    // A la derecha y debajo del puntero, siguiéndolo; si no cabe, al otro lado del puntero.
+    var size = preview.offsetWidth || 260, gap = 18, x = ev.clientX, y = ev.clientY;
+    var left = x + gap + size <= innerWidth - 8 ? x + gap : x - gap - size;
+    var top = y + gap + size <= innerHeight - 8 ? y + gap : y - gap - size;
+    preview.style.left = Math.max(8, left) + "px"; preview.style.top = Math.max(8, top) + "px";
   }
-  function hidePreview() { if (preview) preview.hidden = true; }
+  function hidePreview() { if (preview) preview.hidden = true; shownFor = null; }
 
   // ---- Lista con buscador ----
   function mount(root) {
@@ -87,7 +89,7 @@
       timer = setTimeout(function () { var v = q.value.trim(); if (v === query) return; query = v; load(true); }, 300);
     });
     more.addEventListener("click", function () { load(false); });
-    body.addEventListener("mouseover", function (ev) { var tr = ev.target.closest("tr[data-g]"); if (tr) showPreview(tr); });
+    body.addEventListener("mousemove", function (ev) { var tr = ev.target.closest("tr[data-g]"); if (tr) showPreview(tr, ev); });
     body.addEventListener("mouseleave", hidePreview);
     body.addEventListener("click", function (ev) {
       var btn = ev.target.closest("[data-pgn]");
