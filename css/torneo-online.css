@@ -708,7 +708,7 @@ body.to-focus #to-standings-panel th { position: sticky; top: 0; background: var
 .to-match-history summary { cursor: pointer; color: var(--muted); font-size: .75rem; }
 .to-match-history .to-duel-score { margin-top: 12px; }
 /* Reto: conservar la conexión y el control de sonido en la barra de la sala. */
-.to-challenge .to-hero, .to-challenge .to-tournament-bar, .to-challenge #to-notice, .to-challenge #to-focus-info,
+.to-challenge .to-hero, .to-challenge .to-tournament-bar, .to-challenge #to-notice, .to-challenge #to-focus-info, .to-challenge #to-end-clock,
 .to-challenge .to-room-bar #to-back, .to-challenge .to-room-bar #to-share { display: none !important; }
 .to-challenge .to-content { padding-top: 24px; }
 /* Reto: columna del marcador más estrecha (en móvil va debajo del tablero, a todo el ancho) */
@@ -1112,4 +1112,21 @@ li.to-tb-dragging { position: relative; z-index: 2; transform: scale(1.03); back
   .to-scoring { gap: 6px; padding: 4px; background: color-mix(in srgb, var(--text) 7%, transparent); border: 1px solid var(--line); }
   .to-scoring span { padding: 10px 4px; font-size: .95rem; color: var(--text); opacity: .75; }
   .to-scoring input:checked + span { opacity: 1; color: #fff; background: linear-gradient(180deg, #5b9dff, #2f6ae0); box-shadow: 0 1px 0 #ffffff55 inset, 0 6px 14px -6px #2f63d6; }
+}
+/* Pantallas medianas (860–1099 px): chat y clasificación más estrechos para dejar sitio al tablero. */
+@media (min-width: 860px) and (max-width: 1099px) {
+  .to-room-layout.to-has-chat { grid-template-columns: 170px minmax(0, 1fr) 270px; gap: 14px; }
+  .to-room-layout.to-has-chat .to-game-panel { --to-board-max-size: 480px; padding: 10px; }
+  .to-room-layout.to-has-chat .to-chat-list { padding: 8px 10px; font-size: .8rem; }
+  .to-main .to-room-layout.to-has-chat .to-chat-switch { width: 100%; }
+}
+
+/* «Termina en»: encima de la columna derecha, alineado a la derecha y sin tarjeta. */
+.to-end-clock { display: none; }
+body.to-focus .to-end-clock:not([hidden]) { display: flex; margin: 0 4px 10px; }
+body.to-focus .to-end-clock span { font-size: .72rem; }
+body.to-focus .to-end-clock strong { font-size: 2rem; letter-spacing: .02em; }
+/* En pantallas medianas con chat, la columna derecha no se recorta a la altura del tablero. */
+@media (min-width: 860px) and (max-width: 1099px) {
+  body.to-focus .to-room-layout.to-has-chat .to-sidebar { max-height: none; }
 }

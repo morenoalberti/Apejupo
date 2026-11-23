@@ -1141,7 +1141,8 @@ function updateClocks() {
     $('to-countdown').classList.toggle('urgent', left < 60000);
     $('to-focus-clock').textContent = $('to-countdown').querySelector('strong').textContent;
   }
-  $('to-focus-info').querySelector('.to-focus-clock').hidden = !counting;
+  // «Termina en» va encima de la columna derecha, fuera de la tarjeta del torneo.
+  $('to-end-clock').hidden = !counting;
   if (t.status === 'waiting') {
     const left = t.startsAt ? Math.max(0, t.startsAt - now) : null, s = left === null ? 0 : Math.ceil(left / 1000);
     const d = Math.floor(s / 86400), hms = `${String(Math.floor(s % 86400 / 3600)).padStart(2, '0')}:${String(Math.floor(s % 3600 / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
@@ -2025,7 +2026,7 @@ for (const selector of ['.to-play-column', '.to-room-bar', '.site-header', '#to-
 // Columna a la izquierda del tablero, solo en pantallas grandes con ratón (en el móvil no sale).
 // Escriben los inscritos desde la caja de debajo del tablero; el organizador o el administrador borran mensajes.
 let chatMessages = [], chatOn = read('apejupoTorneoChat') !== '0';
-const chatScreen = matchMedia('(min-width: 1100px) and (hover: hover) and (pointer: fine)');
+const chatScreen = matchMedia('(min-width: 860px) and (hover: hover) and (pointer: fine)');
 function chatAvailable() { return !!state && !boardsMode && !presencial(state) && !state.challenge && chatScreen.matches; }
 function receiveChat(msg) {
   if (Array.isArray(msg.list)) chatMessages = msg.list;
@@ -2063,11 +2064,12 @@ function renderChatList(added = false) {
   // Un mensaje nuevo solo baja la lista si ya estabas al final: no interrumpe a quien lee los anteriores.
   if (!added || nearBottom) list.scrollTop = list.scrollHeight;
 }
-// La lista del chat llega hasta el pie del tablero (o, sin tablero, una altura fija).
+// La lista del chat llega hasta el pie de la tarjeta del tablero (o, sin tablero, una altura fija).
 function sizeChat() {
   if ($('to-chat').hidden || !chatOn) return;
   const box = $('to-chat-box'), panel = $('to-game-panel'), form = $('to-chat-form');
-  const bottom = panel.hidden ? null : $('to-player-bottom').getBoundingClientRect().bottom;
+  // Hasta el borde inferior de la tarjeta del tablero (incluida la caja para escribir).
+  const bottom = panel.hidden ? null : panel.getBoundingClientRect().bottom;
   const room = bottom ? bottom - box.getBoundingClientRect().top : 420 - (form.parentElement === $('to-chat') && !form.hidden ? form.offsetHeight + 8 : 0);
   box.style.height = `${Math.max(200, Math.floor(room))}px`;
 }
