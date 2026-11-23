@@ -3,6 +3,7 @@ export { AccountStore } from './accounts.js';
 export { ChallengeHub } from './retos.js';
 import bbpWasm from './bbp/bbp.wasm';
 import { loadBbp, runDutch } from './bbp-engine.js';
+import { youtubeVideos } from './youtube.js';
 import { PRIZE_BODY_LIMIT, prizeResults, prizeYear, savedPrizes, validatePrizes } from './prizes.js';
 import { TRF_BODY_LIMIT, trfAvailability, validateTrfReport, trfView } from './trf.js';
 import { GameError, requireThat, isArena, setSwissEngine, startTournament, createTournament, editTournament, joinTournament, requestPresencial, isPresencial, act, advance, pairArena, nextAlarm, snapshot, sharedSnapshot, personalPart, moveMessage, summary, exportPgn, addChat, deleteChat, chatList, systemChat, tournamentTrfDetails, RETENTION_MS } from './core.js';
@@ -548,6 +549,8 @@ export default {
       const share = /^\/t\/([a-f0-9]{24})$/.exec(path);
       if (share && request.method === 'GET') return sharePage(env, share[1]);
       // «Partidas jugadas»: lista pública con buscador por jugador y PGN de cada partida (sin sesión).
+      // Canal de YouTube «Cálculo letal»: lista de vídeos para la página del canal (guardada una hora).
+      if (path === '/api/tournaments/youtube' && request.method === 'GET') return withCors(await youtubeVideos());
       if (path === '/api/tournaments/partidas' && request.method === 'GET') {
         // La primera vez, se archivan también las partidas de los retos que siguen guardados (de antes de existir el archivo).
         try {

@@ -17,7 +17,27 @@
 .yt-note[hidden] { display: none; }
 .yt-links { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
 .yt-links a { text-decoration: none; }
+/* Todos los vídeos del canal: cuadrícula de miniaturas; pulsar una la reproduce arriba. */
+.yt-all { margin-top: 18px; }
+.yt-all-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.yt-all-head h2 { margin: 0; font-size: 1.15rem; }
+.yt-all-head .muted { font-size: .85rem; }
+.yt-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px 14px; }
+.yt-v { display: flex; flex-direction: column; gap: 6px; min-width: 0; padding: 0; border: 0; background: none; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
+.yt-thumb { position: relative; display: block; aspect-ratio: 16 / 9; overflow: hidden; border-radius: 10px; background: #000; border: 1px solid var(--line); }
+.yt-thumb img { display: block; width: 100%; height: 100%; object-fit: cover; transition: transform .2s; }
+.yt-v:hover .yt-thumb img, .yt-v:focus-visible .yt-thumb img { transform: scale(1.04); }
+.yt-v:focus-visible { outline: none; } .yt-v:focus-visible .yt-thumb { outline: 2px solid var(--blue); outline-offset: 2px; }
+.yt-v.on .yt-thumb { outline: 3px solid #ff0033; outline-offset: 2px; }
+.yt-len { position: absolute; right: 6px; bottom: 6px; padding: 1px 6px; border-radius: 5px; background: #000c; color: #fff; font-size: .74rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+.yt-play { position: absolute; left: 50%; top: 50%; width: 48px; height: 34px; margin: -17px 0 0 -24px; border-radius: 10px; background: #ff0033e6; opacity: 0; transition: opacity .15s; }
+.yt-play::after { content: ""; position: absolute; left: 19px; top: 10px; border: 7px solid transparent; border-left: 12px solid #fff; border-right: 0; }
+.yt-v:hover .yt-play, .yt-v:focus-visible .yt-play, .yt-v.on .yt-play { opacity: 1; }
+.yt-title { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font-size: .9rem; font-weight: 600; line-height: 1.3; }
+.yt-date { color: var(--muted); font-size: .78rem; }
 @media (max-width: 600px) {
+  .yt-grid { grid-template-columns: 1fr 1fr; gap: 12px 10px; }
+  .yt-title { font-size: .82rem; }
   .yt-head h1 { font-size: 1.25rem; }
   .yt-logo { width: 40px; height: 40px; }
   .yt-links a { flex: 1; text-align: center; }
