@@ -84,7 +84,8 @@ async function request(path, { key, ...options } = {}) {
     try {
       response = await fetch(API + path, { ...options, headers: { ...(options.body ? { 'Content-Type': 'application/json' } : {}), ...(key ? { Authorization: 'Bearer ' + key } : {}) }, signal: AbortSignal.timeout(Math.max(1, deadline - Date.now())) });
     } catch (error) {
-      if (!starting || deadline - Date.now() <= 1500) throw error;
+      // Sin respuesta (conexión cortada o servidor arrancando): mensaje en español, no «Failed to fetch».
+      if (!starting || deadline - Date.now() <= 1500) throw new Error(error?.name === 'TimeoutError' ? 'El servidor de torneos tarda en responder. Vuelve a intentarlo en unos momentos.' : 'No se pudo conectar con el servidor de torneos. Vuelve a intentarlo en unos momentos.');
       await pause(); continue;
     }
     // Durante el arranque Render puede responder con una página HTML o un 503.
@@ -2137,8 +2138,9 @@ $('to-delete-ended').addEventListener('click', async () => {
     } catch { failed++; }
   }
   button.disabled = false;
+  // Las respuestas perdidas no cuentan como fallo si el torneo ya no está en la lista.
+  await loadLobby(); failed = ended.filter(t => lobby.has(t.id)).length;
   message(failed ? `No se ${failed === 1 ? 'pudo borrar 1 torneo' : `pudieron borrar ${failed} torneos`}. Vuelve a intentarlo.` : '', !!failed);
-  await loadLobby();
 });
 $('to-events').addEventListener('click', async event => {
   if (event.target.closest('[data-create]')) { $('to-create-open').click(); return; }
@@ -2157,7 +2159,12 @@ $('to-events').addEventListener('click', async event => {
     await request(`/api/tournaments/${id}/delete`, { method: 'POST', key: managementKey(id), body: JSON.stringify({ hostToken: read(hostKey(id)) }) });
     try { localStorage.removeItem(hostKey(id)); } catch {}
     message(''); await loadLobby();
-  } catch (error) { button.disabled = false; message(error.message, true); }
+  } catch (error) {
+    // La respuesta puede perderse por el camino aunque el torneo ya se haya borrado: se comprueba en la lista.
+    await loadLobby();
+    if (!lobby.has(id)) { try { localStorage.removeItem(hostKey(id)); } catch {} message(''); return; }
+    button.disabled = false; message(error.message, true);
+  }
 });
 
 $('to-waiting-boards').addEventListener('click', () => openBoards());
