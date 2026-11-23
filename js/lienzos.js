@@ -3,7 +3,8 @@
 // En cada tablero de la página este script:
 //   - pinta el fondo del tablero en un lienzo detrás de las casillas (el último hijo, para no mover la numeración
 //     de las casillas), y
-//   - cambia las piezas <img> por lienzos con la misma figura.
+//   - cambia las piezas <img> por lienzos con la misma figura, y
+//   - dibuja en un lienzo el logotipo de la cabecera.
 // Sigue funcionando aunque el tablero se vuelva a dibujar (vigila los cambios de la página).
 (function () {
   "use strict";
@@ -46,8 +47,18 @@
     }
     cambiaPiezas(tablero);
   }
+  // Logotipo de la cabecera (SVG): el modo oscuro lo deja casi sin color; dibujado en un lienzo se ve con sus colores.
+  function logo(img) {
+    var c = document.createElement("canvas");
+    c.className = "logo-lienzo"; c.setAttribute("role", "img"); c.setAttribute("aria-label", img.getAttribute("alt") || "Apejupo Chess Club");
+    c.width = 236 * 4; c.height = 64 * 4; // a 4 veces el tamaño del dibujo: nítido en cualquier pantalla
+    img.replaceWith(c);
+    var i = imagen(img.getAttribute("src")), pinta = function () { var g = c.getContext("2d"); g.clearRect(0, 0, c.width, c.height); g.drawImage(i, 0, 0, c.width, c.height); };
+    if (i.complete && i.naturalWidth) pinta(); else i.addEventListener("load", pinta, { once: true });
+  }
   function revisa(raiz) {
     if (!raiz || raiz.nodeType !== 1) return;
+    Array.prototype.forEach.call(raiz.querySelectorAll('.brand img[src*="logo.svg"]'), logo);
     if (raiz.matches(TABLEROS)) arregla(raiz);
     Array.prototype.forEach.call(raiz.querySelectorAll(TABLEROS), arregla);
     var dentro = raiz.closest(TABLEROS); if (dentro && dentro !== raiz) arregla(dentro);

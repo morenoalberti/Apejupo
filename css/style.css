@@ -1691,3 +1691,6 @@ canvas.pz-lienzo { display: block; pointer-events: none; }
 .to-promotion-options canvas.pz-lienzo { width: 100%; height: auto; aspect-ratio: 1; }
 .e404-tablero > canvas.bg-lienzo { border-radius: inherit; }
 .e404-rey.pz-lienzo { height: auto; aspect-ratio: 1; }
+/* Logotipo de la cabecera dibujado en un lienzo (js/lienzos.js), mismo tamaño que la imagen. */
+.brand canvas.logo-lienzo { height: 46px; width: auto; display: block; aspect-ratio: 236 / 64; }
+@media (max-width: 760px) { .site-header .brand canvas.logo-lienzo { width: min(144px, 38vw); height: auto; max-height: 42px; } }
