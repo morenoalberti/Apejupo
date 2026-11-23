@@ -2064,12 +2064,12 @@ function chatFrame() {
 }
 function renderChat(added = false) { if (chatFrame()) renderChatList(added); }
 function renderChatList(added = false) {
-  const list = $('to-chat-list'), nearBottom = list.scrollHeight - list.scrollTop - list.clientHeight < 40;
+  const list = $('to-chat-list');
   list.innerHTML = chatMessages.map(m => `<li data-chat="${esc(m.id)}"><span class="to-chat-meta"><b>${esc(m.name)}</b><time>${chatTime(m.at)}</time>${state.host ? `<button type="button" class="to-chat-del" data-chat-del="${esc(m.id)}" aria-label="Borrar mensaje de ${esc(m.name)}" title="Borrar mensaje">×</button>` : ''}</span><span class="to-chat-text">${esc(m.text)}</span></li>`).join('');
   $('to-chat-empty').hidden = chatMessages.length > 0;
   sizeChat();
-  // Un mensaje nuevo solo baja la lista si ya estabas al final: no interrumpe a quien lee los anteriores.
-  if (!added || nearBottom) list.scrollTop = list.scrollHeight;
+  // Siempre al último mensaje: aunque estés leyendo los anteriores, al escribir alguien la lista baja para que lo leas.
+  list.scrollTop = list.scrollHeight;
 }
 // La lista del chat llega hasta el pie de la tarjeta del tablero (o, sin tablero, una altura fija).
 function sizeChat() {
