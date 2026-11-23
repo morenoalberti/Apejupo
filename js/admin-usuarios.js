@@ -61,7 +61,7 @@ function render() {
     <td class="au-mail" data-label="Correo" role="cell"><a href="mailto:${esc(u.email)}">${esc(u.email)}</a></td>
     <td data-label="Estado" role="cell">${u.verified ? '<span class="au-badge ok">Confirmada</span>' : '<span class="au-badge pend">Sin confirmar</span>'}</td>
     <td class="au-date" data-label="Alta" role="cell">${fmtDate(u.createdAt)}<small>${fmtTime(u.createdAt)}</small></td>
-    <td class="au-date" data-label="Última actividad" role="cell">${ago(u.lastSeen)}${u.lastSeen ? `<small>${fmtDate(u.lastSeen)}</small>` : ''}</td>
+    <td class="au-date" data-label="Última actividad" role="cell">${ago(u.lastSeen)}${u.lastSeen ? `<small>${fmtDate(u.lastSeen)}, ${fmtTime(u.lastSeen)}</small>` : ''}</td>
     <td data-label="Acciones" role="cell"><div class="au-acts">${u.verified ? '' : `<button type="button" data-act="confirmar">Confirmar</button><button type="button" data-act="reenviar">Reenviar correo</button>`}<button type="button" class="cu-danger" data-act="borrar">Borrar</button></div></td>
   </tr>`).join('');
   $('au-empty').hidden = list.length > 0;

@@ -149,8 +149,8 @@ export class AccountStore extends DurableObject {
     this.sql.exec(`UPDATE duels SET ${winner === null ? 'draws = draws + 1' : winner === a ? 'a_wins = a_wins + 1' : 'b_wins = b_wins + 1'} WHERE a = ? AND b = ?`, a, b);
     this.sql.exec('INSERT INTO duel_games (room, at) VALUES (?, ?)', room, now);
   }
-  // Como mucho una escritura por hora y cuenta: basta para saber si alguien sigue usando la web.
-  seen(id, now) { this.sql.exec('UPDATE users SET last_seen = ? WHERE id = ? AND (last_seen IS NULL OR last_seen < ?)', now, id, now - 3600000); }
+  // Como mucho una escritura cada 5 minutos por cuenta: la hora de la última actividad es fiable (página de administración).
+  seen(id, now) { this.sql.exec('UPDATE users SET last_seen = ? WHERE id = ? AND (last_seen IS NULL OR last_seen < ?)', now, id, now - 300000); }
   // Administración: lista de cuentas y acciones sobre ellas, con la clave CUENTAS_ADMIN (secreto del Worker).
   async admin(action, b, ip, now) {
     const secret = String(this.env.CUENTAS_ADMIN || '');
