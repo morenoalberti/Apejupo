@@ -95,8 +95,8 @@
         var wc = g.result === "1-0" ? "won" : g.result === "0-1" ? "lost" : "drew", bc = g.result === "0-1" ? "won" : g.result === "1-0" ? "lost" : "drew";
         var file = (g.white + "-" + g.black).replace(/[^\wÀ-ÿ-]+/g, "_") + ".pgn";
         var info = g.title + " · " + (g.kind === "reto" ? "Reto" : "Torneo") + " · " + pace(g.tc);
-        return '<tr data-g="' + esc(g.id) + '" data-fen="' + esc(g.fen || "") + '" data-last="' + esc(g.lastMove || "") + '" title="' + esc(info) + '"><td class="pj-n">' + g.n + '</td><td class="l"><span class="pj-side w" aria-hidden="true"></span>' + player(g.white, g.whiteElo, wc)
-          + '</td><td class="rs"><span class="pj-res ' + (g.result === "1/2-1/2" ? "d" : "") + '" title="' + esc(g.reason) + '">' + res + '</span></td><td class="l"><span class="pj-side b" aria-hidden="true"></span>' + player(g.black, g.blackElo, bc)
+        return '<tr data-g="' + esc(g.id) + '" data-fen="' + esc(g.fen || "") + '" data-last="' + esc(g.lastMove || "") + '" title="' + esc(info) + '"><td class="pj-n">' + g.n + '</td><td class="l">' + player(g.white, g.whiteElo, wc)
+          + '</td><td class="rs"><span class="pj-res ' + (g.result === "1/2-1/2" ? "d" : "") + '" title="' + esc(g.reason) + '">' + res + '</span></td><td class="l">' + player(g.black, g.blackElo, bc)
           + '</td><td class="pj-date" title="' + esc(new Date(g.at).toLocaleString("es")) + '">' + day(g.at) + '</td><td class="pj-dl"><button type="button" data-pgn="' + esc(g.id) + '" data-file="' + esc(file) + '" aria-label="Descargar el PGN" title="Descargar el PGN">' + DOWNLOAD + "</button>"
           + (admin ? '<button type="button" class="pj-del" data-del="' + esc(g.id) + '" aria-label="Borrar la partida" title="Borrar la partida">' + CROSS + "</button>" : "") + "</td></tr>";
       }).join("");
