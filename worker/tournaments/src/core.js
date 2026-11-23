@@ -828,6 +828,29 @@ export function personalPart(t, playerId, host, gameId, playerHash = null) {
 export function snapshot(t, playerId, host, gameId, now = Date.now(), playerHash = null) {
   return { ...sharedSnapshot(t, now), ...personalPart(t, playerId, host, gameId, playerHash) };
 }
+// ---- Chat del torneo ----
+// Solo escriben los inscritos; el organizador (creador o administrador) puede borrar cualquier mensaje.
+// Se guardan los últimos CHAT_KEEP y se borran con el torneo. Viajan aparte del estado, como las jugadas.
+export const CHAT_MAX = 140, CHAT_KEEP = 100;
+export function chatList(t) { return (t.chat || []).map(m => ({ id: m.id, at: m.at, by: m.by, name: m.name, text: m.text })); }
+export function addChat(t, playerId, text, now = Date.now()) {
+  requireThat(!isPresencial(t), 'Los torneos presenciales no tienen chat.');
+  const p = playerId && t.players.find(x => x.id === playerId);
+  requireThat(p, 'Solo los jugadores inscritos pueden escribir en el chat.', 403);
+  // Sin saltos de línea ni caracteres de control; espacios repetidos, uno solo.
+  const clean = String(text ?? '').replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim();
+  requireThat(clean.length > 0, 'Escribe un mensaje.');
+  requireThat(clean.length <= CHAT_MAX, `El mensaje no puede pasar de ${CHAT_MAX} caracteres.`);
+  const m = { id: crypto.randomUUID(), at: now, by: p.id, name: p.name, text: clean };
+  t.chat = [...(t.chat || []), m].slice(-CHAT_KEEP);
+  return m;
+}
+export function deleteChat(t, host, id) {
+  requireThat(host, 'Solo el organizador o el administrador pueden borrar mensajes.', 403);
+  const before = (t.chat || []).length;
+  t.chat = (t.chat || []).filter(m => m.id !== id);
+  requireThat(t.chat.length < before, 'Ese mensaje ya no está.', 404);
+}
 // Una jugada sin final de partida viaja sola, en unos cientos de bytes, en lugar del torneo entero.
 export function moveMessage(t, g, now = Date.now()) {
   return { type: 'move', revision: t.revision, serverNow: now, game: { id: g.id, ply: g.moves.length, san: g.moves[g.moves.length - 1],

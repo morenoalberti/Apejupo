@@ -244,6 +244,7 @@ function connect() {
     if (next.type === 'host-token') { try { write(hostKey(roomId), next.token); } catch {} return; }
     if (next.type === 'error') { pending = false; optimistic = null; boardKey = ''; if (isDupError(next.message)) noticeBox('Jugador repetido', next.message); else message(next.message, true); if (state) renderGame(); return; }
     if (next.type === 'move') { if (state) applyMove(next); return; }
+    if (next.type === 'chat') { receiveChat(next); return; }
     if (next.type !== 'state') return;
     if (state && next.revision < state.revision) return;
     const oldGame = state?.game, oldMe = state?.me;
@@ -808,6 +809,7 @@ function renderControls() {
   $('to-analyze-games').hidden = $('to-all-pgn').hidden;
   // Reto terminado: cualquiera de los dos puede pedir la revancha (mismo ritmo, colores cambiados).
   $('to-rematch-box').hidden = !t.challenge || !g || !ownGame || !g.result || t.status !== 'finished';
+  chatFrame();
   if ($('to-rematch-box').hidden) { rematch = null; $('to-rematch-msg').textContent = ''; }
   $('to-rematch').textContent = rematch ? 'Cancelar revancha' : 'Revancha';
   scheduleGameFit();
@@ -907,9 +909,9 @@ function renderGame() {
   $('to-game-panel').hidden = !g;
   if (!g) return;
   const own = !!myColor();
-  // En tu propia partida sobra la franja del título (el tablero ya está orientado hacia ti),
-  // y con la partida terminada también: solo el tablero con el resultado.
-  $('to-game-heading').hidden = own || !!g.result;
+  // Sin franja de título («Tu partida» / «Viendo partida» y «Girar tablero»): ni el jugador ni quien
+  // mira la partida la necesitan; solo el tablero.
+  $('to-game-heading').hidden = true;
   $('to-board-title').textContent = arena(state) ? (own ? 'Tu partida' : 'Viendo partida') : `${own ? 'Tu partida' : 'Viendo partida'} · Ronda ${g.round}`;
   const top = flipped ? 'w' : 'b', bottom = flipped ? 'b' : 'w';
   $('to-player-top').dataset.color = top; $('to-player-bottom').dataset.color = bottom;
@@ -942,7 +944,7 @@ function renderGame() {
 // relojes y controles reales, incluidos los botones que pasan a una segunda fila.
 function scheduleGameFit() {
   if (gameFitFrame !== null) return;
-  gameFitFrame = requestAnimationFrame(() => { gameFitFrame = null; fitGame(); });
+  gameFitFrame = requestAnimationFrame(() => { gameFitFrame = null; fitGame(); sizeChat(); });
 }
 function settleGameScroll(callback) {
   if (gameScrollFrame !== null) cancelAnimationFrame(gameScrollFrame);
@@ -2019,6 +2021,72 @@ const gameSizeObserver = new ResizeObserver(scheduleGameFit);
 for (const selector of ['.to-play-column', '.to-room-bar', '.site-header', '#to-game-actions', '#to-game-status', '#to-message']) {
   const element = document.querySelector(selector); if (element) gameSizeObserver.observe(element);
 }
+// ---- Chat del torneo ----
+// Columna a la izquierda del tablero, solo en pantallas grandes con ratón (en el móvil no sale).
+// Escriben los inscritos desde la caja de debajo del tablero; el organizador o el administrador borran mensajes.
+let chatMessages = [], chatOn = read('apejupoTorneoChat') !== '0';
+const chatScreen = matchMedia('(min-width: 1100px) and (hover: hover) and (pointer: fine)');
+function chatAvailable() { return !!state && !boardsMode && !presencial(state) && !state.challenge && chatScreen.matches; }
+function receiveChat(msg) {
+  if (Array.isArray(msg.list)) chatMessages = msg.list;
+  if (msg.add && !chatMessages.some(m => m.id === msg.add.id)) chatMessages = [...chatMessages, msg.add].slice(-100);
+  if (msg.remove) chatMessages = chatMessages.filter(m => m.id !== msg.remove);
+  renderChat(!!msg.add);
+}
+function chatTime(at) { return new Date(at).toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' }); }
+// Marco del chat (columna, interruptor y caja para escribir): se repasa con cada estado, sin tocar la lista.
+let chatHost = null;
+function chatFrame() {
+  const show = chatAvailable(), layout = document.querySelector('.to-room-layout');
+  $('to-chat').hidden = !show; layout.classList.toggle('to-has-chat', show);
+  const switchBtn = $('to-chat-switch');
+  switchBtn.setAttribute('aria-checked', String(chatOn)); $('to-chat-state').textContent = chatOn ? 'ON' : 'OFF';
+  switchBtn.title = `${chatOn ? 'Ocultar' : 'Mostrar'} el chat del torneo`;
+  $('to-chat-box').hidden = !chatOn;
+  // La caja para escribir va debajo del tablero; sin tablero a la vista (esperando rival), al pie del chat.
+  const form = $('to-chat-form'), panel = $('to-game-panel');
+  const home = panel.hidden ? $('to-chat') : null;
+  if (home && form.parentElement !== home) home.append(form);
+  else if (!home && form.parentElement !== panel) $('to-player-bottom').after(form);
+  form.hidden = !show || !chatOn || !state?.me;
+  form.querySelector('input').disabled = form.querySelector('button').disabled = !connected;
+  // Si cambia quién puede borrar (p. ej., al llegar el primer estado), se vuelve a pintar la lista.
+  if (show && chatOn && chatHost !== !!state?.host) { chatHost = !!state?.host; renderChatList(); }
+  return show && chatOn;
+}
+function renderChat(added = false) { if (chatFrame()) renderChatList(added); }
+function renderChatList(added = false) {
+  const list = $('to-chat-list'), nearBottom = list.scrollHeight - list.scrollTop - list.clientHeight < 40;
+  list.innerHTML = chatMessages.map(m => `<li data-chat="${esc(m.id)}"><span class="to-chat-meta"><b>${esc(m.name)}</b><time>${chatTime(m.at)}</time>${state.host ? `<button type="button" class="to-chat-del" data-chat-del="${esc(m.id)}" aria-label="Borrar mensaje de ${esc(m.name)}" title="Borrar mensaje">×</button>` : ''}</span><span class="to-chat-text">${esc(m.text)}</span></li>`).join('');
+  $('to-chat-empty').hidden = chatMessages.length > 0;
+  sizeChat();
+  // Un mensaje nuevo solo baja la lista si ya estabas al final: no interrumpe a quien lee los anteriores.
+  if (!added || nearBottom) list.scrollTop = list.scrollHeight;
+}
+// La lista del chat llega hasta el pie del tablero (o, sin tablero, una altura fija).
+function sizeChat() {
+  if ($('to-chat').hidden || !chatOn) return;
+  const box = $('to-chat-box'), panel = $('to-game-panel'), form = $('to-chat-form');
+  const bottom = panel.hidden ? null : $('to-player-bottom').getBoundingClientRect().bottom;
+  const room = bottom ? bottom - box.getBoundingClientRect().top : 420 - (form.parentElement === $('to-chat') && !form.hidden ? form.offsetHeight + 8 : 0);
+  box.style.height = `${Math.max(200, Math.floor(room))}px`;
+}
+chatScreen.addEventListener?.('change', () => { chatHost = null; renderChat(); scheduleGameFit(); });
+addEventListener('resize', () => sizeChat());
+$('to-chat-switch').addEventListener('click', () => {
+  chatOn = !chatOn; write('apejupoTorneoChat', chatOn ? '1' : '0'); renderChat();
+});
+$('to-chat-form').addEventListener('submit', event => {
+  event.preventDefault();
+  const input = $('to-chat-input'), text = input.value.replace(/\s+/g, ' ').trim();
+  if (!text || !connected) return;
+  send({ type: 'chat', text }); input.value = '';
+});
+$('to-chat-list').addEventListener('click', event => {
+  const del = event.target.closest('[data-chat-del]');
+  if (del && state?.host && connected) send({ type: 'chat-delete', id: del.dataset.chatDel });
+});
+
 
 $('to-name').value = read('apejupoTorneoNombre');
 if (roomId) {

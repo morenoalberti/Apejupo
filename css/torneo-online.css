@@ -1080,6 +1080,34 @@ li.to-tb-dragging { position: relative; z-index: 2; transform: scale(1.03); back
   .to-picker-list button:active { background: color-mix(in srgb, var(--blue) 14%, transparent); }
   .to-picker-list button.on { color: #fff; background: linear-gradient(180deg, #5b9dff, #2f6ae0); box-shadow: 0 1px 0 #ffffff40 inset; }
   .to-picker-list button.on::after { content: ''; flex: none; width: 6px; height: 12px; margin-right: 4px; border-right: 2.5px solid #fff; border-bottom: 2.5px solid #fff; transform: rotate(45deg) translate(-2px, -2px); }
+
+/* ---- Chat del torneo: columna a la izquierda del tablero (solo pantallas grandes) ---- */
+.to-chat { min-width: 0; display: flex; flex-direction: column; gap: 10px; }
+.to-chat[hidden] { display: none; }
+.to-main .to-chat-switch { align-self: flex-start; }
+.to-chat-box { display: flex; flex-direction: column; min-height: 200px; height: 420px; border: 1px solid var(--line); border-radius: 14px; background: var(--card); overflow: hidden; }
+.to-chat-box[hidden] { display: none; }
+.to-chat-list { flex: 1; min-height: 0; margin: 0; padding: 10px 12px; list-style: none; overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 8px; font-size: .85rem; line-height: 1.35; }
+.to-chat-list li { min-width: 0; }
+.to-chat-meta { display: flex; align-items: baseline; gap: 6px; }
+.to-chat-meta b { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--to-accent); font-weight: 700; }
+.to-chat-meta time { flex: none; color: var(--muted); font-size: .7rem; }
+.to-chat-text { display: block; overflow-wrap: anywhere; color: var(--text); }
+.to-chat-del { margin-left: auto; flex: none; width: 22px; height: 22px; padding: 0; border: 0; border-radius: 6px; background: transparent; color: var(--muted); font-size: 1rem; line-height: 1; cursor: pointer; }
+.to-chat-del:hover, .to-chat-del:focus-visible { background: #ef444433; color: #fca5a5; }
+.to-chat-empty { margin: auto; padding: 12px; font-size: .82rem; text-align: center; }
+.to-chat-empty[hidden] { display: none; }
+.to-chat-form { display: flex; gap: 8px; width: min(100%, var(--to-board-size, 100%)); margin: 10px auto 0; }
+.to-chat-form[hidden] { display: none; }
+.to-chat-form input { flex: 1; min-width: 0; height: 38px; padding: 0 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg, #0b1220); color: var(--text); font: inherit; font-size: .88rem; }
+.to-chat-form input:focus { outline: 2px solid var(--blue); outline-offset: 0; }
+.to-chat-form .btn { flex: none; height: 38px; padding: 0 14px; }
+.to-chat > .to-chat-form { width: 100%; margin: 0; }
+/* Con chat: tres columnas; el tablero se desplaza a la derecha y es algo más pequeño. */
+@media (min-width: 1100px) {
+  .to-room-layout.to-has-chat { grid-template-columns: 250px minmax(0, 1fr) var(--to-sidebar-width); }
+  .to-room-layout.to-has-chat .to-game-panel { --to-board-max-size: 520px; max-width: 560px; }
+}
   /* Puntuación en el móvil: la opción elegida en azul (el modo oscuro del teléfono no la estropea) */
   .to-scoring { gap: 6px; padding: 4px; background: color-mix(in srgb, var(--text) 7%, transparent); border: 1px solid var(--line); }
   .to-scoring span { padding: 10px 4px; font-size: .95rem; color: var(--text); opacity: .75; }

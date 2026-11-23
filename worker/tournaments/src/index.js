@@ -5,7 +5,7 @@ import bbpWasm from './bbp/bbp.wasm';
 import { loadBbp, runDutch } from './bbp-engine.js';
 import { PRIZE_BODY_LIMIT, prizeResults, prizeYear, savedPrizes, validatePrizes } from './prizes.js';
 import { TRF_BODY_LIMIT, trfAvailability, validateTrfReport, trfView } from './trf.js';
-import { GameError, requireThat, isArena, setSwissEngine, startTournament, createTournament, editTournament, joinTournament, requestPresencial, isPresencial, act, advance, pairArena, nextAlarm, snapshot, sharedSnapshot, personalPart, moveMessage, summary, exportPgn, tournamentTrfDetails, RETENTION_MS } from './core.js';
+import { GameError, requireThat, isArena, setSwissEngine, startTournament, createTournament, editTournament, joinTournament, requestPresencial, isPresencial, act, advance, pairArena, nextAlarm, snapshot, sharedSnapshot, personalPart, moveMessage, summary, exportPgn, addChat, deleteChat, chatList, tournamentTrfDetails, RETENTION_MS } from './core.js';
 
 // El navegador manda "ping" cada 30 s; sin señal en este margen, el jugador no se considera presente.
 const PRESENCE_MS = 75000;
@@ -174,8 +174,10 @@ export class TournamentRoom extends DurableObject {
       } catch { try { ws.close(1011, 'Reconecta para recuperar la partida.'); } catch {} }
     }
   }
-  sendMove(g) {
-    const message = JSON.stringify(moveMessage(this.t, g));
+  sendMove(g) { this.sendAll(JSON.stringify(moveMessage(this.t, g))); }
+  // El chat viaja aparte del estado: un mensaje nuevo o borrado no reenvía el torneo entero.
+  sendChat(ws) { if (!isPresencial(this.t)) ws.send(JSON.stringify({ type: 'chat', list: chatList(this.t) })); }
+  sendAll(message) {
     for (const ws of this.ctx.getWebSockets()) {
       try { ws.send(message); } catch { try { ws.close(1011, 'Reconecta para recuperar la partida.'); } catch {} }
     }
@@ -347,6 +349,7 @@ export class TournamentRoom extends DurableObject {
           // Quien entra (o vuelve) puede completar una pareja en el modo arena.
           else if (this.pair(now)) { await this.save(); this.broadcast(); }
           else this.send(ws);
+          this.sendChat(ws);
           return;
         }
         if (b.type === 'watch') {
@@ -354,6 +357,17 @@ export class TournamentRoom extends DurableObject {
           a.game = b.game; ws.serializeAttachment(a); this.send(ws); return;
         }
         const c = this.capabilities(a.playerHash, a.hostHash, a.accountId, a.admin);
+        if (b.type === 'chat') {
+          // Como mucho un mensaje cada 2 segundos por conexión.
+          requireThat(!a.chatAt || now - a.chatAt >= 2000, 'Espera un momento antes de enviar otro mensaje.', 429);
+          const m = addChat(this.t, c.playerId, b.text, now);
+          a.chatAt = now; ws.serializeAttachment(a);
+          await this.save(); this.sendAll(JSON.stringify({ type: 'chat', add: m })); return;
+        }
+        if (b.type === 'chat-delete') {
+          deleteChat(this.t, c.host, String(b.id || ''));
+          await this.save(); this.sendAll(JSON.stringify({ type: 'chat', remove: String(b.id) })); return;
+        }
         const moved = b.type === 'move' ? this.t.games.find(g => g.id === b.game) : null;
         act(this.t, c.playerId, c.host, b, now);
         const paired = this.pair(now);

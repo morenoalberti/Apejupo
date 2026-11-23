@@ -20,7 +20,7 @@
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" type="image/svg+xml" href="assets/icon.svg">
 <link rel="stylesheet" href="css/style.css?v=20261120-idioma2">
-<link rel="stylesheet" href="css/torneo-online.css?v=20261122-sonido1">
+<link rel="stylesheet" href="css/torneo-online.css?v=20261123-chat1">
 <link rel="stylesheet" href="css/torneo-trf.css?v=20261119-trf4">
 <link rel="stylesheet" href="css/torneo-premios.css?v=20261119-condiciones">
 <link rel="stylesheet" href="css/cuenta.css?v=20261117-admin1">
@@ -105,6 +105,11 @@
         </div>
       </div>
       <div class="to-room-layout">
+        <!-- Chat del torneo: solo en pantallas grandes; escriben los inscritos y el organizador puede borrar mensajes. -->
+        <aside id="to-chat" class="to-chat" aria-label="Chat del torneo" hidden>
+          <button id="to-chat-switch" class="to-sound to-chat-switch" type="button" role="switch" aria-checked="true" aria-label="Chat del torneo" title="Ocultar el chat del torneo"><span>Chat</span><span class="to-sound-track" aria-hidden="true"></span><span id="to-chat-state" class="to-sound-state" aria-hidden="true">ON</span></button>
+          <div id="to-chat-box" class="to-chat-box"><ol id="to-chat-list" class="to-chat-list" aria-live="polite"></ol><p id="to-chat-empty" class="to-chat-empty muted">Aún no hay mensajes.</p></div>
+        </aside>
         <div class="to-play-column">
           <section id="to-waiting-pair" class="to-panel to-waiting-pair" aria-live="polite" hidden><div class="to-waiting-dots" aria-hidden="true"><i></i><i></i><i></i></div><h2 id="to-waiting-title">Buscando rival</h2><p id="to-waiting-text" class="muted"></p><button id="to-waiting-boards" class="btn-ghost" type="button">Ver los tableros en juego</button></section>
           <section id="to-game-panel" class="to-game-panel" aria-labelledby="to-board-title" hidden>
@@ -112,6 +117,7 @@
             <div id="to-player-top" class="to-player"><span></span><strong class="to-clock"></strong></div>
             <div class="to-board-wrap"><div id="to-board" class="to-board" role="group" aria-label="Tablero de la partida"></div><div id="to-draw-offer" class="to-draw-offer" role="alert" aria-labelledby="to-draw-title" hidden><p id="to-draw-title" class="to-draw-title"><span aria-hidden="true">½</span>Tu rival ofrece tablas</p><div class="to-draw-btns"><button id="to-decline" class="btn-ghost" type="button">Seguir jugando</button><button id="to-accept" class="btn" type="button">Aceptar tablas</button></div></div></div>
             <div id="to-player-bottom" class="to-player"><span></span><strong class="to-clock"></strong></div>
+            <form id="to-chat-form" class="to-chat-form" autocomplete="off" hidden><input id="to-chat-input" maxlength="140" placeholder="Escribe en el chat del torneo" aria-label="Mensaje para el chat del torneo"><button class="btn" type="submit">Enviar</button></form>
             <p id="to-game-status" class="to-game-status" role="status"></p>
             <div id="to-rematch-box" class="to-rematch" hidden><button id="to-rematch" type="button" class="btn">Revancha</button><p id="to-rematch-msg" class="muted" role="status"></p></div>
             
@@ -190,6 +196,6 @@
 <script src="js/menu.js?v=20261113-menus"></script>
 <script src="js/util.js?v=20261122-limpio1"></script>
 <script src="js/torneo-config.js?v=20261122-conexion1"></script>
-<script type="module" src="js/torneo-online.js?v=20261122-conexion1"></script>
+<script type="module" src="js/torneo-online.js?v=20261123-chat1"></script>
 </body>
 </html>
