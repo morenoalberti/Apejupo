@@ -60,3 +60,27 @@
   document.addEventListener("keydown", function (e) { if (e.key === "Escape") abre(false); });
   window.matchMedia("(min-width: 821px)").addEventListener("change", function (q) { if (q.matches) abre(false); });
 })();
+
+// «Partidas jugadas» (menú Torneos): despliega una tarjeta con las partidas en la página en la que se está,
+// sin cambiar de página. Los archivos que necesita se cargan la primera vez que se pulsa.
+(function () {
+  var V = "20261123-partidas7", loading = null;
+  function script(src) { return new Promise(function (ok, ko) { var s = document.createElement("script"); s.src = src; s.onload = ok; s.onerror = ko; document.head.appendChild(s); }); }
+  function load() {
+    if (window.PartidasJugadas) return Promise.resolve();
+    if (!loading) {
+      if (!document.querySelector('link[href^="css/partidas.css"]')) { var l = document.createElement("link"); l.rel = "stylesheet"; l.href = "css/partidas.css?v=" + V; document.head.appendChild(l); }
+      loading = (window.APEJUPO_TORNEOS_API !== undefined ? Promise.resolve() : script("js/torneo-config.js?v=20261122-conexion1"))
+        .then(function () { return script("js/partidas.js?v=" + V); })
+        .catch(function () { loading = null; throw new Error(); });
+    }
+    return loading;
+  }
+  document.addEventListener("click", function (e) {
+    var a = e.target.closest && e.target.closest('.site-header a[href="partidas.html"]');
+    if (!a || e.ctrlKey || e.metaKey || e.shiftKey || e.button !== 0) return; // con Ctrl o en otra pestaña, la página completa
+    e.preventDefault();
+    var m = a.closest(".menu"); if (m) { m.classList.remove("open"); var b = m.querySelector(".menu-b"); if (b) b.setAttribute("aria-expanded", "false"); }
+    load().then(function () { window.PartidasJugadas.toggle(); }, function () { location.href = a.href; });
+  });
+})();

@@ -1,21 +1,44 @@
-/* Partidas jugadas: mismo formato que los emparejamientos de Torneos Live (tabla .lv-ptab.pairs de style.css). */
+/* Partidas jugadas: mismo formato que los emparejamientos de Torneos Live (tabla .lv-ptab.pairs de style.css).
+   Se ve en la tarjeta que despliega el menú y en la página partidas.html. */
 .pj-page { width: min(900px, 100%); }
-.pj-page #pj-q { margin: 14px 0 6px; }
+.pj-root [hidden] { display: none !important; }
+.pj-root .pj-q { width: 100%; box-sizing: border-box; margin: 10px 0 6px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--text); font: inherit; }
+.pj-root .pj-q:focus { outline: 2px solid var(--blue); outline-offset: 1px; }
 .pj-msg { margin: 10px 0; }
 .pj-msg.error { color: #f87171; }
 .pj-table { margin-top: 8px; table-layout: fixed; }
-/* Anchos fijos (según la cabecera): número, blancas, resultado centrado, negras y descarga. */
+/* Anchos fijos (según la cabecera): número, blancas, resultado centrado, negras, fecha y descarga. */
 .pj-table th:nth-child(1) { width: 36px; } .pj-table th:nth-child(3) { width: 90px; } .pj-table th:nth-child(5) { width: 104px; } .pj-table th:nth-child(6) { width: 40px; }
-.pj-table td.pj-date { color: var(--muted); font-size: .82rem; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .pj-table td.l { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pj-table td:first-child { color: var(--muted); }
+.pj-table td.pj-date { color: var(--muted); font-size: .82rem; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .pj-table .pj-dl { padding: 4px; }
 .pj-dl button { display: inline-grid; place-items: center; width: 30px; height: 30px; padding: 0; border: 1px solid transparent; border-radius: 7px; background: none; color: var(--muted); cursor: pointer; }
 .pj-dl button:hover, .pj-dl button:focus-visible { border-color: var(--line); color: var(--blue); background: var(--bg); }
 .pj-dl button:disabled { opacity: .5; cursor: wait; }
 .pj-more { display: block; margin: 14px auto 0; }
+
+/* Tarjeta que despliega el menú, hacia abajo y centrada bajo la cabecera. */
+.pj-panel { position: fixed; z-index: 60; left: 50%; transform: translateX(-50%); width: min(820px, calc(100vw - 24px)); max-height: calc(100vh - 110px); overflow: auto; overscroll-behavior: contain; box-sizing: border-box; padding: 14px 18px 18px; border: 1px solid var(--line); border-radius: 16px; background: var(--card); color: var(--text); box-shadow: 0 24px 60px -12px #000b; animation: pj-drop .16s ease-out; }
+.pj-panel[hidden] { display: none; }
+.pj-panel-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.pj-panel-head h2 { margin: 0; font-size: 1.15rem; }
+.pj-close { width: 34px; height: 34px; border: 1px solid var(--line); border-radius: 9px; background: var(--bg); color: var(--muted); font-size: 1.3rem; line-height: 1; cursor: pointer; }
+.pj-close:hover, .pj-close:focus-visible { color: var(--text); border-color: var(--blue); }
+@keyframes pj-drop { from { opacity: 0; transform: translate(-50%, -8px); } to { opacity: 1; transform: translate(-50%, 0); } }
+@media (prefers-reduced-motion: reduce) { .pj-panel { animation: none; } }
+
+/* Tablero pequeño con la posición final, al pasar el ratón por una partida. */
+.pj-preview { position: fixed; z-index: 70; width: 184px; box-sizing: border-box; padding: 6px; border: 1px solid var(--line); border-radius: 10px; background: var(--card); box-shadow: 0 16px 40px -10px #000c; pointer-events: none; }
+.pj-preview[hidden] { display: none; }
+.pj-mini { display: grid; grid-template-columns: repeat(8, 1fr); aspect-ratio: 1; border: 1px solid #3a3024; }
+.pj-mini i { display: block; position: relative; background: #f0d9b5; }
+.pj-mini i.dk { background: #b58863; }
+.pj-mini i.lm { box-shadow: inset 0 0 0 99px rgba(205, 210, 106, .7); }
+.pj-mini img { position: absolute; inset: 0; width: 100%; height: 100%; }
+
 @media (max-width: 600px) {
-  .pj-page .cu-card { padding: 16px 10px; }
+  .pj-page .cu-card, .pj-panel { padding: 12px 10px 14px; }
   .pj-table { font-size: .82rem; }
   .pj-table td { padding: 7px 4px; }
   .pj-table th:nth-child(1) { width: 26px; } .pj-table th:nth-child(3) { width: 44px; } .pj-table th:nth-child(5) { width: 70px; } .pj-table th:nth-child(6) { width: 34px; }

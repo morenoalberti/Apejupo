@@ -1,4 +1,5 @@
 import { DurableObject } from 'cloudflare:workers';
+import { Chess } from 'chess.js';
 import { GameError, requireThat } from './core.js';
 import { registeredPlayerNicks } from './player-directory.js';
 import { ELO_START, eloAfter } from './elo.js';
@@ -92,6 +93,10 @@ export class AccountStore extends DurableObject {
     if (!columns.some(c => c.name === 'last_seen')) this.sql.exec('ALTER TABLE users ADD COLUMN last_seen INTEGER');
     // ELO del club: toda cuenta empieza con 1500 (también las que ya existían).
     if (!columns.some(c => c.name === 'elo')) this.sql.exec(`ALTER TABLE users ADD COLUMN elo INTEGER NOT NULL DEFAULT ${ELO_START}`);
+    // Posición final y última jugada de cada partida archivada (para el tablero pequeño de «Partidas jugadas»).
+    const archive = this.sql.exec('PRAGMA table_info(partidas)').toArray();
+    if (!archive.some(c => c.name === 'fen')) this.sql.exec('ALTER TABLE partidas ADD COLUMN fen TEXT');
+    if (!archive.some(c => c.name === 'last_move')) this.sql.exec('ALTER TABLE partidas ADD COLUMN last_move TEXT');
   }
   // Marcador de los retos entre dos cuentas (victorias de cada una y tablas), guardado con el par ordenado.
   duel(x, y) {
@@ -113,16 +118,26 @@ export class AccountStore extends DurableObject {
   // Archivo de «Partidas jugadas»: partidas terminadas de torneos online y retos. No se borran nunca
   // (ni con el tiempo ni al borrar el torneo).
   archiveGame(g, now) {
-    this.sql.exec('INSERT OR IGNORE INTO partidas (id, room, kind, title, white, black, white_elo, black_elo, result, reason, plies, tc, pgn, at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      g.id, g.room, g.kind, g.title, g.white, g.black, g.whiteElo ?? null, g.blackElo ?? null, g.result, g.reason, g.plies, g.tc, g.pgn, g.at || now);
+    this.sql.exec('INSERT OR IGNORE INTO partidas (id, room, kind, title, white, black, white_elo, black_elo, result, reason, plies, tc, pgn, at, fen, last_move) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      g.id, g.room, g.kind, g.title, g.white, g.black, g.whiteElo ?? null, g.blackElo ?? null, g.result, g.reason, g.plies, g.tc, g.pgn, g.at || now, g.fen || null, g.lastMove || null);
+  }
+  // Partidas archivadas antes de guardar la posición final: se calcula una vez desde su PGN.
+  fillFen(row) {
+    try {
+      const c = new Chess(); c.loadPgn(this.one('SELECT pgn FROM partidas WHERE id = ?', row.id).pgn);
+      const last = c.history({ verbose: true }).pop();
+      row.fen = c.fen(); row.last_move = last ? last.from + last.to : '';
+      this.sql.exec('UPDATE partidas SET fen = ?, last_move = ? WHERE id = ?', row.fen, row.last_move, row.id);
+    } catch { row.fen = null; }
   }
   listGames(q, before, now) {
     // Búsqueda por nombre del jugador (blancas o negras), sin distinguir mayúsculas; «!» escapa % y _.
     const like = '%' + q.replace(/[!%_]/g, c => '!' + c) + '%';
-    const rows = this.sql.exec(`SELECT id, kind, title, white, black, white_elo, black_elo, result, reason, plies, tc, at FROM partidas
+    const rows = this.sql.exec(`SELECT id, kind, title, white, black, white_elo, black_elo, result, reason, plies, tc, at, fen, last_move FROM partidas
       WHERE at < ? ${q ? "AND (white LIKE ? ESCAPE '!' OR black LIKE ? ESCAPE '!')" : ''} ORDER BY at DESC LIMIT ?`,
       before, ...(q ? [like, like] : []), GAMES_PAGE + 1).toArray();
-    const games = rows.slice(0, GAMES_PAGE).map(r => ({ id: r.id, kind: r.kind, title: r.title, white: r.white, black: r.black, whiteElo: r.white_elo, blackElo: r.black_elo, result: r.result, reason: r.reason, plies: r.plies, tc: r.tc, at: r.at }));
+    for (const r of rows) if (!r.fen) this.fillFen(r);
+    const games = rows.slice(0, GAMES_PAGE).map(r => ({ id: r.id, kind: r.kind, title: r.title, white: r.white, black: r.black, whiteElo: r.white_elo, blackElo: r.black_elo, result: r.result, reason: r.reason, plies: r.plies, tc: r.tc, at: r.at, fen: r.fen || null, lastMove: r.last_move || null }));
     return { games, next: rows.length > GAMES_PAGE ? games[games.length - 1].at : null };
   }
   recordDuel(room, white, black, result, now) {
@@ -343,7 +358,7 @@ export class AccountStore extends DurableObject {
         case '/partida-anotar': {
           const g = b.game || {};
           requireThat(/^[a-f0-9]{24}_[0-9a-f-]{36}$/.test(String(g.id || '')) && ['1-0', '0-1', '1/2-1/2'].includes(g.result) && typeof g.pgn === 'string' && g.pgn.length < 100000, 'Partida no válida.');
-          this.archiveGame({ ...g, title: String(g.title || '').slice(0, 80), white: String(g.white || '').slice(0, 40), black: String(g.black || '').slice(0, 40), reason: String(g.reason || '').slice(0, 60), tc: String(g.tc || '').slice(0, 12), plies: Number(g.plies) || 0, kind: g.kind === 'reto' ? 'reto' : 'torneo' }, now);
+          this.archiveGame({ ...g, fen: typeof g.fen === 'string' ? g.fen.slice(0, 100) : null, lastMove: /^[a-h][1-8][a-h][1-8]$/.test(String(g.lastMove || '')) ? g.lastMove : null, title: String(g.title || '').slice(0, 80), white: String(g.white || '').slice(0, 40), black: String(g.black || '').slice(0, 40), reason: String(g.reason || '').slice(0, 60), tc: String(g.tc || '').slice(0, 12), plies: Number(g.plies) || 0, kind: g.kind === 'reto' ? 'reto' : 'torneo' }, now);
           return json({ ok: true });
         }
         case '/partidas-lista': {

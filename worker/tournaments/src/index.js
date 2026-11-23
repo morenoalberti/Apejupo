@@ -139,7 +139,7 @@ export class TournamentRoom extends DurableObject {
       if (elo) pgn = pgn.replace(/(\[Black "[^"]*"\])/, `$1\n${elo}`);
       const game = { id: `${this.t.id}_${g.id}`, room: this.t.id, kind: this.t.challenge ? 'reto' : 'torneo', title: this.t.title,
         white: w?.name || 'Jugador', black: b?.name || 'Jugador', whiteElo: w?.rating || null, blackElo: b?.rating || null,
-        result: g.result, reason: g.reason || '', plies: g.moves.length, tc: `${this.t.minutes}+${this.t.increment}`, pgn, at: g.finishedAt || g.lastAt || Date.now() };
+        result: g.result, reason: g.reason || '', plies: g.moves.length, tc: `${this.t.minutes}+${this.t.increment}`, pgn, fen: g.fen, lastMove: g.lastMove ? g.lastMove.from + g.lastMove.to : null, at: g.finishedAt || g.lastAt || Date.now() };
       try {
         const res = await this.env.ACCOUNTS.getByName('cuentas').fetch('https://cuentas/partida-anotar', { method: 'POST', body: JSON.stringify({ game }) });
         if (res.ok) g.archived = true; // si falla, se reintenta en el siguiente guardado
