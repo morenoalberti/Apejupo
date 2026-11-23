@@ -20,7 +20,7 @@
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" type="image/svg+xml" href="assets/icon.svg">
 <link rel="stylesheet" href="css/style.css?v=20261120-idioma2">
-<link rel="stylesheet" href="css/torneo-online.css?v=20261123-chat4">
+<link rel="stylesheet" href="css/torneo-online.css?v=20261123-chat5">
 <link rel="stylesheet" href="css/torneo-trf.css?v=20261119-trf4">
 <link rel="stylesheet" href="css/torneo-premios.css?v=20261119-condiciones">
 <link rel="stylesheet" href="css/cuenta.css?v=20261117-admin1">
@@ -61,7 +61,7 @@
       <p class="to-small muted">Pulsa un tablero para verlo en grande; vuelve a pulsarlo para reducirlo.</p>
     </section>
     <section id="to-room" aria-label="Sala del torneo" hidden>
-      <div class="to-room-bar"><a href="jugar-torneo.html" id="to-back" class="to-back" hidden>← Todos los torneos</a><div class="to-actions"><span id="to-connection" class="to-connection" role="status">Conectando…</span><button id="to-boards-open" class="btn to-boards-open" type="button" hidden><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg><span id="to-boards-label">Ver tableros</span></button><button id="to-share" class="btn-ghost to-icon-btn" type="button"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="m8.2 10.7 7.6-4.4m-7.6 7 7.6 4.4"/></svg><span>Compartir torneo</span></button></div></div>
+      <div class="to-room-bar"><div id="to-end-clock" class="to-focus-clock to-end-clock" hidden><span>Termina en</span><strong id="to-focus-clock"></strong></div><a href="jugar-torneo.html" id="to-back" class="to-back" hidden>← Todos los torneos</a><div class="to-actions"><span id="to-connection" class="to-connection" role="status">Conectando…</span><button id="to-boards-open" class="btn to-boards-open" type="button" hidden><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg><span id="to-boards-label">Ver tableros</span></button><button id="to-share" class="btn-ghost to-icon-btn" type="button"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="m8.2 10.7 7.6-4.4m-7.6 7 7.6 4.4"/></svg><span>Compartir torneo</span></button></div></div>
       <div class="to-tournament-bar"><div id="to-summary" class="to-tags"></div><div class="to-actions"><p id="to-phase" class="to-phase" role="status"></p><div id="to-countdown" class="to-countdown" hidden><span>Termina en</span><strong></strong></div></div></div>
       <p id="to-notice" class="to-note" hidden></p>
       <section id="to-podium" class="to-podium" aria-label="Podio del torneo" hidden></section>
@@ -127,7 +127,6 @@
           <section class="to-panel to-matches-panel" aria-labelledby="to-matches-title" hidden><div class="to-section-head"><h2 id="to-matches-title">Tableros</h2><select id="to-round" aria-label="Ver ronda"></select></div><div id="to-matches" class="to-matches"><p class="muted">Los tableros aparecerán al comenzar la primera ronda.</p></div></section>
         </div>
         <aside class="to-sidebar">
-          <div id="to-end-clock" class="to-focus-clock to-end-clock" hidden><span>Termina en</span><strong id="to-focus-clock"></strong></div>
           <section id="to-focus-info" class="to-panel to-focus-info" aria-label="Torneo en curso"><div><strong id="to-focus-title"></strong><span id="to-focus-format" class="muted"></span></div><div id="to-focus-next" class="to-focus-next" hidden><span id="to-focus-status" role="status"></span><button id="to-focus-pause" class="btn-ghost to-icon-btn" type="button" hidden><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg><span>Salir del torneo</span></button></div></section>
           <div id="to-game-actions" class="to-game-actions" hidden><button id="to-berserk" type="button" class="btn to-berserk" hidden title="Mitad de tiempo y sin incremento (1+2 pasa a 1+0). Si ganas tras al menos 7 jugadas de cada bando, +1 punto extra."><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg>Berserk</button><button id="to-offer" type="button" class="btn-ghost to-icon-btn" aria-label="Ofrecer tablas" title="Ofrecer tablas"><span class="to-half" aria-hidden="true">½</span><span id="to-offer-label">Tablas</span></button><button id="to-resign" type="button" class="btn-ghost to-icon-btn" aria-label="Abandonar partida" title="Abandonar partida"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 21V4"/><path d="M5 4h11l-2 4 2 4H5"/></svg><span>Abandonar</span></button></div>
           <section id="to-duel" class="to-panel to-duel" aria-label="Resultados entre los dos jugadores" hidden><div id="to-duel-body"></div></section>
@@ -197,6 +196,6 @@
 <script src="js/menu.js?v=20261113-menus"></script>
 <script src="js/util.js?v=20261122-limpio1"></script>
 <script src="js/torneo-config.js?v=20261122-conexion1"></script>
-<script type="module" src="js/torneo-online.js?v=20261123-chat4"></script>
+<script type="module" src="js/torneo-online.js?v=20261123-chat5"></script>
 </body>
 </html>

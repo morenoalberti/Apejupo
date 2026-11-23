@@ -1124,9 +1124,9 @@ li.to-tb-dragging { position: relative; z-index: 2; transform: scale(1.03); back
   .to-room-layout.to-has-chat .to-chat-list { padding: 8px 10px; font-size: .8rem; }
 }
 
-/* «Termina en»: encima de la columna derecha, alineado a la derecha y sin tarjeta. */
+/* «Termina en»: encima de la barra de la sala (Conectado, Sonido, Ver tableros), alineado a la derecha y sin tarjeta. */
 .to-end-clock { display: none; }
-body.to-focus .to-end-clock:not([hidden]) { display: flex; margin: 0 4px 10px; }
+body.to-focus .to-end-clock:not([hidden]) { display: flex; order: -1; flex-basis: 100%; margin: 0 4px -4px; }
 body.to-focus .to-end-clock span { font-size: .72rem; }
 body.to-focus .to-end-clock strong { font-size: 2rem; letter-spacing: .02em; }
 /* En pantallas medianas con chat, la columna derecha no se recorta a la altura del tablero. */
