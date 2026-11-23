@@ -1009,8 +1009,8 @@ function fitGame() {
     size = next;
   }
   const boardRect = board.getBoundingClientRect(), sidebar = room.querySelector('.to-sidebar');
-  // En dos columnas, la clasificación nunca baja más allá del borde del tablero.
-  const sidebarHeight = Math.max(0, boardRect.bottom - sidebar.getBoundingClientRect().top);
+  // En dos columnas, la columna derecha llega justo hasta el pie de la tarjeta del tablero (relojes y caja del chat incluidos).
+  const sidebarHeight = Math.max(0, panel.getBoundingClientRect().bottom - sidebar.getBoundingClientRect().top);
   room.style.setProperty('--to-play-height', `${Math.floor(Math.min(availableHeight, sidebarHeight))}px`);
   room.style.setProperty('--to-standings-height', `${Math.floor(boardRect.height)}px`);
   // Solo al entrar en esta vista o cambiar de orientación: nunca al recibir una jugada.

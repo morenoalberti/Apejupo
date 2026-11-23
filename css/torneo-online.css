@@ -528,7 +528,8 @@ body.to-focus.to-landscape-game .to-sidebar { max-height: none; }
 body.to-low-landscape #to-game-panel { padding: 2px; }
 body.to-focus #to-standings-panel { display: flex; flex-direction: column; min-height: 0; margin-bottom: 0; }
 body.to-focus #to-standings-panel > .to-section-head { flex: none; }
-body.to-focus #to-standings-panel .to-table-wrap { min-height: 0; overflow: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: var(--muted) transparent; }
+body.to-focus #to-standings-panel .to-table-wrap { min-height: 0; overflow: auto; overscroll-behavior: contain; scrollbar-width: none; }
+body.to-focus #to-standings-panel .to-table-wrap::-webkit-scrollbar { display: none; }
 body.to-focus #to-standings-panel th { position: sticky; top: 0; background: var(--card); z-index: 1; }
 @media (max-width: 760px) { body.to-focus #to-standings-panel { max-height: var(--to-standings-height, 60dvh); } }
 @media (min-width: 761px) {
@@ -1124,9 +1125,5 @@ li.to-tb-dragging { position: relative; z-index: 2; transform: scale(1.03); back
 body.to-focus .to-end-clock:not([hidden]) { display: flex; order: -1; flex-basis: 100%; margin: 0 4px -4px; }
 body.to-focus .to-end-clock span { font-size: .72rem; }
 body.to-focus .to-end-clock strong { font-size: 2rem; letter-spacing: .02em; }
-/* En pantallas medianas con chat, la columna derecha no se recorta a la altura del tablero. */
-@media (min-width: 860px) and (max-width: 1099px) {
-  body.to-focus .to-room-layout.to-has-chat .to-sidebar { max-height: none; }
-}
 /* Quien solo está viendo una partida: sin «Conectado», «Sonido» ni «Ver tableros» en la barra de la sala. */
 body.to-watching .to-room-bar #to-connection, body.to-watching .to-room-bar #to-sound, body.to-watching .to-room-bar #to-boards-open { display: none !important; }
