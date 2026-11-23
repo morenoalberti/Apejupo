@@ -832,7 +832,13 @@ export function snapshot(t, playerId, host, gameId, now = Date.now(), playerHash
 // Solo escriben los inscritos; el organizador (creador o administrador) puede borrar cualquier mensaje.
 // Se guardan los últimos CHAT_KEEP y se borran con el torneo. Viajan aparte del estado, como las jugadas.
 export const CHAT_MAX = 140, CHAT_KEEP = 100;
-export function chatList(t) { return (t.chat || []).map(m => ({ id: m.id, at: m.at, by: m.by, name: m.name, text: m.text })); }
+export function chatList(t) { return (t.chat || []).map(m => ({ id: m.id, at: m.at, by: m.by, name: m.name, text: m.text, ...(m.system ? { system: true } : {}) })); }
+// Aviso de la sala en el chat (sin autor): «morenoalberti ha salido del torneo», «… ha vuelto al torneo».
+export function systemChat(t, text, now = Date.now()) {
+  const m = { id: crypto.randomUUID(), at: now, by: null, name: '', text: String(text).slice(0, CHAT_MAX), system: true };
+  t.chat = [...(t.chat || []), m].slice(-CHAT_KEEP);
+  return m;
+}
 export function addChat(t, playerId, text, now = Date.now()) {
   requireThat(!isPresencial(t), 'Los torneos presenciales no tienen chat.');
   const p = playerId && t.players.find(x => x.id === playerId);

@@ -112,7 +112,8 @@ const fideRating = p => Number(p.fide) || (p.source === 'FIDE' ? Number(p.rating
 const canChangeInitialRoster = t => presencial(t) && ['playing', 'between'].includes(t.status) && !t.games.some(g => !g.bye && g.result);
 function standingsView(t) {
   const initial = !t.games.some(g => !g.bye && g.result);
-  const rows = listed(t);
+  // Arena: quien ha salido del torneo (pausa) sigue en la clasificación, con el icono de pausa en lugar del punto.
+  const rows = arena(t) ? [...t.standings] : listed(t);
   // Inscritos de mayor a menor ELO (online: ELO del club; presencial: Elo FIDE). Los invitados, sin ELO, al final.
   const elo = presencial(t) ? fideRating : p => Number(p.rating) || 0;
   if (initial) rows.sort((a, b) => elo(b) - elo(a) || a.name.localeCompare(b.name, 'es', { sensitivity: 'base' }));
@@ -325,7 +326,8 @@ function render() {
     + (arena(t) ? '<th scope="col"><abbr title="Partidas jugadas">PJ</abbr></th>' : tbCols.map((k, i) => `<th scope="col"${i ? ' class="to-tb-col2"' : ''}><abbr title="${esc(TB[k][0])}">${TB[k][1]}</abbr></th>`).join(''));
   const tag = p => (p.registered ? ' <span class="to-registered" title="Cuenta registrada">✓</span>' : '') + (!p.active ? ' <small>retirado</small>' : '');
   // Arena en marcha: delante del nombre, punto verde parpadeante si está jugando y gris fijo si no (esperando o partida terminada).
-  const dot = p => arena(t) && t.status === 'playing' && p.active ? `<span class="to-state ${p.playing ? 'on' : 'off'}" title="${p.playing ? 'Jugando' : 'Sin partida ahora'}" aria-label="${p.playing ? 'Jugando' : 'Sin partida ahora'}"></span>` : '';
+  const dot = p => arena(t) && p.active && p.paused && t.status !== 'finished' ? '<span class="to-state paused" title="Ha salido del torneo (en pausa)" aria-label="En pausa"></span>'
+    : arena(t) && t.status === 'playing' && p.active ? `<span class="to-state ${p.playing ? 'on' : 'off'}" title="${p.playing ? 'Jugando' : 'Sin partida ahora'}" aria-label="${p.playing ? 'Jugando' : 'Sin partida ahora'}"></span>` : '';
   // Desempate con decimales (Sonneborn-Berger de la doble vuelta): «0,75», no «0.75».
   const tb = n => Number.isInteger(n) || n % 1 === .5 ? formatPoints(n) : n.toLocaleString('es-ES', { maximumFractionDigits: 2 });
   // Presencial: foto, bandera, título y puntos en relieve (sin podio).
@@ -1138,6 +1140,8 @@ function updateClocks() {
     : t.status === 'waiting' || t.challenge ? ''
     : arena(t) && t.status === 'playing' ? (closing ? 'Tiempo cumplido: esperando las últimas partidas, que cuentan para la clasificación final' : t.pairingsCloseAt && now >= t.pairingsCloseAt ? (me?.active && !me.playing ? 'Ya no hay emparejamientos nuevos' : '') : me?.active && !me.playing && !me.paused ? 'Buscando rival…' : '')
     : t.status === 'between' ? (presencial(t) ? `Ronda ${t.round} completada · Esperando a la organización` : `Siguiente ronda en ${Math.max(0, Math.ceil((t.nextRoundAt - now) / 1000))} s`) : t.status === 'playing' ? `Ronda ${t.round} de ${t.rounds}` : t.status === 'finished' ? '' : 'Torneo cancelado'; // terminado: sin rótulo (ya lo dice la etiqueta «Finalizado»)
+  // «Buscando rival…» ya sale más abajo (en el panel de espera): junto a «Termina en» no se repite.
+  $('to-phase').hidden = $('to-phase').textContent === 'Buscando rival…';
   // Cuenta atrás grande del arena, como en Lichess.
   const counting = arena(t) && t.status === 'playing' && now < t.endsAt;
   $('to-countdown').hidden = !counting;
@@ -2073,7 +2077,11 @@ function chatFrame() {
 function renderChat(added = false) { if (chatFrame()) renderChatList(added); }
 function renderChatList(added = false) {
   const list = $('to-chat-list');
-  list.innerHTML = chatMessages.map(m => `<li data-chat="${esc(m.id)}"><span class="to-chat-meta"><b>${esc(m.name)}</b><time>${chatTime(m.at)}</time>${state.host ? `<button type="button" class="to-chat-del" data-chat-del="${esc(m.id)}" aria-label="Borrar mensaje de ${esc(m.name)}" title="Borrar mensaje">×</button>` : ''}</span><span class="to-chat-text">${esc(m.text)}</span></li>`).join('');
+  const del = m => state.host ? `<button type="button" class="to-chat-del" data-chat-del="${esc(m.id)}" aria-label="Borrar mensaje" title="Borrar mensaje">×</button>` : '';
+  // Avisos de la sala (alguien sale del torneo o vuelve): en cursiva y sin autor.
+  list.innerHTML = chatMessages.map(m => m.system
+    ? `<li class="to-chat-sys" data-chat="${esc(m.id)}"><span class="to-chat-meta"><span class="to-chat-text">${esc(m.text)}</span><time>${chatTime(m.at)}</time>${del(m)}</span></li>`
+    : `<li data-chat="${esc(m.id)}"><span class="to-chat-meta"><b>${esc(m.name)}</b><time>${chatTime(m.at)}</time>${state.host ? `<button type="button" class="to-chat-del" data-chat-del="${esc(m.id)}" aria-label="Borrar mensaje de ${esc(m.name)}" title="Borrar mensaje">×</button>` : ''}</span><span class="to-chat-text">${esc(m.text)}</span></li>`).join('');
   $('to-chat-empty').hidden = chatMessages.length > 0;
   sizeChat();
   // Siempre al último mensaje: aunque estés leyendo los anteriores, al escribir alguien la lista baja para que lo leas.

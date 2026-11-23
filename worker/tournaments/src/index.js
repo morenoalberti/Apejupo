@@ -5,7 +5,7 @@ import bbpWasm from './bbp/bbp.wasm';
 import { loadBbp, runDutch } from './bbp-engine.js';
 import { PRIZE_BODY_LIMIT, prizeResults, prizeYear, savedPrizes, validatePrizes } from './prizes.js';
 import { TRF_BODY_LIMIT, trfAvailability, validateTrfReport, trfView } from './trf.js';
-import { GameError, requireThat, isArena, setSwissEngine, startTournament, createTournament, editTournament, joinTournament, requestPresencial, isPresencial, act, advance, pairArena, nextAlarm, snapshot, sharedSnapshot, personalPart, moveMessage, summary, exportPgn, addChat, deleteChat, chatList, tournamentTrfDetails, RETENTION_MS } from './core.js';
+import { GameError, requireThat, isArena, setSwissEngine, startTournament, createTournament, editTournament, joinTournament, requestPresencial, isPresencial, act, advance, pairArena, nextAlarm, snapshot, sharedSnapshot, personalPart, moveMessage, summary, exportPgn, addChat, deleteChat, chatList, systemChat, tournamentTrfDetails, RETENTION_MS } from './core.js';
 
 // El navegador manda "ping" cada 30 s; sin señal en este margen, el jugador no se considera presente.
 const PRESENCE_MS = 75000;
@@ -108,10 +108,10 @@ export class TournamentRoom extends DurableObject {
     }
     c.recordedRounds = [...done];
   }
-  // ELO del club: cada partida terminada entre dos cuentas se anota una sola vez (K = 20) y el ELO nuevo pasa a la
-  // clasificación y a los tableros. Los invitados (sin cuenta) no tienen ELO; los retos y los presenciales no cuentan.
+  // ELO del club: cada partida terminada entre dos cuentas (torneos y retos) se anota una sola vez (K = 20) y el ELO
+  // nuevo pasa a la clasificación y a los tableros. Con un invitado (sin cuenta) el ELO no cambia; los presenciales no cuentan.
   async recordElo() {
-    if (this.t.challenge || isPresencial(this.t)) return;
+    if (isPresencial(this.t)) return;
     const byId = new Map(this.t.players.map(p => [p.id, p]));
     for (const g of this.t.games) {
       if (g.bye || !g.result || g.eloDone || !['1-0', '0-1', '1/2-1/2'].includes(g.result)) continue;
@@ -395,11 +395,16 @@ export class TournamentRoom extends DurableObject {
           await this.save(); this.sendChatAll(JSON.stringify({ type: 'chat', remove: String(b.id) })); return;
         }
         const moved = b.type === 'move' ? this.t.games.find(g => g.id === b.game) : null;
+        const me = c.playerId && this.t.players.find(p => p.id === c.playerId), wasPaused = !!me?.paused;
         act(this.t, c.playerId, c.host, b, now);
+        // Salir del torneo (pausa) o volver: aviso en el chat para los demás jugadores.
+        const note = me && !isPresencial(this.t) && (b.type === 'pause' || b.type === 'resume') && wasPaused !== !!me.paused
+          ? systemChat(this.t, `${me.name} ${me.paused ? 'ha salido del torneo' : 'ha vuelto al torneo'}`, now) : null;
         const paired = this.pair(now);
         await this.save();
         // Una jugada normal solo viaja como jugada; si cierra la partida o empareja a alguien, va el estado completo.
         if (moved && !moved.result && !paired) this.sendMove(moved); else this.broadcast();
+        if (note) this.sendChatAll(JSON.stringify({ type: 'chat', add: note }));
       } catch (error) {
         try { ws.send(JSON.stringify({ type: 'error', message: error instanceof GameError ? error.message : 'No se pudo guardar la acción. Reconecta antes de continuar.' })); this.send(ws); } catch {}
       }

@@ -715,6 +715,8 @@ body.to-focus #to-standings-panel th { position: sticky; top: 0; background: var
 .to-state.on { background: #22c55e; box-shadow: 0 0 0 3px #22c55e33; animation: to-blink 1.2s ease-in-out infinite; }
 @keyframes to-blink { 50% { opacity: .25; } }
 @media (prefers-reduced-motion: reduce) { .to-state.on { animation: none; } }
+/* En pausa (ha salido del torneo): dos barras ‖ en lugar del punto. */
+.to-state.paused { width: 9px; height: 10px; border-radius: 0; background: linear-gradient(90deg, #94a3b8 0 3px, transparent 3px 6px, #94a3b8 6px 9px); vertical-align: -1px; }
 
 /* Torneos en teléfono: cabecera breve, acciones claras y diálogos dentro de la pantalla. */
 @media (max-width: 480px) {
@@ -1098,6 +1100,8 @@ li.to-tb-dragging { position: relative; z-index: 2; transform: scale(1.03); back
 .to-chat-meta b { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--to-accent); font-weight: 700; }
 .to-chat-meta time { flex: none; color: var(--muted); font-size: .7rem; }
 .to-chat-text { display: block; overflow-wrap: anywhere; color: var(--text); }
+/* Avisos de la sala (alguien sale del torneo o vuelve): en rojo. */
+.to-chat-sys .to-chat-text { display: inline; color: #f87171; font-style: italic; }
 .to-chat-del { margin-left: auto; flex: none; width: 22px; height: 22px; padding: 0; border: 0; border-radius: 6px; background: transparent; color: var(--muted); font-size: 1rem; line-height: 1; cursor: pointer; }
 .to-chat-del:hover, .to-chat-del:focus-visible { background: #ef444433; color: #fca5a5; }
 .to-chat-empty { margin: auto; padding: 12px; font-size: .82rem; text-align: center; }

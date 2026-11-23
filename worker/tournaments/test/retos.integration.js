@@ -95,6 +95,11 @@ test('retos: solo a jugadores en línea; al aceptar, los dos reciben el tablero 
   assert.equal(over.games[0].result, '1-0');
   // El marcador entre los dos queda guardado: 1 victoria de B (blancas), 0 de A.
   assert.equal(over.duel.wins[game.white], 1); assert.equal(over.duel.wins[game.black], 0); assert.equal(over.duel.draws, 0);
+  // Los retos también cambian el ELO (K = 20, los dos empiezan con 1500): B 1510, A 1490, en el tablero y en la cuenta.
+  assert.equal(over.standings.find(p => p.id === game.white).rating, 1510);
+  assert.equal(over.standings.find(p => p.id === game.black).rating, 1490);
+  assert.equal((await call('/api/cuentas/yo', {}, b.session)).body.user.elo, 1510);
+  assert.equal((await call('/api/cuentas/yo', {}, a.session)).body.user.elo, 1490);
   RA.close(); RB.close();
 
   // Revancha: A la pide desde el tablero; B la recibe marcada como revancha y con los colores cambiados.
