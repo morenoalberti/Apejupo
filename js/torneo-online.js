@@ -2048,7 +2048,8 @@ const chatScreen = matchMedia('(min-width: 860px) and (hover: hover) and (pointe
 // Solo para los inscritos y el organizador (creador o administrador): quien solo mira la partida no ve el chat.
 let chatLoaded = false;
 function chatAllowed() { return !!state && !boardsMode && !presencial(state) && !state.challenge && !!(state.me || state.host); }
-function chatAvailable() { return chatAllowed() && chatScreen.matches; }
+// El chat (tarjeta e interruptor) solo se ve en las partidas que se están jugando, no en la sala del torneo.
+function chatAvailable() { return chatAllowed() && chatScreen.matches && document.body.classList.contains('to-focus'); }
 function receiveChat(msg) {
   if (Array.isArray(msg.list)) { chatMessages = msg.list; chatLoaded = true; }
   if (msg.add && !chatMessages.some(m => m.id === msg.add.id)) chatMessages = [...chatMessages, msg.add].slice(-100);
