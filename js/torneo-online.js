@@ -346,6 +346,8 @@ function render() {
   const ownView = !!t.game && (t.game.white === t.me || t.game.black === t.me);
   const focus = !presencial(t) && (ownActive || (!!mine?.active && ownView && ['playing', 'between'].includes(t.status)));
   document.body.classList.toggle('to-focus', focus);
+  // Quien solo está viendo una partida (no inscrito) no necesita «Conectado», «Sonido» ni «Ver tableros».
+  document.body.classList.toggle('to-watching', !presencial(t) && !t.me && !!t.game && ['playing', 'between', 'finished'].includes(t.status));
   // Arena: la fila con «Salir del torneo» también se ve mientras juegas tu partida (la terminas y ya no se te empareja).
   $('to-focus-next').hidden = !focus || (ownActive && !arena(t));
   $('to-focus-pause').hidden = !arena(t);

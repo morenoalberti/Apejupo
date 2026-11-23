@@ -1133,3 +1133,5 @@ body.to-focus .to-end-clock strong { font-size: 2rem; letter-spacing: .02em; }
 @media (min-width: 860px) and (max-width: 1099px) {
   body.to-focus .to-room-layout.to-has-chat .to-sidebar { max-height: none; }
 }
+/* Quien solo está viendo una partida: sin «Conectado», «Sonido» ni «Ver tableros» en la barra de la sala. */
+body.to-watching .to-room-bar #to-connection, body.to-watching .to-room-bar #to-sound, body.to-watching .to-room-bar #to-boards-open { display: none !important; }
