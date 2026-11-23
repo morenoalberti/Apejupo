@@ -1,6 +1,6 @@
 // Partidas jugadas: todas las partidas terminadas de los torneos online y los retos del club (archivo permanente
 // del servidor de torneos), con buscador por jugador. Mismo formato que los emparejamientos de Torneos Live:
-// agrupadas por torneo y, en cada fila, número, blancas con su ELO, resultado y negras con su ELO.
+// en cada fila, número, blancas con su ELO, resultado, negras con su ELO y fecha.
 // Pulsar una partida la abre en el tablero de análisis; el icono de la derecha descarga su PGN.
 (function () {
   "use strict";
@@ -8,7 +8,7 @@
   var $ = function (id) { return document.getElementById(id); };
   var esc = function (s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); };
   var table = $("pj-table"), body = $("pj-list"), more = $("pj-more"), msg = $("pj-msg"), q = $("pj-q");
-  var next = null, query = "", seq = 0, timer = null, lastRoom = null, n = 0, count = 0;
+  var next = null, query = "", seq = 0, timer = null, n = 0, count = 0;
   var DOWNLOAD = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>';
 
   function say(text, error) { msg.hidden = !text; msg.textContent = text || ""; msg.classList.toggle("error", !!error); }
@@ -18,16 +18,12 @@
   function player(name, elo) { return '<span translate="no">' + esc(name) + "</span>" + (elo ? " <small>" + esc(elo) + "</small>" : ""); }
   function rows(games) {
     return games.map(function (g) {
-      var room = g.id.split("_")[0], h = "";
-      // Cabecera de cada torneo (o reto): nombre, tipo y ritmo; las partidas se numeran dentro de él y la fecha va en su columna.
-      if (room !== lastRoom) {
-        lastRoom = room; n = 0;
-        h += '<tr class="grp"><td colspan="6"><b translate="no">' + esc(g.title) + "</b> · " + (g.kind === "reto" ? "Reto" : "Torneo") + " · " + pace(g.tc) + "</td></tr>";
-      }
+      // Sin cabeceras de torneo: una sola lista numerada (el torneo, el tipo y el ritmo, al pasar el ratón).
       n++;
       var res = { "1-0": "1-0", "0-1": "0-1", "1/2-1/2": "½-½" }[g.result] || "–";
       var file = (g.white + "-" + g.black).replace(/[^\wÀ-ÿ-]+/g, "_") + ".pgn";
-      return h + '<tr data-g="' + esc(g.id) + '" title="Abrir en el tablero de análisis"><td>' + n + '</td><td class="l">' + player(g.white, g.whiteElo)
+      var info = g.title + " · " + (g.kind === "reto" ? "Reto" : "Torneo") + " · " + pace(g.tc) + " · Abrir en el tablero de análisis";
+      return '<tr data-g="' + esc(g.id) + '" title="' + esc(info) + '"><td>' + n + '</td><td class="l">' + player(g.white, g.whiteElo)
         + '</td><td class="rs" title="' + esc(g.reason) + '">' + res + '</td><td class="l">' + player(g.black, g.blackElo)
         + '</td><td class="pj-date">' + day(g.at) + '</td><td class="pj-dl"><button type="button" data-pgn="' + esc(g.id) + '" data-file="' + esc(file) + '" aria-label="Descargar el PGN" title="Descargar el PGN">' + DOWNLOAD + "</button></td></tr>";
     }).join("");
@@ -35,7 +31,7 @@
   function load(reset) {
     if (!API) { say("Las partidas no están disponibles en este momento.", true); return; }
     var mine = ++seq;
-    if (reset) { next = null; lastRoom = null; count = 0; body.innerHTML = ""; table.hidden = true; more.hidden = true; say(query ? "Buscando…" : "Cargando partidas…"); }
+    if (reset) { next = null; n = 0; count = 0; body.innerHTML = ""; table.hidden = true; more.hidden = true; say(query ? "Buscando…" : "Cargando partidas…"); }
     more.disabled = true;
     var url = API + "/api/tournaments/partidas?q=" + encodeURIComponent(query) + (next ? "&antes=" + next : "");
     fetch(url, { cache: "no-store", signal: AbortSignal.timeout(window.APEJUPO_TORNEOS_TIMEOUT || 15000) })
