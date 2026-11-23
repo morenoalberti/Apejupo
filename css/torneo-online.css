@@ -1124,15 +1124,17 @@ li.to-tb-dragging { position: relative; z-index: 2; transform: scale(1.03); back
   .to-room-layout.to-has-chat .to-chat-list { padding: 8px 10px; font-size: .8rem; }
 }
 
-/* «Termina en»: encima de la barra de la sala (Conectado, Sonido, Ver tableros), alineado a la derecha y sin tarjeta. */
+/* Tiempo que queda de torneo: solo los números, centrados encima de la tarjeta del tablero (sin «Termina en»). */
 .to-end-clock { display: none; }
-body.to-focus .to-end-clock:not([hidden]) { display: flex; margin: 0 4px 0 auto; }
-/* Fila de arriba de la barra: «← Todos los torneos» a la izquierda y «Termina en» a la derecha. Debajo, el
-   interruptor del chat pegado a la izquierda y los demás controles a la derecha. Sin nada que mostrar, no ocupa sitio. */
+body.to-focus #to-game-panel { position: relative; }
+body.to-focus .to-end-clock:not([hidden]) { display: block; position: absolute; left: 50%; bottom: 100%; margin-bottom: 8px; transform: translateX(-50%); line-height: 1; }
+body.to-focus .to-end-clock strong { font-size: 1.9rem; letter-spacing: .02em; }
+/* Móvil: dentro de la tarjeta, arriba y centrado (encima no hay sitio libre). */
+@media (max-width: 760px) { body.to-focus .to-end-clock:not([hidden]) { position: static; transform: none; margin: 0 0 6px; text-align: center; } body.to-focus .to-end-clock strong { font-size: 1.4rem; } }
+/* Fila de arriba de la barra: «← Todos los torneos» a la izquierda. Debajo, el interruptor del chat pegado a la izquierda
+   y los demás controles a la derecha. Sin el enlace, la fila no ocupa sitio. */
 .to-room-top { display: none; flex-basis: 100%; align-items: flex-end; gap: 12px; }
-.to-room-top:has(> #to-back:not([hidden])), body.to-focus .to-room-top:has(> .to-end-clock:not([hidden])) { display: flex; }
+.to-room-top:has(> #to-back:not([hidden])) { display: flex; }
 .to-room-bar > #to-chat-switch { margin-left: 0; }
-body.to-focus .to-end-clock span { font-size: .72rem; }
-body.to-focus .to-end-clock strong { font-size: 2rem; letter-spacing: .02em; }
 /* Quien solo está viendo una partida: sin «Conectado», «Sonido» ni «Ver tableros» en la barra de la sala. */
 body.to-watching .to-room-bar #to-connection, body.to-watching .to-room-bar #to-sound, body.to-watching .to-room-bar #to-boards-open { display: none !important; }
