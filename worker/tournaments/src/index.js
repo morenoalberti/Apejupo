@@ -176,7 +176,14 @@ export class TournamentRoom extends DurableObject {
   }
   sendMove(g) { this.sendAll(JSON.stringify(moveMessage(this.t, g))); }
   // El chat viaja aparte del estado: un mensaje nuevo o borrado no reenvía el torneo entero.
-  sendChat(ws) { if (!isPresencial(this.t)) ws.send(JSON.stringify({ type: 'chat', list: chatList(this.t) })); }
+  // Solo lo ven los inscritos y el organizador (creador o administrador); quien solo mira la partida, no.
+  canChat(a) { const c = this.capabilities(a.playerHash, a.hostHash, a.accountId, a.admin); return !isPresencial(this.t) && (!!c.playerId || c.host); }
+  sendChat(ws) { if (this.canChat(ws.deserializeAttachment() || {})) ws.send(JSON.stringify({ type: 'chat', list: chatList(this.t) })); }
+  sendChatAll(message) {
+    for (const ws of this.ctx.getWebSockets()) {
+      try { if (this.canChat(ws.deserializeAttachment() || {})) ws.send(message); } catch { try { ws.close(1011, 'Reconecta para recuperar la partida.'); } catch {} }
+    }
+  }
   sendAll(message) {
     for (const ws of this.ctx.getWebSockets()) {
       try { ws.send(message); } catch { try { ws.close(1011, 'Reconecta para recuperar la partida.'); } catch {} }
@@ -357,16 +364,17 @@ export class TournamentRoom extends DurableObject {
           a.game = b.game; ws.serializeAttachment(a); this.send(ws); return;
         }
         const c = this.capabilities(a.playerHash, a.hostHash, a.accountId, a.admin);
+        if (b.type === 'chat-sync') { this.sendChat(ws); return; }
         if (b.type === 'chat') {
           // Como mucho un mensaje cada 2 segundos por conexión.
           requireThat(!a.chatAt || now - a.chatAt >= 2000, 'Espera un momento antes de enviar otro mensaje.', 429);
           const m = addChat(this.t, c.playerId, b.text, now);
           a.chatAt = now; ws.serializeAttachment(a);
-          await this.save(); this.sendAll(JSON.stringify({ type: 'chat', add: m })); return;
+          await this.save(); this.sendChatAll(JSON.stringify({ type: 'chat', add: m })); return;
         }
         if (b.type === 'chat-delete') {
           deleteChat(this.t, c.host, String(b.id || ''));
-          await this.save(); this.sendAll(JSON.stringify({ type: 'chat', remove: String(b.id) })); return;
+          await this.save(); this.sendChatAll(JSON.stringify({ type: 'chat', remove: String(b.id) })); return;
         }
         const moved = b.type === 'move' ? this.t.games.find(g => g.id === b.game) : null;
         act(this.t, c.playerId, c.host, b, now);

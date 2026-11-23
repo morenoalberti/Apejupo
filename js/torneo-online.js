@@ -2027,9 +2027,12 @@ for (const selector of ['.to-play-column', '.to-room-bar', '.site-header', '#to-
 // Escriben los inscritos desde la caja de debajo del tablero; el organizador o el administrador borran mensajes.
 let chatMessages = [], chatOn = read('apejupoTorneoChat') !== '0';
 const chatScreen = matchMedia('(min-width: 860px) and (hover: hover) and (pointer: fine)');
-function chatAvailable() { return !!state && !boardsMode && !presencial(state) && !state.challenge && chatScreen.matches; }
+// Solo para los inscritos y el organizador (creador o administrador): quien solo mira la partida no ve el chat.
+let chatLoaded = false;
+function chatAllowed() { return !!state && !boardsMode && !presencial(state) && !state.challenge && !!(state.me || state.host); }
+function chatAvailable() { return chatAllowed() && chatScreen.matches; }
 function receiveChat(msg) {
-  if (Array.isArray(msg.list)) chatMessages = msg.list;
+  if (Array.isArray(msg.list)) { chatMessages = msg.list; chatLoaded = true; }
   if (msg.add && !chatMessages.some(m => m.id === msg.add.id)) chatMessages = [...chatMessages, msg.add].slice(-100);
   if (msg.remove) chatMessages = chatMessages.filter(m => m.id !== msg.remove);
   renderChat(!!msg.add);
@@ -2039,6 +2042,8 @@ function chatTime(at) { return new Date(at).toLocaleTimeString('es', { hour: '2-
 let chatHost = null;
 function chatFrame() {
   const show = chatAvailable(), layout = document.querySelector('.to-room-layout');
+  // Quien se inscribe con la sala ya abierta pide los mensajes anteriores.
+  if (chatAllowed() && !chatLoaded && connected) { chatLoaded = true; send({ type: 'chat-sync' }); }
   $('to-chat').hidden = !show; layout.classList.toggle('to-has-chat', show);
   const switchBtn = $('to-chat-switch');
   switchBtn.setAttribute('aria-checked', String(chatOn)); $('to-chat-state').textContent = chatOn ? 'ON' : 'OFF';
