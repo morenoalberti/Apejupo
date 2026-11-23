@@ -1,30 +1,67 @@
-/* Partidas jugadas: mismo formato que los emparejamientos de Torneos Live (tabla .lv-ptab.pairs de style.css).
+/* Partidas jugadas: lista de partidas de torneos online y retos.
    Se ve en la tarjeta que despliega el menú y en la página partidas.html. */
 .pj-page { width: min(900px, 100%); }
 .pj-root [hidden] { display: none !important; }
-.pj-root .pj-q { width: 100%; box-sizing: border-box; margin: 10px 0 6px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--text); font: inherit; }
-.pj-root .pj-q:focus { outline: 2px solid var(--blue); outline-offset: 1px; }
+
+/* Buscador con lupa y contador de partidas */
+.pj-bar { display: flex; align-items: center; gap: 12px; margin: 10px 0 8px; }
+.pj-search { position: relative; flex: 1; min-width: 0; display: block; }
+.pj-search svg { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); color: var(--muted); pointer-events: none; }
+.pj-root .pj-q { width: 100%; box-sizing: border-box; margin: 0; padding: 8px 12px 8px 34px; border: 1px solid var(--line); border-radius: 9px; background: var(--bg); color: var(--text); font: inherit; font-size: .9rem; }
+.pj-root .pj-q:focus { outline: none; border-color: var(--blue); box-shadow: 0 0 0 3px color-mix(in srgb, var(--blue) 25%, transparent); }
+.pj-count { flex: none; color: var(--muted); font-size: .78rem; font-variant-numeric: tabular-nums; }
 .pj-msg { margin: 10px 0; }
 .pj-msg.error { color: #f87171; }
-.pj-table { margin-top: 8px; table-layout: fixed; }
-/* Anchos fijos (según la cabecera): número, blancas, resultado centrado, negras, fecha y descarga. */
-.pj-table th:nth-child(1) { width: 36px; } .pj-table th:nth-child(3) { width: 90px; } .pj-table th:nth-child(5) { width: 104px; } .pj-table th:nth-child(6) { width: 40px; }
-.pj-table td.l { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.pj-table td:first-child { color: var(--muted); }
-.pj-table td.pj-date { color: var(--muted); font-size: .82rem; white-space: nowrap; font-variant-numeric: tabular-nums; }
-.pj-table .pj-dl { padding: 4px; }
-.pj-dl button { display: inline-grid; place-items: center; width: 30px; height: 30px; padding: 0; border: 1px solid transparent; border-radius: 7px; background: none; color: var(--muted); cursor: pointer; }
-.pj-dl button:hover, .pj-dl button:focus-visible { border-color: var(--line); color: var(--blue); background: var(--bg); }
-.pj-dl button:disabled { opacity: .5; cursor: wait; }
-.pj-more { display: block; margin: 14px auto 0; }
+
+/* Tabla */
+.pj-table { width: 100%; border-collapse: separate; border-spacing: 0; table-layout: fixed; font-size: .88rem; }
+.pj-table th { position: sticky; top: 0; z-index: 1; padding: 0; background: var(--card); color: var(--muted); font-size: .68rem; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; text-align: center; border-bottom: 1px solid var(--line); }
+.pj-table th.l { text-align: left; } .pj-table th.r { text-align: right; }
+/* Cabeceras que ordenan: pulsar ordena por esa columna; otra vez, al revés. */
+.pj-sort { display: inline-flex; align-items: center; gap: 4px; width: 100%; box-sizing: border-box; padding: 7px 8px; border: 0; background: none; color: inherit; font: inherit; letter-spacing: inherit; text-transform: inherit; cursor: pointer; justify-content: center; }
+.pj-table th.l .pj-sort { justify-content: flex-start; } .pj-table th.r .pj-sort { justify-content: flex-end; }
+.pj-sort:hover, .pj-sort:focus-visible { color: var(--text); }
+.pj-sort::after { content: ""; width: 0; height: 0; border: 4px solid transparent; opacity: 0; }
+.pj-sort[aria-sort="ascending"]::after { opacity: 1; border-bottom-color: currentColor; border-top-width: 0; }
+.pj-sort[aria-sort="descending"]::after { opacity: 1; border-top-color: currentColor; border-bottom-width: 0; }
+.pj-sort[aria-sort] { color: var(--text); }
+/* Anchos fijos: número, blancas, resultado, negras, fecha y acciones. */
+.pj-table th:nth-child(1) { width: 34px; } .pj-table th:nth-child(3) { width: 64px; } .pj-table th:nth-child(5) { width: 76px; } .pj-table th:nth-child(6) { width: 34px; }
+.pj-root.pj-admin .pj-table th:nth-child(6) { width: 62px; }
+.pj-table td { padding: 8px; border-bottom: 1px solid color-mix(in srgb, var(--line) 60%, transparent); text-align: center; vertical-align: middle; }
+.pj-table tbody tr:last-child td { border-bottom: 0; }
+.pj-table tbody tr { cursor: pointer; transition: background .12s; }
+.pj-table tbody tr:hover td { background: color-mix(in srgb, var(--blue) 9%, transparent); }
+.pj-table td.l { text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pj-n { color: var(--muted); font-size: .76rem; font-variant-numeric: tabular-nums; }
+/* Color de cada bando: un cuadrito blanco o negro delante del nombre. */
+.pj-side { display: inline-block; width: 9px; height: 9px; margin-right: 8px; border-radius: 2px; vertical-align: 0; }
+.pj-side.w { background: #f1f5f9; }
+.pj-side.b { background: #0b1220; box-shadow: inset 0 0 0 1px #64748b; }
+.pj-name { color: var(--text); }
+.pj-name.won { font-weight: 700; }
+.pj-name.lost { color: color-mix(in srgb, var(--text) 72%, transparent); }
+.pj-elo { margin-left: 4px; color: var(--muted); font-size: .76rem; font-variant-numeric: tabular-nums; }
+/* Resultado en una pastilla */
+.pj-res { display: inline-block; min-width: 38px; padding: 2px 8px; border-radius: 6px; background: var(--bg); border: 1px solid var(--line); font-weight: 700; font-size: .8rem; font-variant-numeric: tabular-nums; letter-spacing: .02em; }
+.pj-res.d { color: var(--muted); }
+.pj-table td.pj-date { text-align: right; color: var(--muted); font-size: .78rem; white-space: nowrap; font-variant-numeric: tabular-nums; }
+/* Acciones (PGN y, para el administrador, borrar): discretas hasta pasar por la fila. */
+.pj-table .pj-dl { padding: 4px 6px 4px 2px; white-space: nowrap; text-align: right; }
+.pj-dl button { display: inline-grid; place-items: center; width: 26px; height: 26px; padding: 0; border: 1px solid transparent; border-radius: 7px; background: none; color: var(--muted); cursor: pointer; opacity: .55; transition: opacity .12s, color .12s, background .12s; }
+.pj-table tbody tr:hover .pj-dl button, .pj-dl button:focus-visible { opacity: 1; }
+.pj-dl button:hover, .pj-dl button:focus-visible { color: var(--blue); background: var(--bg); border-color: var(--line); }
+.pj-dl .pj-del:hover, .pj-dl .pj-del:focus-visible { color: #f87171; border-color: #f8717166; }
+.pj-dl button:disabled { opacity: .4; cursor: wait; }
+.pj-more { display: block; margin: 12px auto 0; }
 
 /* Tarjeta que despliega el menú, hacia abajo y centrada bajo la cabecera. */
-.pj-panel { position: fixed; z-index: 60; left: 50%; transform: translateX(-50%); width: min(820px, calc(100vw - 24px)); max-height: calc(100vh - 110px); overflow: auto; overscroll-behavior: contain; box-sizing: border-box; padding: 14px 18px 18px; border: 1px solid var(--line); border-radius: 16px; background: var(--card); color: var(--text); box-shadow: 0 24px 60px -12px #000b; animation: pj-drop .16s ease-out; }
+.pj-panel { position: fixed; z-index: 60; left: 50%; transform: translateX(-50%); width: min(640px, calc(100vw - 24px)); max-height: calc(100vh - 110px); overflow: auto; overscroll-behavior: contain; box-sizing: border-box; padding: 14px 16px 12px; border: 1px solid var(--line); border-radius: 14px; background: var(--card); color: var(--text); box-shadow: 0 28px 70px -16px #000c, 0 0 0 1px #ffffff08 inset; animation: pj-drop .16s ease-out; scrollbar-width: thin; }
 .pj-panel[hidden] { display: none; }
 .pj-panel-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.pj-panel-head h2 { margin: 0; font-size: 1.15rem; }
-.pj-close { width: 34px; height: 34px; border: 1px solid var(--line); border-radius: 9px; background: var(--bg); color: var(--muted); font-size: 1.3rem; line-height: 1; cursor: pointer; }
-.pj-close:hover, .pj-close:focus-visible { color: var(--text); border-color: var(--blue); }
+.pj-panel-head h2 { margin: 0; font-size: 1.02rem; letter-spacing: .01em; }
+.pj-close { width: 28px; height: 28px; border: 1px solid transparent; border-radius: 7px; background: none; color: var(--muted); font-size: 1.15rem; line-height: 1; cursor: pointer; }
+.pj-close:hover, .pj-close:focus-visible { color: var(--text); background: var(--bg); border-color: var(--line); }
 @keyframes pj-drop { from { opacity: 0; transform: translate(-50%, -8px); } to { opacity: 1; transform: translate(-50%, 0); } }
 @media (prefers-reduced-motion: reduce) { .pj-panel { animation: none; } }
 
@@ -38,27 +75,11 @@
 .pj-mini img { position: absolute; inset: 0; width: 100%; height: 100%; }
 
 @media (max-width: 600px) {
-  .pj-page .cu-card, .pj-panel { padding: 12px 10px 14px; }
-  .pj-table { font-size: .82rem; }
+  .pj-page .cu-card, .pj-panel { padding: 12px 10px; }
+  .pj-table { font-size: .8rem; }
   .pj-table td { padding: 7px 4px; }
-  .pj-table th:nth-child(1) { width: 26px; } .pj-table th:nth-child(3) { width: 44px; } .pj-table th:nth-child(5) { width: 70px; } .pj-table th:nth-child(6) { width: 34px; }
-  .pj-table td.pj-date { font-size: .72rem; white-space: normal; }
+  .pj-sort { padding: 7px 4px; }
+  .pj-table th:nth-child(1) { width: 24px; } .pj-table th:nth-child(3) { width: 50px; } .pj-table th:nth-child(5) { width: 56px; }
+  .pj-elo { display: none; }
+  .pj-side { margin-right: 5px; }
 }
-
-/* Tarjeta compacta: más estrecha y con menos relleno, filas y buscador más bajos. */
-.pj-panel { width: min(620px, calc(100vw - 24px)); padding: 10px 12px 12px; border-radius: 14px; }
-.pj-panel .pj-panel-head h2 { font-size: 1rem; }
-.pj-panel .pj-close { width: 28px; height: 28px; font-size: 1.1rem; border-radius: 7px; }
-.pj-panel .pj-q { margin: 8px 0 4px; padding: 6px 10px; font-size: .88rem; }
-.pj-panel .pj-table { margin-top: 4px; font-size: .84rem; }
-.pj-panel .pj-table th { padding: 5px 6px; font-size: .72rem; }
-.pj-panel .pj-table td { padding: 5px 6px; }
-.pj-panel .pj-table th:nth-child(1) { width: 28px; } .pj-panel .pj-table th:nth-child(3) { width: 56px; } .pj-panel .pj-table th:nth-child(5) { width: 88px; } .pj-panel .pj-table th:nth-child(6) { width: 30px; }
-.pj-panel .pj-table td.pj-date { font-size: .76rem; }
-.pj-panel .pj-dl { padding: 2px; }
-.pj-panel .pj-dl button { width: 24px; height: 24px; }
-.pj-panel .pj-msg { margin: 6px 0; font-size: .86rem; }
-/* Administrador: cruz para borrar la partida, junto a la descarga. */
-.pj-root.pj-admin .pj-table th:nth-child(6) { width: 64px; }
-.pj-dl { white-space: nowrap; }
-.pj-dl .pj-del:hover, .pj-dl .pj-del:focus-visible { color: #f87171; border-color: #f8717166; }

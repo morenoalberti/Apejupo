@@ -22,9 +22,11 @@
     return adminCheck;
   }
   var DOWNLOAD = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>';
-  function day(at) { return new Intl.DateTimeFormat("es", { day: "numeric", month: "short", year: "numeric" }).format(at); }
+  // «19 nov» (este año) o «19 nov 2025».
+  function day(at) { var same = new Date(at).getFullYear() === new Date().getFullYear(); return new Intl.DateTimeFormat("es", same ? { day: "numeric", month: "short" } : { day: "numeric", month: "short", year: "numeric" }).format(at).replace(".", ""); }
   function pace(tc) { var m = /^(\d+)\+(\d+)$/.exec(tc || ""); return m ? m[1] + " + " + m[2] : tc || ""; }
-  function player(name, elo) { return '<span translate="no">' + esc(name) + "</span>" + (elo ? " <small>" + esc(elo) + "</small>" : ""); }
+  // Ganador en blanco y negrita; perdedor algo apagado; ELO en gris detrás del nombre.
+  function player(name, elo, cls) { return '<span class="pj-name ' + cls + '" translate="no">' + esc(name) + "</span>" + (elo ? ' <small class="pj-elo">' + esc(elo) + "</small>" : ""); }
 
   // ---- Tablero pequeño con la posición final (al pasar el ratón) ----
   var preview = null;
@@ -61,36 +63,55 @@
   // ---- Lista con buscador ----
   function mount(root) {
     root.classList.add("pj-root");
-    root.innerHTML = '<input class="pj-q" type="search" placeholder="Buscar jugador" aria-label="Buscar partidas por jugador" autocomplete="off" maxlength="40">'
+    root.innerHTML = '<div class="pj-bar"><label class="pj-search"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input class="pj-q" type="search" placeholder="Buscar jugador" aria-label="Buscar partidas por jugador" autocomplete="off" maxlength="40"></label><span class="pj-count" aria-live="polite"></span></div>'
       + '<p class="muted pj-msg" role="status">Cargando partidas…</p>'
-      + '<table class="lv-ptab pairs pj-table" hidden><thead><tr><th>N.º</th><th class="l">Blancas</th><th></th><th class="l">Negras</th><th>Fecha</th><th><span class="sr-only">PGN</span></th></tr></thead><tbody></tbody></table>'
+      + '<table class="pj-table" hidden><thead><tr><th><button type="button" class="pj-sort" data-k="n" title="Ordenar por número">#</button></th><th class="l"><button type="button" class="pj-sort" data-k="white" title="Ordenar por blancas">Blancas</button></th><th><button type="button" class="pj-sort" data-k="result" title="Ordenar por resultado">Res.</button></th><th class="l"><button type="button" class="pj-sort" data-k="black" title="Ordenar por negras">Negras</button></th><th class="r"><button type="button" class="pj-sort" data-k="date" title="Ordenar por fecha">Fecha</button></th><th><span class="sr-only">Acciones</span></th></tr></thead><tbody></tbody></table>'
       + '<button class="btn-ghost pj-more" type="button" hidden>Ver más partidas</button>';
-    var q = root.querySelector(".pj-q"), msg = root.querySelector(".pj-msg"), table = root.querySelector(".pj-table"), body = table.tBodies[0], more = root.querySelector(".pj-more");
-    var next = null, query = "", seq = 0, timer = null, n = 0, count = 0, admin = false;
+    var counter = root.querySelector(".pj-count"), q = root.querySelector(".pj-q"), msg = root.querySelector(".pj-msg"), table = root.querySelector(".pj-table"), body = table.tBodies[0], more = root.querySelector(".pj-more");
+    var next = null, query = "", seq = 0, timer = null, count = 0, admin = false;
+    // Partidas cargadas (n = su número, de la más reciente a la más antigua) y orden elegido en la cabecera.
+    var list = [], sort = { k: "n", dir: 1 };
+    var byName = function (a, b) { return a.localeCompare(b, "es", { sensitivity: "base" }); };
+    var score = { "1-0": 0, "1/2-1/2": 1, "0-1": 2 };
+    var compare = {
+      n: function (a, b) { return a.n - b.n; },
+      white: function (a, b) { return byName(a.white, b.white) || a.n - b.n; },
+      black: function (a, b) { return byName(a.black, b.black) || a.n - b.n; },
+      result: function (a, b) { return (score[a.result] - score[b.result]) || a.n - b.n; },
+      date: function (a, b) { return b.at - a.at || a.n - b.n; }
+    };
+    function render() {
+      var sorted = list.slice().sort(function (a, b) { return compare[sort.k](a, b) * sort.dir; });
+      body.innerHTML = rows(sorted);
+      table.querySelectorAll(".pj-sort").forEach(function (b) {
+        if (b.dataset.k === sort.k) b.setAttribute("aria-sort", sort.dir > 0 ? (sort.k === "date" ? "descending" : "ascending") : (sort.k === "date" ? "ascending" : "descending")); else b.removeAttribute("aria-sort");
+      });
+    }
+    function setCount() { counter.textContent = count ? count + (next ? "+" : "") + (count === 1 ? " partida" : " partidas") : ""; }
     function say(text, error) { msg.hidden = !text; msg.textContent = text || ""; msg.classList.toggle("error", !!error); }
     function rows(games) {
       return games.map(function (g) {
-        n++;
         var res = { "1-0": "1-0", "0-1": "0-1", "1/2-1/2": "½-½" }[g.result] || "–";
+        var wc = g.result === "1-0" ? "won" : g.result === "0-1" ? "lost" : "drew", bc = g.result === "0-1" ? "won" : g.result === "1-0" ? "lost" : "drew";
         var file = (g.white + "-" + g.black).replace(/[^\wÀ-ÿ-]+/g, "_") + ".pgn";
         var info = g.title + " · " + (g.kind === "reto" ? "Reto" : "Torneo") + " · " + pace(g.tc);
-        return '<tr data-g="' + esc(g.id) + '" data-fen="' + esc(g.fen || "") + '" data-last="' + esc(g.lastMove || "") + '" title="' + esc(info) + '"><td>' + n + '</td><td class="l">' + player(g.white, g.whiteElo)
-          + '</td><td class="rs" title="' + esc(g.reason) + '">' + res + '</td><td class="l">' + player(g.black, g.blackElo)
-          + '</td><td class="pj-date">' + day(g.at) + '</td><td class="pj-dl"><button type="button" data-pgn="' + esc(g.id) + '" data-file="' + esc(file) + '" aria-label="Descargar el PGN" title="Descargar el PGN">' + DOWNLOAD + "</button>"
+        return '<tr data-g="' + esc(g.id) + '" data-fen="' + esc(g.fen || "") + '" data-last="' + esc(g.lastMove || "") + '" title="' + esc(info) + '"><td class="pj-n">' + g.n + '</td><td class="l"><span class="pj-side w" aria-hidden="true"></span>' + player(g.white, g.whiteElo, wc)
+          + '</td><td class="rs"><span class="pj-res ' + (g.result === "1/2-1/2" ? "d" : "") + '" title="' + esc(g.reason) + '">' + res + '</span></td><td class="l"><span class="pj-side b" aria-hidden="true"></span>' + player(g.black, g.blackElo, bc)
+          + '</td><td class="pj-date" title="' + esc(new Date(g.at).toLocaleString("es")) + '">' + day(g.at) + '</td><td class="pj-dl"><button type="button" data-pgn="' + esc(g.id) + '" data-file="' + esc(file) + '" aria-label="Descargar el PGN" title="Descargar el PGN">' + DOWNLOAD + "</button>"
           + (admin ? '<button type="button" class="pj-del" data-del="' + esc(g.id) + '" aria-label="Borrar la partida" title="Borrar la partida">' + CROSS + "</button>" : "") + "</td></tr>";
       }).join("");
     }
     function load(reset) {
       if (!api()) { say("Las partidas no están disponibles en este momento.", true); return; }
       var mine = ++seq;
-      if (reset) { next = null; n = 0; count = 0; body.innerHTML = ""; table.hidden = true; more.hidden = true; say(query ? "Buscando…" : "Cargando partidas…"); }
+      if (reset) { next = null; count = 0; list = []; body.innerHTML = ""; table.hidden = true; more.hidden = true; say(query ? "Buscando…" : "Cargando partidas…"); }
       more.disabled = true;
       fetch(api() + "/api/tournaments/partidas?q=" + encodeURIComponent(query) + (next ? "&antes=" + next : ""), { cache: "no-store", signal: AbortSignal.timeout(window.APEJUPO_TORNEOS_TIMEOUT || 15000) })
         .then(function (r) { return r.json().then(function (j) { if (!r.ok) throw new Error(j.error); return j; }); })
         .then(function (data) {
           if (mine !== seq) return; // llegó otra búsqueda después
-          body.insertAdjacentHTML("beforeend", rows(data.games));
-          count += data.games.length; next = data.next;
+          data.games.forEach(function (g) { g.n = list.length + 1; list.push(g); });
+          count = list.length; next = data.next; setCount(); render();
           more.hidden = !next; more.disabled = false; table.hidden = !count;
           say(count ? "" : query ? "No hay partidas de «" + query + "»." : "Todavía no hay partidas jugadas.");
         })
@@ -102,6 +123,12 @@
       timer = setTimeout(function () { var v = q.value.trim(); if (v === query) return; query = v; load(true); }, 300);
     });
     more.addEventListener("click", function () { load(false); });
+    // Ordenar por una columna: primera pulsación, orden natural (A-Z, 1-0 primero, más recientes); segunda, al revés.
+    table.tHead.addEventListener("click", function (ev) {
+      var b = ev.target.closest(".pj-sort"); if (!b) return;
+      sort = b.dataset.k === sort.k ? { k: sort.k, dir: -sort.dir } : { k: b.dataset.k, dir: 1 };
+      hidePreview(); render();
+    });
     body.addEventListener("mousemove", function (ev) { var tr = ev.target.closest("tr[data-g]"); if (tr) showPreview(tr, ev); });
     body.addEventListener("mouseleave", hidePreview);
     body.addEventListener("click", function (ev) {
@@ -112,7 +139,13 @@
         if (!window.confirm("¿Borrar esta partida de «Partidas jugadas»?\n" + tr.querySelectorAll("td.l")[0].innerText + " – " + tr.querySelectorAll("td.l")[1].innerText + "\n\nNo se puede deshacer.")) return;
         del.disabled = true;
         fetch(api() + "/api/tournaments/partidas/" + encodeURIComponent(del.dataset.del) + "/borrar", { method: "POST", headers: { Authorization: "Bearer " + adminKey() } })
-          .then(function (r) { if (!r.ok) throw new Error(); tr.remove(); count--; Array.prototype.forEach.call(body.rows, function (row, i) { row.cells[0].textContent = i + 1; }); n = body.rows.length; if (!count) { table.hidden = true; say("Todavía no hay partidas jugadas."); } hidePreview(); })
+          .then(function (r) {
+            if (!r.ok) throw new Error();
+            list = list.filter(function (g) { return g.id !== del.dataset.del; });
+            list.forEach(function (g, i) { g.n = i + 1; }); // se vuelven a numerar
+            count = list.length; setCount(); render(); hidePreview();
+            if (!count) { table.hidden = true; say("Todavía no hay partidas jugadas."); }
+          })
           .catch(function () { del.disabled = false; say("No se pudo borrar la partida. Vuelve a intentarlo.", true); });
         return;
       }
