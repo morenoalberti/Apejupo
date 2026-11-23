@@ -1,0 +1,25 @@
+/* Partidas jugadas: lista de partidas de torneos online y retos, con buscador. */
+.pj-page { width: min(900px, 100%); }
+.pj-page #pj-q { margin: 14px 0 6px; }
+.pj-msg { margin: 10px 0; }
+.pj-msg.error { color: #f87171; }
+.pj-list { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 10px; }
+.pj-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "meta actions" "game actions"; gap: 6px 14px; align-items: center; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--bg); }
+.pj-meta { grid-area: meta; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; min-width: 0; font-size: .82rem; }
+.pj-kind { padding: 1px 8px; border-radius: 99px; font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; background: color-mix(in srgb, var(--blue) 16%, transparent); color: var(--blue); }
+.pj-kind.reto { background: color-mix(in srgb, #db9f38 18%, transparent); color: #db9f38; }
+.pj-title { font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pj-when { color: var(--muted); }
+.pj-game { grid-area: game; display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 12px; }
+.pj-p { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pj-p:last-child { text-align: right; }
+.pj-p.won .pj-name { font-weight: 700; }
+.pj-elo { color: var(--muted); font-variant-numeric: tabular-nums; }
+.pj-res { padding: 2px 10px; border-radius: 8px; background: var(--card); border: 1px solid var(--line); font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.pj-actions { grid-area: actions; display: flex; gap: 8px; }
+.pj-btn { padding: 7px 12px; font-size: .85rem; text-decoration: none; white-space: nowrap; }
+.pj-more { display: block; margin: 14px auto 0; }
+@media (max-width: 600px) {
+  .pj-row { grid-template-columns: 1fr; grid-template-areas: "meta" "game" "actions"; }
+  .pj-actions { justify-content: flex-end; }
+}

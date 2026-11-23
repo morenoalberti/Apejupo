@@ -871,6 +871,21 @@
   var torneo = new URLSearchParams(location.search).get("torneo");
   // torneo-config.js (la dirección del servidor de torneos) se carga después de este script.
   if (torneo) { if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", function () { loadTournament(torneo); }); else loadTournament(torneo); }
+  // ?partida=… (desde «Partidas jugadas»): una partida del archivo del club.
+  var partida = new URLSearchParams(location.search).get("partida");
+  if (partida && /^[a-f0-9]{24}_[0-9a-f-]{36}$/.test(partida)) { if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", function () { loadArchived(partida); }); else loadArchived(partida); }
+  function loadArchived(id) {
+    var api = (window.APEJUPO_TORNEOS_API || "").replace(/\/$/, "");
+    msg("Cargando la partida…");
+    fetch(api + "/api/tournaments/partidas/" + encodeURIComponent(id))
+      .then(function (r) { return r.text().then(function (t) { if (!r.ok) { var e = "No se pudo cargar la partida."; try { e = JSON.parse(t).error || e; } catch (x) {} throw new Error(e); } return t; }); })
+      .then(function (text) {
+        var err = loadPgn(text); msg(err || "", !!err);
+        var tag = function (k) { var m = text.match(new RegExp("\\[" + k + ' "([^"]*)"\\]')); return m ? m[1] : ""; };
+        document.title = tag("White") + " – " + tag("Black") + " · Tablero de análisis · Apejupo Chess Club";
+      })
+      .catch(function (err) { msg(err.message || "No se pudo cargar la partida.", true); });
+  }
   function loadTournament(id) {
     var api = (window.APEJUPO_TORNEOS_API || "").replace(/\/$/, "");
     msg("Cargando las partidas del torneo…");

@@ -2,6 +2,7 @@ import { DurableObject } from 'cloudflare:workers';
 import { GameError, requireThat } from './core.js';
 import { registeredPlayerNicks } from './player-directory.js';
 import { ELO_START, eloAfter } from './elo.js';
+const GAMES_PAGE = 50;
 
 // Cuentas al estilo Lichess: nick + contraseña; el correo confirma la cuenta y sirve para recuperarla.
 // Nunca se guarda la contraseña: solo su derivación PBKDF2 con sal. Sesiones y enlaces de correo se
@@ -83,6 +84,8 @@ export class AccountStore extends DurableObject {
       CREATE TABLE IF NOT EXISTS photos (user_id TEXT PRIMARY KEY, data BLOB NOT NULL, updated_at INTEGER NOT NULL);
       CREATE TABLE IF NOT EXISTS duels (a TEXT NOT NULL, b TEXT NOT NULL, a_wins INTEGER NOT NULL DEFAULT 0, b_wins INTEGER NOT NULL DEFAULT 0, draws INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (a, b));
       CREATE TABLE IF NOT EXISTS duel_games (room TEXT PRIMARY KEY, at INTEGER NOT NULL);
+      CREATE TABLE IF NOT EXISTS partidas (id TEXT PRIMARY KEY, room TEXT NOT NULL, kind TEXT NOT NULL, title TEXT NOT NULL, white TEXT NOT NULL, black TEXT NOT NULL, white_elo INTEGER, black_elo INTEGER, result TEXT NOT NULL, reason TEXT NOT NULL, plies INTEGER NOT NULL, tc TEXT NOT NULL, pgn TEXT NOT NULL, at INTEGER NOT NULL);
+      CREATE INDEX IF NOT EXISTS partidas_at ON partidas (at);
       CREATE TABLE IF NOT EXISTS elo_games (game TEXT PRIMARY KEY, white TEXT NOT NULL, black TEXT NOT NULL, result TEXT NOT NULL, white_before INTEGER NOT NULL, black_before INTEGER NOT NULL, white_after INTEGER NOT NULL, black_after INTEGER NOT NULL, at INTEGER NOT NULL);`);
     // Última actividad (para la página de administración). Las bases anteriores no tenían la columna.
     const columns = this.sql.exec('PRAGMA table_info(users)').toArray();
@@ -106,6 +109,21 @@ export class AccountStore extends DurableObject {
     this.sql.exec('UPDATE users SET elo = ? WHERE id = ?', after.black, black);
     this.sql.exec('INSERT INTO elo_games (game, white, black, result, white_before, black_before, white_after, black_after, at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', game, white, black, result, w.elo, b.elo, after.white, after.black, now);
     return after;
+  }
+  // Archivo de «Partidas jugadas»: partidas terminadas de torneos online y retos. No se borran nunca
+  // (ni con el tiempo ni al borrar el torneo).
+  archiveGame(g, now) {
+    this.sql.exec('INSERT OR IGNORE INTO partidas (id, room, kind, title, white, black, white_elo, black_elo, result, reason, plies, tc, pgn, at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      g.id, g.room, g.kind, g.title, g.white, g.black, g.whiteElo ?? null, g.blackElo ?? null, g.result, g.reason, g.plies, g.tc, g.pgn, g.at || now);
+  }
+  listGames(q, before, now) {
+    // Búsqueda por nombre del jugador (blancas o negras), sin distinguir mayúsculas; «!» escapa % y _.
+    const like = '%' + q.replace(/[!%_]/g, c => '!' + c) + '%';
+    const rows = this.sql.exec(`SELECT id, kind, title, white, black, white_elo, black_elo, result, reason, plies, tc, at FROM partidas
+      WHERE at < ? ${q ? "AND (white LIKE ? ESCAPE '!' OR black LIKE ? ESCAPE '!')" : ''} ORDER BY at DESC LIMIT ?`,
+      before, ...(q ? [like, like] : []), GAMES_PAGE + 1).toArray();
+    const games = rows.slice(0, GAMES_PAGE).map(r => ({ id: r.id, kind: r.kind, title: r.title, white: r.white, black: r.black, whiteElo: r.white_elo, blackElo: r.black_elo, result: r.result, reason: r.reason, plies: r.plies, tc: r.tc, at: r.at }));
+    return { games, next: rows.length > GAMES_PAGE ? games[games.length - 1].at : null };
   }
   recordDuel(room, white, black, result, now) {
     if (this.one('SELECT 1 AS x FROM duel_games WHERE room = ?', room)) return; // cada partida cuenta una sola vez
@@ -320,6 +338,22 @@ export class AccountStore extends DurableObject {
           requireThat(/^[a-f0-9]{24}:[0-9a-f-]{36}$/.test(String(b.game || '')), 'Partida no válida.');
           requireThat(['1-0', '0-1', '1/2-1/2'].includes(b.result), 'Resultado no válido.');
           return json(this.recordElo(b.game, b.white, b.black, b.result, now));
+        }
+        // Uso interno: archivo de «Partidas jugadas» (anotar, listar con buscador y PGN). Nunca se borran.
+        case '/partida-anotar': {
+          const g = b.game || {};
+          requireThat(/^[a-f0-9]{24}_[0-9a-f-]{36}$/.test(String(g.id || '')) && ['1-0', '0-1', '1/2-1/2'].includes(g.result) && typeof g.pgn === 'string' && g.pgn.length < 100000, 'Partida no válida.');
+          this.archiveGame({ ...g, title: String(g.title || '').slice(0, 80), white: String(g.white || '').slice(0, 40), black: String(g.black || '').slice(0, 40), reason: String(g.reason || '').slice(0, 60), tc: String(g.tc || '').slice(0, 12), plies: Number(g.plies) || 0, kind: g.kind === 'reto' ? 'reto' : 'torneo' }, now);
+          return json({ ok: true });
+        }
+        case '/partidas-lista': {
+          const q = String(b.q || '').trim().slice(0, 40), before = Number(b.before) > 0 ? Number(b.before) : now + 1;
+          return json(this.listGames(q, before, now));
+        }
+        case '/partida-pgn': {
+          const row = this.one('SELECT pgn FROM partidas WHERE id = ?', String(b.id || ''));
+          requireThat(row, 'Esta partida ya no está disponible.', 404);
+          return json({ pgn: row.pgn });
         }
         // Uso interno de los retos: nicks de las cuentas confirmadas (la lista de jugadores de retar.html).
         case '/jugadores': return json({ nicks: registeredPlayerNicks(this.sql.exec('SELECT nick, email FROM users WHERE verified = 1 ORDER BY nick_key').toArray()) });

@@ -125,8 +125,30 @@ export class TournamentRoom extends DurableObject {
       } catch (error) { console.warn('No se pudo anotar el ELO:', error.message); }
     }
   }
+  // «Partidas jugadas»: cada partida terminada (con jugadas) de un torneo online o de un reto se guarda para
+  // siempre en el archivo del club, con el ELO que tenían los jugadores al empezarla (por eso va antes del ELO).
+  async recordArchive() {
+    if (isPresencial(this.t)) return;
+    const byId = new Map(this.t.players.map(p => [p.id, p]));
+    for (const g of this.t.games) {
+      if (g.bye || !g.result || g.archived || !['1-0', '0-1', '1/2-1/2'].includes(g.result)) continue;
+      if (!g.moves?.length) { g.archived = true; continue; } // sin jugadas no hay partida que ver
+      const w = byId.get(g.white), b = byId.get(g.black);
+      let pgn = exportPgn(this.t, g.id);
+      const elo = [w?.rating ? `[WhiteElo "${w.rating}"]` : '', b?.rating ? `[BlackElo "${b.rating}"]` : ''].filter(Boolean).join('\n');
+      if (elo) pgn = pgn.replace(/(\[Black "[^"]*"\])/, `$1\n${elo}`);
+      const game = { id: `${this.t.id}_${g.id}`, room: this.t.id, kind: this.t.challenge ? 'reto' : 'torneo', title: this.t.title,
+        white: w?.name || 'Jugador', black: b?.name || 'Jugador', whiteElo: w?.rating || null, blackElo: b?.rating || null,
+        result: g.result, reason: g.reason || '', plies: g.moves.length, tc: `${this.t.minutes}+${this.t.increment}`, pgn, at: g.finishedAt || g.lastAt || Date.now() };
+      try {
+        const res = await this.env.ACCOUNTS.getByName('cuentas').fetch('https://cuentas/partida-anotar', { method: 'POST', body: JSON.stringify({ game }) });
+        if (res.ok) g.archived = true; // si falla, se reintenta en el siguiente guardado
+      } catch (error) { console.warn('No se pudo archivar la partida:', error.message); }
+    }
+  }
   async save() {
     await this.recordDuel();
+    await this.recordArchive();
     await this.recordElo();
     this.t.revision++;
     try {
@@ -512,6 +534,17 @@ export default {
       // torneo (día, hora, sistema y ritmo) tiene que venir ya en la página. Las personas pasan al momento a la sala.
       const share = /^\/t\/([a-f0-9]{24})$/.exec(path);
       if (share && request.method === 'GET') return sharePage(env, share[1]);
+      // «Partidas jugadas»: lista pública con buscador por jugador y PGN de cada partida (sin sesión).
+      if (path === '/api/tournaments/partidas' && request.method === 'GET') {
+        return withCors(await accounts.fetch('https://cuentas/partidas-lista', { method: 'POST', body: JSON.stringify({ q: url.searchParams.get('q') || '', before: url.searchParams.get('antes') || '' }) }));
+      }
+      const archived = /^\/api\/tournaments\/partidas\/([a-f0-9]{24}_[0-9a-f-]{36})$/.exec(path);
+      if (archived && request.method === 'GET') {
+        const res = await accounts.fetch('https://cuentas/partida-pgn', { method: 'POST', body: JSON.stringify({ id: archived[1] }) });
+        if (!res.ok) return withCors(res);
+        const { pgn } = await res.json();
+        return new Response(pgn, { headers: { ...cors, 'Content-Type': 'application/x-chess-pgn; charset=utf-8', 'Cache-Control': 'public, max-age=3600' } });
+      }
       const room = /^\/api\/tournaments\/([a-f0-9]{24})(?:\/(join|socket|pgn|delete|config|edit|prizes|trf))?$/.exec(path);
       if (path === '/api/tournaments/admin/comprobar') {
         requireThat(request.method === 'POST', 'Método no permitido.', 405);
