@@ -1,25 +1,21 @@
-/* Partidas jugadas: lista de partidas de torneos online y retos, con buscador. */
+/* Partidas jugadas: mismo formato que los emparejamientos de Torneos Live (tabla .lv-ptab.pairs de style.css). */
 .pj-page { width: min(900px, 100%); }
 .pj-page #pj-q { margin: 14px 0 6px; }
 .pj-msg { margin: 10px 0; }
 .pj-msg.error { color: #f87171; }
-.pj-list { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 10px; }
-.pj-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "meta actions" "game actions"; gap: 6px 14px; align-items: center; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--bg); }
-.pj-meta { grid-area: meta; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; min-width: 0; font-size: .82rem; }
-.pj-kind { padding: 1px 8px; border-radius: 99px; font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; background: color-mix(in srgb, var(--blue) 16%, transparent); color: var(--blue); }
-.pj-kind.reto { background: color-mix(in srgb, #db9f38 18%, transparent); color: #db9f38; }
-.pj-title { font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.pj-when { color: var(--muted); }
-.pj-game { grid-area: game; display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 12px; }
-.pj-p { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.pj-p:last-child { text-align: right; }
-.pj-p.won .pj-name { font-weight: 700; }
-.pj-elo { color: var(--muted); font-variant-numeric: tabular-nums; }
-.pj-res { padding: 2px 10px; border-radius: 8px; background: var(--card); border: 1px solid var(--line); font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.pj-actions { grid-area: actions; display: flex; gap: 8px; }
-.pj-btn { padding: 7px 12px; font-size: .85rem; text-decoration: none; white-space: nowrap; }
+.pj-table { margin-top: 8px; table-layout: fixed; }
+/* Anchos fijos (según la cabecera): número, blancas, resultado centrado, negras y descarga. */
+.pj-table th:nth-child(1) { width: 36px; } .pj-table th:nth-child(3) { width: 90px; } .pj-table th:nth-child(5) { width: 40px; }
+.pj-table td.l { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pj-table td:first-child { color: var(--muted); }
+.pj-table .pj-dl { padding: 4px; }
+.pj-dl button { display: inline-grid; place-items: center; width: 30px; height: 30px; padding: 0; border: 1px solid transparent; border-radius: 7px; background: none; color: var(--muted); cursor: pointer; }
+.pj-dl button:hover, .pj-dl button:focus-visible { border-color: var(--line); color: var(--blue); background: var(--bg); }
+.pj-dl button:disabled { opacity: .5; cursor: wait; }
 .pj-more { display: block; margin: 14px auto 0; }
 @media (max-width: 600px) {
-  .pj-row { grid-template-columns: 1fr; grid-template-areas: "meta" "game" "actions"; }
-  .pj-actions { justify-content: flex-end; }
+  .pj-page .cu-card { padding: 16px 10px; }
+  .pj-table { font-size: .82rem; }
+  .pj-table td { padding: 7px 4px; }
+  .pj-table th:nth-child(1) { width: 26px; } .pj-table th:nth-child(3) { width: 44px; } .pj-table th:nth-child(5) { width: 34px; }
 }

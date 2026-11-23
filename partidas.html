@@ -10,7 +10,7 @@
 <link rel="icon" type="image/svg+xml" href="assets/icon.svg">
 <link rel="stylesheet" href="css/style.css?v=20261120-idioma2">
 <link rel="stylesheet" href="css/cuenta.css?v=20261117-admin1">
-<link rel="stylesheet" href="css/partidas.css?v=20261123-partidas1">
+<link rel="stylesheet" href="css/partidas.css?v=20261123-partidas4">
 <script defer src="js/analytics.js?v=20261120-cloudflare1"></script>
 <script src="js/idioma.js?v=20261120-banderas1"></script>
 </head>
@@ -30,16 +30,16 @@
 <main class="cu-page pj-page">
   <section class="cu-card">
     <h1>Partidas jugadas</h1>
-    <p class="muted">Todas las partidas de los torneos online y los retos del club, de la más reciente a la más antigua. Pulsa «Analizar» para repasarla en el tablero de análisis o descarga su PGN.</p>
+    <p class="muted">Todas las partidas de los torneos online y los retos del club, de la más reciente a la más antigua. Pulsa una partida para repasarla en el tablero de análisis o descarga su PGN con el icono de la derecha.</p>
     <input id="pj-q" type="search" placeholder="Buscar jugador" aria-label="Buscar partidas por jugador" aria-controls="pj-list" autocomplete="off" maxlength="40">
     <p id="pj-msg" class="muted pj-msg" role="status">Cargando partidas…</p>
-    <ol id="pj-list" class="pj-list" aria-label="Partidas jugadas"></ol>
+    <table id="pj-table" class="lv-ptab pairs pj-table" hidden><thead><tr><th>N.º</th><th class="l">Blancas</th><th></th><th class="l">Negras</th><th><span class="sr-only">PGN</span></th></tr></thead><tbody id="pj-list"></tbody></table>
     <button id="pj-more" class="btn-ghost pj-more" type="button" hidden>Ver más partidas</button>
   </section>
 </main>
 <script src="js/menu.js?v=20261113-menus"></script>
 <script src="js/util.js?v=20261122-limpio1"></script>
 <script src="js/torneo-config.js?v=20261122-conexion1"></script>
-<script src="js/partidas.js?v=20261123-partidas1"></script>
+<script src="js/partidas.js?v=20261123-partidas2"></script>
 </body>
 </html>
