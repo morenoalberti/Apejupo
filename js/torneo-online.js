@@ -920,9 +920,10 @@ function renderGame() {
   // Con la partida terminada, el resultado se ve en grande sobre el tablero, como una marca de agua.
   if (g.result) $('to-board').dataset.result = g.result.replace('1/2-1/2', '½–½'); else delete $('to-board').dataset.result;
   $('to-game-status').textContent = status; $('to-game-status').classList.toggle('my-turn', canMove());
-  // En tu partida no hace falta «Tu turno» / «Turno de tu rival»: lo indica el reloj en verde.
+  // No hace falta «Tu turno», «Turno de tu rival» ni «Juegan blancas/negras»: lo indica el reloj en verde,
+  // tanto en tu partida como en la que estás viendo. Solo queda el aviso de conexión perdida.
   // Con la partida terminada basta la marca de agua: fuera el texto del resultado y el repaso.
-  $('to-game-status').hidden = !!g.result || (own && connected);
+  $('to-game-status').hidden = !!g.result || connected;
   $('to-replay').hidden = true;
   if (g.result && !replay) {
     const c = new Chess(); replay = [c.fen()];
