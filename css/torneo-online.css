@@ -528,8 +528,7 @@ body.to-focus.to-landscape-game .to-sidebar { max-height: none; }
 body.to-low-landscape #to-game-panel { padding: 2px; }
 body.to-focus #to-standings-panel { display: flex; flex-direction: column; min-height: 0; margin-bottom: 0; }
 body.to-focus #to-standings-panel > .to-section-head { flex: none; }
-body.to-focus #to-standings-panel .to-table-wrap { min-height: 0; overflow: auto; overscroll-behavior: contain; scrollbar-width: none; }
-body.to-focus #to-standings-panel .to-table-wrap::-webkit-scrollbar { display: none; }
+body.to-focus #to-standings-panel .to-table-wrap { min-height: 0; overflow: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: var(--muted) transparent; }
 body.to-focus #to-standings-panel th { position: sticky; top: 0; background: var(--card); z-index: 1; }
 @media (max-width: 760px) { body.to-focus #to-standings-panel { max-height: var(--to-standings-height, 60dvh); } }
 @media (min-width: 761px) {
@@ -1085,7 +1084,8 @@ li.to-tb-dragging { position: relative; z-index: 2; transform: scale(1.03); back
 /* ---- Chat del torneo: columna a la izquierda del tablero (solo pantallas grandes) ---- */
 .to-chat { min-width: 0; display: flex; flex-direction: column; gap: 10px; }
 .to-chat[hidden] { display: none; }
-.to-main .to-chat-switch { align-self: flex-start; width: auto; height: 28px; gap: 5px; padding: 3px 8px; border-radius: 7px; font-size: .7rem; }
+.to-main .to-chat-switch[hidden] { display: none; }
+.to-main .to-chat-switch { align-self: center; width: auto; height: 28px; gap: 5px; padding: 3px 8px; border-radius: 7px; font-size: .7rem; }
 .to-main .to-chat-switch .to-sound-track { width: 24px; height: 14px; }
 .to-main .to-chat-switch .to-sound-track::before { top: 2px; left: 2px; width: 10px; height: 10px; }
 .to-main .to-chat-switch[aria-checked="true"] .to-sound-track::before { transform: translateX(10px); }

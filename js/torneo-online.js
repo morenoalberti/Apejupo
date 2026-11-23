@@ -448,7 +448,7 @@ function liveGames() { return (state?.games || []).filter(g => !g.result && !g.b
 function renderBoards() {
   const live = liveGames();
   $('to-boards-open').hidden = !live.length || !!state.challenge;
-  $('to-boards-label').textContent = `Ver tableros (${live.length})`;
+  $('to-boards-label').textContent = 'Ver tableros'; // sin el número de partidas en juego
   if (!boardsMode) return;
   document.title = `Tableros · ${state.title}`;
   const inPlay = `${live.length === 1 ? '1 partida' : `${live.length} partidas`} en juego`;
@@ -2047,6 +2047,8 @@ function chatFrame() {
   // Quien se inscribe con la sala ya abierta pide los mensajes anteriores.
   if (chatAllowed() && !chatLoaded && connected) { chatLoaded = true; send({ type: 'chat-sync' }); }
   $('to-chat').hidden = !show; layout.classList.toggle('to-has-chat', show);
+  // El interruptor va en la barra de la sala, encima del chat: así el chat empieza a la altura del tablero.
+  $('to-chat-switch').hidden = !show;
   const switchBtn = $('to-chat-switch');
   switchBtn.setAttribute('aria-checked', String(chatOn)); $('to-chat-state').textContent = chatOn ? 'ON' : 'OFF';
   switchBtn.title = `${chatOn ? 'Ocultar' : 'Mostrar'} el chat del torneo`;

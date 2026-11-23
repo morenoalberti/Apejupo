@@ -20,7 +20,7 @@
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" type="image/svg+xml" href="assets/icon.svg">
 <link rel="stylesheet" href="css/style.css?v=20261120-idioma2">
-<link rel="stylesheet" href="css/torneo-online.css?v=20261123-chat10">
+<link rel="stylesheet" href="css/torneo-online.css?v=20261123-chat13">
 <link rel="stylesheet" href="css/torneo-trf.css?v=20261119-trf4">
 <link rel="stylesheet" href="css/torneo-premios.css?v=20261119-condiciones">
 <link rel="stylesheet" href="css/cuenta.css?v=20261117-admin1">
@@ -61,7 +61,7 @@
       <p class="to-small muted">Pulsa un tablero para verlo en grande; vuelve a pulsarlo para reducirlo.</p>
     </section>
     <section id="to-room" aria-label="Sala del torneo" hidden>
-      <div class="to-room-bar"><div id="to-end-clock" class="to-focus-clock to-end-clock" hidden><span>Termina en</span><strong id="to-focus-clock"></strong></div><a href="jugar-torneo.html" id="to-back" class="to-back" hidden>← Todos los torneos</a><div class="to-actions"><span id="to-connection" class="to-connection" role="status">Conectando…</span><button id="to-sound" class="to-sound" type="button" role="switch" aria-checked="false" aria-label="Sonido de jugadas" title="Activar sonido de jugadas. El aviso de inicio de partida se mantiene."><span>Sonido</span><span class="to-sound-track" aria-hidden="true"></span><span id="to-sound-state" class="to-sound-state" aria-hidden="true">OFF</span></button><button id="to-boards-open" class="btn to-boards-open" type="button" hidden><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg><span id="to-boards-label">Ver tableros</span></button><button id="to-share" class="btn-ghost to-icon-btn" type="button"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="m8.2 10.7 7.6-4.4m-7.6 7 7.6 4.4"/></svg><span>Compartir torneo</span></button></div></div>
+      <div class="to-room-bar"><div id="to-end-clock" class="to-focus-clock to-end-clock" hidden><span>Termina en</span><strong id="to-focus-clock"></strong></div><a href="jugar-torneo.html" id="to-back" class="to-back" hidden>← Todos los torneos</a><button id="to-chat-switch" class="to-sound to-chat-switch" hidden type="button" role="switch" aria-checked="true" aria-label="Chat del torneo" title="Ocultar el chat del torneo"><span>Chat</span><span class="to-sound-track" aria-hidden="true"></span><span id="to-chat-state" class="to-sound-state" aria-hidden="true">ON</span></button><div class="to-actions"><span id="to-connection" class="to-connection" role="status">Conectando…</span><button id="to-sound" class="to-sound" type="button" role="switch" aria-checked="false" aria-label="Sonido de jugadas" title="Activar sonido de jugadas. El aviso de inicio de partida se mantiene."><span>Sonido</span><span class="to-sound-track" aria-hidden="true"></span><span id="to-sound-state" class="to-sound-state" aria-hidden="true">OFF</span></button><button id="to-boards-open" class="btn to-boards-open" type="button" hidden><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg><span id="to-boards-label">Ver tableros</span></button><button id="to-share" class="btn-ghost to-icon-btn" type="button"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="m8.2 10.7 7.6-4.4m-7.6 7 7.6 4.4"/></svg><span>Compartir torneo</span></button></div></div>
       <div class="to-tournament-bar"><div id="to-summary" class="to-tags"></div><div class="to-actions"><p id="to-phase" class="to-phase" role="status"></p><div id="to-countdown" class="to-countdown" hidden><span>Termina en</span><strong></strong></div></div></div>
       <p id="to-notice" class="to-note" hidden></p>
       <section id="to-podium" class="to-podium" aria-label="Podio del torneo" hidden></section>
@@ -107,7 +107,6 @@
       <div class="to-room-layout">
         <!-- Chat del torneo: solo en pantallas grandes; escriben los inscritos y el organizador puede borrar mensajes. -->
         <aside id="to-chat" class="to-chat" aria-label="Chat del torneo" hidden>
-          <button id="to-chat-switch" class="to-sound to-chat-switch" type="button" role="switch" aria-checked="true" aria-label="Chat del torneo" title="Ocultar el chat del torneo"><span>Chat</span><span class="to-sound-track" aria-hidden="true"></span><span id="to-chat-state" class="to-sound-state" aria-hidden="true">ON</span></button>
           <div id="to-chat-box" class="to-chat-box"><ol id="to-chat-list" class="to-chat-list" aria-live="polite"></ol><p id="to-chat-empty" class="to-chat-empty muted">Aún no hay mensajes.</p></div>
         </aside>
         <div class="to-play-column">
@@ -196,6 +195,6 @@
 <script src="js/menu.js?v=20261113-menus"></script>
 <script src="js/util.js?v=20261122-limpio1"></script>
 <script src="js/torneo-config.js?v=20261122-conexion1"></script>
-<script type="module" src="js/torneo-online.js?v=20261123-chat10"></script>
+<script type="module" src="js/torneo-online.js?v=20261123-chat13"></script>
 </body>
 </html>
