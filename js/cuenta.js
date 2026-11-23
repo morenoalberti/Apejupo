@@ -51,8 +51,9 @@ async function checkAdmin() {
   renderChip();
 }
 function renderChip() {
-  const chip = document.getElementById('cuenta-chip'); if (!chip) return;
   const user = currentUser();
+  document.documentElement.classList.toggle('con-cuenta', !!user); // con cuenta no se ofrece «Inscríbete»
+  const chip = document.getElementById('cuenta-chip'); if (!chip) return;
   // Con sesión: redondel (donde irá la foto, de momento la inicial) y el nick; un punto naranja si falta confirmar el correo.
   const nick = `<span class="cu-nick">${esc(user?.nick)}</span>`;
   chip.innerHTML = user ? `${avatar(user, user.verified ? '' : '<i class="cu-pending"></i>')}${isAdmin() ? `<span class="cu-who">${nick}<small class="cu-role">Administrador</small></span>` : nick}` : 'Entrar';

@@ -432,6 +432,7 @@ body.card-dragging .tour-tip { display: none !important; }
 .qs-hero .qs-btn-insc { margin-top: 4px; }
 .qs-btn-insc { background: var(--amber); color: #1a1205; font-weight: 700; border: 0; cursor: pointer; font: inherit; font-weight: 700; }
 .qs-btn-insc:hover { background: #fbbf24; }
+.con-cuenta .qs-btn-insc { display: none; } /* con la sesión iniciada ya estás registrado */
 
 /* Ficha de inscripción */
 .insc { width: min(460px, calc(100% - 32px)); max-height: calc(100% - 32px); padding: 0; border: 1px solid var(--line); border-radius: 18px; background: var(--card); color: var(--text); box-shadow: 0 24px 60px rgba(0, 0, 0, .45); }

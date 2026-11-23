@@ -1,5 +1,7 @@
 // Menús desplegables (Torneos, Entrenamiento, Club): con el ratón se abren al pasar; con el dedo o el teclado, al pulsar.
 // Al abrir uno se cierran los demás.
+// Con la sesión iniciada se marca <html class="con-cuenta"> antes de pintar (oculta «Inscríbete»); cuenta.js lo mantiene al día.
+(function () { try { if (localStorage.getItem("apejupoSesion")) document.documentElement.classList.add("con-cuenta"); } catch (_) {} })();
 (function () {
   var menus = document.querySelectorAll(".site-header .menu"); if (!menus.length) return;
   function set(m, o) {
