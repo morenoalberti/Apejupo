@@ -843,6 +843,8 @@ export function addChat(t, playerId, text, now = Date.now()) {
   requireThat(!isPresencial(t), 'Los torneos presenciales no tienen chat.');
   const p = playerId && t.players.find(x => x.id === playerId);
   requireThat(p, 'Solo los jugadores inscritos pueden escribir en el chat.', 403);
+  // Quien ha salido del torneo (pausa) o se ha retirado puede leer el chat, pero no escribir.
+  requireThat(p.active && !p.paused, 'Has salido del torneo: vuelve a entrar para escribir en el chat.', 403);
   // Sin saltos de línea ni caracteres de control; espacios repetidos, uno solo.
   const clean = String(text ?? '').replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim();
   requireThat(clean.length > 0, 'Escribe un mensaje.');

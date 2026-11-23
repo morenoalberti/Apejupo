@@ -2069,7 +2069,9 @@ function chatFrame() {
   const home = panel.hidden ? $('to-chat') : null;
   if (home && form.parentElement !== home) home.append(form);
   else if (!home && form.parentElement !== panel) $('to-player-bottom').after(form);
-  form.hidden = !show || !chatOn || !state?.me;
+  // Solo escribe quien está jugando el torneo: en pausa o retirado, la caja no sale (el chat se sigue leyendo).
+  const meRow = state?.standings.find(p => p.id === state.me);
+  form.hidden = !show || !chatOn || !meRow || !meRow.active || !!meRow.paused;
   form.querySelector('input').disabled = form.querySelector('button').disabled = !connected;
   // Si cambia quién puede borrar (p. ej., al llegar el primer estado), se vuelve a pintar la lista.
   if (show && chatOn && chatHost !== !!state?.host) { chatHost = !!state?.host; renderChatList(); }

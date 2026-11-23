@@ -18,6 +18,10 @@ test('chat: solo escriben los inscritos y el texto se limpia', () => {
   const m = addChat(t, ana.id, '  hola\n\tqué  tal ', NOW);
   assert.equal(m.text, 'hola qué tal'); assert.equal(m.name, 'Ana'); assert.equal(m.by, ana.id);
   assert.deepEqual(chatList(t).map(x => x.text), ['hola qué tal']);
+  // En pausa o retirado no se escribe.
+  ana.paused = true; assert.throws(() => addChat(t, ana.id, 'hola'), /salido del torneo/);
+  ana.paused = false; ana.active = false; assert.throws(() => addChat(t, ana.id, 'hola'), /salido del torneo/);
+  ana.active = true;
   // El chat no viaja con el estado del torneo.
   assert.equal('chat' in sharedSnapshot(t, NOW), false);
 });
