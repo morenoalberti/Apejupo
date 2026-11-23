@@ -8,6 +8,21 @@
   // Árbol de jugadas con variantes: cada nodo { id, san, fen, from, to, parent, children }; children[0] es la
   // continuación principal. «line» es el camino de la raíz a la jugada actual más su continuación principal,
   // y «ply» la posición en ese camino: así la navegación, la flecha y las marcas trabajan sobre «line».
+  // Piezas y tablero dibujados en lienzos (canvas): el modo oscuro de algunos móviles (Samsung Internet) oscurece
+  // los colores y las imágenes de fondo y aclara algunas piezas negras, pero no toca lo que se dibuja en un lienzo.
+  var IMGS = {};
+  function img(src) { var i = IMGS[src]; if (!i) { i = new Image(); i.src = src; IMGS[src] = i; } return i; }
+  function drawOn(canvas, src) {
+    var i = img(src), paint = function () { canvas.width = i.naturalWidth; canvas.height = i.naturalHeight; canvas.getContext("2d").drawImage(i, 0, 0); };
+    if (i.complete && i.naturalWidth) paint(); else i.addEventListener("load", paint, { once: true });
+  }
+  function pieceHtml(code) { return '<canvas class="an-pc" width="80" height="80" data-piece="' + code + '" aria-hidden="true"></canvas>'; }
+  function paintCanvases(root) {
+    if (!root) return;
+    Array.prototype.forEach.call(root.querySelectorAll("canvas.an-pc"), function (c) { drawOn(c, "assets/pieces/" + c.dataset.piece + ".png"); });
+    Array.prototype.forEach.call(root.querySelectorAll("canvas.an-bgc"), function (c) { drawOn(c, "assets/tactics-board.png"); });
+  }
+  var BOARD_BG = '<canvas class="an-bgc" aria-hidden="true"></canvas>';
   var players = null; // jugadores del PGN: { w: { name, title, elo }, b: … }
   // Símbolos que pone el usuario en una jugada (como en ChessBase): n.mv (calidad de la jugada), n.ev
   // (valoración de la posición), n.ex (iniciativa, contrajuego); además n.before / n.after (textos) y n.diagram.
@@ -65,9 +80,10 @@
       var p = g.get(sq), dark = (FILES.indexOf(sq[0]) + Number(sq[1])) % 2 === 0;
       var cls = "an-sq" + (dark ? " dk" : "") + (last && (sq === last.from || sq === last.to) ? " an-lm" : "") + (sq === selected ? " an-sel" : "") + (sq === kingSq ? " an-chk" : "") + (targets.indexOf(sq) >= 0 ? (p ? " an-cap" : " an-dot") : "");
       var coords = (i % 8 === 0 ? '<span class="an-rk">' + sq[1] + "</span>" : "") + (i >= 56 ? '<span class="an-fl">' + sq[0] + "</span>" : "");
-      var img = p ? '<img src="assets/pieces/' + p.color + p.type.toUpperCase() + '.png" alt="" draggable="false">' : "";
-      return '<div class="' + cls + '" data-sq="' + sq + '">' + img + coords + "</div>";
-    }).join("");
+      var pc = p ? pieceHtml(p.color + p.type.toUpperCase()) : "";
+      return '<div class="' + cls + '" data-sq="' + sq + '">' + pc + coords + "</div>";
+    }).join("") + BOARD_BG;
+    paintCanvases($("an-board"));
     $("an-board").setAttribute("aria-label", "Tablero. Juegan " + (g.turn() === "w" ? "blancas" : "negras") + (g.in_checkmate() ? ". Jaque mate" : g.in_check() ? ". Jaque" : ""));
     renderMoves(); renderNags(); renderFen(); renderNav(); renderPlayers(); renderOpening(); drawArrow(); analyse();
   }
@@ -208,7 +224,8 @@
   }
   function askPromotion(from, to, color) {
     pendingPromo = { from: from, to: to };
-    $("an-promo-opts").innerHTML = ["q", "r", "b", "n"].map(function (p) { return '<button type="button" data-p="' + p + '" aria-label="' + { q: "Dama", r: "Torre", b: "Alfil", n: "Caballo" }[p] + '"><img src="assets/pieces/' + color + p.toUpperCase() + '.png" alt=""></button>'; }).join("");
+    $("an-promo-opts").innerHTML = ["q", "r", "b", "n"].map(function (p) { return '<button type="button" data-p="' + p + '" aria-label="' + { q: "Dama", r: "Torre", b: "Alfil", n: "Caballo" }[p] + '">' + pieceHtml(color + p.toUpperCase()) + '</button>'; }).join("");
+    paintCanvases($("an-promo-opts"));
     $("an-promo").showModal();
   }
   $("an-promo-opts").addEventListener("click", function (e) {
@@ -231,18 +248,20 @@
     var sq = cell.dataset.sq;
     if (selected && sq !== selected && !own(sq)) { play(selected, sq) || (selected = null, render()); return; }
     if (!own(sq)) { selected = null; render(); return; }
-    var img = cell.querySelector("img"); if (!img) return;
+    var pc = cell.querySelector("canvas.an-pc"); if (!pc) return;
     e.preventDefault();
     var wasSelected = selected === sq;
     // El tamaño se mide antes de redibujar: después, esta casilla ya no está en la página y mediría 0.
     var size = cell.getBoundingClientRect().width;
     selected = sq; render();
-    var ghost = img.cloneNode();
+    // La pieza que se arrastra también es un lienzo (ver pieceHtml).
+    var ghost = document.createElement("canvas");
     ghost.className = "an-ghost"; ghost.style.width = ghost.style.height = size + "px";
+    drawOn(ghost, "assets/pieces/" + pc.dataset.piece + ".png");
     document.body.appendChild(ghost);
     drag = { from: sq, ghost: ghost, size: size, moved: false, wasSelected: wasSelected, x: e.clientX, y: e.clientY };
     moveGhost(e.clientX, e.clientY);
-    var src = $("an-board").querySelector('[data-sq="' + sq + '"] img'); if (src) src.style.opacity = ".25";
+    var src = $("an-board").querySelector('[data-sq="' + sq + '"] canvas.an-pc'); if (src) src.style.opacity = ".25";
   });
   function moveGhost(x, y) { drag.ghost.style.left = x - drag.size / 2 + "px"; drag.ghost.style.top = y - drag.size / 2 + "px"; }
   window.addEventListener("pointermove", function (e) {
@@ -769,15 +788,17 @@
   }
   function palette(color) {
     return '<button type="button" data-tool="hand" class="' + (tool === "hand" ? "on" : "") + '" aria-label="Mover piezas">' + HAND + "</button>"
-      + ["K", "Q", "R", "B", "N", "P"].map(function (t) { var code = color + t; return '<button type="button" data-tool="' + code + '" class="' + (tool === code ? "on" : "") + '" aria-label="Colocar ' + { K: "rey", Q: "dama", R: "torre", B: "alfil", N: "caballo", P: "peón" }[t] + (color === "w" ? " blanco" : " negro") + '"><img src="assets/pieces/' + code + '.png" alt=""></button>'; }).join("")
+      + ["K", "Q", "R", "B", "N", "P"].map(function (t) { var code = color + t; return '<button type="button" data-tool="' + code + '" class="' + (tool === code ? "on" : "") + '" aria-label="Colocar ' + { K: "rey", Q: "dama", R: "torre", B: "alfil", N: "caballo", P: "peón" }[t] + (color === "w" ? " blanco" : " negro") + '">' + pieceHtml(code) + '</button>'; }).join("")
       + '<button type="button" data-tool="trash" class="' + (tool === "trash" ? "on" : "") + '" aria-label="Quitar piezas">' + TRASH + "</button>";
   }
   function renderEditor() {
     $("an-board").innerHTML = squares().map(function (sq, i) {
       var p = editBoard[sq], dark = (FILES.indexOf(sq[0]) + Number(sq[1])) % 2 === 0;
-      return '<div class="an-sq' + (dark ? " dk" : "") + '" data-sq="' + sq + '">' + (p ? '<img src="assets/pieces/' + p + '.png" alt="" draggable="false">' : "") + (i % 8 === 0 ? '<span class="an-rk">' + sq[1] + "</span>" : "") + (i >= 56 ? '<span class="an-fl">' + sq[0] + "</span>" : "") + "</div>";
-    }).join("");
+      return '<div class="an-sq' + (dark ? " dk" : "") + '" data-sq="' + sq + '">' + (p ? pieceHtml(p) : "") + (i % 8 === 0 ? '<span class="an-rk">' + sq[1] + "</span>" : "") + (i >= 56 ? '<span class="an-fl">' + sq[0] + "</span>" : "") + "</div>";
+    }).join("") + BOARD_BG;
+    paintCanvases($("an-board"));
     $("an-pal-top").innerHTML = palette(flipped ? "w" : "b"); $("an-pal-bottom").innerHTML = palette(flipped ? "b" : "w");
+    paintCanvases($("an-pal-top")); paintCanvases($("an-pal-bottom"));
     var ok = castleAllowed(), box = function (k, label) { return '<label><input type="checkbox" data-castle="' + k + '"' + (castle[k] && ok[k] ? " checked" : "") + (ok[k] ? "" : " disabled") + "> " + label + "</label>"; };
     $("an-editor").innerHTML = '<select id="an-ed-turn" aria-label="Turno"><option value="w"' + (editTurn === "w" ? " selected" : "") + '>Juegan las blancas</option><option value="b"' + (editTurn === "b" ? " selected" : "") + '>Juegan las negras</option></select>'
       + '<div class="an-castle"><strong>Enroque</strong><span>Blancas</span>' + box("K", "O-O") + box("Q", "O-O-O") + '<span>Negras</span>' + box("k", "O-O") + box("q", "O-O-O") + "</div>"
@@ -799,8 +820,8 @@
   // Un clic sin arrastrar aplica la herramienta elegida: colocar esa pieza, quitar (papelera) o nada (mano).
   function startEditDrag(e, piece, from, size) {
     e.preventDefault();
-    var ghost = document.createElement("img");
-    ghost.src = "assets/pieces/" + piece + ".png"; ghost.alt = ""; ghost.className = "an-ghost";
+    var ghost = document.createElement("canvas");
+    ghost.className = "an-ghost"; drawOn(ghost, "assets/pieces/" + piece + ".png");
     ghost.style.width = ghost.style.height = size + "px"; document.body.appendChild(ghost);
     drag = { edit: true, from: from, piece: piece, ghost: ghost, size: size, moved: false, x: e.clientX, y: e.clientY };
     moveGhost(e.clientX, e.clientY);
@@ -809,7 +830,7 @@
     var sq = cell.dataset.sq, size = cell.getBoundingClientRect().width, piece = editBoard[sq];
     if (piece && tool !== "trash") {
       startEditDrag(e, piece, sq, size);
-      var img = cell.querySelector("img"); if (img) img.style.opacity = ".25";
+      var pcv = cell.querySelector("canvas.an-pc"); if (pcv) pcv.style.opacity = ".25";
       return;
     }
     if (tool === "trash") { setSquare(sq, null); renderEditor(); return; }

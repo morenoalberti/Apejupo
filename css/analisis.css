@@ -332,3 +332,10 @@ body:not(.an-editing) .an-page .an-opening[hidden] { display: block !important; 
 .an-nags button[aria-pressed="true"], .an-nags button[data-nag="↑"][aria-pressed="true"] { background: var(--amber); color: #0F1B2D; }
 .an-mark.user, .an-mv.cur .an-mark.user { color: var(--amber); }
 .an-mv.cur .an-mark.user { color: #fff; }
+/* Lienzos (ver analisis.js): piezas y fondo del tablero, que el modo oscuro del móvil no recolorea. */
+.an-board { position: relative; }
+.an-board > .an-bgc { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; }
+.an-board > .an-sq { z-index: 1; }
+.an-sq canvas.an-pc { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.an-palette canvas.an-pc, .an-pal canvas.an-pc { display: block; width: 100%; height: 100%; pointer-events: none; }
+.an-promo-opts canvas.an-pc { display: block; width: 100%; height: auto; aspect-ratio: 1; }
