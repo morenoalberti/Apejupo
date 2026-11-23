@@ -266,7 +266,8 @@ export function closedPairs(players, round) {
     used.add(i); used.add(j);
   }
   const k = Array.from({ length: n - 1 }, (_, x) => x + 1).find(x => !used.has(x));
-  pairs.unshift(k % 2 ? [ids[k - 1], ids[n - 1]] : [ids[n - 1], ids[k - 1]]);
+  // El último número lleva negras en las rondas impares y blancas en las pares (tablas Berger de la FIDE, C.05 anexo 1).
+  pairs.unshift(round % 2 ? [ids[k - 1], ids[n - 1]] : [ids[n - 1], ids[k - 1]]);
   return pairs;
 }
 // Round-Robin: el calendario entero sale del sorteo. Las rondas que faltan, para enseñarlas en la página:
