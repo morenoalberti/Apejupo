@@ -64,7 +64,7 @@
 // «Partidas jugadas» (menú Torneos): despliega una tarjeta con las partidas en la página en la que se está,
 // sin cambiar de página. Los archivos que necesita se cargan la primera vez que se pulsa.
 (function () {
-  var V = "20261123-partidas9", loading = null;
+  var V = "20261123-partidas10", loading = null;
   function script(src) { return new Promise(function (ok, ko) { var s = document.createElement("script"); s.src = src; s.onload = ok; s.onerror = ko; document.head.appendChild(s); }); }
   function load() {
     if (window.PartidasJugadas) return Promise.resolve();

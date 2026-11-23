@@ -9,6 +9,18 @@
   if (window.PartidasJugadas) return;
   var api = function () { return (window.APEJUPO_TORNEOS_API || "").replace(/\/$/, ""); };
   var esc = function (s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); };
+  var CROSS = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>';
+  // Administrador: la misma clave que usa la web para administrar (se comprueba en el servidor antes de mostrar la cruz).
+  function adminKey() { try { return sessionStorage.getItem("apejupoAdminCuentas") || localStorage.getItem("apejupoAdminCuentas") || ""; } catch (e) { return ""; } }
+  var adminCheck = null;
+  function isAdmin() {
+    if (!adminCheck) {
+      var key = adminKey();
+      adminCheck = !key || !api() ? Promise.resolve(false) : fetch(api() + "/api/tournaments/admin/comprobar", { method: "POST", headers: { Authorization: "Bearer " + key } })
+        .then(function (r) { return r.ok ? r.json() : {}; }).then(function (j) { return j.ok === true; }, function () { return false; });
+    }
+    return adminCheck;
+  }
   var DOWNLOAD = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>';
   function day(at) { return new Intl.DateTimeFormat("es", { day: "numeric", month: "short", year: "numeric" }).format(at); }
   function pace(tc) { var m = /^(\d+)\+(\d+)$/.exec(tc || ""); return m ? m[1] + " + " + m[2] : tc || ""; }
@@ -54,7 +66,7 @@
       + '<table class="lv-ptab pairs pj-table" hidden><thead><tr><th>N.º</th><th class="l">Blancas</th><th></th><th class="l">Negras</th><th>Fecha</th><th><span class="sr-only">PGN</span></th></tr></thead><tbody></tbody></table>'
       + '<button class="btn-ghost pj-more" type="button" hidden>Ver más partidas</button>';
     var q = root.querySelector(".pj-q"), msg = root.querySelector(".pj-msg"), table = root.querySelector(".pj-table"), body = table.tBodies[0], more = root.querySelector(".pj-more");
-    var next = null, query = "", seq = 0, timer = null, n = 0, count = 0;
+    var next = null, query = "", seq = 0, timer = null, n = 0, count = 0, admin = false;
     function say(text, error) { msg.hidden = !text; msg.textContent = text || ""; msg.classList.toggle("error", !!error); }
     function rows(games) {
       return games.map(function (g) {
@@ -64,7 +76,8 @@
         var info = g.title + " · " + (g.kind === "reto" ? "Reto" : "Torneo") + " · " + pace(g.tc);
         return '<tr data-g="' + esc(g.id) + '" data-fen="' + esc(g.fen || "") + '" data-last="' + esc(g.lastMove || "") + '" title="' + esc(info) + '"><td>' + n + '</td><td class="l">' + player(g.white, g.whiteElo)
           + '</td><td class="rs" title="' + esc(g.reason) + '">' + res + '</td><td class="l">' + player(g.black, g.blackElo)
-          + '</td><td class="pj-date">' + day(g.at) + '</td><td class="pj-dl"><button type="button" data-pgn="' + esc(g.id) + '" data-file="' + esc(file) + '" aria-label="Descargar el PGN" title="Descargar el PGN">' + DOWNLOAD + "</button></td></tr>";
+          + '</td><td class="pj-date">' + day(g.at) + '</td><td class="pj-dl"><button type="button" data-pgn="' + esc(g.id) + '" data-file="' + esc(file) + '" aria-label="Descargar el PGN" title="Descargar el PGN">' + DOWNLOAD + "</button>"
+          + (admin ? '<button type="button" class="pj-del" data-del="' + esc(g.id) + '" aria-label="Borrar la partida" title="Borrar la partida">' + CROSS + "</button>" : "") + "</td></tr>";
       }).join("");
     }
     function load(reset) {
@@ -92,6 +105,17 @@
     body.addEventListener("mousemove", function (ev) { var tr = ev.target.closest("tr[data-g]"); if (tr) showPreview(tr, ev); });
     body.addEventListener("mouseleave", hidePreview);
     body.addEventListener("click", function (ev) {
+      // Borrar una partida (solo el administrador).
+      var del = ev.target.closest("[data-del]");
+      if (del) {
+        var tr = del.closest("tr");
+        if (!window.confirm("¿Borrar esta partida de «Partidas jugadas»?\n" + tr.querySelectorAll("td.l")[0].innerText + " – " + tr.querySelectorAll("td.l")[1].innerText + "\n\nNo se puede deshacer.")) return;
+        del.disabled = true;
+        fetch(api() + "/api/tournaments/partidas/" + encodeURIComponent(del.dataset.del) + "/borrar", { method: "POST", headers: { Authorization: "Bearer " + adminKey() } })
+          .then(function (r) { if (!r.ok) throw new Error(); tr.remove(); count--; Array.prototype.forEach.call(body.rows, function (row, i) { row.cells[0].textContent = i + 1; }); n = body.rows.length; if (!count) { table.hidden = true; say("Todavía no hay partidas jugadas."); } hidePreview(); })
+          .catch(function () { del.disabled = false; say("No se pudo borrar la partida. Vuelve a intentarlo.", true); });
+        return;
+      }
       var btn = ev.target.closest("[data-pgn]");
       if (!btn) { var tr = ev.target.closest("tr[data-g]"); if (tr) location.href = "analisis.html?partida=" + encodeURIComponent(tr.dataset.g); return; }
       // Descargar el PGN (el servidor está en otro dominio: se descarga como archivo desde aquí).
@@ -106,7 +130,7 @@
         .catch(function () { say("No se pudo descargar el PGN. Vuelve a intentarlo.", true); })
         .then(function () { btn.disabled = false; });
     });
-    load(true);
+    isAdmin().then(function (a) { admin = a; root.classList.toggle("pj-admin", a); load(true); });
     return { focus: function () { q.focus(); } };
   }
 

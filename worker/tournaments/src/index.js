@@ -47,6 +47,14 @@ export class TournamentDirectory extends DurableObject {
               return r.ok ? { ...await r.json(), mine: !!accountId && e.host === accountId } : null;
             } catch { return null; }
           }));
+          // Torneos ya terminados que aún no pasaron por «Partidas jugadas» (de antes de existir): se archivan una vez.
+          const pending = events.filter((e, i) => !e.archived && results[i]?.status === 'finished');
+          if (pending.length) {
+            await Promise.all(pending.map(async e => {
+              try { if ((await this.env.TOURNAMENTS.getByName(e.id).fetch('https://room/archivar', { method: 'POST' })).ok) e.archived = true; } catch {}
+            }));
+            await this.ctx.storage.put('events', events);
+          }
           return json({ tournaments: results.filter(Boolean).sort((a, b) => b.createdAt - a.createdAt), keyRequired: false, accountRequired: true });
         }
         if (request.method === 'POST') {
@@ -265,6 +273,11 @@ export class TournamentRoom extends DurableObject {
         }
         await this.checkTime();
         if (url.pathname === '/summary') return json(summary(this.t));
+        // Partidas terminadas antes de existir «Partidas jugadas»: se archivan ahora (solo el archivo; el ELO no se toca).
+        if (url.pathname === '/archivar') {
+          if (this.t.games.some(g => !g.bye && g.result && !g.archived)) { await this.recordArchive(); await this.ctx.storage.put('state', this.t); }
+          return json({ ok: true });
+        }
         if (url.pathname === '/socket') {
           requireThat(request.headers.get('Upgrade')?.toLowerCase() === 'websocket', 'Se necesita una conexión WebSocket.', 426);
           requireThat(this.ctx.getWebSockets().length < MAX_SOCKETS, 'La sala está llena. Inténtalo más tarde.', 429);
@@ -536,7 +549,19 @@ export default {
       if (share && request.method === 'GET') return sharePage(env, share[1]);
       // «Partidas jugadas»: lista pública con buscador por jugador y PGN de cada partida (sin sesión).
       if (path === '/api/tournaments/partidas' && request.method === 'GET') {
+        // La primera vez, se archivan también las partidas de los retos que siguen guardados (de antes de existir el archivo).
+        try {
+          const { rooms } = await (await accounts.fetch('https://cuentas/retos-sin-archivar', { method: 'POST', body: '{}' })).json();
+          await Promise.all((rooms || []).map(id => env.TOURNAMENTS.getByName(id).fetch('https://room/archivar', { method: 'POST' }).catch(() => null)));
+        } catch {}
         return withCors(await accounts.fetch('https://cuentas/partidas-lista', { method: 'POST', body: JSON.stringify({ q: url.searchParams.get('q') || '', before: url.searchParams.get('antes') || '' }) }));
+      }
+      // Borrar una partida del archivo: solo el administrador (clave CUENTAS_ADMIN en Authorization).
+      const removeGame = /^\/api\/tournaments\/partidas\/([a-f0-9]{24}_[0-9a-f-]{36})\/borrar$/.exec(path);
+      if (removeGame && request.method === 'POST') {
+        const verified = await checkAdmin();
+        if (!verified.ok) return withCors(verified);
+        return withCors(await accounts.fetch('https://cuentas/partida-borrar', { method: 'POST', body: JSON.stringify({ id: removeGame[1] }) }));
       }
       const archived = /^\/api\/tournaments\/partidas\/([a-f0-9]{24}_[0-9a-f-]{36})$/.exec(path);
       if (archived && request.method === 'GET') {

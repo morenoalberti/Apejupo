@@ -58,3 +58,7 @@
 .pj-panel .pj-dl { padding: 2px; }
 .pj-panel .pj-dl button { width: 24px; height: 24px; }
 .pj-panel .pj-msg { margin: 6px 0; font-size: .86rem; }
+/* Administrador: cruz para borrar la partida, junto a la descarga. */
+.pj-root.pj-admin .pj-table th:nth-child(6) { width: 64px; }
+.pj-dl { white-space: nowrap; }
+.pj-dl .pj-del:hover, .pj-dl .pj-del:focus-visible { color: #f87171; border-color: #f8717166; }

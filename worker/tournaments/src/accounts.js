@@ -87,6 +87,7 @@ export class AccountStore extends DurableObject {
       CREATE TABLE IF NOT EXISTS duel_games (room TEXT PRIMARY KEY, at INTEGER NOT NULL);
       CREATE TABLE IF NOT EXISTS partidas (id TEXT PRIMARY KEY, room TEXT NOT NULL, kind TEXT NOT NULL, title TEXT NOT NULL, white TEXT NOT NULL, black TEXT NOT NULL, white_elo INTEGER, black_elo INTEGER, result TEXT NOT NULL, reason TEXT NOT NULL, plies INTEGER NOT NULL, tc TEXT NOT NULL, pgn TEXT NOT NULL, at INTEGER NOT NULL);
       CREATE INDEX IF NOT EXISTS partidas_at ON partidas (at);
+      CREATE TABLE IF NOT EXISTS retos_archivados (room TEXT PRIMARY KEY);
       CREATE TABLE IF NOT EXISTS elo_games (game TEXT PRIMARY KEY, white TEXT NOT NULL, black TEXT NOT NULL, result TEXT NOT NULL, white_before INTEGER NOT NULL, black_before INTEGER NOT NULL, white_after INTEGER NOT NULL, black_after INTEGER NOT NULL, at INTEGER NOT NULL);`);
     // Última actividad (para la página de administración). Las bases anteriores no tenían la columna.
     const columns = this.sql.exec('PRAGMA table_info(users)').toArray();
@@ -115,8 +116,8 @@ export class AccountStore extends DurableObject {
     this.sql.exec('INSERT INTO elo_games (game, white, black, result, white_before, black_before, white_after, black_after, at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', game, white, black, result, w.elo, b.elo, after.white, after.black, now);
     return after;
   }
-  // Archivo de «Partidas jugadas»: partidas terminadas de torneos online y retos. No se borran nunca
-  // (ni con el tiempo ni al borrar el torneo).
+  // Archivo de «Partidas jugadas»: partidas terminadas de torneos online y retos. No caducan ni se borran
+  // al borrar el torneo; solo el administrador puede quitar una partida desde la lista.
   archiveGame(g, now) {
     this.sql.exec('INSERT OR IGNORE INTO partidas (id, room, kind, title, white, black, white_elo, black_elo, result, reason, plies, tc, pgn, at, fen, last_move) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
       g.id, g.room, g.kind, g.title, g.white, g.black, g.whiteElo ?? null, g.blackElo ?? null, g.result, g.reason, g.plies, g.tc, g.pgn, g.at || now, g.fen || null, g.lastMove || null);
@@ -354,7 +355,7 @@ export class AccountStore extends DurableObject {
           requireThat(['1-0', '0-1', '1/2-1/2'].includes(b.result), 'Resultado no válido.');
           return json(this.recordElo(b.game, b.white, b.black, b.result, now));
         }
-        // Uso interno: archivo de «Partidas jugadas» (anotar, listar con buscador y PGN). Nunca se borran.
+        // Uso interno: archivo de «Partidas jugadas» (anotar, listar con buscador y PGN). Solo las borra el administrador.
         case '/partida-anotar': {
           const g = b.game || {};
           requireThat(/^[a-f0-9]{24}_[0-9a-f-]{36}$/.test(String(g.id || '')) && ['1-0', '0-1', '1/2-1/2'].includes(g.result) && typeof g.pgn === 'string' && g.pgn.length < 100000, 'Partida no válida.');
@@ -364,6 +365,19 @@ export class AccountStore extends DurableObject {
         case '/partidas-lista': {
           const q = String(b.q || '').trim().slice(0, 40), before = Number(b.before) > 0 ? Number(b.before) : now + 1;
           return json(this.listGames(q, before, now));
+        }
+        // Retos jugados antes de existir «Partidas jugadas»: salas aún no revisadas (cada una se devuelve una sola vez).
+        case '/retos-sin-archivar': {
+          const rooms = [...new Set(this.sql.exec('SELECT room FROM duel_games').toArray().map(r => String(r.room).slice(0, 24)))]
+            .filter(id => /^[a-f0-9]{24}$/.test(id) && !this.one('SELECT 1 AS x FROM retos_archivados WHERE room = ?', id));
+          for (const id of rooms) this.sql.exec('INSERT OR IGNORE INTO retos_archivados (room) VALUES (?)', id);
+          return json({ rooms });
+        }
+        // Solo el administrador (el router ya comprobó su clave): quitar una partida del archivo.
+        case '/partida-borrar': {
+          requireThat(/^[a-f0-9]{24}_[0-9a-f-]{36}$/.test(String(b.id || '')), 'Partida no válida.');
+          this.sql.exec('DELETE FROM partidas WHERE id = ?', b.id);
+          return json({ ok: true });
         }
         case '/partida-pgn': {
           const row = this.one('SELECT pgn FROM partidas WHERE id = ?', String(b.id || ''));
