@@ -1,6 +1,7 @@
 // Canal de YouTube «Cálculo letal»: lista de vídeos para la página canal-youtube.html.
 // Solo este canal (no es un proxy abierto). Se intenta la lista completa de subidas (página pública de la lista);
-// si YouTube cambia su formato, se usa el resumen oficial del canal (RSS, los 15 últimos). Se guarda una hora.
+// si YouTube cambia su formato, se usa el resumen oficial del canal (RSS, los 15 últimos). Las fechas salen del resumen
+// y, para los vídeos más antiguos, de la página de cada vídeo. Se guarda una hora.
 export const YT_CHANNEL = 'UC9AHJ5HBjQpcUbgKA-PMZKg';
 const UPLOADS = 'UU' + YT_CHANNEL.slice(2);
 const HEADERS = { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36', 'Accept-Language': 'es-ES,es;q=0.9', Cookie: 'CONSENT=YES+1; SOCS=CAI' };
@@ -38,7 +39,7 @@ export function parseFeed(xml) {
   return out;
 }
 export async function youtubeVideos() {
-  const cache = caches.default, key = new Request('https://cache.apejupo/youtube/' + YT_CHANNEL);
+  const cache = caches.default, key = new Request('https://cache.apejupo/youtube/v2/' + YT_CHANNEL);
   const hit = await cache.match(key); if (hit) return hit;
   const [list, feed] = await Promise.all([
     fetch(`https://www.youtube.com/playlist?list=${UPLOADS}`, { headers: HEADERS }).then(r => r.ok ? r.text() : '').then(parsePlaylist).catch(() => []),
@@ -46,6 +47,13 @@ export async function youtubeVideos() {
   ]);
   const dates = new Map(feed.map(v => [v.id, v.published]));
   const videos = (list.length ? list : feed).map(v => ({ id: v.id, title: v.title, length: v.length || '', published: dates.get(v.id) || v.published || null }));
+  // El resumen solo trae la fecha de los 15 últimos: la de los demás se lee en la página de cada vídeo.
+  await Promise.all(videos.filter(v => !v.published).slice(0, 40).map(async v => {
+    try {
+      const html = await (await fetch(`https://www.youtube.com/watch?v=${v.id}`, { headers: HEADERS })).text();
+      v.published = (html.match(/"(?:publishDate|uploadDate)":"([^"]+)"/) || [])[1] || null;
+    } catch {}
+  }));
   const res = new Response(JSON.stringify({ videos, complete: list.length > 0 }), { headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': `public, max-age=${videos.length ? 3600 : 120}` } });
   if (videos.length) await cache.put(key, res.clone());
   return res;
