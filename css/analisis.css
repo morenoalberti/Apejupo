@@ -276,6 +276,8 @@ body:not(.an-editing) .an-page .an-opening[hidden] { display: block !important; 
 .an-pick .lv-pick-l { z-index: 60; max-height: min(60vh, 460px); }
 .an-pick .flag { flex: none; width: 20px; height: 14px; object-fit: cover; border-radius: 2px; margin-right: 5px; box-shadow: 0 0 0 1px rgba(255, 255, 255, .15); }
 .an-pick-elo { color: var(--muted); font-size: .78em; font-variant-numeric: tabular-nums; margin-left: 4px; flex: none; }
+/* El ELO a la misma altura que el nombre (alineado por la línea de texto, no por el centro de la caja). */
+.an-pick .lv-pick-p:has(.an-pick-elo) { align-items: baseline; }
 .an-pick-round { padding: 8px 9px 3px; font-size: .74rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
 /* En escritorio, el panel derecho (motor, mensajes y botones) empieza y acaba a la altura del tablero. */
 @media (min-width: 901px) {
