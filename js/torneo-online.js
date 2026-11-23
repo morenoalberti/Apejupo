@@ -352,8 +352,10 @@ function render() {
   const ownView = !!t.game && (t.game.white === t.me || t.game.black === t.me);
   const focus = !presencial(t) && (ownActive || (!!mine?.active && ownView && ['playing', 'between'].includes(t.status)));
   document.body.classList.toggle('to-focus', focus);
-  // El sonido lo decide cada jugador dentro de su partida: en la sala (inscripción, clasificación…) no se muestra.
-  $('to-sound').hidden = !focus;
+  // Página de tu partida (en juego o ya terminada): ahí van el chat y el sonido; en la sala sin tablero, no.
+  const gamePage = !presencial(t) && !t.challenge && (focus || (ownView && !t.game.bye));
+  document.body.classList.toggle('to-game-page', gamePage);
+  $('to-sound').hidden = !gamePage;
   // Quien solo está viendo una partida (no inscrito) no necesita «Conectado», «Sonido» ni «Ver tableros».
   document.body.classList.toggle('to-watching', !presencial(t) && !t.me && !!t.game && ['playing', 'between', 'finished'].includes(t.status));
   // Arena: la fila con «Salir del torneo» también se ve mientras juegas tu partida (la terminas y ya no se te empareja).
@@ -2048,8 +2050,8 @@ const chatScreen = matchMedia('(min-width: 860px) and (hover: hover) and (pointe
 // Solo para los inscritos y el organizador (creador o administrador): quien solo mira la partida no ve el chat.
 let chatLoaded = false;
 function chatAllowed() { return !!state && !boardsMode && !presencial(state) && !state.challenge && !!(state.me || state.host); }
-// El chat (tarjeta e interruptor) solo se ve en las partidas que se están jugando, no en la sala del torneo.
-function chatAvailable() { return chatAllowed() && chatScreen.matches && document.body.classList.contains('to-focus'); }
+// El chat (tarjeta e interruptor) solo se ve en la página de tu partida, en juego o terminada; no en la sala del torneo.
+function chatAvailable() { return chatAllowed() && chatScreen.matches && document.body.classList.contains('to-game-page'); }
 function receiveChat(msg) {
   if (Array.isArray(msg.list)) { chatMessages = msg.list; chatLoaded = true; }
   if (msg.add && !chatMessages.some(m => m.id === msg.add.id)) chatMessages = [...chatMessages, msg.add].slice(-100);
