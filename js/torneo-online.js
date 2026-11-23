@@ -1888,7 +1888,8 @@ $('to-withdraw').addEventListener('click', async () => {
 $('to-focus-pause').addEventListener('click', () => $('to-pause').click());
 $('to-pause').addEventListener('click', () => {
   const mine = state.standings.find(p => p.id === state.me);
-  if (send({ type: mine?.paused ? 'resume' : 'pause' })) message(mine?.paused ? 'Has vuelto a entrar en el torneo: se te emparejará con el próximo jugador libre.' : 'Has salido del torneo: no se te emparejará hasta que vuelvas a entrar. Conservas tus puntos. Si estás jugando, termina tu partida.');
+  // Sin aviso arriba (movía la página): el estado ya se ve en el botón, en la clasificación (‖) y en el chat.
+  send({ type: mine?.paused ? 'resume' : 'pause' });
 });
 $('to-standings').addEventListener('click', async event => {
   const id = event.target.closest('[data-remove]')?.dataset.remove;
