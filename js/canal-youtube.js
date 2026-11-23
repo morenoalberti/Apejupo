@@ -84,7 +84,7 @@
       + '<span class="yt-thumb"><img src="https://i.ytimg.com/vi/' + encodeURIComponent(v.id) + '/mqdefault.jpg" alt="" loading="lazy" width="320" height="180">'
       + (v.length ? '<span class="yt-len">' + esc(v.length) + "</span>" : "") + '<span class="yt-play" aria-hidden="true"></span></span>'
       + '<span class="yt-title">' + esc(v.title) + "</span>"
-      + (v.published ? '<span class="yt-date">' + fecha(v.published) + "</span>" : "") + "</button>";
+      + (v.published ? '<span class="yt-date">' + fecha(v.published) + "</span>" : v.ago ? '<span class="yt-date">' + esc(v.ago) + "</span>" : "") + "</button>"; // sin fecha exacta: «hace 1 mes»
   }
   fetch(API + "/api/tournaments/youtube", { signal: AbortSignal.timeout(window.APEJUPO_TORNEOS_TIMEOUT || 15000) })
     .then(function (r) { if (!r.ok) throw new Error(); return r.json(); })

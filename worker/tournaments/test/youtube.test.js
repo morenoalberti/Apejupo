@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { parsePlaylist, parseFeed } from '../src/youtube.js';
+import { parsePlaylist, parseFeed, expandAgo } from '../src/youtube.js';
 
 test('YouTube: vídeos de la página de la lista y del resumen RSS', () => {
   const video = (id, title, len) => ({ lockupViewModel: { contentId: id, contentType: 'LOCKUP_CONTENT_TYPE_VIDEO', metadata: { lockupMetadataViewModel: { title: { content: title } } }, contentImage: { thumbnailViewModel: { overlays: [{ text: len }] } } } });
@@ -10,4 +10,12 @@ test('YouTube: vídeos de la página de la lista y del resumen RSS', () => {
   assert.deepEqual(parsePlaylist('<html>sin datos</html>'), []);
   const xml = '<feed><title>CANAL</title><entry><yt:videoId>Y6sNBajQZKE</yt:videoId><title>Trucos &amp; trampas</title><published>2026-11-22T16:00:09+00:00</published></entry></feed>';
   assert.deepEqual(parseFeed(xml), [{ id: 'Y6sNBajQZKE', title: 'Trucos & trampas', published: '2026-11-22T16:00:09+00:00' }]);
+});
+
+test('YouTube: antigüedad abreviada en palabras', () => {
+  assert.equal(expandAgo('hace 1 m'), 'hace 1 mes');
+  assert.equal(expandAgo('hace 3 m'), 'hace 3 meses');
+  assert.equal(expandAgo('hace 2 sem'), 'hace 2 semanas');
+  assert.equal(expandAgo('hace 1 a'), 'hace 1 año');
+  assert.equal(expandAgo('hace 5 d'), 'hace 5 días');
 });
