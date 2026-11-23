@@ -873,11 +873,11 @@
   if (torneo) { if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", function () { loadTournament(torneo); }); else loadTournament(torneo); }
   // ?partida=… (desde «Partidas jugadas»): una partida del archivo del club.
   var partida = new URLSearchParams(location.search).get("partida");
-  if (partida && /^[a-f0-9]{24}_[0-9a-f-]{36}$/.test(partida)) { if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", function () { loadArchived(partida); }); else loadArchived(partida); }
+  if (partida && /^[a-f0-9]{24}_[0-9a-f-]{36}$/.test(partida)) { if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", function () { loadArchived(partida); archivePicker(partida); }); else { loadArchived(partida); archivePicker(partida); } }
+  function archiveApi() { return (window.APEJUPO_TORNEOS_API || "").replace(/\/$/, ""); }
   function loadArchived(id) {
-    var api = (window.APEJUPO_TORNEOS_API || "").replace(/\/$/, "");
     msg("Cargando la partida…");
-    fetch(api + "/api/tournaments/partidas/" + encodeURIComponent(id))
+    fetch(archiveApi() + "/api/tournaments/partidas/" + encodeURIComponent(id))
       .then(function (r) { return r.text().then(function (t) { if (!r.ok) { var e = "No se pudo cargar la partida."; try { e = JSON.parse(t).error || e; } catch (x) {} throw new Error(e); } return t; }); })
       .then(function (text) {
         var err = loadPgn(text); msg(err || "", !!err);
@@ -885,6 +885,43 @@
         document.title = tag("White") + " – " + tag("Black") + " · Tablero de análisis · Apejupo Chess Club";
       })
       .catch(function (err) { msg(err.message || "No se pudo cargar la partida.", true); });
+  }
+  // Desplegable con todas las partidas jugadas del club (como el de «Analizar partidas» de un torneo):
+  // la abierta queda marcada y al elegir otra se carga en el tablero sin salir de la página.
+  function archivePicker(current) {
+    var games = [], e = function (t) { return String(t == null ? "" : t).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); };
+    function page(before) {
+      return fetch(archiveApi() + "/api/tournaments/partidas" + (before ? "?antes=" + before : ""), { cache: "no-store" })
+        .then(function (r) { if (!r.ok) throw new Error(); return r.json(); })
+        .then(function (d) { games = games.concat(d.games); return d.next && games.length < 1000 ? page(d.next) : games; });
+    }
+    page(null).then(function () {
+      if (games.length < 2) return; // con una sola partida no hace falta elegir
+      var side = function (name, elo) { return '<span class="lv-pick-p"><span class="lv-pick-name" title="' + e(name) + '">' + e(name) + "</span>" + (elo ? ' <small class="an-pick-elo">' + e(elo) + "</small>" : "") + "</span>"; };
+      var row = function (g) { return side(g.white, g.whiteElo) + '<span class="lv-pick-r">' + ({ "1-0": "1-0", "0-1": "0-1", "1/2-1/2": "½-½" }[g.result] || "–") + "</span>" + side(g.black, g.blackElo); };
+      var pickB = $("an-pick-b"), pickL = $("an-pick-l");
+      pickL.innerHTML = games.map(function (g, i) { return '<button type="button" role="option" translate="no" data-i="' + i + '" title="' + e(g.title) + '">' + row(g) + "</button>"; }).join("");
+      function mark(i) {
+        pickB.querySelector("span").innerHTML = row(games[i]);
+        pickL.querySelectorAll("[data-i]").forEach(function (o) { o.setAttribute("aria-selected", String(+o.dataset.i === i)); });
+      }
+      function show(i) {
+        mark(i); loadArchived(games[i].id);
+        try { history.replaceState(null, "", "?partida=" + encodeURIComponent(games[i].id)); } catch (x) {}
+      }
+      function open(o) { pickL.hidden = !o; pickB.setAttribute("aria-expanded", String(o)); if (o) { var s = pickL.querySelector('[aria-selected="true"]'); if (s) { s.focus(); s.scrollIntoView({ block: "nearest" }); } } }
+      pickB.onclick = function (ev) { ev.stopPropagation(); open(pickL.hidden); };
+      pickL.onclick = function (ev) { var o = ev.target.closest("[data-i]"); if (!o) return; show(+o.dataset.i); open(false); pickB.focus(); };
+      pickL.onkeydown = function (ev) {
+        var items = Array.prototype.slice.call(pickL.querySelectorAll("[data-i]")), k = items.indexOf(document.activeElement);
+        if (ev.key === "ArrowDown" || ev.key === "ArrowUp") { ev.preventDefault(); ev.stopPropagation(); var n = items[Math.max(0, Math.min(items.length - 1, k + (ev.key === "ArrowDown" ? 1 : -1)))]; if (n) n.focus(); }
+        if (ev.key === "Escape") { open(false); pickB.focus(); }
+      };
+      document.addEventListener("click", function (ev) { if (!pickL.hidden && !$("an-games").contains(ev.target)) open(false); });
+      var at = games.findIndex(function (g) { return g.id === current; });
+      mark(at < 0 ? 0 : at);
+      $("an-games").hidden = false;
+    }).catch(function () {}); // sin la lista, la partida abierta se sigue viendo
   }
   function loadTournament(id) {
     var api = (window.APEJUPO_TORNEOS_API || "").replace(/\/$/, "");
