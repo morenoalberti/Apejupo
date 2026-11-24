@@ -17,7 +17,9 @@ window.APEJUPO = {
   // Se admiten eventIds (Chess.com), aliases (nombre exacto del evento) o urls de vídeos concretos de YouTube.
   commentary: {
     // Total Chess World Championship Tour Pilot 2026, grupo oficial de Lichess.
-    uMS8kYeS: { eventIds: [30683], aliases: ["Total Chess World Championship"] }
+    uMS8kYeS: { eventIds: [30683], aliases: ["Total Chess World Championship"] },
+    // FIDE World Chess Championship 2026 (Gukesh D. – Sindarov), torneo oficial de Lichess.
+    qfkdt8mn: { eventIds: [29212], aliases: ["Salesforce FIDE World Championship Match"] }
   }
 };
 // Las fuentes de noticias se configuran en scripts/update_news.py
