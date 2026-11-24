@@ -53,7 +53,7 @@ export class TournamentDirectory extends DurableObject {
           const accs = [...new Set(results.flatMap(r => (r?.faces || []).map(f => f.acc).filter(Boolean)))];
           let photos = {};
           if (accs.length) { try { photos = (await (await this.env.ACCOUNTS.getByName('cuentas').fetch('https://cuentas/fotos', { method: 'POST', body: JSON.stringify({ ids: accs }) })).json()).photos || {}; } catch {} }
-          for (const r of results) if (r?.faces) r.faces = r.faces.map(f => ({ name: f.name, photo: f.acc && photos[f.acc] ? `${f.acc}?v=${photos[f.acc]}` : null }));
+          for (const r of results) if (r?.faces) r.faces = r.faces.map(f => ({ name: f.name, photo: f.acc && photos[f.acc] ? `${f.acc}?v=${photos[f.acc]}` : null, fid: f.fid || null }));
           // Torneos ya terminados que aún no pasaron por «Partidas jugadas» (de antes de existir): se archivan una vez.
           const pending = events.filter((e, i) => !e.archived && results[i]?.status === 'finished');
           if (pending.length) {

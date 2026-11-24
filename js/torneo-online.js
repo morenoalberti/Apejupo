@@ -235,7 +235,9 @@ function face(f) {
   const name = typeof f === 'string' ? f : f.name, initial = esc((String(name).trim()[0] || '?').toUpperCase());
   const img = f?.photo && /^[a-f0-9]{24}\?v=\d+$/.test(f.photo)
     ? `<img src="${API}/api/cuentas/foto/${f.photo}" alt="" loading="lazy" data-i="${initial}" onerror="this.parentNode.classList.remove('photo');this.replaceWith(this.dataset.i)">` : initial;
-  return `<span translate="no" title="${esc(name)}"${img === initial ? '' : ' class="photo"'}>${img}</span>`;
+  // Sin foto de cuenta pero con n.º FIDE (inscritos de un presencial): la foto FIDE se busca después (fidePhotos).
+  const fid = img === initial && /^\d{1,12}$/.test(String(f?.fid || '')) ? ` data-fid="${f.fid}"` : '';
+  return `<span translate="no" title="${esc(name)}"${img === initial ? '' : ' class="photo"'}${fid}>${img}</span>`;
 }
 // Fila de inscritos de cada tarjeta: se enseñan todos los círculos que caben en su ancho; si no caben todos
 // (o el servidor no manda todos los nombres), los últimos se cambian por «+N». Se repite al cambiar el ancho.
@@ -252,6 +254,16 @@ function fitFaces() {
   }
 }
 addEventListener('resize', () => fitFaces());
+// Fotos FIDE de los inscritos de la lista (las mismas fuentes y la misma cola que la lista de la sala).
+function fidePhotos() {
+  if (window.U?.fotosActivas && !window.U.fotosActivas()) return;
+  for (const fid of new Set([...document.querySelectorAll('.to-ev-faces span[data-fid]')].map(s => s.dataset.fid))) pzFoto(fid).then(src => {
+    if (!src) return;
+    for (const s of document.querySelectorAll(`.to-ev-faces span[data-fid="${CSS.escape(fid)}"]:not(.photo)`)) {
+      const img = new Image(); img.alt = ''; img.src = src; s.textContent = ''; s.append(img); s.classList.add('photo');
+    }
+  });
+}
 // Ritmo de juego como en Lichess: minutos + 40 jugadas de incremento.
 function rhythm(t) {
   const est = t.minutes + t.increment * 40 / 60;
@@ -276,7 +288,7 @@ async function loadLobby() {
     setKeyMode(keyRequired !== false);
     lobby = new Map(tournaments.map(t => [t.id, t]));
     $('to-events').innerHTML = tournaments.length ? tournaments.map(eventCard).join('') : emptyLobby;
-    fitFaces();
+    fitFaces(); fidePhotos();
     message('');
   } catch {
     $('to-events').innerHTML = '<div class="to-empty"><strong>No podemos consultar los torneos ahora</strong>Vuelve a pulsar Actualizar en unos momentos.</div>';

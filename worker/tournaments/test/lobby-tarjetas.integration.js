@@ -37,6 +37,7 @@ test('tarjeta del torneo: inscritos con foto, «Estás inscrito» y sin identifi
     assert.equal(a.name, withPhoto.user.nick); assert.match(a.photo, new RegExp(`^${withPhoto.user.id}\\?v=\\d+$`));
     assert.equal(b.name, noPhoto.user.nick); assert.equal(b.photo, null);
     assert.ok(seen.faces.every(f => !('acc' in f)), 'El identificador de la cuenta no sale suelto');
+    assert.ok(seen.faces.every(f => f.fid === null), 'Sin número FIDE no hay foto FIDE que buscar');
     assert.equal(seen.joined, true);
     assert.equal((await lobby(org.session)).find(t => t.id === id).joined, false, 'El organizador no está inscrito');
     assert.equal((await lobby('')).find(t => t.id === id).joined, false, 'Sin sesión no hay «Estás inscrito»');
