@@ -86,3 +86,9 @@
     load().then(function () { window.PartidasJugadas.toggle(); }, function () { location.href = a.href; });
   });
 })();
+
+// Aviso del Campeonato del Mundo 2026 (js/aviso-mundial.js): solo se descarga mientras dura (hoy, hasta las 20:00 h de España).
+(function () {
+  if (Date.now() >= Date.parse("2026-11-24T20:00:00+01:00")) return;
+  var s = document.createElement("script"); s.src = "js/aviso-mundial.js?v=20261124-1"; s.defer = true; document.head.appendChild(s);
+})();

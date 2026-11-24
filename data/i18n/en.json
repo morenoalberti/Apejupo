@@ -2603,5 +2603,20 @@
   "Este torneo no ha terminado: no se borra.": "This tournament has not finished: it is not deleted.",
   "Este torneo ya no está disponible": "This tournament is no longer available",
   "Puede que lo hayan borrado o que haya caducado.": "It may have been deleted or have expired.",
-  "Ver todos los torneos": "View all tournaments"
+  "Ver todos los torneos": "View all tournaments",
+  "CAMPEÓN": "CHAMPION",
+  "ASPIRANTE": "CHALLENGER",
+  "Campeón": "Champion",
+  "Aspirante": "Challenger",
+  "India · {0} · Negras": "India · {0} · Black",
+  "Uzbekistán · {0} · Blancas": "Uzbekistan · {0} · White",
+  "GINEBRA {0}": "GENEVA {0}",
+  "Campeonato del Mundo": "World Championship",
+  "Partida {0} ·": "Game {0} ·",
+  "Hoy, {0} h": "Today, {0}",
+  "horas": "hours",
+  "min": "min",
+  "seg": "sec",
+  "▶ Ver en directo": "▶ Watch live",
+  "Pulsa cualquier tecla o haz clic para continuar": "Press any key or click to continue"
 }
