@@ -16,14 +16,6 @@ Abre http://localhost:8080.
 - Jugadores y eventos: `js/data.js`
 - Fuentes de noticias: `FEEDS` en `scripts/update_news.py`
 
-## Descarga de la base de datos
-
-La portada muestra siempre el botón flotante «Bajar base de datos» en ordenador y tablet (desde 768 px de ancho); se oculta en móvil. Sin sesión abre el formulario de creación de cuenta, que también permite entrar con una cuenta existente. Tras entrar o terminar el alta y cerrar el aviso del correo, se muestra el enlace de MEGA. Basta estar registrado; confirmar el correo sigue siendo necesario para los torneos.
-
-`POST /api/cuentas/base-datos` valida la sesión en el servidor y devuelve el enlace con `Cache-Control: no-store`. El enlace no se incluye en los archivos públicos de la portada. Un usuario que lo conozca puede compartirlo: el acceso directo a MEGA depende de los permisos de esa carpeta.
-
-Hay que publicar tanto la web como el Worker `worker/tournaments` para activar esta función. Comprobación local, con el Worker arrancado y el puerto 8087 libre: `node scripts/test_database_download.cjs`. Prueba permisos reales del servidor, los flujos de alta, entrada y descarga en ordenador y tablet, y el botón oculto en móvil, sin acceder a MEGA ni a servicios publicados.
-
 ## Publicar gratis (GitHub Pages)
 
 1. Crea un repositorio vacío en GitHub (por ejemplo `apejupo`).

@@ -539,7 +539,7 @@ export default {
         const b = await body(request);
         return withCors(await askAccounts('admin/' + admin[1], { id: b.id, key: bearer(request), ip: request.headers.get('CF-Connecting-IP') || 'local' }));
       }
-      const account = /^\/api\/cuentas\/(registro|entrar|reenviar|confirmar|recuperar|restablecer|yo|salir|borrar|foto-quitar|base-datos)$/.exec(path);
+      const account = /^\/api\/cuentas\/(registro|entrar|reenviar|confirmar|recuperar|restablecer|yo|salir|borrar|foto-quitar)$/.exec(path);
       if (account) {
         requireThat(request.method === 'POST', 'Método no permitido.', 405);
         const b = await body(request);

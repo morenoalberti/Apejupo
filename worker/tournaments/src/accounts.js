@@ -307,13 +307,6 @@ export class AccountStore extends DurableObject {
           this.seen(user.id, now);
           return json({ user: publicUser(user) });
         }
-        case '/base-datos': {
-          const user = await this.user(b.session, now);
-          requireThat(user, 'Entra o crea una cuenta para bajar la base de datos.', 401);
-          // Se exige estar registrado; la confirmación del correo sigue siendo requisito de los torneos.
-          // Este enlace nunca se incluye en el HTML ni en el JavaScript público de la portada.
-          return json({ url: 'https://mega.nz/folder/2EQH0BbZ#n8RjbMl7Dk-yAlf1RGgjCg' });
-        }
         case '/foto-quitar': {
           const user = await this.user(b.session, now);
           requireThat(user, 'Tu sesión ha caducado. Vuelve a entrar.', 401);
