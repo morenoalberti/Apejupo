@@ -210,7 +210,8 @@ function eventCard(t) {
   const label = t.joined && live ? 'Ir a mi partida' : t.joined && waiting ? 'Ir al torneo' : waiting ? 'Entrar e inscribirme'
     : live ? 'Ver clasificación' : t.status === 'finished' ? 'Ver partidas' : 'Ver torneo';
   const main = t.joined && !ended ? 'gold' : waiting ? 'blue' : 'ghost';
-  return `<article class="to-event ${t.status}${t.joined && !ended ? ' joined' : ''}"><div class="to-ev-strip">${strip}${t.locked ? `<span class="to-ev-lock" title="Inscripción con clave">${icons.lock}</span>` : ''}</div>`
+  // Presencial emparejado sin resultados: se muestra «por empezar», también en el color.
+  return `<article class="to-event ${t.editable ? 'waiting' : t.status}${t.joined && !ended ? ' joined' : ''}"><div class="to-ev-strip">${strip}${t.locked ? `<span class="to-ev-lock" title="Inscripción con clave">${icons.lock}</span>` : ''}</div>`
     + `<div class="to-ev-body"><h3 translate="no">${esc(t.title)}</h3><p class="to-ev-meta">${meta.map(m => `<span>${m}</span>`).join(' · ')}</p>`
     + progress + faces + leader + podium + joined
     + `<div class="to-event-actions"><a class="to-ev-btn ${main}" href="${href}">${label}</a>${pencil || trash ? `<div class="to-event-tools">${pencil}${trash}</div>` : ''}</div></div></article>`;
