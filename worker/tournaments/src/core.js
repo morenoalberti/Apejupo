@@ -786,11 +786,11 @@ export function summary(t) {
     // Presencial emparejado pero sin resultados: aún se puede editar.
     editable: canChangeInitialRoster(t) };
 }
-// Tarjeta del lobby (solo la lista de torneos, no cada jugada): iniciales de los primeros inscritos y,
+// Tarjeta del lobby (solo la lista de torneos, no cada jugada): iniciales de los primeros inscritos (hasta 16; la web pone los que caben) y,
 // con partidas ya jugadas, los tres primeros de la clasificación. accountId: la cuenta que mira, para «Estás inscrito».
 export function lobbySummary(t, accountId) {
   return { ...summary(t),
-    faces: t.players.filter(p => t.status === 'finished' || !p.paused).slice(0, 3).map(p => p.name),
+    faces: t.players.filter(p => t.status === 'finished' || !p.paused).slice(0, 16).map(p => ({ name: p.name, acc: p.accountId || null })),
     top: t.games.some(g => g.result) ? standings(t).slice(0, 3).map(p => ({ name: p.name, points: isArena(t) ? p.points : (p.score ?? p.points) })) : [],
     joined: !!accountId && t.players.some(p => p.accountId === accountId && p.active !== false) };
 }

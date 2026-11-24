@@ -27,9 +27,10 @@
 /* Lista de torneos: tarjetas con relieve, franja de color por estado y barra de plazas */
 .to-main { min-height: calc(100vh - 64px); background: radial-gradient(900px 420px at 100% 0, #3b82f612, transparent 70%), radial-gradient(700px 380px at 0 100%, #db9f380f, transparent 70%); }
 #to-lobby { position: relative; padding: 26px; border: 1px solid var(--line); border-radius: 22px; background: linear-gradient(180deg, color-mix(in srgb, var(--card) 70%, transparent), color-mix(in srgb, var(--card) 35%, transparent)); box-shadow: 0 18px 50px -28px #0f1b2d66; }
-.to-events { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; gap: 14px; }
-.to-events { align-items: stretch; }
-@media (min-width: 1100px) { .to-events { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+/* Tarjetas de torneo siempre del mismo tamaño: 330 px de ancho (caben más por fila si la página es más ancha,
+   pero no se estiran) y todas de la misma altura. En el móvil ocupan todo el ancho, una por fila. */
+.to-events { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 330px), 330px)); grid-auto-rows: 1fr; justify-content: start; align-items: stretch; gap: 14px; }
+@media (max-width: 720px) { .to-events { grid-template-columns: minmax(0, 1fr); } }
 /* Tarjeta de torneo: franja de color arriba (ritmo, ronda o estado), barra de plazas o rondas, inscritos,
    líder o podio y un único botón. La tuya (inscrito) lleva borde y botón dorados. */
 .to-event { --tone: #e0a43a; position: relative; overflow: hidden; display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: 14px; background: var(--card); transition: transform .18s, border-color .18s, box-shadow .18s; }
@@ -41,17 +42,21 @@
 .to-ev-strip { display: flex; align-items: center; gap: 6px; padding: 8px 14px; font-size: .78rem; font-weight: 600; color: var(--tone); background: color-mix(in srgb, var(--tone) 13%, transparent); }
 .to-ev-lock { margin-left: auto; display: inline-flex; }
 .to-ev-body { flex: 1; display: flex; flex-direction: column; gap: 10px; padding: 12px 14px 14px; }
-.to-event h3 { font-size: 1.08rem; line-height: 1.3; letter-spacing: -.015em; margin: 0; overflow-wrap: anywhere; }
+.to-event h3 { font-size: 1.08rem; line-height: 1.3; letter-spacing: -.015em; margin: 0; overflow-wrap: anywhere; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
 .to-ev-meta { margin: -6px 0 0; color: var(--muted); font-size: .8rem; }
 .to-ev-bar > div { display: flex; justify-content: space-between; color: var(--muted); font-size: .76rem; margin-bottom: 4px; }
 .to-ev-bar i { display: block; height: 6px; border-radius: 99px; background: color-mix(in srgb, var(--muted) 20%, transparent); overflow: hidden; }
 .to-ev-bar b { display: block; height: 100%; border-radius: inherit; background: var(--tone); }
-.to-ev-faces { display: flex; align-items: center; }
-.to-ev-faces span { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; border: 2px solid var(--card); font-size: .72rem; font-weight: 700; color: #1d2b44; background: #d4a640; }
+.to-ev-faces { display: flex; align-items: center; min-width: 0; overflow: hidden; }
+.to-ev-faces span { flex: none; display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; border: 2px solid var(--card); font-size: .72rem; font-weight: 700; color: #1d2b44; background: #d4a640; }
 .to-ev-faces span + span { margin-left: -7px; }
-.to-ev-faces span:nth-child(2) { background: #8ab4ee; }
-.to-ev-faces span:nth-child(3) { background: #86d1aa; }
-.to-ev-faces em { margin-left: 7px; font-style: normal; font-size: .78rem; color: var(--muted); }
+.to-ev-faces span:nth-child(4n+2) { background: #8ab4ee; }
+.to-ev-faces span:nth-child(4n+3) { background: #86d1aa; }
+.to-ev-faces span:nth-child(4n+4) { background: #e59a9a; }
+.to-ev-faces span[hidden], .to-ev-faces em[hidden] { display: none; }
+.to-ev-faces span.photo { overflow: hidden; background: var(--card); }
+.to-ev-faces span img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.to-ev-faces em { flex: none; margin-left: 7px; font-style: normal; font-size: .78rem; color: var(--muted); }
 .to-ev-leader, .to-ev-rest { margin: 0; font-size: .86rem; }
 .to-ev-leader > span, .to-ev-rest { color: var(--muted); }
 .to-ev-leader b, .to-ev-winner b { font-weight: 600; color: var(--text); }
@@ -457,7 +462,7 @@ body.to-presencial-room .to-presencial { margin-top: 0; }
   .to-hero-mark { width: 66px; height: 66px; border-radius: 16px; }
   .to-hero-mark svg { width: 44px; height: 44px; }
   .to-hero p:last-child { font-size: .9rem; }
-  .to-events, .to-room-layout { grid-template-columns: 1fr; }
+  .to-room-layout { grid-template-columns: 1fr; }
   #to-lobby { padding: 16px; border-radius: 16px; }
   .to-join { align-items: stretch; flex-direction: column; gap: 14px; padding: 18px; }
   .to-countdown strong { font-size: 1.6rem; }

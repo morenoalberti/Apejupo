@@ -338,6 +338,16 @@ export class AccountStore extends DurableObject {
           this.sql.exec('DELETE FROM users WHERE id = ?', user.id);
           return json({ ok: true });
         }
+        // Uso interno de la lista de torneos: qué cuentas tienen foto (y su versión), para los círculos de inscritos.
+        case '/fotos': {
+          const ids = (Array.isArray(b.ids) ? b.ids : []).filter(id => /^[a-f0-9]{24}$/.test(id)).slice(0, 1000);
+          const photos = {};
+          for (let i = 0; i < ids.length; i += 90) {
+            const part = ids.slice(i, i + 90);
+            for (const r of this.sql.exec(`SELECT user_id, updated_at FROM photos WHERE user_id IN (${part.map(() => '?').join(',')})`, ...part).toArray()) photos[r.user_id] = r.updated_at;
+          }
+          return json({ photos });
+        }
         // Uso interno de las salas de torneo: quién es esta sesión y si un nombre está reservado.
         case '/sesion': {
           const user = await this.user(b.session, now);

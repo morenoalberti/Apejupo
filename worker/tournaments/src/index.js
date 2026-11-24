@@ -48,6 +48,12 @@ export class TournamentDirectory extends DurableObject {
               return r.ok ? { ...await r.json(), mine: !!accountId && e.host === accountId } : null;
             } catch { return null; }
           }));
+          // Círculos de inscritos: la foto de la cuenta si la tiene (una sola consulta para toda la lista).
+          // El identificador interno de la cuenta solo sale como parte de la dirección de su foto, como en el resto de la web.
+          const accs = [...new Set(results.flatMap(r => (r?.faces || []).map(f => f.acc).filter(Boolean)))];
+          let photos = {};
+          if (accs.length) { try { photos = (await (await this.env.ACCOUNTS.getByName('cuentas').fetch('https://cuentas/fotos', { method: 'POST', body: JSON.stringify({ ids: accs }) })).json()).photos || {}; } catch {} }
+          for (const r of results) if (r?.faces) r.faces = r.faces.map(f => ({ name: f.name, photo: f.acc && photos[f.acc] ? `${f.acc}?v=${photos[f.acc]}` : null }));
           // Torneos ya terminados que aún no pasaron por «Partidas jugadas» (de antes de existir): se archivan una vez.
           const pending = events.filter((e, i) => !e.archived && results[i]?.status === 'finished');
           if (pending.length) {

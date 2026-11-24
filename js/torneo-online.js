@@ -214,7 +214,8 @@ function eventCard(t) {
   const bar = (label, value, width) => `<div class="to-ev-bar"><div><span>${label}</span><span>${value}</span></div><i><b style="width:${width}%"></b></i></div>`;
   const progress = waiting ? bar('Plazas', `${count} / ${t.capacity}`, pct(count, t.capacity))
     : live && !arena(t) && t.rounds ? bar('Ronda', `${t.round} / ${t.rounds}`, pct(t.round, t.rounds)) : '';
-  const faces = waiting && t.faces?.length ? `<div class="to-ev-faces">${t.faces.map(n => `<span translate="no" title="${esc(n)}">${esc((n.trim()[0] || '?').toUpperCase())}</span>`).join('')}${count > t.faces.length ? `<em>+${count - t.faces.length}</em>` : ''}</div>` : '';
+  // Inscritos: todos los que quepan en la tarjeta; solo cuando ya no caben se pone «+N» (fitFaces).
+  const faces = waiting && t.faces?.length ? `<div class="to-ev-faces" data-total="${count}">${t.faces.map(face).join('')}<em hidden></em></div>` : '';
   const who = p => `<b translate="no">${esc(p.name)}</b>`;
   const leader = live && top[0] ? `<p class="to-ev-leader"><span>Líder:</span> ${who(top[0])} · ${top[0].points}</p>` : '';
   const podium = t.status === 'finished' && top[0] ? `<p class="to-ev-winner">${icons.crown}<span>Ganó</span> ${who(top[0])} · ${top[0].points}</p>`
@@ -225,10 +226,32 @@ function eventCard(t) {
   const main = t.joined && !ended ? 'gold' : waiting ? 'blue' : 'ghost';
   // Presencial emparejado sin resultados: se muestra «por empezar», también en el color.
   return `<article class="to-event ${t.editable ? 'waiting' : t.status}${t.joined && !ended ? ' joined' : ''}"><div class="to-ev-strip">${strip}${t.locked ? `<span class="to-ev-lock" title="Inscripción con clave">${icons.lock}</span>` : ''}</div>`
-    + `<div class="to-ev-body"><h3 translate="no">${esc(t.title)}</h3><p class="to-ev-meta">${meta.map(m => `<span>${m}</span>`).join(' · ')}</p>`
+    + `<div class="to-ev-body"><h3 translate="no" title="${esc(t.title)}">${esc(t.title)}</h3><p class="to-ev-meta">${meta.map(m => `<span>${m}</span>`).join(' · ')}</p>`
     + progress + faces + leader + podium + joined
     + `<div class="to-event-actions"><a class="to-ev-btn ${main}" href="${href}">${label}</a>${pencil || trash ? `<div class="to-event-tools">${pencil}${trash}</div>` : ''}</div></div></article>`;
 }
+// Círculo de un inscrito: su foto de perfil si la tiene; si no (o si no carga), la inicial de su nombre.
+function face(f) {
+  const name = typeof f === 'string' ? f : f.name, initial = esc((String(name).trim()[0] || '?').toUpperCase());
+  const img = f?.photo && /^[a-f0-9]{24}\?v=\d+$/.test(f.photo)
+    ? `<img src="${API}/api/cuentas/foto/${f.photo}" alt="" loading="lazy" data-i="${initial}" onerror="this.parentNode.classList.remove('photo');this.replaceWith(this.dataset.i)">` : initial;
+  return `<span translate="no" title="${esc(name)}"${img === initial ? '' : ' class="photo"'}>${img}</span>`;
+}
+// Fila de inscritos de cada tarjeta: se enseñan todos los círculos que caben en su ancho; si no caben todos
+// (o el servidor no manda todos los nombres), los últimos se cambian por «+N». Se repite al cambiar el ancho.
+function fitFaces() {
+  for (const row of document.querySelectorAll('.to-ev-faces')) {
+    const dots = [...row.querySelectorAll('span')], more = row.querySelector('em'), total = Number(row.dataset.total) || dots.length;
+    let shown = dots.length;
+    const apply = () => {
+      dots.forEach((d, i) => { d.hidden = i >= shown; });
+      more.hidden = total <= shown; more.textContent = `+${total - shown}`;
+    };
+    apply();
+    while (shown > 1 && row.scrollWidth > row.clientWidth + 1) { shown--; apply(); }
+  }
+}
+addEventListener('resize', () => fitFaces());
 // Ritmo de juego como en Lichess: minutos + 40 jugadas de incremento.
 function rhythm(t) {
   const est = t.minutes + t.increment * 40 / 60;
@@ -253,6 +276,7 @@ async function loadLobby() {
     setKeyMode(keyRequired !== false);
     lobby = new Map(tournaments.map(t => [t.id, t]));
     $('to-events').innerHTML = tournaments.length ? tournaments.map(eventCard).join('') : emptyLobby;
+    fitFaces();
     message('');
   } catch {
     $('to-events').innerHTML = '<div class="to-empty"><strong>No podemos consultar los torneos ahora</strong>Vuelve a pulsar Actualizar en unos momentos.</div>';
