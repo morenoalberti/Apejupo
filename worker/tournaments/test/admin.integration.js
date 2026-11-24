@@ -31,6 +31,10 @@ test('administración de cuentas: lista, confirmar, reenviar y borrar con la cla
   let me = (await list()).find(u => u.id === id);
   assert.equal(me.nick, nick); assert.equal(me.email, email); assert.equal(me.verified, false);
   assert.ok(me.createdAt && me.lastSeen); assert.equal(me.sessions, 1);
+  // Contador de días con visita: el alta cuenta como el primer día; volver el mismo día no suma otro.
+  assert.equal(me.days, 1); assert.equal(me.days30, 1); assert.match(me.lastDay, /^\d{4}-\d{2}-\d{2}$/);
+  assert.equal((await call('/api/cuentas/yo', {}, created.body.session)).status, 200);
+  assert.equal((await list()).find(u => u.id === id).days, 1);
   assert.ok(!('pass' in me));
 
   const resent = await call('/api/cuentas/admin/reenviar', { id }, ADMIN);

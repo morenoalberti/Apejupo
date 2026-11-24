@@ -26,6 +26,8 @@
 .au-table tr:last-child td { border-bottom: 0; }
 .au-table td.au-date { white-space: nowrap; font-variant-numeric: tabular-nums; }
 .au-table td.au-date small { display: block; color: var(--muted); font-size: .78rem; }
+.au-table td.au-visits { font-weight: 600; }
+.au-table td.au-visits small { font-weight: 400; }
 .au-user { display: flex; align-items: center; gap: 10px; font-weight: 600; white-space: nowrap; }
 .au-user .cu-avatar { width: 32px; height: 32px; flex: none; overflow: hidden; color: #0f1b2d; font-weight: 700; }
 .au-user .cu-avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }

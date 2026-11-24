@@ -24,9 +24,13 @@ async function call(action, data = {}, key = store.get()) {
 function note(id, text, error = false) { const el = $(id); el.hidden = !text; el.textContent = text || ''; el.classList.toggle('error', error); }
 const fmtDate = t => t ? new Date(t).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
 const fmtTime = t => t ? new Date(t).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) : '';
+// «Hoy», «Ayer»… por día del calendario en España, no por horas transcurridas
+// (una visita de ayer a las 21:05 es «Ayer» aunque no hayan pasado 24 horas).
+const dayKey = t => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Madrid', year: 'numeric', month: '2-digit', day: '2-digit' }).format(t);
+const dayNum = key => Date.UTC(+key.slice(0, 4), +key.slice(5, 7) - 1, +key.slice(8, 10)) / DAY;
 function ago(t) {
   if (!t) return 'Nunca';
-  const d = Math.floor((serverNow - t) / DAY);
+  const d = Math.round(dayNum(dayKey(serverNow)) - dayNum(dayKey(t)));
   return d <= 0 ? 'Hoy' : d === 1 ? 'Ayer' : d < 30 ? `Hace ${d} días` : d < 365 ? `Hace ${Math.floor(d / 30)} ${Math.floor(d / 30) === 1 ? 'mes' : 'meses'}` : 'Hace más de un año';
 }
 
@@ -62,6 +66,7 @@ function render() {
     <td data-label="Estado" role="cell">${u.verified ? '<span class="au-badge ok">Confirmada</span>' : '<span class="au-badge pend">Sin confirmar</span>'}</td>
     <td class="au-date" data-label="Alta" role="cell">${fmtDate(u.createdAt)}<small>${fmtTime(u.createdAt)}</small></td>
     <td class="au-date" data-label="Última actividad" role="cell">${ago(u.lastSeen)}${u.lastSeen ? `<small>${fmtDate(u.lastSeen)}, ${fmtTime(u.lastSeen)}</small>` : ''}</td>
+    <td class="au-date au-visits" data-label="Días de visita" role="cell">${u.days ?? '—'}${u.days != null ? `<small>${u.days30} en 30 días</small>` : ''}</td>
     <td data-label="Acciones" role="cell"><div class="au-acts">${u.verified ? '' : `<button type="button" data-act="confirmar">Confirmar</button><button type="button" data-act="reenviar">Reenviar correo</button>`}<button type="button" class="cu-danger" data-act="borrar">Borrar</button></div></td>
   </tr>`).join('');
   $('au-empty').hidden = list.length > 0;
@@ -101,8 +106,8 @@ $('au-csv').addEventListener('click', () => {
   // Punto y coma y BOM: así Excel en español abre bien columnas y acentos.
   const cell = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
   const iso = t => t ? new Date(t).toLocaleString('es-ES') : '';
-  const rows = [['Nick', 'Correo', 'Confirmada', 'Alta', 'Última actividad', 'Sesiones abiertas'],
-    ...users.map(u => [u.nick, u.email, u.verified ? 'Sí' : 'No', iso(u.createdAt), iso(u.lastSeen), u.sessions])];
+  const rows = [['Nick', 'Correo', 'Confirmada', 'Alta', 'Última actividad', 'Días de visita', 'Días de visita (30 días)', 'Sesiones abiertas'],
+    ...users.map(u => [u.nick, u.email, u.verified ? 'Sí' : 'No', iso(u.createdAt), iso(u.lastSeen), u.days ?? '', u.days30 ?? '', u.sessions])];
   const blob = new Blob(['﻿' + rows.map(r => r.map(cell).join(';')).join('\r\n')], { type: 'text/csv;charset=utf-8' });
   const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: `usuarios-apejupo-${new Date().toISOString().slice(0, 10)}.csv` });
   document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);

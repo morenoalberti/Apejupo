@@ -68,6 +68,8 @@ async function sameSecret(a, b) {
   let diff = 0; for (let i = 0; i < x.length; i++) diff |= x.charCodeAt(i) ^ y.charCodeAt(i);
   return diff === 0;
 }
+// Día natural en España (AAAA-MM-DD): cuenta los días distintos en que entra cada usuario.
+const dayKey = t => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Madrid', year: 'numeric', month: '2-digit', day: '2-digit' }).format(t);
 const json = (body, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' } });
 const publicUser = u => ({ id: u.id, nick: u.nick, email: u.email, verified: !!u.verified, createdAt: u.created_at, photo: u.photo_at || null, elo: Number.isInteger(u.elo) ? u.elo : ELO_START });
 // Foto de perfil: la web la reduce a 192×192 en JPEG antes de subirla; aquí solo se aceptan JPEG pequeños.
@@ -87,11 +89,16 @@ export class AccountStore extends DurableObject {
       CREATE TABLE IF NOT EXISTS duel_games (room TEXT PRIMARY KEY, at INTEGER NOT NULL);
       CREATE TABLE IF NOT EXISTS partidas (id TEXT PRIMARY KEY, room TEXT NOT NULL, kind TEXT NOT NULL, title TEXT NOT NULL, white TEXT NOT NULL, black TEXT NOT NULL, white_elo INTEGER, black_elo INTEGER, result TEXT NOT NULL, reason TEXT NOT NULL, plies INTEGER NOT NULL, tc TEXT NOT NULL, pgn TEXT NOT NULL, at INTEGER NOT NULL);
       CREATE INDEX IF NOT EXISTS partidas_at ON partidas (at);
+      CREATE TABLE IF NOT EXISTS visits (user_id TEXT NOT NULL, day TEXT NOT NULL, PRIMARY KEY (user_id, day));
       CREATE TABLE IF NOT EXISTS retos_archivados (room TEXT PRIMARY KEY);
       CREATE TABLE IF NOT EXISTS elo_games (game TEXT PRIMARY KEY, white TEXT NOT NULL, black TEXT NOT NULL, result TEXT NOT NULL, white_before INTEGER NOT NULL, black_before INTEGER NOT NULL, white_after INTEGER NOT NULL, black_after INTEGER NOT NULL, at INTEGER NOT NULL);`);
     // Última actividad (para la página de administración). Las bases anteriores no tenían la columna.
     const columns = this.sql.exec('PRAGMA table_info(users)').toArray();
     if (!columns.some(c => c.name === 'last_seen')) this.sql.exec('ALTER TABLE users ADD COLUMN last_seen INTEGER');
+    // Contador de días con visita: al estrenarlo, el día de la última actividad de cada cuenta cuenta como el primero.
+    if (!this.one('SELECT 1 AS x FROM visits LIMIT 1')) {
+      for (const u of this.sql.exec('SELECT id, last_seen FROM users WHERE last_seen IS NOT NULL').toArray()) this.visit(u.id, u.last_seen);
+    }
     // ELO del club: toda cuenta empieza con 1500 (también las que ya existían).
     if (!columns.some(c => c.name === 'elo')) this.sql.exec(`ALTER TABLE users ADD COLUMN elo INTEGER NOT NULL DEFAULT ${ELO_START}`);
     // Posición final y última jugada de cada partida archivada (para el tablero pequeño de «Partidas jugadas»).
@@ -150,7 +157,9 @@ export class AccountStore extends DurableObject {
     this.sql.exec('INSERT INTO duel_games (room, at) VALUES (?, ?)', room, now);
   }
   // Como mucho una escritura cada 5 minutos por cuenta: la hora de la última actividad es fiable (página de administración).
-  seen(id, now) { this.sql.exec('UPDATE users SET last_seen = ? WHERE id = ? AND (last_seen IS NULL OR last_seen < ?)', now, id, now - 300000); }
+  // Además se apunta el día (una fila por cuenta y día) para el contador de días con visita.
+  seen(id, now) { this.sql.exec('UPDATE users SET last_seen = ? WHERE id = ? AND (last_seen IS NULL OR last_seen < ?)', now, id, now - 300000); this.visit(id, now); }
+  visit(id, t) { this.sql.exec('INSERT OR IGNORE INTO visits (user_id, day) VALUES (?, ?)', id, dayKey(t)); }
   // Administración: lista de cuentas y acciones sobre ellas, con la clave CUENTAS_ADMIN (secreto del Worker).
   async admin(action, b, ip, now) {
     const secret = String(this.env.CUENTAS_ADMIN || '');
@@ -161,9 +170,11 @@ export class AccountStore extends DurableObject {
     if (action === 'comprobar') return { ok: true };
     if (action === 'lista') {
       const users = this.sql.exec(`SELECT u.id, u.nick, u.email, u.verified, u.created_at, u.last_seen, p.updated_at AS photo_at,
-          (SELECT COUNT(*) FROM sessions s WHERE s.user_id = u.id AND s.expires_at > ?) AS sessions
-        FROM users u LEFT JOIN photos p ON p.user_id = u.id ORDER BY u.created_at DESC`, now).toArray();
-      return { now, users: users.map(u => ({ id: u.id, nick: u.nick, email: u.email, verified: !!u.verified, createdAt: u.created_at, lastSeen: u.last_seen || null, photo: u.photo_at || null, sessions: u.sessions })) };
+          (SELECT COUNT(*) FROM sessions s WHERE s.user_id = u.id AND s.expires_at > ?) AS sessions,
+          (SELECT COUNT(*) FROM visits v WHERE v.user_id = u.id) AS days,
+          (SELECT COUNT(*) FROM visits v WHERE v.user_id = u.id AND v.day >= ?) AS days30
+        FROM users u LEFT JOIN photos p ON p.user_id = u.id ORDER BY u.created_at DESC`, now, dayKey(now - 29 * 86400000)).toArray();
+      return { now, today: dayKey(now), users: users.map(u => ({ id: u.id, nick: u.nick, email: u.email, verified: !!u.verified, createdAt: u.created_at, lastSeen: u.last_seen || null, lastDay: u.last_seen ? dayKey(u.last_seen) : null, days: u.days, days30: u.days30, photo: u.photo_at || null, sessions: u.sessions })) };
     }
     requireThat(/^[a-f0-9]{24}$/.test(String(b.id || '')), 'Cuenta no válida.');
     const user = this.one('SELECT * FROM users WHERE id = ?', b.id);
@@ -176,7 +187,7 @@ export class AccountStore extends DurableObject {
         return { ok: true, ...(this.env.CUENTAS_DESARROLLO === '1' ? { enlace: link } : {}) };
       }
       case 'borrar':
-        for (const table of ['sessions', 'tokens', 'photos']) this.sql.exec(`DELETE FROM ${table} WHERE user_id = ?`, user.id);
+        for (const table of ['sessions', 'tokens', 'photos', 'visits']) this.sql.exec(`DELETE FROM ${table} WHERE user_id = ?`, user.id);
         this.sql.exec('DELETE FROM duels WHERE a = ? OR b = ?', user.id, user.id);
         this.sql.exec('DELETE FROM users WHERE id = ?', user.id);
         return { ok: true };
@@ -252,7 +263,7 @@ export class AccountStore extends DurableObject {
           requireThat(!this.one('SELECT 1 AS x FROM users WHERE nick_key = ?', nickKey(nick)), 'Este nick ya está registrado.', 409);
           requireThat(!this.one('SELECT 1 AS x FROM users WHERE email = ?', email), 'Ya hay una cuenta con ese correo. Entra o recupera tu contraseña.', 409);
           const user = { id: randomToken(12), nick, email, created_at: now };
-          this.sql.exec('INSERT INTO users (id, nick, nick_key, email, pass, verified, created_at, last_seen) VALUES (?, ?, ?, ?, ?, 0, ?, ?)', user.id, nick, nickKey(nick), email, await hashPassword(b.password), now, now);
+          this.sql.exec('INSERT INTO users (id, nick, nick_key, email, pass, verified, created_at, last_seen) VALUES (?, ?, ?, ?, ?, 0, ?, ?)', user.id, nick, nickKey(nick), email, await hashPassword(b.password), now, now); this.visit(user.id, now);
           const link = await this.sendVerification(user, now);
           // Como en Lichess, al crear la cuenta ya se entra; para jugar con ella hay que confirmar el correo.
           const session = await this.openSession(user, now);
@@ -322,7 +333,7 @@ export class AccountStore extends DurableObject {
           requireThat(user, 'Tu sesión ha caducado. Vuelve a entrar.', 401);
           this.limit('borrar:' + user.id, 5, 900000, now);
           requireThat(await verifyPassword(String(b.password || ''), user.pass), 'La contraseña no es correcta.', 403);
-          for (const table of ['sessions', 'tokens', 'photos']) this.sql.exec(`DELETE FROM ${table} WHERE user_id = ?`, user.id);
+          for (const table of ['sessions', 'tokens', 'photos', 'visits']) this.sql.exec(`DELETE FROM ${table} WHERE user_id = ?`, user.id);
           this.sql.exec('DELETE FROM duels WHERE a = ? OR b = ?', user.id, user.id);
           this.sql.exec('DELETE FROM users WHERE id = ?', user.id);
           return json({ ok: true });
