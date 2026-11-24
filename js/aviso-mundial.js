@@ -1,19 +1,24 @@
 // Aviso a pantalla completa del Campeonato del Mundo 2026 (Gukesh D. – Javokhir Sindarov, partida 1).
-// Lo carga js/menu.js solo mientras dura el aviso (hoy hasta las 20:00 h de España). Sale una vez por sesión del navegador,
-// al entrar en la web, y se cierra con cualquier tecla, con un clic en cualquier sitio o tocando la pantalla.
+// Lo carga js/menu.js solo mientras dura el aviso (hoy hasta las 20:00 h de España). Sale al entrar en la web
+// y al refrescar (no al pasar de una página a otra), y se cierra con cualquier tecla, con un clic en cualquier sitio o tocando la pantalla.
 // «Ver en directo» abre la retransmisión de Lichess en nuestro visor (la misma tarjeta de Torneos Live).
 // Los textos se traducen al inglés con js/idioma.js (data/i18n/en.json); los nombres van con translate="no".
 (function () {
   "use strict";
   var START = Date.parse("2026-11-24T15:00:00+01:00"); // partida 1: 15:00 h de España (14:00 UTC)
   var END = Date.parse("2026-11-24T20:00:00+01:00");   // a partir de aquí ya no se enseña
-  var KEY = "apejupoAvisoMundial2026";
   var LIVE = "torneo.html?r=xLgOJ6cb&t=" + encodeURIComponent("FIDE World Chess Championship 2026");
   var FOTO = "https://chessrival-api.chessrival-worker.workers.dev/api/fide/foto?id=";
   if (Date.now() >= END) return;
   // No en mitad de una partida o de la administración: ahí estorbaría.
   if (/admin-/.test(location.pathname) || (/jugar-torneo/.test(location.pathname) && /[?&]id=/.test(location.search))) return;
-  try { if (sessionStorage.getItem(KEY)) return; sessionStorage.setItem(KEY, "1"); } catch (_) {}
+  // Sale cada vez que se entra en la web (también al volver tras cerrarla) y cada vez que se refresca la página.
+  // Solo no sale al pasar de una página de la web a otra, ni al volver con Atrás/Adelante.
+  try {
+    var nav = performance.getEntriesByType("navigation")[0], type = nav ? nav.type : "navigate";
+    var inside = !!document.referrer && new URL(document.referrer).origin === location.origin;
+    if (type === "back_forward" || (type !== "reload" && inside)) return;
+  } catch (_) {}
 
   var css = ""
     + ".am-back{position:fixed;inset:0;z-index:10000;display:grid;place-items:center;padding:16px;background:rgba(3,7,14,.82);backdrop-filter:blur(3px);animation:am-in .35s ease-out;overflow-y:auto}"
