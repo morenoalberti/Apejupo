@@ -64,6 +64,19 @@ function message(text, error = false) { $('to-message').hidden = !text; $('to-me
 // Torneo borrado, caducado o inexistente: ya no hay nada que compartir.
 let roomGone = false;
 function shareable(on, why = '') { $('to-share').disabled = !on; $('to-share').title = on ? '' : why; }
+// Torneo que ya no existe: en la sala solo queda una tarjeta que lo explica, con el camino de vuelta a la lista
+// (sin aviso rojo, ni estado de conexión, ni «Compartir torneo»). Las partidas jugadas siguen en su archivo.
+function roomGoneCard(why) {
+  message('');
+  const room = $('to-room');
+  for (const el of room.children) if (el.id !== 'to-gone') el.hidden = true;
+  let card = $('to-gone');
+  if (!card) { card = document.createElement('div'); card.id = 'to-gone'; card.className = 'to-empty to-gone'; room.append(card); }
+  card.hidden = false;
+  card.innerHTML = `<div class="to-empty-art" aria-hidden="true">${svg('<path d="M32 5v10M27 10h10M22 27c0-6 4-11 10-11s10 5 10 11c0 5-3 8-4 12H26c-1-4-4-7-4-12zM24 39h16l3 9H21zM17 48h30v7H17z"/>').replace('viewBox="0 0 24 24"', 'viewBox="0 0 64 64"')}</div>`
+    + `<strong>Este torneo ya no está disponible</strong><p>${esc(why)}</p>`
+    + `<div class="to-gone-actions"><a class="btn" href="jugar-torneo.html">Ver todos los torneos</a><a class="btn-ghost" href="partidas.html">Partidas jugadas</a></div>`;
+}
 function setConnection(text, online = false) {
   connected = online;
   roomGone = ['Torneo borrado', 'Torneo archivado', 'Torneo no disponible'].includes(text);
@@ -314,16 +327,17 @@ function connect() {
     if (socket !== ws) return;
     clearInterval(heartbeat); pending = false;
     setConnection('Reconectando…');
-    if (['El organizador ha borrado el torneo.', 'El administrador ha borrado el torneo.'].includes(event.reason)) { setConnection('Torneo borrado'); message(event.reason, true); return; }
-    if (event.reason === 'Cancelado y borrado: no hubo jugadores suficientes.') { setConnection('Torneo borrado'); message('El torneo se ha cancelado y borrado automáticamente porque no hubo jugadores suficientes.', true); return; }
-    if (event.reason === 'El torneo ha caducado.') { setConnection('Torneo archivado'); message('Este torneo ha caducado y ya no está disponible.'); return; }
+    if (['El organizador ha borrado el torneo.', 'El administrador ha borrado el torneo.'].includes(event.reason)) { setConnection('Torneo borrado'); roomGoneCard(event.reason); return; }
+    if (event.reason === 'Cancelado y borrado: no hubo jugadores suficientes.') { setConnection('Torneo borrado'); roomGoneCard('El torneo se ha cancelado y borrado automáticamente porque no hubo jugadores suficientes.'); return; }
+    if (event.reason === 'El torneo ha caducado.') { setConnection('Torneo archivado'); roomGoneCard('Este torneo ha caducado y ya no está disponible.'); return; }
     reconnectTimer = setTimeout(async () => {
       try {
         const res = await fetch(API + '/api/tournaments/' + roomId, { signal: AbortSignal.timeout(10000) });
-        if (res.status === 404 || res.status === 410) { setConnection('Torneo no disponible'); message('Este torneo no existe o ya ha caducado.', true); return; }
+        if (res.status === 404 || res.status === 410) { setConnection('Torneo no disponible'); roomGoneCard('Puede que lo hayan borrado o que haya caducado.'); return; }
       } catch {}
       connect();
-    }, Math.min(15000, 1000 * 2 ** Math.min(retry++, 4)) + Math.random() * 500);
+      // Sin datos todavía (enlace a un torneo que quizá ya no existe): se comprueba al momento.
+    }, state || retry ? Math.min(15000, 1000 * 2 ** Math.min(retry++, 4)) + Math.random() * 500 : (retry++, 0));
   };
   ws.onerror = () => { /* onclose gestiona la recuperación sin perder la inscripción. */ };
 }

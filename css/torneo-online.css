@@ -83,6 +83,11 @@
 .to-empty::after { content: ''; position: absolute; inset: auto -40px -60px auto; width: 220px; height: 220px; opacity: .06; background: conic-gradient(currentColor 25%, transparent 0 50%, currentColor 0 75%, transparent 0) 0 0 / 55px 55px; transform: rotate(12deg); pointer-events: none; }
 .to-empty-art { width: 84px; height: 84px; margin: 0 auto 16px; display: grid; place-items: center; border-radius: 24px; color: #e5b766; background: linear-gradient(145deg, #db9f3826, #db9f3808); border: 1px solid #db9f3855; box-shadow: 0 12px 28px -14px #db9f38aa; transform: rotate(-4deg); }
 .to-empty-art svg { width: 50px; height: 50px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+.to-gone { margin-top: 8px; }
+.to-gone p { margin: 0 auto; max-width: 460px; }
+.to-gone-actions { display: flex; justify-content: center; flex-wrap: wrap; gap: 10px; margin-top: 20px; }
+.to-gone-actions a { display: inline-flex; align-items: center; padding: 9px 18px; border-radius: 10px; font-weight: 600; text-decoration: none; }
+.to-gone-actions .btn-ghost { border: 1px solid var(--line); color: var(--text); }
 .to-empty strong { display: block; color: var(--text); font-size: 1.25rem; margin-bottom: 6px; }
 .to-empty p { margin: 0 auto 18px; max-width: 460px; }
 .to-empty .btn { position: relative; z-index: 1; box-shadow: 0 10px 22px -10px #3b82f6cc; }

@@ -2600,5 +2600,8 @@
   "Zugzwang": "Zugzwang",
   "No se pudo borrar 1 torneo. Vuelve a intentarlo.": "1 tournament could not be deleted. Try again.",
   "No se pudieron borrar {0} torneos. Vuelve a intentarlo.": "{0} tournaments could not be deleted. Try again.",
-  "Este torneo no ha terminado: no se borra.": "This tournament has not finished: it is not deleted."
+  "Este torneo no ha terminado: no se borra.": "This tournament has not finished: it is not deleted.",
+  "Este torneo ya no está disponible": "This tournament is no longer available",
+  "Puede que lo hayan borrado o que haya caducado.": "It may have been deleted or have expired.",
+  "Ver todos los torneos": "View all tournaments"
 }
