@@ -199,8 +199,8 @@ async function loadLobby() {
     const [data, admin] = await Promise.all([request('/api/tournaments', { key: session() }).then(res => res.json()), checkTournamentAdmin()]);
     const { tournaments, keyRequired } = data;
     tournamentAdmin = admin;
-    // Solo el administrador: borrar de una vez todos los torneos de la lista.
-    $('to-delete-ended').hidden = !admin || !tournaments.length;
+    // Solo el administrador: borrar de una vez los torneos ya finalizados (o cancelados) de la lista.
+    $('to-delete-ended').hidden = !admin || !tournaments.some(t => ['finished', 'cancelled'].includes(t.status));
     $('to-admin-note').hidden = $('to-delete-ended').hidden;
     setKeyMode(keyRequired !== false);
     lobby = new Map(tournaments.map(t => [t.id, t]));
@@ -2132,12 +2132,12 @@ $('to-sound').addEventListener('click', () => {
 });
 
 $('to-delete-ended').addEventListener('click', async () => {
-  const ended = [...lobby.values()];
-  if (!ended.length || !tournamentAdmin) return;
-  const list = ended.length === 1 ? `el torneo «${ended[0].title}»` : `los ${ended.length} torneos de la lista`;
-  const live = ended.filter(t => !['finished', 'cancelled'].includes(t.status)).length;
-  const warn = live ? ` ${live === 1 ? 'Uno está' : `${live} están`} sin terminar: se expulsará a sus jugadores y se perderán las partidas a medias.` : '';
-  if (!await confirmAction('Borrar todos los torneos', `Se borrarán ${list}.${warn} Desaparecerán para todos y no se puede deshacer. Las partidas ya terminadas siguen en «Partidas jugadas».`, true)) return;
+  // Solo los torneos ya terminados (o cancelados); los que están por jugar o en juego se quedan.
+  if (!tournamentAdmin) return;
+  const ended = [...lobby.values()].filter(t => ['finished', 'cancelled'].includes(t.status));
+  if (!ended.length) { message('No hay torneos finalizados que borrar.'); return; }
+  const list = ended.length === 1 ? `el torneo finalizado «${ended[0].title}»` : `los ${ended.length} torneos finalizados`;
+  if (!await confirmAction('Borrar torneos finalizados', `Se borrarán ${list}. Los torneos por jugar o en juego no se tocan. Desaparecerán para todos y no se puede deshacer. Las partidas ya terminadas siguen en «Partidas jugadas».`, true)) return;
   const button = $('to-delete-ended'); button.disabled = true;
   let failed = 0;
   for (const t of ended) {

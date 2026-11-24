@@ -59,12 +59,16 @@
     },
     // Tarjeta de un torneo de Lichess, la misma en Torneos Live y en la portada:
     // imagen, etiqueta, nombre, ronda y hora, y botón «Ver torneo» que abre nuestro visor (torneo.html)
-    bcCard: function (it, badge, cls, withLink) {
+    // fav (solo Torneos live): estrella de favorito en la esquina superior derecha; true/false = marcada o no.
+    bcCard: function (it, badge, cls, withLink, fav) {
       var t = it.tour || {}, r = it.round || {}, esc = U.esc;
       var linkRound = it.roundToLink && it.roundToLink.id ? it.roundToLink : r;
       var img = t.image ? '<img loading="lazy" src="' + esc(U.safeUrl(t.image)) + '" alt="">' : "";
       var when = r.startsAt ? U.fmt(r.startsAt, { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "";
-      return '<article class="card" data-id="' + esc(t.id || "") + '"' + U.tipAttr(t) + '>' + img + '<div class="body">' +
+      var star = fav == null ? "" : '<button type="button" class="card-fav' + (fav ? " on" : "") + '" data-fav aria-pressed="' + !!fav + '" title="' +
+        (fav ? "Quitar de favoritos" : "Marcar como favorito: siempre saldrá de los primeros") + '" aria-label="Favorito">' +
+        '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M12 2.8l2.84 5.76 6.36.92-4.6 4.49 1.09 6.33L12 17.31l-5.69 2.99 1.09-6.33-4.6-4.49 6.36-.92z"/></svg></button>';
+      return '<article class="card' + (fav == null ? "" : fav ? " favable is-fav" : " favable") + '" data-id="' + esc(t.id || "") + '"' + U.tipAttr(t) + '>' + star + img + '<div class="body">' +
         '<span class="badge ' + cls + '">' + badge + '</span>' +
         '<h4 translate="no">' + esc(t.name) + '</h4>' + // nombre del torneo: no se traduce
         '<p class="meta">' + esc(U.ronda(r.name)) + (when ? " · " + esc(when) : "") + '</p>' +

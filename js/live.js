@@ -1889,18 +1889,26 @@
     }
     // Orden manual: el usuario puede arrastrar las tarjetas (U.sortable); ese orden se respeta al pintar (U.applyOrder)
     var OK = "apejupoLiveOrder";
+    // Favoritos (estrella de la tarjeta): ids de torneo guardados en este navegador; siempre salen los primeros.
+    var FK = "apejupoLiveFav";
+    function favs() { try { var f = JSON.parse(localStorage.getItem(FK)); return Array.isArray(f) ? f : []; } catch (_) { return []; } }
+    function isFav(x) { return favs().indexOf(x.tour.id) >= 0; }
     function cardHtml(x) {
-      return x.round.ongoing ? bcCard(x, "EN DIRECTO", "live") : bcCard(x, (x.round.startsAt || 0) - Date.now() < 864e5 ? "HOY" : "PRÓXIMAMENTE", "soon", true);
+      var f = isFav(x);
+      return x.round.ongoing ? bcCard(x, "EN DIRECTO", "live", false, f) : bcCard(x, (x.round.startsAt || 0) - Date.now() < 864e5 ? "HOY" : "PRÓXIMAMENTE", "soon", true, f);
     }
     function count(n) { window.apejupoLiveN = n; window.apejupoCount && window.apejupoCount(); }
     function paint(live, up) {
       live.sort(byNearest); // también reordena la lista guardada en caché
       // Los que se están jugando van siempre delante de los que no han empezado; el orden manual (arrastrar)
       // solo cambia el sitio dentro de cada grupo, nunca pasa uno que no ha empezado por delante de uno en directo.
-      var idDe = function (x) { return x.tour.id; };
-      var enJuego = U.applyOrder(live.filter(function (x) { return x.round.ongoing; }), OK, idDe);
-      var resto = U.applyOrder(live.filter(function (x) { return !x.round.ongoing; }), OK, idDe);
-      live.length = 0; Array.prototype.push.apply(live, enJuego.concat(resto));
+      // Los favoritos (estrella) van por delante de todos, y dentro de ellos se sigue la misma regla.
+      var idDe = function (x) { return x.tour.id; }, fv = favs();
+      var grupo = function (fav, ongoing) {
+        return U.applyOrder(live.filter(function (x) { return (fv.indexOf(x.tour.id) >= 0) === fav && !!x.round.ongoing === ongoing; }), OK, idDe);
+      };
+      var orden = grupo(true, true).concat(grupo(true, false), grupo(false, true), grupo(false, false));
+      live.length = 0; Array.prototype.push.apply(live, orden);
       $("live").innerHTML = live.length
         ? live.map(cardHtml).join("")
         : '<p class="muted">Ahora mismo no hay torneos en directo.</p>';
@@ -1927,9 +1935,15 @@
         renderTimer = null;
         // mientras cargan, también: uno en directo entra delante del primero que aún no ha empezado
         var box = $("live");
+        // y los favoritos, delante de todo
         pending.forEach(function (x) {
-          var noEmpezado = x.round.ongoing ? Array.prototype.find.call(box.children, function (c) { return c.querySelector(".badge.soon"); }) : null;
-          if (noEmpezado) noEmpezado.insertAdjacentHTML("beforebegin", cardHtml(x)); else box.insertAdjacentHTML("beforeend", cardHtml(x));
+          var f = isFav(x), hijos = box.children;
+          var antes = Array.prototype.find.call(hijos, function (c) {
+            var cf = c.classList.contains("is-fav");
+            if (f !== cf) return f; // un favorito entra delante del primero que no lo es
+            return x.round.ongoing && c.querySelector(".badge.soon");
+          });
+          if (antes) antes.insertAdjacentHTML("beforebegin", cardHtml(x)); else box.insertAdjacentHTML("beforeend", cardHtml(x));
         });
         pending = []; count(live.length);
       }
@@ -1966,6 +1980,25 @@
     }
     if ($("live-refresh")) $("live-refresh").addEventListener("click", function () { load(true); });
     U.sortable($("live"), function () { return OK; }, function () { var c = readCache(); if (c) paint(c.live, null); else load(true); }, { noReset: true });
+    // Estrella: marca o desmarca el favorito y vuelve a ordenar las tarjetas
+    $("live").addEventListener("click", function (e) {
+      var b = e.target.closest && e.target.closest("[data-fav]"); if (!b) return;
+      e.preventDefault(); e.stopPropagation();
+      var card = b.closest(".card"), id = card && card.dataset.id; if (!id) return;
+      var f = favs(), i = f.indexOf(id);
+      if (i >= 0) f.splice(i, 1); else f.push(id);
+      try { localStorage.setItem(FK, JSON.stringify(f)); } catch (_) {}
+      var c = readCache();
+      if (c) paint(c.live, null);
+      else { // sin caché (aún cargando): se reordena lo que ya está pintado
+        var on = i < 0;
+        card.classList.toggle("is-fav", on); b.classList.toggle("on", on); b.setAttribute("aria-pressed", String(on));
+        b.title = on ? "Quitar de favoritos" : "Marcar como favorito: siempre saldrá de los primeros";
+        var box = $("live"), first = Array.prototype.find.call(box.children, function (x) { return x !== card && !x.classList.contains("is-fav"); });
+        if (on) box.insertBefore(card, Array.prototype.find.call(box.children, function (x) { return !x.classList.contains("is-fav"); }) || null);
+        else if (first) box.insertBefore(card, first);
+      }
+    });
     load();
   })();
 
