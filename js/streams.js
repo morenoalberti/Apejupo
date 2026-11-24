@@ -99,8 +99,11 @@
     if (tour.info && tour.info.website) links.push(tour.info.website);
     return links.some(function (link) { var source = U.streamSource(link.replace(/&amp;/g, "&").replace(/[.,;]+$/, "")); return source && source.type === "youtube" && stream.type === "youtube" && streamKey(source) === streamKey(stream); });
   }
+  // Solo emisiones con comentarios en español: las de otros idiomas no se ofrecen nunca.
+  function spanish(event) { return /^es(?:[_-]|$)/i.test(event.language || ""); }
   function matching() {
     return feed.map(function (event) {
+      if (!spanish(event)) return null;
       var stream = U.streamSource(event.url);
       if (!stream || !Number.isFinite(event.start) || !Number.isFinite(event.end) || event.end <= event.start || !belongsToTournament(event, stream)) return null;
       stream.event = event; return stream;
@@ -109,10 +112,7 @@
   function state() {
     var now = Date.now(), streams = matching();
     var active = streams.filter(function (stream) { return stream.event.start <= now && now < stream.event.end; });
-    active.sort(function (a, b) {
-      var esA = /^es(?:[_-]|$)/i.test(a.event.language || ""), esB = /^es(?:[_-]|$)/i.test(b.event.language || "");
-      return Number(esB) - Number(esA) || b.event.start - a.event.start;
-    });
+    active.sort(function (a, b) { return b.event.start - a.event.start; });
     var next = streams.filter(function (stream) { return stream.event.start > now; }).sort(function (a, b) { return a.event.start - b.event.start; })[0];
     return { active: active[0] || null, activeStreams: active, next: next || null };
   }
@@ -132,9 +132,9 @@
     else if (!context || !context.tour) text = "Consultando la retransmisión del torneo…";
     else if (busy || !loaded) text = "Consultando la retransmisión del torneo…";
     else if (current.active) text = "En directo · " + ({ youtube: "YouTube", twitch: "Twitch", kick: "Kick" }[current.active.type]);
-    else if (current.next) text = "Próxima emisión con comentaristas: " + madrid(current.next.event.start) + " · hora de Madrid";
+    else if (current.next) text = "Próxima emisión con comentarios en español: " + madrid(current.next.event.start) + " · hora de Madrid";
     // La hora de inicio de la ronda ya sale en la cabecera del torneo: aquí no se repite.
-    else text = failed ? "No se ha podido consultar la emisión." : "Sin emisión en directo confirmada para este torneo.";
+    else text = failed ? "No se ha podido consultar la emisión." : "Sin emisión en español confirmada para este torneo.";
     status.classList.toggle("is-live", !!current.active && !busy);
     if (lastStatusText !== text) { status.textContent = text; lastStatusText = text; }
   }

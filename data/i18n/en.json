@@ -2618,5 +2618,7 @@
   "min": "min",
   "seg": "sec",
   "▶ Ver en directo": "▶ Watch live",
-  "Pulsa cualquier tecla o haz clic para continuar": "Press any key or click to continue"
+  "Pulsa cualquier tecla o haz clic para continuar": "Press any key or click to continue",
+  "Próxima emisión con comentarios en español: {*} · hora de Madrid": "Next stream with Spanish commentary: {*} · Madrid time",
+  "Sin emisión en español confirmada para este torneo.": "No stream with Spanish commentary confirmed for this tournament."
 }
