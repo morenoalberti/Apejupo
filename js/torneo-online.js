@@ -167,7 +167,14 @@ const icons = {
   format: svg('<path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0zM7 6H4v2a4 4 0 0 0 4 4M17 6h3v2a4 4 0 0 1-4 4"/>'),
   people: svg('<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>'),
   lock: svg('<rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>'),
-  calendar: svg('<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>')
+  calendar: svg('<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>'),
+  // Tarjetas del lobby: ritmo de juego, en juego y ganador
+  bullet: svg('<path d="M5 19l4-4M14 4l6 6-8 8-6-6zM12 6l6 6"/>'),
+  bolt: svg('<path d="M13 2 4 14h7l-1 8 9-12h-7z"/>'),
+  rabbit: svg('<circle cx="12" cy="13" r="8"/><path d="M12 9v4l3 2"/>'),
+  turtle: svg('<path d="M12 3a9 9 0 1 0 9 9M12 7v5l3 3M17 3h4v4"/>'),
+  play: svg('<path d="M7 4v16l13-8z"/>'),
+  crown: svg('<path d="M3 7l4 5 5-7 5 7 4-5-2 12H5z"/>')
 };
 const emptyLobby = `<div class="to-empty"><div class="to-empty-art" aria-hidden="true"><svg viewBox="0 0 64 64"><path d="M32 5v10M27 10h10M22 27c0-6 4-11 10-11s10 5 10 11c0 5-3 8-4 12H26c-1-4-4-7-4-12zM24 39h16l3 9H21zM17 48h30v7H17z"/></svg></div><strong>El próximo torneo puede ser el nuestro</strong><p>Todavía no hay torneos. Cuando la organización abra uno, aparecerá aquí.</p><button class="btn to-icon-btn" type="button" data-create><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>Crear torneo</span></button></div>`;
 // Modalidad del torneo, siempre a la vista: en la tarjeta del lobby y en la cabecera de la sala.
@@ -180,11 +187,38 @@ function eventCard(t) {
   const trash = organizer || tournamentAdmin ? `<button class="to-delete" type="button" data-delete="${t.id}" aria-label="Borrar el torneo ${esc(t.title)}" title="Borrar torneo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M5 7l1 13h12l1-13M9 7V4h6v3"/></svg></button>` : '';
   // Creador y administrador pueden editar la configuración antes del inicio.
   const pencil = (organizer || tournamentAdmin) && (t.status === 'waiting' || t.editable) ? `<button class="to-delete to-edit" type="button" data-edit="${t.id}" aria-label="Editar el torneo ${esc(t.title)}" title="Editar torneo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></button>` : '';
-  const count = t.listed ?? t.count, full = Math.min(100, Math.round(count / t.capacity * 100));
-  return `<article class="to-event ${t.status}"><div class="to-event-top"><span class="to-event-badges"><span class="to-status ${t.editable ? 'waiting' : t.status}">${esc(t.editable ? 'Por empezar' : statuses[t.status])}</span>${modeBadge(t)}</span><span class="to-event-clock">${icons.clock}${t.minutes} + ${t.increment}</span></div>`
-    + `<h3 translate="no">${esc(t.title)}</h3><ul class="to-event-meta"><li>${icons.format}${systemLabel(t)}</li>${t.locked ? `<li>${icons.lock}Inscripción con clave</li>` : ''}<li>${icons.calendar}${t.startsAt ? esc(date(t.startsAt)) : 'Inicio a cargo del organizador'}</li></ul>`
-    + `<div class="to-event-fill"><span>${icons.people}${count}/${t.capacity} jugadores</span><i>${count ? `<b style="width:${full}%"></b>` : ''}</i></div>`
-    + `<div class="to-event-actions"><a class="btn" href="jugar-torneo.html?id=${t.id}"><span>${t.status === 'waiting' ? 'Entrar e inscribirme' : 'Ver torneo'}</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-5-5 5 5-5 5"/></svg></a>${pencil || trash ? `<div class="to-event-tools">${pencil}${trash}</div>` : ''}</div></article>`;
+  const count = t.listed ?? t.count, pct = (a, b) => b ? Math.min(100, Math.round(a / b * 100)) : 0;
+  const ended = ['finished', 'cancelled'].includes(t.status), live = ['playing', 'between'].includes(t.status);
+  const waiting = t.status === 'waiting' || t.editable, href = `jugar-torneo.html?id=${t.id}`, top = t.top || [];
+  // Franja superior: ritmo y modalidad (por empezar), ronda (en juego) o estado (terminado).
+  const mode = t.challenge ? '' : ` · <span>${presencial(t) ? 'Presencial' : 'Online'}</span>`;
+  const strip = waiting ? `${icons[rhythm(t).icon]}<span>${rhythm(t).name}</span> <span translate="no">${t.minutes}+${t.increment}</span>${mode}`
+    : live ? `${icons.play}<span>${arena(t) || !t.rounds ? statuses[t.status] : `${statuses[t.status]} · Ronda ${t.round}/${t.rounds}`}</span>`
+    : `${icons.format}<span>${statuses[t.status]}</span>`;
+  const meta = [systemLabel(t), ...(waiting ? [] : [`<span translate="no">${t.minutes}+${t.increment}</span>`, ...(t.challenge ? [] : [presencial(t) ? 'Presencial' : 'Online'])]),
+    waiting ? (t.startsAt ? esc(date(t.startsAt)) : 'Inicio a cargo del organizador') : `${count} jugadores`];
+  // Barra: plazas ocupadas (por empezar) o rondas jugadas (en juego).
+  const bar = (label, value, width) => `<div class="to-ev-bar"><div><span>${label}</span><span>${value}</span></div><i><b style="width:${width}%"></b></i></div>`;
+  const progress = waiting ? bar('Plazas', `${count} / ${t.capacity}`, pct(count, t.capacity))
+    : live && !arena(t) && t.rounds ? bar('Ronda', `${t.round} / ${t.rounds}`, pct(t.round, t.rounds)) : '';
+  const faces = waiting && t.faces?.length ? `<div class="to-ev-faces">${t.faces.map(n => `<span translate="no" title="${esc(n)}">${esc((n.trim()[0] || '?').toUpperCase())}</span>`).join('')}${count > t.faces.length ? `<em>+${count - t.faces.length}</em>` : ''}</div>` : '';
+  const who = p => `<b translate="no">${esc(p.name)}</b>`;
+  const leader = live && top[0] ? `<p class="to-ev-leader"><span>Líder:</span> ${who(top[0])} · ${top[0].points}</p>` : '';
+  const podium = t.status === 'finished' && top[0] ? `<p class="to-ev-winner">${icons.crown}<span>Ganó</span> ${who(top[0])} · ${top[0].points}</p>`
+    + (top.length > 1 ? `<p class="to-ev-rest">${top.slice(1).map((p, i) => `<span class="to-ev-medal m${i + 2}">${i + 2}</span><span translate="no">${esc(p.name)}</span>`).join('')}</p>` : '') : '';
+  const joined = t.joined && !ended ? '<span class="to-ev-joined">Estás inscrito</span>' : '';
+  const label = t.joined && live ? 'Ir a mi partida' : t.joined && waiting ? 'Ir al torneo' : waiting ? 'Entrar e inscribirme'
+    : live ? 'Ver clasificación' : t.status === 'finished' ? 'Ver partidas' : 'Ver torneo';
+  const main = t.joined && !ended ? 'gold' : waiting ? 'blue' : 'ghost';
+  return `<article class="to-event ${t.status}${t.joined && !ended ? ' joined' : ''}"><div class="to-ev-strip">${strip}${t.locked ? `<span class="to-ev-lock" title="Inscripción con clave">${icons.lock}</span>` : ''}</div>`
+    + `<div class="to-ev-body"><h3 translate="no">${esc(t.title)}</h3><p class="to-ev-meta">${meta.map(m => `<span>${m}</span>`).join(' · ')}</p>`
+    + progress + faces + leader + podium + joined
+    + `<div class="to-event-actions"><a class="to-ev-btn ${main}" href="${href}">${label}</a>${pencil || trash ? `<div class="to-event-tools">${pencil}${trash}</div>` : ''}</div></div></article>`;
+}
+// Ritmo de juego como en Lichess: minutos + 40 jugadas de incremento.
+function rhythm(t) {
+  const est = t.minutes + t.increment * 40 / 60;
+  return est < 3 ? { name: 'Bala', icon: 'bullet' } : est < 8 ? { name: 'Blitz', icon: 'bolt' } : est < 25 ? { name: 'Rápidas', icon: 'rabbit' } : { name: 'Clásicas', icon: 'turtle' };
 }
 async function loadLobby() {
   if (!API) {
@@ -2136,8 +2170,10 @@ $('to-delete-ended').addEventListener('click', async () => {
   if (!tournamentAdmin) return;
   const ended = [...lobby.values()].filter(t => ['finished', 'cancelled'].includes(t.status));
   if (!ended.length) { message('No hay torneos finalizados que borrar.'); return; }
-  const list = ended.length === 1 ? `el torneo finalizado «${ended[0].title}»` : `los ${ended.length} torneos finalizados`;
-  if (!await confirmAction('Borrar torneos finalizados', `Se borrarán ${list}. Los torneos por jugar o en juego no se tocan. Desaparecerán para todos y no se puede deshacer. Las partidas ya terminadas siguen en «Partidas jugadas».`, true)) return;
+  // Frases completas (una por caso) para que el diccionario de inglés las traduzca enteras.
+  const text = ended.length === 1 ? `Se borrará el torneo finalizado «${ended[0].title}». Los torneos por jugar o en juego no se tocan. Desaparecerá para todos y no se puede deshacer. Sus partidas siguen en «Partidas jugadas».`
+    : `Se borrarán los ${ended.length} torneos finalizados. Los torneos por jugar o en juego no se tocan. Desaparecerán para todos y no se puede deshacer. Sus partidas siguen en «Partidas jugadas».`;
+  if (!await confirmAction('Borrar torneos finalizados', text, true)) return;
   const button = $('to-delete-ended'); button.disabled = true;
   let failed = 0;
   for (const t of ended) {

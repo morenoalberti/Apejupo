@@ -786,6 +786,14 @@ export function summary(t) {
     // Presencial emparejado pero sin resultados: aún se puede editar.
     editable: canChangeInitialRoster(t) };
 }
+// Tarjeta del lobby (solo la lista de torneos, no cada jugada): iniciales de los primeros inscritos y,
+// con partidas ya jugadas, los tres primeros de la clasificación. accountId: la cuenta que mira, para «Estás inscrito».
+export function lobbySummary(t, accountId) {
+  return { ...summary(t),
+    faces: t.players.filter(p => t.status === 'finished' || !p.paused).slice(0, 3).map(p => p.name),
+    top: t.games.some(g => g.result) ? standings(t).slice(0, 3).map(p => ({ name: p.name, points: isArena(t) ? p.points : (p.score ?? p.points) })) : [],
+    joined: !!accountId && t.players.some(p => p.accountId === accountId && p.active !== false) };
+}
 // Jugadas legales de una partida en curso, calculadas una sola vez por posición.
 function legalFor(g) {
   if (!g || g.result || g.bye) return [];

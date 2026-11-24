@@ -6,7 +6,7 @@ import { loadBbp, runDutch } from './bbp-engine.js';
 import { youtubeVideos } from './youtube.js';
 import { PRIZE_BODY_LIMIT, prizeResults, prizeYear, savedPrizes, validatePrizes } from './prizes.js';
 import { TRF_BODY_LIMIT, trfAvailability, validateTrfReport, trfView } from './trf.js';
-import { GameError, requireThat, isArena, setSwissEngine, startTournament, createTournament, editTournament, joinTournament, requestPresencial, isPresencial, act, advance, pairArena, nextAlarm, snapshot, sharedSnapshot, personalPart, moveMessage, summary, exportPgn, addChat, deleteChat, chatList, systemChat, tournamentTrfDetails, RETENTION_MS } from './core.js';
+import { GameError, requireThat, isArena, setSwissEngine, startTournament, createTournament, editTournament, joinTournament, requestPresencial, isPresencial, act, advance, pairArena, nextAlarm, snapshot, sharedSnapshot, personalPart, moveMessage, summary, lobbySummary, exportPgn, addChat, deleteChat, chatList, systemChat, tournamentTrfDetails, RETENTION_MS } from './core.js';
 
 // El navegador manda "ping" cada 30 s; sin señal en este margen, el jugador no se considera presente.
 const PRESENCE_MS = 75000;
@@ -44,7 +44,7 @@ export class TournamentDirectory extends DurableObject {
           const accountId = request.headers.get('X-Account-Id');
           const results = await Promise.all(events.map(async e => {
             try {
-              const r = await this.env.TOURNAMENTS.getByName(e.id).fetch('https://room/summary');
+              const r = await this.env.TOURNAMENTS.getByName(e.id).fetch('https://room/summary', { headers: { 'X-Account-Id': accountId || '' } });
               return r.ok ? { ...await r.json(), mine: !!accountId && e.host === accountId } : null;
             } catch { return null; }
           }));
@@ -273,7 +273,10 @@ export class TournamentRoom extends DurableObject {
           this.t = await request.json(); await this.save(); return json({ ok: true });
         }
         await this.checkTime();
-        if (url.pathname === '/summary') return json(summary(this.t));
+        if (url.pathname === '/summary') {
+          // «Estás inscrito» en la tarjeta del lobby: la cuenta la pone el propio Worker (nunca el navegador).
+          return json(lobbySummary(this.t, request.headers.get('X-Account-Id')));
+        }
         // Partidas terminadas antes de existir «Partidas jugadas»: se archivan ahora (solo el archivo; el ELO no se toca).
         if (url.pathname === '/archivar') {
           if (this.t.games.some(g => !g.bye && g.result && !g.archived)) { await this.recordArchive(); await this.ctx.storage.put('state', this.t); }
