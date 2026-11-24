@@ -2597,5 +2597,8 @@
   "Zambia": "Zambia",
   "ZIM": "ZIM",
   "Zimbabue": "Zimbabwe",
-  "Zugzwang": "Zugzwang"
+  "Zugzwang": "Zugzwang",
+  "No se pudo borrar 1 torneo. Vuelve a intentarlo.": "1 tournament could not be deleted. Try again.",
+  "No se pudieron borrar {0} torneos. Vuelve a intentarlo.": "{0} tournaments could not be deleted. Try again.",
+  "Este torneo no ha terminado: no se borra.": "This tournament has not finished: it is not deleted."
 }

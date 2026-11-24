@@ -2176,14 +2176,12 @@ $('to-delete-ended').addEventListener('click', async () => {
     : `Se borrarán los ${ended.length} torneos finalizados. Los torneos por jugar o en juego no se tocan. Desaparecerán para todos y no se puede deshacer. Sus partidas siguen en «Partidas jugadas».`;
   if (!await confirmAction('Borrar torneos finalizados', text, true)) return;
   const button = $('to-delete-ended'); button.disabled = true;
-  let failed = 0;
-  for (const t of ended) {
-    try {
-      await request(`/api/tournaments/${t.id}/delete`, { method: 'POST', key: adminKey(), body: JSON.stringify({}) });
-      try { localStorage.removeItem(hostKey(t.id)); } catch {}
-    } catch { failed++; }
-  }
+  // Una sola petición: el servidor borra solo los terminados o cancelados (lo comprueba cada sala),
+  // así que aunque la lista de esta página esté desactualizada, un torneo sin terminar nunca se borra.
+  try { await request('/api/tournaments/admin/borrar-finalizados', { method: 'POST', key: adminKey(), body: JSON.stringify({}) }); } catch {}
+  for (const t of ended) { try { localStorage.removeItem(hostKey(t.id)); } catch {} }
   button.disabled = false;
+  let failed;
   // Las respuestas perdidas no cuentan como fallo si el torneo ya no está en la lista.
   await loadLobby(); failed = ended.filter(t => lobby.has(t.id)).length;
   message(failed ? `No se ${failed === 1 ? 'pudo borrar 1 torneo' : `pudieron borrar ${failed} torneos`}. Vuelve a intentarlo.` : '', !!failed);

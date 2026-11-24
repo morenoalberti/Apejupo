@@ -58,6 +58,20 @@ export class TournamentDirectory extends DurableObject {
           }
           return json({ tournaments: results.filter(Boolean).sort((a, b) => b.createdAt - a.createdAt), keyRequired: false, accountRequired: true });
         }
+        // Solo el administrador (el router ya comprobó su clave): borra los torneos terminados o cancelados.
+        // La propia sala lo vuelve a comprobar, así que un torneo por jugar o en juego nunca se borra por aquí.
+        if (request.method === 'POST' && url.pathname === '/borrar-finalizados') {
+          let deleted = 0, kept = 0;
+          for (const e of events) {
+            try {
+              const r = await this.env.TOURNAMENTS.getByName(e.id).fetch('https://room/delete', { method: 'POST', body: JSON.stringify({ admin: true, onlyEnded: true }) });
+              if (r.ok) { deleted++; e.deleted = true; } else if (r.status === 409) kept++;
+            } catch {}
+          }
+          events = events.filter(e => !e.deleted);
+          await this.ctx.storage.put('events', events);
+          return json({ deleted, kept });
+        }
         if (request.method === 'POST') {
           const b = await body(request);
           // Como en Lichess, cualquier cuenta confirmada organiza; con un tope por cuenta y otro general.
@@ -342,6 +356,8 @@ export class TournamentRoom extends DurableObject {
         if (url.pathname === '/delete') {
           // El router comprueba la clave antes de conceder el permiso de administrador.
           requireThat(b.admin === true || !!(b.actorId && b.actorId === this.t.hostAccountId) || (TOKEN.test(b.hostToken) && this.isHost(await hash(b.hostToken))), 'Solo el organizador o el administrador pueden borrar el torneo.', 403);
+          // Borrado en bloque del administrador: nunca toca un torneo que no haya terminado.
+          if (b.onlyEnded === true) requireThat(['finished', 'cancelled'].includes(this.t.status), 'Este torneo no ha terminado: no se borra.', 409);
           const reason = b.admin === true ? 'El administrador ha borrado el torneo.' : 'El organizador ha borrado el torneo.';
           for (const ws of this.ctx.getWebSockets()) { try { ws.close(1000, reason); } catch {} }
           await this.ctx.storage.deleteAll(); this.t = null;
@@ -579,6 +595,12 @@ export default {
         return new Response(pgn, { headers: { ...cors, 'Content-Type': 'application/x-chess-pgn; charset=utf-8', 'Cache-Control': 'public, max-age=3600' } });
       }
       const room = /^\/api\/tournaments\/([a-f0-9]{24})(?:\/(join|socket|pgn|delete|config|edit|prizes|trf))?$/.exec(path);
+      if (path === '/api/tournaments/admin/borrar-finalizados') {
+        requireThat(request.method === 'POST', 'Método no permitido.', 405);
+        const verified = await checkAdmin();
+        if (!verified.ok) return withCors(verified);
+        return withCors(await directory.fetch('https://directory/borrar-finalizados', { method: 'POST' }));
+      }
       if (path === '/api/tournaments/admin/comprobar') {
         requireThat(request.method === 'POST', 'Método no permitido.', 405);
         return withCors(await checkAdmin());
