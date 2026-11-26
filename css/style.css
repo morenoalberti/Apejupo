@@ -1728,3 +1728,6 @@ canvas.pz-lienzo { display: block; pointer-events: none; }
 /* Análisis: doble pulsación sobre una pieza (la lleva a su mejor casilla) sin zoom del navegador, y aviso mientras busca */
 #an-board { touch-action: manipulation; }
 #an-board .an-thinking { animation: lvthink .5s ease-in-out infinite alternate; }
+/* Clasificación y Emparejamientos: icono centrado verticalmente con el texto */
+#viewer-stand, #viewer-pair { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+#viewer-stand svg, #viewer-pair svg { flex: none; display: block; }
