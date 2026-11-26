@@ -902,9 +902,11 @@
     endDrag();
     if (mv) render();
     // Doble pulsación sobre una pieza (ratón o dedo): se mueve a su mejor casilla según Stockfish
+    // Se usa la hora real de la pulsación (e.timeStamp): si la página está ocupada (Stockfish, directo),
+    // procesar la segunda pulsación tarda más y con Date.now() a veces hacían falta tres toques.
     if (tap) {
-      var now = Date.now();
-      if (lastPieceTap.sq === from && now - lastPieceTap.t < 400) { lastPieceTap.sq = null; bestForPiece(from); }
+      var now = e.timeStamp || performance.now();
+      if (lastPieceTap.sq === from && now - lastPieceTap.t < 500) { lastPieceTap.sq = null; bestForPiece(from); }
       else lastPieceTap = { sq: from, t: now };
     } else lastPieceTap.sq = null;
   });
@@ -914,7 +916,7 @@
     else vari = { gid: curId, base: ply, moves: [san], pos: 1, active: true, collapsed: false };
     follow = false;
   }
-  var lastPieceTap = { sq: null, t: 0 }, bestSf = null, bestJob = null;
+  var lastPieceTap = { sq: null, t: 0 }, bestSf = null, bestJob = null, bestSkip = 0;
   function bestForPiece(sq) {
     if (!curCh || (reviewState && reviewState.running)) return;
     var fen = curCh.fen(), moves = curCh.moves({ square: sq, verbose: true });
@@ -923,7 +925,7 @@
     try {
       if (!bestSf) bestSf = new Worker("assets/stockfish/stockfish-19-lite-single.js");
     } catch (_) { return; }
-    if (bestJob) { clearTimeout(bestJob.timer); bestSf.postMessage("stop"); }
+    if (bestJob) { clearTimeout(bestJob.timer); bestSf.postMessage("stop"); bestSkip++; var old = sqEl(bestJob.sq); if (old) old.classList.remove("from", "thinking"); }
     var job = bestJob = { fen: fen, sq: sq, moves: moves };
     var el = sqEl(sq); if (el) el.classList.add("from", "thinking");
     function done(uci) {
@@ -938,7 +940,9 @@
     }
     bestSf.onmessage = function (e) {
       var l = String(e.data);
-      if (l.indexOf("bestmove") === 0) done(l.split(/\s+/)[1]);
+      if (l.indexOf("bestmove") !== 0) return;
+      if (bestSkip > 0) { bestSkip--; return; } // respuesta de la búsqueda anterior, ya cancelada
+      done(l.split(/\s+/)[1]);
     };
     bestSf.postMessage("position fen " + fen);
     bestSf.postMessage("go movetime 600 searchmoves " + moves.map(function (x) { return x.from + x.to + (x.promotion || ""); }).join(" "));
