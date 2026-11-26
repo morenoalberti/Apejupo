@@ -657,6 +657,7 @@
     curId = id; sel.value = id; gpickSync(); follow = true; ply = -1; vari = null; listKey = ""; anFen = "";
     viewer.style.left = viewer.style.top = viewer.style.transform = ""; // vuelve al centro
     $("lv-backdrop").hidden = false; viewer.hidden = false;
+    setTimeout(warmBest, 0);
     render(); renderGrid();
   }
   function closeBig() {
@@ -917,14 +918,28 @@
     follow = false;
   }
   var lastPieceTap = { sq: null, t: 0 }, bestSf = null, bestJob = null, bestSkip = 0;
+  // Motor propio para la doble pulsación, precargado al abrir una partida para que responda enseguida
+  function warmBest() {
+    if (bestSf) return;
+    try {
+      bestSf = new Worker("assets/stockfish/stockfish-19-lite-single.js");
+      bestSf.onerror = function () { bestSf = null; };
+      bestSf.postMessage("uci"); bestSf.postMessage("setoption name Hash value 16"); bestSf.postMessage("isready");
+    } catch (_) { bestSf = null; }
+  }
   function bestForPiece(sq) {
     if (!curCh || (reviewState && reviewState.running)) return;
     var fen = curCh.fen(), moves = curCh.moves({ square: sq, verbose: true });
     if (!moves.length) return;
     if (moves.length === 1) { userMove(moves[0].san); render(); return; }
-    try {
-      if (!bestSf) bestSf = new Worker("assets/stockfish/stockfish-19-lite-single.js");
-    } catch (_) { return; }
+    // Al instante si el análisis en pantalla ya tiene una línea que empieza con esta pieza (la mejor de ellas)
+    var known = null;
+    Object.keys(lines).sort(function (a, b) { return a - b; }).forEach(function (k) {
+      var ln = lines[k]; if (known || !ln || ln.fen !== fen || !ln.pv || !ln.pv[0] || ln.pv[0].slice(0, 2) !== sq) return;
+      moves.forEach(function (x) { if (!known && x.from + x.to + (x.promotion || "") === ln.pv[0]) known = x; });
+    });
+    if (known) { if (bestJob) { clearTimeout(bestJob.timer); bestSf.postMessage("stop"); bestSkip++; bestJob = null; } userMove(known.san); render(); return; }
+    warmBest(); if (!bestSf) return;
     if (bestJob) { clearTimeout(bestJob.timer); bestSf.postMessage("stop"); bestSkip++; var old = sqEl(bestJob.sq); if (old) old.classList.remove("from", "thinking"); }
     var job = bestJob = { fen: fen, sq: sq, moves: moves };
     var el = sqEl(sq); if (el) el.classList.add("from", "thinking");
@@ -945,8 +960,8 @@
       done(l.split(/\s+/)[1]);
     };
     bestSf.postMessage("position fen " + fen);
-    bestSf.postMessage("go movetime 600 searchmoves " + moves.map(function (x) { return x.from + x.to + (x.promotion || ""); }).join(" "));
-    job.timer = setTimeout(function () { if (bestJob === job) bestSf.postMessage("stop"); }, 3000);
+    bestSf.postMessage("go movetime 300 searchmoves " + moves.map(function (x) { return x.from + x.to + (x.promotion || ""); }).join(" "));
+    job.timer = setTimeout(function () { if (bestJob === job && bestSf) bestSf.postMessage("stop"); }, 1500);
   }
   board.addEventListener("pointercancel", endDrag);
   document.addEventListener("keydown", function (e) { if (e.key === "Escape" && drag) endDrag(); });
