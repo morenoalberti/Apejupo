@@ -897,14 +897,53 @@
     if (!drag) return;
     var to = sqAt(e), mv = null;
     if (to) drag.moves.forEach(function (m) { if (m.to === to && (!mv || m.promotion === "q")) mv = m; });
-    if (mv && games[curId]) {
-      if (vari && vari.active) { vari.moves = vari.moves.slice(0, vari.pos); vari.moves.push(mv.san); vari.pos = vari.moves.length; }
-      else vari = { gid: curId, base: ply, moves: [mv.san], pos: 1, active: true, collapsed: false };
-      follow = false;
-    }
+    var from = drag.from, tap = !mv && to === from;
+    if (mv) userMove(mv.san);
     endDrag();
     if (mv) render();
+    // Doble pulsación sobre una pieza (ratón o dedo): se mueve a su mejor casilla según Stockfish
+    if (tap) {
+      var now = Date.now();
+      if (lastPieceTap.sq === from && now - lastPieceTap.t < 400) { lastPieceTap.sq = null; bestForPiece(from); }
+      else lastPieceTap = { sq: from, t: now };
+    } else lastPieceTap.sq = null;
   });
+  function userMove(san) {
+    if (!games[curId]) return;
+    if (vari && vari.active) { vari.moves = vari.moves.slice(0, vari.pos); vari.moves.push(san); vari.pos = vari.moves.length; }
+    else vari = { gid: curId, base: ply, moves: [san], pos: 1, active: true, collapsed: false };
+    follow = false;
+  }
+  var lastPieceTap = { sq: null, t: 0 }, bestSf = null, bestJob = null;
+  function bestForPiece(sq) {
+    if (!curCh || (reviewState && reviewState.running)) return;
+    var fen = curCh.fen(), moves = curCh.moves({ square: sq, verbose: true });
+    if (!moves.length) return;
+    if (moves.length === 1) { userMove(moves[0].san); render(); return; }
+    try {
+      if (!bestSf) bestSf = new Worker("assets/stockfish/stockfish-19-lite-single.js");
+    } catch (_) { return; }
+    if (bestJob) { clearTimeout(bestJob.timer); bestSf.postMessage("stop"); }
+    var job = bestJob = { fen: fen, sq: sq, moves: moves };
+    var el = sqEl(sq); if (el) el.classList.add("from", "thinking");
+    function done(uci) {
+      if (bestJob !== job) return;
+      bestJob = null; clearTimeout(job.timer);
+      var e2 = sqEl(sq); if (e2) e2.classList.remove("from", "thinking");
+      if (!curCh || curCh.fen() !== fen) return; // el usuario ya cambió de posición
+      var m = null;
+      moves.forEach(function (x) { if (!m && uci && x.from + x.to + (x.promotion || "") === uci) m = x; });
+      if (!m) moves.forEach(function (x) { if (!m && uci && x.from + x.to === uci.slice(0, 4)) m = x; });
+      if (m) { userMove(m.san); render(); }
+    }
+    bestSf.onmessage = function (e) {
+      var l = String(e.data);
+      if (l.indexOf("bestmove") === 0) done(l.split(/\s+/)[1]);
+    };
+    bestSf.postMessage("position fen " + fen);
+    bestSf.postMessage("go movetime 600 searchmoves " + moves.map(function (x) { return x.from + x.to + (x.promotion || ""); }).join(" "));
+    job.timer = setTimeout(function () { if (bestJob === job) bestSf.postMessage("stop"); }, 3000);
+  }
   board.addEventListener("pointercancel", endDrag);
   document.addEventListener("keydown", function (e) { if (e.key === "Escape" && drag) endDrag(); });
   document.addEventListener("keydown", function (e) {
