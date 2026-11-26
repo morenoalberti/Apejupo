@@ -320,7 +320,7 @@
       sf.onmessage = function (e) {
         var l = String(e.data);
         if (l.indexOf("bestmove") === 0) { outstanding = Math.max(0, outstanding - 1); return; }
-        if (outstanding !== 1 || l.indexOf("info") !== 0 || /bound/.test(l)) return;
+        if (anOver || outstanding !== 1 || l.indexOf("info") !== 0 || /bound/.test(l)) return; // en mate o tablas no hay líneas que mostrar
         var dm = / depth (\d+)/.exec(l), nm = / nps (\d+)/.exec(l);
         if (dm && / multipv 1 /.test(l + " ")) $("lv-stats").textContent = "Profundidad " + dm[1] + (nm ? " · " + Math.round(+nm[1] / 1000) + " kN/s" : "");
         var m = /score (cp|mate) (-?\d+)/.exec(l), pv = / pv (.+)$/.exec(l);
@@ -374,12 +374,25 @@
       do { row.innerHTML = head + mv.slice(0, n).join(" "); n--; } while (n > 0 && row.scrollWidth > row.clientWidth);
     }
   }
-  var anFen = "", engineOn = true;
+  var anFen = "", engineOn = true, anOver = false;
   try { engineOn = localStorage.getItem("apejupoSf") !== "off"; } catch (_) {}
   function analyse(fen) {
     if (reviewState && reviewState.running) return;
     if (fen === anFen) return; // la misma posición (p. ej. al refrescar la partida): no se reinicia el análisis
     anFen = fen; curFen = fen; turnNow = fen.split(" ")[1];
+    // Partida acabada (mate o tablas): Stockfish no tiene nada que buscar y no devuelve líneas,
+    // así que se dice al momento en vez de dejar «Stockfish analizando…» para siempre.
+    var over = null; anOver = false;
+    try { var gc = new Chess(fen); if (gc.game_over()) over = gc.in_checkmate() ? "mate" : "draw"; } catch (_) {}
+    if (over) {
+      anOver = true; clearTimeout(anTimer);
+      if (sf && outstanding > 0) sf.postMessage("stop");
+      lines = {}; clearTimeout(linesTimer); linesTimer = null;
+      showEval(over === "mate" ? { mate: true, v: turnNow === "w" ? -1 : 1 } : { mate: false, v: 0 });
+      $("lv-lines").innerHTML = '<div class="ln muted">' + (over === "mate" ? "Jaque mate: ganan las " + (turnNow === "w" ? "negras" : "blancas") + "." : "Tablas.") + "</div>";
+      $("lv-stats").textContent = "";
+      return;
+    }
     if (evalCache[fen]) showEval(evalCache[fen]);
     clearTimeout(anTimer);
     anTimer = setTimeout(function () {
