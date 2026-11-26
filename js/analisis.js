@@ -284,10 +284,65 @@
     var d = drag; drag = null; d.ghost.remove();
     if (d.edit) { editDrop(d, e); return; }
     var to = sqFromPoint(e.clientX, e.clientY);
-    if (d.moved && to && to !== d.from) { if (!play(d.from, to)) { selected = null; render(); } return; }
+    if (d.moved && to && to !== d.from) { if (!play(d.from, to)) { selected = null; render(); } lastPieceTap.sq = null; return; }
+    // Doble pulsación sobre una pieza: se mueve a su mejor casilla. Se mide con la hora real de cada toque
+    // (e.timeStamp) para que no fallen si la página está ocupada con Stockfish.
+    if (!d.moved && to === d.from) {
+      var now = e.timeStamp || performance.now();
+      if (lastPieceTap.sq === d.from && now - lastPieceTap.t < 500) { lastPieceTap.sq = null; bestForPiece(d.from); return; }
+      lastPieceTap = { sq: d.from, t: now };
+    } else lastPieceTap.sq = null;
     if (d.wasSelected && !d.moved) selected = null; // segundo clic sobre la misma pieza: deseleccionar
     render();
   });
+
+  // ---------- Doble pulsación: la pieza va a su mejor casilla según Stockfish ----------
+  var lastPieceTap = { sq: null, t: 0 }, bestSf = null, bestJob = null, bestSkip = 0;
+  function warmBest() {
+    if (bestSf) return;
+    try {
+      bestSf = new Worker("assets/stockfish/stockfish-19-lite-single.js");
+      bestSf.onerror = function () { bestSf = null; };
+      bestSf.postMessage("uci"); bestSf.postMessage("setoption name Hash value 16"); bestSf.postMessage("isready");
+    } catch (_) { bestSf = null; }
+  }
+  function cancelBest() {
+    if (!bestJob) return;
+    clearTimeout(bestJob.timer); if (bestSf) { bestSf.postMessage("stop"); bestSkip++; }
+    var c = $("an-board").querySelector('[data-sq="' + bestJob.sq + '"]'); if (c) c.classList.remove("an-thinking");
+    bestJob = null;
+  }
+  function playUci(uci) { return play(uci.slice(0, 2), uci.slice(2, 4), uci[4] || undefined); }
+  function bestForPiece(sq) {
+    if (editing || pendingPromo) return;
+    var fen = fenAt(ply), moves = game().moves({ square: sq, verbose: true });
+    if (!moves.length) return;
+    var ucis = moves.map(function (m) { return m.from + m.to + (m.promotion || ""); });
+    cancelBest();
+    if (moves.length === 1) { playUci(ucis[0]); return; }
+    // Al instante si el análisis en pantalla ya tiene una línea que empieza con esta pieza (las líneas van de mejor a peor)
+    if (sfFen === fen) {
+      var known = Object.keys(sfLines).map(Number).sort(function (a, b) { return a - b; }).map(function (k) { return sfLines[k].pv && sfLines[k].pv[0]; })
+        .filter(function (u) { return u && ucis.indexOf(u) >= 0; })[0];
+      if (known) { playUci(known); return; }
+    }
+    warmBest(); if (!bestSf) return;
+    var job = bestJob = { sq: sq };
+    var cell = $("an-board").querySelector('[data-sq="' + sq + '"]'); if (cell) cell.classList.add("an-thinking");
+    bestSf.onmessage = function (ev) {
+      var l = String(ev.data); if (l.indexOf("bestmove") !== 0) return;
+      if (bestSkip > 0) { bestSkip--; return; } // respuesta de una búsqueda anterior ya cancelada
+      if (bestJob !== job) return;
+      clearTimeout(job.timer); bestJob = null;
+      var c = $("an-board").querySelector('[data-sq="' + sq + '"]'); if (c) c.classList.remove("an-thinking");
+      var uci = l.split(/\s+/)[1];
+      if (fenAt(ply) === fen && ucis.indexOf(uci) >= 0) playUci(uci); // solo si el usuario sigue en la misma posición
+    };
+    bestSf.postMessage("position fen " + fen);
+    bestSf.postMessage("go movetime 300 searchmoves " + ucis.join(" "));
+    job.timer = setTimeout(function () { if (bestJob === job && bestSf) bestSf.postMessage("stop"); }, 1500);
+  }
+  setTimeout(warmBest, 1500);
 
   // ---------- Navegación ----------
   function go(k) { ply = Math.max(0, Math.min(line.length, k)); selected = null; render(); }
