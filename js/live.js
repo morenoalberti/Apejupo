@@ -666,6 +666,25 @@
     if (sf) { sf.terminate(); sf = null; outstanding = 0; } anFen = ""; rvStop();
   }
   $("lv-closebig").addEventListener("click", closeBig);
+  // Compartir: enlace que abre directamente esta partida en grande (y la jugada vista, si no es la última)
+  function shareUrl() {
+    var g = games[curId], n = g ? g.san.length : 0;
+    var u = location.origin + location.pathname + "?r=" + encodeURIComponent(roundId) + "&t=" + encodeURIComponent($("viewer-title").textContent || "") + "&g=" + encodeURIComponent(curId);
+    if (!follow && ply >= 0 && ply < n) u += "&p=" + ply;
+    return u;
+  }
+  $("viewer-share").addEventListener("click", function () {
+    if (!curId || !games[curId]) return;
+    var g = games[curId], url = shareUrl();
+    var text = (g.tags.White || "") + " – " + (g.tags.Black || "") + " · " + ($("viewer-title").textContent || "Torneo");
+    function copied(ok) { toast(ok ? "Enlace de la partida copiado" : "No se pudo copiar el enlace: " + esc(url)); }
+    function copy() {
+      if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(url).then(function () { copied(true); }, function () { copied(false); });
+      else copied(false);
+    }
+    if (navigator.share && matchMedia("(hover: none), (pointer: coarse)").matches) navigator.share({ title: document.title, text: text, url: url }).catch(function (e) { if (!e || e.name !== "AbortError") copy(); });
+    else copy();
+  });
   $("lv-backdrop").addEventListener("click", closeBig);
   document.addEventListener("keydown", function (e) { if (e.key === "Escape" && !viewer.hidden && !drag) closeBig(); });
   // La tarjeta se puede arrastrar desde su cabecera
@@ -1829,6 +1848,13 @@
     sel.innerHTML = "<option>Cargando partidas…</option>";
     loadRound(true).then(function () {
       if (rid !== roundId) return;
+      // Enlace compartido (?g=partida&p=jugada): se abre directamente esa partida en grande
+      var sg = !inPlace && qs.get("g");
+      if (sg && games[sg]) {
+        openBig(sg);
+        var sp = parseInt(qs.get("p"), 10), n = games[sg].san.length;
+        if (sp >= 0 && sp < n) { follow = false; ply = sp; render(); }
+      }
       poll = bgInterval(function () {
         if (roundDone && poll) { poll.stop(); poll = null; return; } // ronda terminada: nada que actualizar
         loadRound(false).catch(function () {});

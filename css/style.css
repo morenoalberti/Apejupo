@@ -1024,6 +1024,9 @@ body.card-dragging .tour-tip { display: none !important; }
 .lv-controls #viewer-games { flex: 0 1 320px; min-width: 0; max-width: 100%; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--text); }
 .lv-review-tools { display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-bottom: 4px; }
 .lv-review-tools #lv-review-go { flex: none; white-space: nowrap; }
+/* «Compartir» encima de «Analizar», los dos del mismo ancho */
+.lv-rv-stack { display: flex; flex-direction: column; align-items: stretch; gap: 6px; }
+#viewer-share { display: inline-flex; align-items: center; justify-content: center; gap: 6px; white-space: nowrap; }
 /* La lista empieza en la misma fila que las casillas del tablero. */
 .lv-modal #lv-big { display: grid; grid-template-columns: minmax(260px, 420px) minmax(0, 1fr); column-gap: 12px; row-gap: 0; align-items: start; }
 .lv-modal #lv-big > .lv-col, .lv-modal #lv-big > .lv-mvwrap { display: contents; }
@@ -1052,7 +1055,7 @@ body.card-dragging .tour-tip { display: none !important; }
   .lv-modal #lv-moves .rp { display: inline-block; margin: 4px; }
 }
 #lv-closebig { position: absolute; top: 10px; right: 10px; width: 34px; height: 34px; z-index: 2; }
-#lv-review-go { border: 1px solid #3b82f6; color: #bfdbfe; }
+#lv-review-go, #viewer-share { border: 1px solid #3b82f6; color: #bfdbfe; }
 #lv-review-go[aria-pressed="true"] { background: #1d4ed8; color: #fff; }
 .lv-mvwrap:has(.lv-review:not([hidden])) { max-height: 650px; }
 .lv-mvwrap .lv-moves { min-height: 0; }
