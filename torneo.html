@@ -18,7 +18,7 @@
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" type="image/svg+xml" href="assets/icon.svg">
 <meta name="description" content="Torneos de ajedrez en directo: tableros en vivo de Lichess y streams de Twitch y YouTube.">
-<link rel="stylesheet" href="css/style.css?v=20261124-inscribete1">
+<link rel="stylesheet" href="css/style.css?v=20261126-envivo1">
 <link rel="stylesheet" href="css/streams.css?v=20261120-movil-limpio1">
 <link rel="stylesheet" href="css/board-size.css?v=20261120-compacto3">
 <script defer src="js/analytics.js?v=20261120-cloudflare1"></script>
@@ -80,7 +80,7 @@
             <p id="lv-review-loading" class="lv-review-status" role="status" aria-label="Analizando" hidden>Analizando <span class="lv-review-dots" aria-hidden="true"><span>.</span><span>.</span><span>.</span></span></p>
             <p id="lv-review-status" class="lv-review-status" role="status"></p>
             <progress id="lv-review-progress" max="1" value="0" aria-label="Progreso del análisis"></progress>
-            <small id="lv-review-note">Valoración de cada jugada desde las blancas. Comentarios para cambios de al menos ±0,50.</small>
+            <small id="lv-review-note">Solo se valoran las jugadas que cambian la evaluación en ±0,80 o más (desde las blancas), con una breve explicación de por qué son buenas o malas.</small>
           </section>
           <div id="lv-moves" class="lv-moves"></div>
         </div>
@@ -101,8 +101,8 @@
 <script src="js/util.js?v=20261122-limpio1"></script><script src="js/lienzos.js?v=20261123-lienzos2"></script>
 <script src="js/data.js?v=20261124-mundial1"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
-<script src="js/game-review.js?v=20261110-notacion-rapida"></script>
-<script src="js/live.js?v=20261122-limpio1"></script>
+<script src="js/game-review.js?v=20261126-explica1"></script>
+<script src="js/live.js?v=20261126-envivo1"></script>
 <script src="js/board-size.js?v=20261120-movil-limpio1"></script>
 <script src="js/streams.js?v=20261124-espanol1"></script>
 <script src="js/torneo-config.js?v=20261122-conexion1"></script>

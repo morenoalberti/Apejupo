@@ -8,20 +8,57 @@
     var advantage = Math.abs(score.v) < 100 ? "Ligera ventaja" : Math.abs(score.v) < 250 ? "Ventaja" : "Ventaja clara";
     return advantage + " de las " + (score.v > 0 ? "blancas" : "negras") + ".";
   }
-  function comment(before, after, move, best, turn, terminal) {
+  // Solo se comentan los cambios de valoración de al menos 0,80 (80 centipeones)
+  var THRESHOLD = 80;
+  var PIECE = { p: "un peón", n: "un caballo", b: "un alfil", r: "una torre", q: "la dama" };
+  var WORTH = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
+  function side(turn) { return turn === "w" ? "blancas" : "negras"; }
+  function tryMove(fen, san) {
+    if (!fen || !san) return null;
+    try { return new Chess(fen).move(san); } catch (_) { return null; }
+  }
+  // Explicación corta y sencilla del porqué de una jugada buena o mala
+  function why(ctx, loss) {
+    var me = side(ctx.turn), rival = side(ctx.turn === "w" ? "b" : "w");
+    var played = tryMove(ctx.fenBefore, ctx.move), alt = ctx.best && ctx.best !== ctx.move ? tryMove(ctx.fenBefore, ctx.best) : null;
+    var reply = tryMove(ctx.fenAfter, ctx.reply), sign = ctx.turn === "w" ? 1 : -1, after = ctx.after, before = ctx.before;
+    if (loss >= THRESHOLD) {
+      var text;
+      if (before.mate && before.v * sign > 0 && !(after.mate && after.v * sign > 0)) text = "Se escapa un mate que estaba al alcance.";
+      else if (after.mate && after.v * sign < 0) text = "Permite que las " + rival + " den mate" + (reply ? ", empezando con " + reply.san : "") + ".";
+      else if (reply && reply.captured && WORTH[reply.captured] > (played && played.captured ? WORTH[played.captured] : 0)) text = "Pierde material: las " + rival + " ganan " + PIECE[reply.captured] + " con " + reply.san + ".";
+      else if (reply && /\+$/.test(reply.san)) text = "Permite " + reply.san + ", un jaque que complica la posición de las " + me + ".";
+      else if (reply) text = "Permite " + reply.san + " y las " + rival + " toman la iniciativa.";
+      else text = "Empeora claramente la posición de las " + me + ".";
+      if (alt && !/Se escapa/.test(text)) text += alt.captured ? " Mejor era " + alt.san + ", ganando " + PIECE[alt.captured] + "." : /#$/.test(alt.san) ? " Había mate con " + alt.san + "." : " Mejor era " + alt.san + ".";
+      else if (alt) text += " Había que jugar " + alt.san + ".";
+      return text;
+    }
+    // Jugada que aprovecha un error del rival
+    if (played && /#$/.test(played.san)) return "Da jaque mate.";
+    if (after.mate && after.v * sign > 0) return "Aprovecha el error del rival y deja un mate forzado.";
+    if (played && played.captured) return "Gana " + PIECE[played.captured] + " aprovechando el error de las " + rival + ".";
+    if (played && /\+$/.test(played.san)) return "Jaque que aprovecha el error de las " + rival + ". " + evaluation(after);
+    return (ctx.move === ctx.best ? "La mejor respuesta: castiga" : "Castiga") + " el error de las " + rival + ". " + evaluation(after);
+  }
+  // ctx: { before, after, move, best (mejor jugada en la posición previa), reply (mejor respuesta del rival), turn, terminal, fenBefore, fenAfter }
+  function comment(before, after, move, best, turn, terminal, ctx) {
+    ctx = ctx || {};
+    ctx.before = before; ctx.after = after; ctx.move = move; ctx.best = best; ctx.turn = turn;
     var delta = value(after) - value(before);
     var sameMate = before.mate && after.mate && Math.sign(before.v) === Math.sign(after.v);
-    var relevant = !sameMate && Math.abs(delta) >= 50;
+    var relevant = !sameMate && Math.abs(delta) >= THRESHOLD;
     if (terminal === "mate") return { label: "Jaque mate", kind: "good", text: "Termina la partida.", mark: "", relevant: true, delta: delta };
     if (terminal === "draw") return { label: "Tablas", kind: "neutral", text: "La posición es de tablas.", mark: "", relevant: relevant, delta: delta };
     if (!relevant) return { label: "", kind: "neutral", text: "", mark: "", relevant: false, delta: delta };
     var loss = -delta * (turn === "w" ? 1 : -1);
-    var label = "Mejora", kind = "good", mark = "", text = evaluation(after);
+    var label = "Buena jugada", kind = "good", mark = "!";
     if (loss >= 200) { label = "Error grave"; kind = "bad"; mark = "??"; }
-    else if (loss >= 100) { label = "Error"; kind = "bad"; mark = "?"; }
-    else if (loss >= 50) { label = "Inexactitud"; kind = "warn"; mark = "?!"; }
+    else if (loss >= 120) { label = "Error"; kind = "bad"; mark = "?"; }
+    else if (loss >= THRESHOLD) { label = "Imprecisión"; kind = "warn"; mark = "?!"; }
     else if (move === best) label = "Mejor jugada";
-    if (loss >= 50) text = best && move !== best ? "Mejor era " + best + "." : "La valoración empeora para las " + (turn === "w" ? "blancas" : "negras") + ".";
+    var text;
+    try { text = why(ctx, loss); } catch (_) { text = evaluation(after); }
     return { label: label, kind: kind, text: text, mark: mark, relevant: true, delta: delta };
   }
 
@@ -44,7 +81,7 @@
     function completePosition(result, terminal) {
       clearTimeout(timer); scores[k] = result;
       if (k > 0) {
-        var detail = comment(scores[k - 1], result, san[k - 1], bestMoves[k - 1], fens[k - 1].split(" ")[1], terminal);
+        var detail = comment(scores[k - 1], result, san[k - 1], bestMoves[k - 1], fens[k - 1].split(" ")[1], terminal, { fenBefore: fens[k - 1], fenAfter: fens[k], reply: bestMoves[k] });
         entries.push({ ply: k, san: san[k - 1], label: detail.label, kind: detail.kind, text: detail.text, mark: detail.mark, relevant: detail.relevant, delta: detail.delta, score: result });
       }
       k++;

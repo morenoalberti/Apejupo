@@ -1082,7 +1082,7 @@ body.card-dragging .tour-tip { display: none !important; }
 .lv-nav button:active:not(:disabled) { transform: scale(.97); }
 #lv-prev, #lv-next { flex: 0 0 64px; }
 #lv-live { flex: 1; }
-#lv-live:disabled { opacity: .45; cursor: default; }
+.lv-nav button:disabled { opacity: .45; cursor: default; }
 .lv-livedot { width: 9px; height: 9px; border-radius: 50%; background: #6b7280; }
 #lv-live.on { background: linear-gradient(#2a6fd6, #1f56ad); border-color: #5b9bf0; color: #fff; }
 #lv-live.on .lv-livedot { background: #4ade80; box-shadow: 0 0 0 0 rgba(74, 222, 128, .6); animation: lvdot 1.6s infinite; }

@@ -230,6 +230,9 @@
     // «En vivo» solo se puede pulsar cuando el usuario se ha movido de la última jugada
     var atLive = !inVar && ply === n;
     $("lv-live").disabled = atLive; $("lv-live").classList.toggle("on", !atLive);
+    // Flechas desactivadas en los extremos: ← en la posición inicial y → en la última jugada (o al final de la variante)
+    $("lv-prev").disabled = !inVar && ply <= 0;
+    $("lv-next").disabled = inVar ? vari.pos >= vari.moves.length : ply >= n;
     clocks(); analyse(ch.fen()); rvKick();
   }
   var listKey = "";
@@ -1075,7 +1078,7 @@
   function rvBadge(id, k) {
     if (reviewState && reviewState.id === id && reviewState.running) return "";
     if (reviewState && reviewState.id === id && k <= reviewState.san.length) {
-      var entry = reviewEntry(id, k); if (!entry || !entry.score) return "";
+      var entry = reviewEntry(id, k); if (!entry || !entry.score || !entry.relevant) return ""; // solo las jugadas que cambian la valoración ±0,80
       var symbol = entry.score.mate && entry.score.v === 0 ? (k % 2 ? "+-" : "-+") : evalSym(entry.score);
       return (entry.mark ? '<b class="lv-mark">' + esc(entry.mark) + '</b>' : '') + '<i class="ev review-score ' + entry.kind + '" title="Stockfish: ' + esc(symbol + " (" + evalText(entry.score) + "), desde las blancas") + '">' + esc(evalText(entry.score)) + '</i>';
     }

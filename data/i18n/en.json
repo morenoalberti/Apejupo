@@ -2503,7 +2503,7 @@
   "UZB": "UZB",
   "Uzbekistán": "Uzbekistán",
   "vacía": "empty",
-  "Valoración de cada jugada desde las blancas. Comentarios para cambios de al menos ±0,50.": "Assessment of each move from white. Comments for changes of at least ±0.50.",
+  "Solo se valoran las jugadas que cambian la evaluación en ±0,80 o más (desde las blancas), con una breve explicación de por qué son buenas o malas.": "Only moves that change the evaluation by ±0.80 or more (from white's view) are rated, with a short explanation of why they are good or bad.",
   "VAN": "VAN",
   "Vanuatu": "Vanuatu",
   "Variante principal": "Main line",
