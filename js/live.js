@@ -266,7 +266,8 @@
       else if (!open) { h += '<span class="pr ct">'; open = true; } // continuación de una pareja cortada por una variante
       h += '<span data-p="' + (i + 1) + '">' + fig(g.san[i]) + rvBadge(g.id, i + 1) + "</span>";
       var entry = reviewEntry(g.id, i + 1);
-      if (entry && entry.relevant) notes += '<small class="lv-move-comment ' + entry.kind + '" data-p="' + (i + 1) + '">' + fig(g.san[i]) + ' · ' + esc(entry.label) + '. ' + figComment(entry.text) + '</small>';
+      // Comentario de la revisión: cabecera (jugada + etiqueta en pastilla) y explicación debajo
+      if (entry && entry.relevant) notes += '<small class="lv-move-comment ' + entry.kind + '" data-p="' + (i + 1) + '"><span class="lmc-head"><b class="lmc-move">' + fig(g.san[i]) + (entry.mark ? esc(entry.mark) : "") + '</b><em class="lmc-tag">' + esc(entry.label) + '</em></span><span class="lmc-txt">' + figComment(entry.text) + '</span></small>';
       if (vari && i === vari.base) { closePair(); h += varBlock(); } // la variante va justo después de la jugada que sustituye
     }
     closePair();
