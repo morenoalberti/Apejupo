@@ -81,17 +81,13 @@
         <table class="elo-table elo-responsive">
           <thead>
             <tr>
-              <th>#</th><th>Jugador</th><th class="num">Elo club</th>
-              <th class="num">Lichess<small>blitz</small></th>
-              <th class="num">Lichess<small>rápidas</small></th>
-              <th class="num">Chess.com<small>blitz</small></th>
-              <th class="num">Chess.com<small>rápidas</small></th>
+              <th>#</th><th>Jugador</th><th class="num">ELO club</th><th class="num">Partidas</th>
             </tr>
           </thead>
           <tbody id="elo-body"></tbody>
         </table>
       </div>
-      <p class="muted small">Los ratings de Lichess y Chess.com se consultan en directo. Un guion (–) indica que el jugador no ha indicado su usuario.</p>
+      <p class="muted small">Jugadores registrados en la web. Todos empiezan con 1500 y el ELO del club cambia con las partidas de torneos y retos entre jugadores registrados.</p>
     </div>
 
     <p class="muted small" id="nota-fide">Datos de las listas oficiales de FIDE (todos los países) y de la FADA (Andalucía), actualizadas cada mes. Se consultan directamente desde tu navegador. Las fotos son las de los perfiles públicos de FIDE (o, si no hay, de Lichess o Wikimedia Commons), se cargan al verlas desde la API de ChessRival y no se guardan en esta web. Banderas de <a target="_blank" rel="noopener" href="https://flagcdn.com">flagcdn.com</a>. Si quieres que se retire un dato o tu foto, <span class="email" data-u="contacto" data-d="apejupo.com" data-t="escríbenos">escríbenos a contacto [arroba] apejupo.com</span>.</p>
@@ -121,10 +117,10 @@
 <script src="js/menu.js?v=20261124-mundial2"></script><script src="js/lienzos.js?v=20261123-lienzos2"></script>
 <script src="js/util.js?v=20261122-limpio1"></script>
 <script src="js/data.js"></script>
-<script src="js/elo.js?v=20261116-movil1"></script>
-<script src="assets/sqljs/index.js"></script>
-<script src="js/tabla.js?v=20261120-dic"></script>
 <script src="js/torneo-config.js?v=20261122-conexion1"></script>
+<script src="js/elo.js?v=20261126-registrados1"></script>
+<script src="assets/sqljs/index.js"></script>
+<script src="js/tabla.js?v=20261126-registrados1"></script>
 <script type="module" src="js/cuenta.js?v=20261124-inscribete1"></script>
 </body>
 </html>

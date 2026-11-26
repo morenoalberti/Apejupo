@@ -1,7 +1,7 @@
 import { DurableObject } from 'cloudflare:workers';
 import { Chess } from 'chess.js';
 import { GameError, requireThat } from './core.js';
-import { registeredPlayerNicks } from './player-directory.js';
+import { registeredPlayerNicks, clubRanking } from './player-directory.js';
 import { ELO_START, eloAfter } from './elo.js';
 const GAMES_PAGE = 50;
 
@@ -400,6 +400,8 @@ export class AccountStore extends DurableObject {
         }
         // Uso interno de los retos: nicks de las cuentas confirmadas (la lista de jugadores de retar.html).
         case '/jugadores': return json({ nicks: registeredPlayerNicks(this.sql.exec('SELECT nick, email FROM users WHERE verified = 1 ORDER BY nick_key').toArray()) });
+        // Clasificación pública del club (página ELO): cuentas confirmadas con su ELO, partidas y foto, sin correos.
+        case '/ranking': return json({ players: clubRanking(this.sql.exec('SELECT u.id, u.nick, u.email, u.elo, p.updated_at AS photo_at, (SELECT COUNT(*) FROM elo_games g WHERE g.white = u.id OR g.black = u.id) AS games FROM users u LEFT JOIN photos p ON p.user_id = u.id WHERE u.verified = 1').toArray(), ELO_START) });
         case '/nick': return json({ taken: !!this.one('SELECT 1 AS x FROM users WHERE nick_key = ?', nickKey(b.name)) });
         default: throw new GameError('No encontrado.', 404);
       }

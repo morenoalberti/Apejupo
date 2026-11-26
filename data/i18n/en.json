@@ -2623,5 +2623,14 @@
   "▶ Ver en directo": "▶ Watch live",
   "Pulsa cualquier tecla o haz clic para continuar": "Press any key or click to continue",
   "Próxima emisión con comentarios en español: {*} · hora de Madrid": "Next stream with Spanish commentary: {*} · Madrid time",
-  "Sin emisión en español confirmada para este torneo.": "No stream with Spanish commentary confirmed for this tournament."
+  "Sin emisión en español confirmada para este torneo.": "No stream with Spanish commentary confirmed for this tournament.",
+  "ELO club": "Club Elo",
+  "Partidas": "Games",
+  "Jugadores registrados del club": "Registered club players",
+  "Busca un jugador registrado por su nick": "Search for a registered player by nickname",
+  "Ningún jugador registrado coincide con esa búsqueda.": "No registered player matches that search.",
+  "Cargando los jugadores del club…": "Loading club players…",
+  "Todavía no hay jugadores registrados.": "There are no registered players yet.",
+  "No se pudo cargar la lista de jugadores. Vuelve a intentarlo en unos minutos.": "The player list could not be loaded. Please try again in a few minutes.",
+  "Jugadores registrados en la web. Todos empiezan con 1500 y el ELO del club cambia con las partidas de torneos y retos entre jugadores registrados.": "Players registered on the website. Everyone starts at 1500 and the club Elo changes with tournament and challenge games between registered players."
 }

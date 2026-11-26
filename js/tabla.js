@@ -185,8 +185,10 @@
 
   function equipo() {
     var q = $("f-nombre").value.trim(), n = window.eloEquipo.filtrar(q);
-    $("tbl-info").textContent = n ? (q ? n + (n === 1 ? " jugador" : " jugadores") + " del equipo" : "Jugadores del equipo Apejupo") : "Ningún jugador del equipo coincide con esa búsqueda.";
+    if (!window.eloEquipo.total) { $("tbl-info").textContent = "Jugadores registrados del club"; return; }
+    $("tbl-info").textContent = n ? (q ? n + (n === 1 ? " jugador registrado" : " jugadores registrados") : "Jugadores registrados del club") : "Ningún jugador registrado coincide con esa búsqueda.";
   }
+  window.eloEquipo.alCargar = function () { if (state.modo === "apejupo") equipo(); };
 
   function setModo(modo) {
     state.modo = modo;
@@ -197,7 +199,7 @@
     $("panel-apejupo").hidden = bd;
     $("nota-fide").hidden = !bd;
     $("chk-fotos").hidden = false;
-    $("f-nombre").placeholder = modo === "apejupo" ? "Busca un jugador del equipo por su nombre" : "Busca por nombre (por ejemplo, Moreno Alberti)" + (modo === "fada" ? " o por ID FADA" : "");
+    $("f-nombre").placeholder = modo === "apejupo" ? "Busca un jugador registrado por su nick" : "Busca por nombre (por ejemplo, Moreno Alberti)" + (modo === "fada" ? " o por ID FADA" : "");
     if (bd) {
       var cols = BASES[modo].cols, num = BASES[modo].num;
       $("tbl-head").innerHTML = "<tr>" + cols.map(function (c, i) {

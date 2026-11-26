@@ -557,6 +557,8 @@ export default {
         requireThat(bytes.byteLength <= 64 * 1024, 'La foto es demasiado grande.', 413);
         return withCors(await accounts.fetch('https://cuentas/foto-subir', { method: 'POST', headers: { 'X-Sesion': bearer(request) }, body: bytes }));
       }
+      // Clasificación del club (página ELO): pública y de solo lectura; solo nick, ELO, partidas y foto.
+      if (path === '/api/cuentas/ranking' && request.method === 'GET') return withCors(await askAccounts('ranking', {}));
       // Administración de cuentas: la clave CUENTAS_ADMIN viaja en Authorization, nunca en la URL.
       const admin = /^\/api\/cuentas\/admin\/(lista|confirmar|reenviar|borrar)$/.exec(path);
       if (admin) {
