@@ -227,12 +227,14 @@
       cur.classList.add("cur");
       if (cur.offsetTop < mv.scrollTop || cur.offsetTop + cur.offsetHeight > mv.scrollTop + mv.clientHeight) mv.scrollTop = cur.offsetTop - mv.clientHeight / 2;
     }
-    $("lv-live").classList.toggle("on", !inVar && ply === n);
+    // «En vivo» solo se puede pulsar cuando el usuario se ha movido de la última jugada
+    var atLive = !inVar && ply === n;
+    $("lv-live").disabled = atLive; $("lv-live").classList.toggle("on", !atLive);
     clocks(); analyse(ch.fen()); rvKick();
   }
   var listKey = "";
   // Nombre de la apertura (Lichess lo envía en inglés): se traduce con reglas sencillas y las más habituales
-  var OPADJ = { Symmetrical: "simétrica", Sicilian: "siciliana", French: "francesa", Spanish: "española", Italian: "italiana", English: "inglesa", Scandinavian: "escandinava", Dutch: "holandesa", Scotch: "escocesa", Russian: "rusa", Modern: "moderna", Catalan: "catalana", Slav: "eslava", Vienna: "vienesa", Hungarian: "húngara", Polish: "polaca", Danish: "danesa", Latvian: "letona", Indian: "india", Philidor: "Philidor", Petrov: "Petrov", Pirc: "Pirc", Alekhine: "Alekhine", "Caro-Kann": "Caro-Kann", Nimzowitsch: "Nimzowitsch", Reti: "Réti", Bird: "Bird", Benoni: "Benoni", Benko: "Benko", Grünfeld: "Grünfeld", Trompowsky: "Trompowsky", London: "londinense", Berlin: "berlinesa", Closed: "cerrada", Open: "abierta", Classical: "clásica", Exchange: "de cambio", Advance: "de avance", Accelerated: "acelerada", Fianchetto: "con fianchetto", "Old Indian": "india antigua", "King's Indian": "india de rey", "Queen's Indian": "india de dama", "Nimzo-Indian": "Nimzo-india", "Bishop's Opening": "Apertura del alfil", "Two Knights": "de los dos caballos", "Four Knights": "de los cuatro caballos", "Three Knights": "de los tres caballos" };
+  var OPADJ = { Symmetrical: "simétrica", Sicilian: "siciliana", French: "francesa", Spanish: "española", Italian: "italiana", English: "inglesa", Scandinavian: "escandinava", Dutch: "holandesa", Scotch: "escocesa", Russian: "rusa", Modern: "moderna", Catalan: "catalana", Slav: "eslava", Vienna: "vienesa", Hungarian: "húngara", Polish: "polaca", Danish: "danesa", Latvian: "letona", Indian: "india", Philidor: "Philidor", Petrov: "Petrov", Pirc: "Pirc", Alekhine: "Alekhine", "Caro-Kann": "Caro-Kann", Nimzowitsch: "Nimzowitsch", Reti: "Réti", Bird: "Bird", Benoni: "Benoni", Benko: "Benko", Grünfeld: "Grünfeld", Trompowsky: "Trompowsky", London: "Londres", Berlin: "berlinesa", Closed: "cerrada", Open: "abierta", Classical: "clásica", Exchange: "de cambio", Advance: "de avance", Accelerated: "acelerada", Fianchetto: "con fianchetto", "Old Indian": "india antigua", "King's Indian": "india de rey", "Queen's Indian": "india de dama", "Nimzo-Indian": "Nimzo-india", "Bishop's Opening": "Apertura del alfil", "Two Knights": "de los dos caballos", "Four Knights": "de los cuatro caballos", "Three Knights": "de los tres caballos" };
   var OPKIND = { Defense: "Defensa", Defence: "Defensa", Opening: "Apertura", Game: "Partida", Attack: "Ataque", System: "Sistema", Gambit: "Gambito", Variation: "Variante", Variant: "Variante" };
   function opSeg(x) {
     x = x.replace(/^Ruy Lopez/, "Española (Ruy López)").replace(/\bQueen's Gambit\b/, "Gambito de dama").replace(/\bKing's Gambit\b/, "Gambito de rey")
