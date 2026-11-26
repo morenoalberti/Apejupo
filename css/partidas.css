@@ -74,3 +74,13 @@
   .pj-table th:nth-child(1) { width: 24px; } .pj-table th:nth-child(3) { width: 50px; } .pj-table th:nth-child(5) { width: 56px; }
   .pj-elo { display: none; }
 }
+/* «Solo mis partidas»: interruptor; desactivado (apagado y sin pulsar) para los visitantes */
+.pj-mine { flex: none; display: inline-flex; align-items: center; gap: 8px; color: var(--text, #e6edf6); font-size: .82rem; cursor: pointer; user-select: none; white-space: nowrap; }
+.pj-mine input { position: absolute; opacity: 0; width: 1px; height: 1px; pointer-events: none; }
+.pj-mine i { position: relative; flex: none; width: 34px; height: 18px; border-radius: 999px; background: #3a4558; transition: background .2s; }
+.pj-mine i::after { content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: #fff; transition: left .2s; }
+.pj-mine input:checked + i { background: #3b82f6; }
+.pj-mine input:checked + i::after { left: 18px; }
+.pj-mine input:focus-visible + i { outline: 2px solid #9cc3ff; outline-offset: 2px; }
+.pj-mine.off { opacity: .45; cursor: not-allowed; }
+@media (max-width: 560px) { .pj-bar { flex-wrap: wrap; } .pj-search { flex-basis: 100%; } }

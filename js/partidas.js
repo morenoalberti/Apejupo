@@ -72,12 +72,29 @@
   // ---- Lista con buscador ----
   function mount(root) {
     root.classList.add("pj-root");
-    root.innerHTML = '<div class="pj-bar"><label class="pj-search"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input class="pj-q" type="search" placeholder="Buscar jugador" aria-label="Buscar partidas por jugador" autocomplete="off" maxlength="40"></label><span class="pj-count" aria-live="polite"></span></div>'
+    root.innerHTML = '<div class="pj-bar"><label class="pj-search"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input class="pj-q" type="search" placeholder="Buscar jugador" aria-label="Buscar partidas por jugador" autocomplete="off" maxlength="40"></label><label class="pj-mine"><input type="checkbox" class="pj-mine-in" role="switch"><i aria-hidden="true"></i><span>Solo mis partidas</span></label><span class="pj-count" aria-live="polite"></span></div>'
       + '<p class="muted pj-msg" role="status">Cargando partidas…</p>'
       + '<table class="pj-table" hidden><thead><tr><th><button type="button" class="pj-sort" data-k="n" title="Ordenar por número">#</button></th><th class="l"><button type="button" class="pj-sort" data-k="white" title="Ordenar por blancas">Blancas</button></th><th><button type="button" class="pj-sort" data-k="result" title="Ordenar por resultado">Res.</button></th><th class="l"><button type="button" class="pj-sort" data-k="black" title="Ordenar por negras">Negras</button></th><th class="r"><button type="button" class="pj-sort" data-k="date" title="Ordenar por fecha">Fecha</button></th><th><span class="sr-only">Acciones</span></th></tr></thead><tbody></tbody></table>'
       + '<button class="btn-ghost pj-more" type="button" hidden>Ver más partidas</button>';
     var counter = root.querySelector(".pj-count"), q = root.querySelector(".pj-q"), msg = root.querySelector(".pj-msg"), table = root.querySelector(".pj-table"), body = table.tBodies[0], more = root.querySelector(".pj-more");
     var next = null, query = "", seq = 0, timer = null, count = 0, admin = false;
+    // «Solo mis partidas»: solo con una cuenta abierta; para los visitantes el interruptor está desactivado.
+    var mineIn = root.querySelector(".pj-mine-in"), mineLabel = root.querySelector(".pj-mine"), me = "";
+    function account() {
+      try { return localStorage.getItem("apejupoSesion") ? (JSON.parse(localStorage.getItem("apejupoCuenta") || "null") || {}).nick || "" : ""; } catch (e) { return ""; }
+    }
+    function syncMine(reload) {
+      var nick = account(), was = mineIn.checked && me;
+      me = nick; mineIn.disabled = !nick;
+      if (!nick) mineIn.checked = false;
+      mineLabel.classList.toggle("off", !nick);
+      mineLabel.title = nick ? "Ver solo las partidas de " + nick : "Entra con tu cuenta para ver solo tus partidas";
+      if (reload && was && !mineIn.checked) load(true);
+    }
+    syncMine(false);
+    mineIn.addEventListener("change", function () { load(true); });
+    addEventListener("apejupo:cuenta", function () { syncMine(true); });
+    addEventListener("storage", function (e) { if (e.key === "apejupoSesion" || e.key === "apejupoCuenta") syncMine(true); });
     // Partidas cargadas (n = su número, de la más reciente a la más antigua) y orden elegido en la cabecera.
     var list = [], sort = { k: "n", dir: 1 };
     var byName = function (a, b) { return a.localeCompare(b, "es", { sensitivity: "base" }); };
@@ -115,14 +132,15 @@
       var mine = ++seq;
       if (reset) { next = null; count = 0; list = []; body.innerHTML = ""; table.hidden = true; more.hidden = true; say(query ? "Buscando…" : "Cargando partidas…"); }
       more.disabled = true;
-      fetch(api() + "/api/tournaments/partidas?q=" + encodeURIComponent(query) + (next ? "&antes=" + next : ""), { cache: "no-store", signal: AbortSignal.timeout(window.APEJUPO_TORNEOS_TIMEOUT || 15000) })
+      var only = mineIn.checked && me ? me : "";
+      fetch(api() + "/api/tournaments/partidas?q=" + encodeURIComponent(query) + (only ? "&jugador=" + encodeURIComponent(only) : "") + (next ? "&antes=" + next : ""), { cache: "no-store", signal: AbortSignal.timeout(window.APEJUPO_TORNEOS_TIMEOUT || 15000) })
         .then(function (r) { return r.json().then(function (j) { if (!r.ok) throw new Error(j.error); return j; }); })
         .then(function (data) {
           if (mine !== seq) return; // llegó otra búsqueda después
           data.games.forEach(function (g) { g.n = list.length + 1; list.push(g); });
           count = list.length; next = data.next; setCount(); render();
           more.hidden = !next; more.disabled = false; table.hidden = !count;
-          say(count ? "" : query ? "No hay partidas de «" + query + "»." : "Todavía no hay partidas jugadas.");
+          say(count ? "" : only ? (query ? "No tienes partidas con «" + query + "»." : "Todavía no has jugado ninguna partida.") : query ? "No hay partidas de «" + query + "»." : "Todavía no hay partidas jugadas.");
         })
         .catch(function () { if (mine !== seq) return; more.disabled = false; say("No se pudieron cargar las partidas. Vuelve a intentarlo en unos momentos.", true); });
     }

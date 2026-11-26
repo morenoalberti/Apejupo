@@ -586,7 +586,7 @@ export default {
           const { rooms } = await (await accounts.fetch('https://cuentas/retos-sin-archivar', { method: 'POST', body: '{}' })).json();
           await Promise.all((rooms || []).map(id => env.TOURNAMENTS.getByName(id).fetch('https://room/archivar', { method: 'POST' }).catch(() => null)));
         } catch {}
-        return withCors(await accounts.fetch('https://cuentas/partidas-lista', { method: 'POST', body: JSON.stringify({ q: url.searchParams.get('q') || '', before: url.searchParams.get('antes') || '' }) }));
+        return withCors(await accounts.fetch('https://cuentas/partidas-lista', { method: 'POST', body: JSON.stringify({ q: url.searchParams.get('q') || '', player: url.searchParams.get('jugador') || '', before: url.searchParams.get('antes') || '' }) }));
       }
       // Borrar una partida del archivo: solo el administrador (clave CUENTAS_ADMIN en Authorization).
       const removeGame = /^\/api\/tournaments\/partidas\/([a-f0-9]{24}_[0-9a-f-]{36})\/borrar$/.exec(path);

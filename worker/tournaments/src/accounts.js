@@ -138,12 +138,13 @@ export class AccountStore extends DurableObject {
       this.sql.exec('UPDATE partidas SET fen = ?, last_move = ? WHERE id = ?', row.fen, row.last_move, row.id);
     } catch { row.fen = null; }
   }
-  listGames(q, before, now) {
+  listGames(q, before, now, player = '') {
     // Búsqueda por nombre del jugador (blancas o negras), sin distinguir mayúsculas; «!» escapa % y _.
+    // «player»: solo las partidas de ese nick exacto («Solo mis partidas»), sin coincidencias parciales.
     const like = '%' + q.replace(/[!%_]/g, c => '!' + c) + '%';
     const rows = this.sql.exec(`SELECT id, kind, title, white, black, white_elo, black_elo, result, reason, plies, tc, at, fen, last_move FROM partidas
-      WHERE at < ? ${q ? "AND (white LIKE ? ESCAPE '!' OR black LIKE ? ESCAPE '!')" : ''} ORDER BY at DESC LIMIT ?`,
-      before, ...(q ? [like, like] : []), GAMES_PAGE + 1).toArray();
+      WHERE at < ? ${q ? "AND (white LIKE ? ESCAPE '!' OR black LIKE ? ESCAPE '!')" : ''} ${player ? 'AND (white = ? COLLATE NOCASE OR black = ? COLLATE NOCASE)' : ''} ORDER BY at DESC LIMIT ?`,
+      before, ...(q ? [like, like] : []), ...(player ? [player, player] : []), GAMES_PAGE + 1).toArray();
     for (const r of rows) if (!r.fen) this.fillFen(r);
     const games = rows.slice(0, GAMES_PAGE).map(r => ({ id: r.id, kind: r.kind, title: r.title, white: r.white, black: r.black, whiteElo: r.white_elo, blackElo: r.black_elo, result: r.result, reason: r.reason, plies: r.plies, tc: r.tc, at: r.at, fen: r.fen || null, lastMove: r.last_move || null }));
     return { games, next: rows.length > GAMES_PAGE ? games[games.length - 1].at : null };
@@ -377,8 +378,8 @@ export class AccountStore extends DurableObject {
           return json({ ok: true });
         }
         case '/partidas-lista': {
-          const q = String(b.q || '').trim().slice(0, 40), before = Number(b.before) > 0 ? Number(b.before) : now + 1;
-          return json(this.listGames(q, before, now));
+          const q = String(b.q || '').trim().slice(0, 40), player = String(b.player || '').trim().slice(0, 40), before = Number(b.before) > 0 ? Number(b.before) : now + 1;
+          return json(this.listGames(q, before, now, player));
         }
         // Retos jugados antes de existir «Partidas jugadas»: salas aún no revisadas (cada una se devuelve una sola vez).
         case '/retos-sin-archivar': {

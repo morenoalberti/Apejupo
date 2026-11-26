@@ -2632,5 +2632,8 @@
   "Cargando los jugadores del club…": "Loading club players…",
   "Todavía no hay jugadores registrados.": "There are no registered players yet.",
   "No se pudo cargar la lista de jugadores. Vuelve a intentarlo en unos minutos.": "The player list could not be loaded. Please try again in a few minutes.",
-  "Jugadores registrados en la web. Todos empiezan con 1500 y el ELO del club cambia con las partidas de torneos y retos entre jugadores registrados.": "Players registered on the website. Everyone starts at 1500 and the club Elo changes with tournament and challenge games between registered players."
+  "Jugadores registrados en la web. Todos empiezan con 1500 y el ELO del club cambia con las partidas de torneos y retos entre jugadores registrados.": "Players registered on the website. Everyone starts at 1500 and the club Elo changes with tournament and challenge games between registered players.",
+  "Solo mis partidas": "Only my games",
+  "Entra con tu cuenta para ver solo tus partidas": "Sign in to see only your games",
+  "Todavía no has jugado ninguna partida.": "You have not played any games yet."
 }
