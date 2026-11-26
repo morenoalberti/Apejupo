@@ -217,7 +217,7 @@
     }
     var bd = /\.(\d+)$/.exec(g.tags.Round || "");
     $("viewer-bd").textContent = bd ? "Tablero " + bd[1] : "Partida";
-    $("viewer-op").textContent = g.tags.Opening ? (g.tags.ECO ? g.tags.ECO + " · " : "") + opEs(g.tags.Opening) : "";
+    $("viewer-op").textContent = g.tags.Opening ? (g.tags.ECO ? g.tags.ECO + " - " : "") + opEs(g.tags.Opening) : ""; // p. ej. «D02 - Sistema Londres»
     var mv = $("lv-moves");
     var key = curId + "|" + n + "|" + res + "|" + (vari ? vari.base + ":" + vari.moves.join(",") + ":" + vari.collapsed : "") + "|" + rvVer;
     if (key !== listKey) { listKey = key; mv.innerHTML = listHtml(g, n, res); }
@@ -252,7 +252,11 @@
     if (m[2] === "Gambit" || m[2] === "Variation" || m[2] === "Variant" || m[2] === "Attack") return kind + (nm ? " " + nm : "") + rest;
     return kind + (nm ? " " + nm : "") + rest;
   }
-  function opEs(n) { return String(n).split(/:\s*/).map(function (a) { return a.split(/\s*,\s*/).map(opSeg).join(", "); }).join(": "); }
+  function opEs(n) {
+    // Familia genérica + sistema con nombre propio → solo el sistema («Sistema Londres», no «Partida peón de dama: Sistema Londres»)
+    n = String(n).replace(/^(?:Queen's Pawn Game|King's Pawn Game|Indian Defen[cs]e|Indian Game|Zukertort Opening|Van't Kruijs Opening):\s*(?=[^:,]*\b(?:System|Attack|Gambit|Defen[cs]e|Opening)\b)/, "");
+    return String(n).split(/:\s*/).map(function (a) { return a.split(/\s*,\s*/).map(opSeg).join(", "); }).join(": ");
+  }
   // Lista de jugadas en pastillas: cada pareja (número, blancas, negras) en su caja; el resultado, al final
   function listHtml(g, n, res) {
     var h = "", open = false, notes = "";
